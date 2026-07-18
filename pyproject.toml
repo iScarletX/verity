@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "verity"
+version = "0.0.1"
+description = "Verity — Prompt & Skill Auditor (Phase 0 + Walking Skeleton, read-only V1)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Verity" }]
+dependencies = [
+  "jsonschema>=4.20",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7",
+]
+
+[project.scripts]
+verity = "verity.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

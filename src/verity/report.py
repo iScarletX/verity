@@ -1,0 +1,189 @@
+"""Report projection — JSON and a single-file static HTML report.
+
+Rules for the report (spec §15, §16):
+- User/model content is rendered as plain text via HTML escaping only.
+- No script/iframe/event attributes; strict CSP meta tag.
+- RedactionMap MUST NOT appear here — this module has no access to it.
+- Uncovered checks are shown as uncovered, NEVER as "no problems".
+- Verdict is dual-axis: subject decision + coverage decision.
+"""
+
+from __future__ import annotations
+
+import html
+import json
+from dataclasses import asdict
+from typing import Any, Dict
+
+from .models import Review
+
+
+def review_to_dict(review: Review) -> Dict[str, Any]:
+    return {
+        "reviewId": review.reviewId,
+        "engine": review.engine,
+        "snapshot": asdict(review.artifactSnapshot),
+        "plan": asdict(review.plan),
+        "executions": [asdict(e) for e in review.executions],
+        "coverage": asdict(review.coverage),
+        "evidences": [asdict(e) for e in review.evidences],
+        "ruleMatches": [asdict(e) for e in review.ruleMatches],
+        "findings": [asdict(f) for f in review.findings],
+        "verdict": compute_verdict(review),
+    }
+
+
+def compute_verdict(review: Review) -> Dict[str, Any]:
+    """Dual-axis product verdict.
+
+    - subject decision only produced if coverage is 'sufficient' AND no
+      high/critical deterministic findings.
+    - If coverage is insufficient, subject decision is not emitted — we
+      refuse to say "ready" / "low_detected_risk".
+    - High/Critical findings are ALWAYS reported (§16), independent of
+      coverage state.
+    """
+    has_high = any(f.severity in ("high", "critical") for f in review.findings)
+    coverage_status = review.coverage.status
+    reason_codes = []
+    subject = None
+    if coverage_status == "sufficient":
+        if review.engine == "prompt":
+            subject = {
+                "engine": "prompt",
+                "outcome": "needs_revision" if has_high or review.findings else "ready",
+            }
+        else:
+            if has_high:
+                subject = {"engine": "skill", "outcome": "do_not_install"}
+                reason_codes.append("high_or_critical_finding_present")
+            elif review.findings:
+                subject = {"engine": "skill", "outcome": "review_required"}
+            else:
+                subject = {"engine": "skill", "outcome": "low_detected_risk"}
+    else:
+        if has_high:
+            reason_codes.append("high_or_critical_finding_present")
+        reason_codes.append("coverage_insufficient")
+    return {
+        "subject": subject,
+        "coverage": coverage_status,
+        "reasonCodes": reason_codes,
+        "policyId": "verdict-policy-v1", "policyVersion": "1",
+    }
+
+
+def to_json(review: Review) -> str:
+    return json.dumps(review_to_dict(review), indent=2, ensure_ascii=False, sort_keys=True)
+
+
+_CSP = (
+    "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; "
+    "form-action 'none'; frame-ancestors 'none'"
+)
+
+
+def to_html(review: Review) -> str:
+    """Single-file static HTML. All user/model content is escaped."""
+    d = review_to_dict(review)
+    verdict = d["verdict"]
+    findings = d["findings"]
+    coverage = d["coverage"]
+    executions = d["executions"]
+
+    banner_kind = "warn"
+    if verdict["coverage"] != "sufficient":
+        banner_msg = "COVERAGE INSUFFICIENT — uncovered checks are NOT the same as no findings."
+        banner_kind = "warn"
+    else:
+        subj = verdict["subject"] or {}
+        outcome = subj.get("outcome", "unknown")
+        if outcome in ("do_not_install", "needs_revision"):
+            banner_msg = f"Subject outcome: {outcome.upper()} — do not use as-is."
+            banner_kind = "bad"
+        elif outcome in ("review_required",):
+            banner_msg = "Subject outcome: REVIEW REQUIRED — human review needed before use."
+            banner_kind = "warn"
+        else:
+            banner_msg = f"Subject outcome: {outcome.upper()} (no known findings; not a safety guarantee)."
+            banner_kind = "ok"
+
+    def _findings_rows() -> str:
+        if not findings:
+            return "<tr><td colspan='5'><em>No findings recorded. This is NOT proof of safety — see Coverage.</em></td></tr>"
+        rows = []
+        for f in findings:
+            rows.append(
+                "<tr>"
+                f"<td>{html.escape(f['severity'])}</td>"
+                f"<td>{html.escape(f['findingType'])}</td>"
+                f"<td>{html.escape(f['claim'])}</td>"
+                f"<td>{html.escape(f['origin'].get('kind',''))}</td>"
+                f"<td>{html.escape(f['subject'].get('artifactPath',''))}</td>"
+                "</tr>"
+            )
+        return "".join(rows)
+
+    def _exec_rows() -> str:
+        rows = []
+        for e in executions:
+            rows.append(
+                "<tr>"
+                f"<td>{html.escape(e['planItemId'])}</td>"
+                f"<td>{html.escape(e['status'])}</td>"
+                f"<td>{html.escape(e.get('reasonCode') or '')}</td>"
+                "</tr>"
+            )
+        return "".join(rows) or "<tr><td colspan='3'><em>No executions.</em></td></tr>"
+
+    reason_codes = coverage.get("reasonCodes") or []
+    critical_gaps = coverage.get("criticalGapPlanItemIds") or []
+
+    return f"""<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="{_CSP}">
+<title>Verity Report</title>
+<style>
+  body {{ font-family: -apple-system, sans-serif; margin: 2rem; color:#222 }}
+  .banner {{ padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }}
+  .banner.ok {{ background:#e6f6ea; border:1px solid #6c6; }}
+  .banner.warn {{ background:#fff3cd; border:1px solid #d6b656; }}
+  .banner.bad {{ background:#fde2e2; border:1px solid #c96; }}
+  table {{ border-collapse: collapse; width:100%; margin-bottom:1.5rem }}
+  th, td {{ border:1px solid #ccc; padding:.4rem .6rem; text-align:left; font-size:.9rem }}
+  th {{ background:#f5f5f5 }}
+  code {{ background:#f5f5f5; padding:.1rem .3rem; border-radius:3px }}
+  .muted {{ color:#666 }}
+</style></head>
+<body>
+<h1>Verity Report</h1>
+<div class="banner {banner_kind}"><strong>{html.escape(banner_msg)}</strong></div>
+
+<h2>Verdict</h2>
+<p>Coverage: <code>{html.escape(verdict['coverage'])}</code>
+   &nbsp;Engine: <code>{html.escape(d['engine'])}</code>
+   &nbsp;Snapshot: <code>{html.escape(d['snapshot']['snapshotId'])}</code>
+</p>
+<p class="muted">This report is generated by the Phase 0 walking skeleton. V1 performs static, read-only checks only. V1.5 (prompt black-box eval) and V2 (isolated skill sandbox) are NOT implemented and are explicit later phases.</p>
+
+<h2>Findings</h2>
+<table><tr><th>Severity</th><th>Type</th><th>Claim</th><th>Origin</th><th>Path</th></tr>
+{_findings_rows()}
+</table>
+
+<h2>Coverage</h2>
+<p>Status: <code>{html.escape(coverage['status'])}</code></p>
+<p>Critical gaps: <code>{html.escape(json.dumps(critical_gaps))}</code></p>
+<p>Reason codes: <code>{html.escape(json.dumps(reason_codes))}</code></p>
+
+<h2>Executions</h2>
+<table><tr><th>Plan item</th><th>Status</th><th>Reason</th></tr>
+{_exec_rows()}
+</table>
+
+<h2>Reason codes (verdict)</h2>
+<code>{html.escape(json.dumps(verdict['reasonCodes']))}</code>
+
+</body></html>
+"""

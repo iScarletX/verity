@@ -1,0 +1,2 @@
+Fixtures are original to Verity; VERITY_FAKE_SECRET_* is a synthetic marker,
+not a real credential. See spec §18.2.
