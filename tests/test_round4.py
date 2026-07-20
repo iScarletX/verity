@@ -341,7 +341,10 @@ class TestCliRound4:
         )
 
     def test_cli_writes_sarif(self, tmp_path):
+        # ``--profile minimal`` opts out of gitleaks so this test does
+        # not depend on the machine having gitleaks installed.
         p = self._cli(["review", "--engine", "skill",
+                       "--profile", "minimal",
                        "--input-dir", str(FIXTURES / "clean_skill"),
                        "--out", str(tmp_path)])
         assert p.returncode == 0, p.stderr

@@ -426,7 +426,12 @@ class TestCliSkillDemo:
         return proc
 
     def test_clean_demo_exit_zero(self, tmp_path):
+        # ``--profile minimal`` avoids depending on a machine-installed
+        # gitleaks binary. ``--profile standard`` without gitleaks would
+        # exit 3 (`coverage_block`), which is the correct behaviour but
+        # not what this smoke test is trying to assert.
         proc = self._cli(["review", "--engine", "skill",
+                          "--profile", "minimal",
                           "--input-dir", str(FIXTURES / "clean_skill"),
                           "--out", str(tmp_path)])
         assert proc.returncode == 0, proc.stderr

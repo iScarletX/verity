@@ -59,7 +59,7 @@ report infrastructure but have separate rule registries. See
 - `bandit_adapter.py` — Bandit result -> Evidence/RuleMatch/Finding normalisation; Bandit severity/confidence/CWE preserved as controlled metadata; identity only from `(artifactPath, testId, lineNumber)`.
 - `gitleaks_runner.py` — Controlled subprocess adapter for gitleaks (MIT, external binary, pinned 8.28.0). No shell, controlled env, JSON-file report, version + optional SHA-256 gate, tmpdir staging, user config confinement, all raw Secret / Match / Line values scrubbed at parse time.
 - `gitleaks_adapter.py` — Redacted gitleaks results -> secret-sensitivity Evidence (§5.1 secret path). `redactedPreview = "[gitleaks:<ruleId>]"`; the raw secret never enters `occurrenceFingerprint`, subjectKey, JSON, HTML, SARIF or exceptions.
-- `sarif.py` — SARIF 2.1.0 exporter with byte-offset regions, stable partialFingerprints, coverage in run.properties, no secret leakage.
+- `sarif.py` — SARIF 2.1.0 exporter with byte-offset regions, stable partialFingerprints, no secret leakage. Coverage and other Verity-specific fields live in the run's properties bag under flat, namespaced keys (`run.properties["verity.coverage"]`, `run.properties["verity.reviewId"]`, `run.properties["verity.verdict.subject"]`, etc.) — not as a nested `run.properties.coverage` object.
 - `intake.py` — Safe intake (text + local directory) with path escape / symlink / budget / NUL guards
 - `review.py` — Orchestrator; `not_applicable` gate counts as OK for coverage.
 - `baseline.py` — Baseline compare, coverage-aware (§10.2)
@@ -220,17 +220,29 @@ python3 -m verity.cli review --engine skill --profile minimal \
   --input-dir tests/fixtures/clean_skill --out /tmp/verity_out/min
 ```
 
+### CLI exit codes and gate marker
+
+Every `review` run prints a `gate=...` marker on stdout and returns one
+of the following exit codes. **Coverage-insufficient runs never exit 0.**
+
+| Exit | `gate=` marker | Meaning |
+|---:|---|---|
+| 0 | `pass` | Coverage sufficient AND no High/Critical findings. Medium/Low findings do NOT block by design; use downstream tooling for stricter gates. |
+| 1 | `findings_block` | At least one High/Critical Finding is present. Wins over the coverage gate: if both are triggered the exit code is 1. |
+| 3 | `coverage_block` | Coverage insufficient AND no High/Critical Finding. Chosen instead of 2 so it does not collide with argparse's usage-error exit 2. |
+| 2 | (argparse) | Reserved by argparse for CLI usage errors (POSIX convention). |
+
 Recorded exit codes on an environment where **gitleaks is NOT installed**
 (as of the environment where this README was refreshed):
 
-| Fixture | profile | gitleaks status | coverage | exit |
-|---|---|---|---|---:|
-| `clean_skill` | standard | not_installed | insufficient | 0 |
-| `clean_skill` | minimal | not_requested_by_profile | sufficient | 0 |
-| `python_shell_true_skill` | standard | not_installed | insufficient | 1 (Bandit high) |
+| Fixture | profile | gitleaks status | coverage | gate | exit |
+|---|---|---|---|---|---:|
+| `clean_skill` | standard | not_installed | insufficient | `coverage_block` | 3 |
+| `clean_skill` | minimal | not_requested_by_profile | sufficient | `pass` | 0 |
+| `python_shell_true_skill` | standard | not_installed | insufficient | `findings_block` (Bandit high wins) | 1 |
 
 Install gitleaks and the same commands should print `coverage=sufficient`
-on `clean_skill --profile standard`.
+and `gate=pass` on `clean_skill --profile standard`.
 
 
 ```bash
@@ -239,7 +251,10 @@ python3 -m verity.cli review --engine skill \
   --input-dir tests/fixtures/clean_skill --out /tmp/verity_out/clean_skill
 
 # malformed manifest: file-level rules still run; manifest-dependent
-# rules are blocked_by_upstream_failure; coverage insufficient; exit 1
+# rules are blocked_by_upstream_failure; coverage insufficient;
+# High-severity `skill.manifest_parse_failure` triggers `gate=findings_block`
+# (exit 1). On a clean-manifest fixture without High findings the same
+# missing-gitleaks condition would produce `gate=coverage_block` (exit 3).
 python3 -m verity.cli review --engine skill \
   --input-dir tests/fixtures/malformed_manifest_skill \
   --out /tmp/verity_out/malformed_manifest
@@ -265,23 +280,25 @@ python3 -m verity.cli review --engine skill \
   --out /tmp/verity_out/python_shell_true
 ```
 
-Recorded exit codes / findings on the checked-in fixtures:
+Recorded findings on the checked-in fixtures (see the exit-code section
+below for `gate=` semantics; a `standard`-profile run on a machine where
+gitleaks is not installed adds a `coverage_block` gate on top of the
+findings gate, but a `findings_block` always wins in the exit code):
 
-| Fixture | findings | high/critical | coverage | exit |
-|---|---:|---:|---|---:|
-| `clean_skill` | 0 | 0 | sufficient | 0 |
-| `malformed_manifest_skill` | 2 | 2 | insufficient | 1 |
-| `missing_refs_skill` | 3 | 2 | sufficient | 1 |
-| `risky_permissions_skill` | 4 | 2 | sufficient | 1 |
-| `external_instructions_skill` | 1 | 1 | sufficient | 1 |
-| `python_shell_true_skill` | 3 | 1 | sufficient | 1 |
+| Fixture | findings | high/critical |
+|---|---:|---:|
+| `clean_skill` | 0 | 0 |
+| `malformed_manifest_skill` | 2 | 2 |
+| `missing_refs_skill` | 3 | 2 |
+| `risky_permissions_skill` | 4 | 2 |
+| `external_instructions_skill` | 1 | 1 |
+| `python_shell_true_skill` | 3 | 1 |
 
 (`python_shell_true_skill`: Bandit B602 high + B607 medium x2. The hand-
 written `subprocess shell=True` rule is suppressed on that (file, line).)
 
-Each command writes `report.json` and `report.html` under the target
-directory. When high/critical findings are present, exit code is 1 so
-future CI integration can use it as a gate. Coverage-insufficient runs
+Each command writes `report.json`, `report.html` and `report.sarif` under
+the target directory. Coverage-insufficient runs
 show an explicit warning banner in the HTML report and refuse to say
 "ready" / "low_detected_risk".
 

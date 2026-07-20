@@ -7,6 +7,23 @@ Usage:
   verity export-schema [--out out/schema.json]
 
 V1 read-only: does not execute or install anything from the target.
+
+Exit codes for ``review``:
+
+  0  ``gate=pass``           coverage is sufficient AND no High/Critical findings.
+                             Medium/Low findings do NOT block (documented policy;
+                             use downstream tooling to enforce stricter gates).
+  1  ``gate=findings_block`` at least one High/Critical Finding is present.
+                             Wins over the coverage gate: if both are triggered
+                             the exit code is 1 (High/Critical is the stricter
+                             signal a CI needs to surface first).
+  3  ``gate=coverage_block`` Coverage is insufficient AND no High/Critical
+                             Finding is present. Chosen instead of 2 so it does
+                             not collide with argparse's usage-error exit 2.
+  2  reserved by argparse for CLI usage errors (POSIX convention).
+
+A one-line ``gate=...`` marker is printed on stdout for both CI and human
+readers. Coverage-insufficient runs NEVER exit 0.
 """
 
 from __future__ import annotations
@@ -59,10 +76,24 @@ def _cmd_review(args: argparse.Namespace) -> int:
 
     n_findings = len(review.findings)
     n_high = sum(1 for f in review.findings if f.severity in ("high", "critical"))
-    print(f"engine={args.engine} snapshot={snap.snapshotId} findings={n_findings} high_or_critical={n_high} coverage={review.coverage.status}")
+    coverage_ok = review.coverage.status == "sufficient"
+
+    # Findings gate wins over coverage gate (see module docstring).
+    if n_high:
+        gate = "findings_block"
+        exit_code = 1
+    elif not coverage_ok:
+        gate = "coverage_block"
+        exit_code = 3
+    else:
+        gate = "pass"
+        exit_code = 0
+
+    print(f"engine={args.engine} snapshot={snap.snapshotId} "
+          f"findings={n_findings} high_or_critical={n_high} "
+          f"coverage={review.coverage.status} gate={gate}")
     print(f"wrote {out_dir/'report.json'}, {out_dir/'report.html'}, {out_dir/'report.sarif'}")
-    # Exit non-zero when there are high/critical findings so CI can use it later.
-    return 1 if n_high else 0
+    return exit_code
 
 
 def _cmd_export_schema(args: argparse.Namespace) -> int:

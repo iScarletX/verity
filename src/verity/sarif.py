@@ -20,9 +20,17 @@ yet — see README). The exporter is deliberately conservative:
   runs (spec §5.1).
 - Secret / sensitive evidence never leaks: the raw bytes are never
   copied here; we only publish redacted previews and byte ranges.
-- Coverage status is placed in ``run.properties.coverage`` so downstream
-  consumers can distinguish "0 findings and everything ran" from
-  "0 findings and half the analyzers failed".
+- Coverage status and other Verity-specific fields are exposed as flat,
+  namespaced properties on the run: ``run.properties["verity.coverage"]``,
+  ``run.properties["verity.reviewId"]``, ``run.properties["verity.engine"]``,
+  ``run.properties["verity.snapshotId"]``,
+  ``run.properties["verity.verdict.subject"]``,
+  ``run.properties["verity.verdict.reasonCodes"]``,
+  ``run.properties["verity.owaspCoverage"]``.
+  Flat namespaced keys are valid SARIF ``properties`` bag members
+  (SARIF 2.1.0 §3.8) and let CI tooling filter without walking a nested
+  structure. Do NOT expect a nested ``run.properties.coverage`` object;
+  the value lives under the exact key ``verity.coverage``.
 """
 
 from __future__ import annotations
