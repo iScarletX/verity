@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from ..guidance import lookup as _lookup_guidance, next_steps_summary
+
 
 # The four top-level headlines the UI shows. Coverage insufficient wins.
 _HEADLINES = {
@@ -86,7 +88,8 @@ def headline_for(review_dict: Dict[str, Any]) -> Dict[str, str]:
     return _HEADLINES["pass_prompt"]
 
 
-def _finding_view(f: Dict[str, Any], ev_by_id: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+def _finding_view(f: Dict[str, Any], ev_by_id: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:  # noqa: E501
+    guidance = _lookup_guidance(f)
     """Trim a Finding to the fields the UI needs.
 
     ``artifactPath`` and ``sourceByteRange`` are relative and safe; the
@@ -120,6 +123,7 @@ def _finding_view(f: Dict[str, Any], ev_by_id: Dict[str, Dict[str, Any]]) -> Dic
         # scalar entries so the UI can render them as key/value chips.
         "subject": {k: v for k, v in subject.items()
                     if k not in ("artifactPath",)},
+        "guidance": guidance,
     }
 
 
@@ -180,6 +184,7 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
         secret_scan_status = "not_applicable_engine"
         secret_scan_ok = False
 
+    next_steps = next_steps_summary(findings, coverage, secret_scan_status)
     return {
         "reviewId": review_id,
         "engine": review_dict.get("engine"),
@@ -190,6 +195,7 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
             "reasonCodes": coverage_reason_codes,
         },
         "counts": counts,
+        "nextSteps": next_steps,
         "findings": findings,
         "blocked": _blocked_view(review_dict),
         "analyzers": _analyzer_view(am),

@@ -180,15 +180,36 @@ def to_html(review: Review) -> str:
                 )
         return "".join(parts) or "<em class='muted'>(no evidence)</em>"
 
+    from .guidance import lookup as _guidance_lookup
+
+    def _guidance_cell(f):
+        g = _guidance_lookup(f)
+        title = html.escape(g.get("plainTitle") or "")
+        why = html.escape(g.get("whyItMatters") or "")
+        prio = html.escape(g.get("priority") or "")
+        actions = g.get("whatToDo") or []
+        actions_html = "".join(
+            f"<li>{html.escape(a)}</li>" for a in actions
+        )
+        return (
+            f"<div class='guidance'>"
+            f"<div class='g-title'><strong>{title}</strong> "
+            f"<span class='g-prio'>{prio}</span></div>"
+            f"<div class='g-why'>{why}</div>"
+            f"<ol class='g-actions'>{actions_html}</ol>"
+            f"</div>"
+        )
+
     def _findings_rows() -> str:
         if not findings:
-            return "<tr><td colspan='6'><em>No findings recorded. This is NOT proof of safety — see Coverage.</em></td></tr>"
+            return "<tr><td colspan='7'><em>No findings recorded. This is NOT proof of safety — see Coverage.</em></td></tr>"
         rows = []
         for f in findings:
             rows.append(
                 "<tr>"
                 f"<td>{html.escape(f['severity'])}</td>"
                 f"<td>{html.escape(f['findingType'])}</td>"
+                f"<td>{_guidance_cell(f)}</td>"
                 f"<td>{html.escape(f['claim'])}</td>"
                 f"<td>{html.escape(f['origin'].get('kind',''))}</td>"
                 f"<td>{html.escape(f['subject'].get('artifactPath',''))}</td>"
@@ -301,6 +322,11 @@ def to_html(review: Review) -> str:
   code {{ background:#f5f5f5; padding:.1rem .3rem; border-radius:3px }}
   .muted {{ color:#666 }}
   .ev {{ margin: .1rem 0; font-size:.85rem }}
+  .guidance {{ font-size:.85rem; max-width: 380px }}
+  .guidance .g-title {{ margin-bottom: .2rem }}
+  .guidance .g-prio {{ background:#eef; border:1px solid #99b; padding:.05rem .3rem; border-radius: 999px; font-size:.75rem }}
+  .guidance .g-why {{ color:#333; margin-bottom: .2rem }}
+  .guidance .g-actions {{ margin: .2rem 0 0 1.2rem; padding: 0 }}
 </style></head>
 <body>
 <h1>Verity Report</h1>
@@ -316,7 +342,7 @@ def to_html(review: Review) -> str:
 
 <h2>Findings</h2>
 <p class="muted">Severity notes: <code>low</code> = risk marker (context-dependent, may be benign quotation); <code>medium</code> = quality/consistency issue with precise evidence; <code>high</code>/<code>critical</code> = mechanically proven policy violation.</p>
-<table><tr><th>Severity</th><th>Type</th><th>Claim</th><th>Origin</th><th>Path</th><th>Evidence</th></tr>
+<table><tr><th>Severity</th><th>Type</th><th>Guidance</th><th>Claim</th><th>Origin</th><th>Path</th><th>Evidence</th></tr>
 {_findings_rows()}
 </table>
 

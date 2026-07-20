@@ -28,7 +28,51 @@ which live outside this repository and are only referenced.
 - 3 prompt fixtures (clean / broken_user / risky_system)
 - 80 tests
 
-## Round 6 (2026-07-20)  →  this commit
+## Round 7 (2026-07-20)  →  this commit
+- Controlled remediation catalog (`verity/guidance.py`): human-readable
+  Chinese `plainTitle` / `whyItMatters` / `whatToDo` / `priority`
+  (`P0`/`P1`/`P2`) for every built-in Prompt rule, Skill Manifest rule,
+  hand-written Skill rule, curated Bandit `test_id` (12), and a
+  gitleaks default. Unknown ids fall back to a neutral "please review
+  manually" entry; PatchSet remains proposal-only.
+- Guidance text is never part of subjectKey / fingerprint / identity.
+  Registered coverage-check test asserts every FindingType (or an
+  explicit dynamic entry) has a catalog record.
+- View model / HTML report / SARIF export all carry the guidance:
+    * view model: full `guidance` block per finding
+    * SARIF: `verity.guidance.id`, `verity.guidance.priority`,
+      `verity.guidance.plainTitle` under result.properties
+    * HTML report: new Guidance column with title + priority pill +
+      why-it-matters + numbered actions
+- Structured next-step summary (`next_steps_summary`):
+    P0 -> coverage_gap -> secret_scan_gap -> P1 -> P2 -> monitor.
+    Coverage insufficient still wins the top-of-page headline.
+- Web UI redesigned for non-technical users:
+    * top-of-page tagline "能不能用、为什么、先改什么" and 3-step
+      onboarding list
+    * per-finding cards now show plain-language title + P0/P1/P2
+      badge + why-it-matters + numbered action list; Rule id / OWASP /
+      byte range moved into a folded "technical details" block
+    * `#loading` region with `aria-live`; keyboard focus outlines
+    * error messages translated to Chinese (machine `code` kept English)
+    * findings client-side re-sorted by priority (P0 first)
+- `GET /api/health` endpoint: booleans + versions + scope. No path,
+  hash, env-var leaks.
+- Launcher `tools/start_local_web.py` + `start-verity.command`:
+    * resolves the project root from the script's own directory
+    * Python version + package import pre-flight
+    * refuses non-loopback host, refuses to kill port-in-use holders
+    * runs uvicorn in the foreground; `Ctrl+C` stops it cleanly
+    * `--no-browser` and `--check-only` flags; does NOT pip install
+- 27 new tests (239 total). Covers catalog completeness, gitleaks
+  guidance mentions rotate/revoke and never a secret, Bandit per-
+  test_id specificity, next-step ordering, HTML/SARIF projection,
+  frontend safety (still no innerHTML, no external URLs, aria
+  attributes present), health endpoint shape and no-leak invariants,
+  launcher check-only + non-loopback rejection + port-in-use error.
+- No new Python dependencies.
+
+## Round 6 (2026-07-20)  →  commit `455fd06`
 - Local Web MVP for non-technical users (`python -m verity.web`):
     * Starlette 0.41.3 ASGI app + Uvicorn 0.32.1 runner
     * Loopback-only bind (`127.0.0.1` default; refuses other hosts)

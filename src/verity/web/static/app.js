@@ -103,6 +103,11 @@
   function disable(state) {
     $("prompt-submit").disabled = state;
     $("skill-submit").disabled = state;
+    $("loading").hidden = !state;
+    if (state) {
+      $("result").hidden = true;
+      $("error").hidden = true;
+    }
   }
 
   // ---------------- response handling ----------------
@@ -121,16 +126,38 @@
     var el = $("error");
     el.textContent = ""; // clear
     var title = mk("strong", { text: "无法完成检查：" });
-    var msg = mk("span", { text: " " + (errObj.message || errObj.code || "unknown") });
+    var friendly = friendlyErrorMessage(errObj);
+    var msg = mk("span", { text: " " + friendly });
     el.appendChild(title);
     el.appendChild(msg);
     el.hidden = false;
     $("result").hidden = true;
+    $("loading").hidden = true;
+  }
+
+  function friendlyErrorMessage(err) {
+    // Stable machine codes stay in English; UI translates the common ones.
+    var m = {
+      "prompt_too_large": "Prompt 内容过大，请拆分后重试。",
+      "file_too_large": "某个上传文件超过 512 KiB 预算，请拆分。",
+      "total_too_large": "上传总体超过 8 MiB，请分批处理。",
+      "too_many_files": "上传文件数量超过上限，请精简。",
+      "bad_path": "文件路径不安全（包含 .. / 绝对路径 / 反斜杠），已拒绝。",
+      "bad_prompt_kind": "prompt 类型必须是 user_prompt 或 system_prompt。",
+      "bad_profile": "profile 必须是 standard 或 minimal。",
+      "no_files": "请先选中一个包含 SKILL.md 的文件夹。",
+      "intake_error": "安全摄入拒绝了这份输入，具体原因附在 code 中。",
+      "host_not_allowed": "本服务只接受 loopback 地址。",
+      "origin_not_allowed": "本服务只接受 loopback 来源。",
+    };
+    var code = err.code || "unknown";
+    return (m[code] || err.message || code) + "（code=" + code + "）";
   }
 
   // ---------------- render ----------------
   function renderResult(view) {
     $("error").hidden = true;
+    $("loading").hidden = true;
     $("result").hidden = false;
 
     // Headline
@@ -139,6 +166,19 @@
     hl.className = "headline tone-" + view.headline.tone;
     hl.appendChild(mk("div", { className: "title", text: view.headline.title }));
     hl.appendChild(mk("div", { className: "detail", text: view.headline.detail }));
+
+    // Next steps
+    var ns = $("next-steps");
+    ns.textContent = "";
+    var nsData = view.nextSteps || { steps: [] };
+    if (nsData.steps && nsData.steps.length) {
+      ns.appendChild(mk("h3", { text: "建议处理顺序" }));
+      var ol = mk("ol");
+      nsData.steps.forEach(function (s) {
+        ol.appendChild(mk("li", { text: s.label }));
+      });
+      ns.appendChild(ol);
+    }
 
     // Coverage card
     var covText = view.coverage.status === "sufficient"
@@ -174,15 +214,52 @@
       findingsEl.appendChild(mk("p", { className: "muted",
         text: "本次未发现问题；这不能替代运行时验证，也不代表安全。" }));
     }
-    view.findings.forEach(function (f) {
+    // Sort findings: P0 first, then P1, P2, then severity as tiebreaker.
+    var findingsSorted = (view.findings || []).slice().sort(function (a, b) {
+      var pri = { P0: 0, P1: 1, P2: 2 };
+      var pa = pri[((a.guidance || {}).priority) || "P1"] || 1;
+      var pb = pri[((b.guidance || {}).priority) || "P1"] || 1;
+      if (pa !== pb) return pa - pb;
+      var sv = { critical: 0, high: 1, medium: 2, low: 3 };
+      return (sv[a.severity] || 4) - (sv[b.severity] || 4);
+    });
+
+    findingsSorted.forEach(function (f) {
       var card = mk("div", { className: "finding" });
+      var g = f.guidance || {};
       var top = mk("div", { className: "top" });
       top.appendChild(mk("span", { className: "badge sev-" + f.severity,
         text: sevLabel(f.severity) }));
-      top.appendChild(mk("strong", { text: f.type }));
-      top.appendChild(mk("span", { className: "muted", text: "engine origin: " + f.originKind }));
+      if (g.priority) {
+        top.appendChild(mk("span", { className: "badge prio-" + g.priority,
+          text: "优先级 " + g.priority }));
+      }
+      top.appendChild(mk("strong", { text: g.plainTitle || f.type }));
       card.appendChild(top);
-      card.appendChild(mk("div", { className: "claim", text: f.claim || "(未提供描述)" }));
+
+      // Why it matters (short paragraph aimed at a non-technical user)
+      if (g.whyItMatters) {
+        var why = mk("p", { className: "why", text: g.whyItMatters });
+        card.appendChild(why);
+      }
+
+      // Actionable steps
+      if (g.whatToDo && g.whatToDo.length) {
+        var actionsWrap = mk("div", { className: "actions" });
+        actionsWrap.appendChild(mk("strong", { text: "建议怎么处理：" }));
+        var ol = mk("ol");
+        g.whatToDo.forEach(function (a) {
+          ol.appendChild(mk("li", { text: a }));
+        });
+        actionsWrap.appendChild(ol);
+        card.appendChild(actionsWrap);
+      }
+
+      // Technical detail folded away by default
+      var d = mk("details");
+      d.appendChild(mk("summary", { text: "技术详情 (Rule ID / OWASP / 证据)" }));
+      d.appendChild(mk("div", { className: "muted",
+        text: "Rule: " + f.type + "  origin: " + f.originKind }));
       // evidence list
       (f.evidences || []).forEach(function (ev) {
         var line = mk("div", { className: "evidence" });
@@ -195,17 +272,18 @@
         if (ev.redactedPreview) {
           line.appendChild(mk("span", { className: "muted", text: "  " + ev.redactedPreview }));
         }
-        card.appendChild(line);
+        d.appendChild(line);
       });
-      // subject / controls
-      var d = mk("details");
-      d.appendChild(mk("summary", { text: "更多元信息" }));
       Object.keys(f.subject || {}).forEach(function (k) {
-        var p = mk("div", { text: k + ": " + String(f.subject[k]) });
-        d.appendChild(p);
+        d.appendChild(mk("div", { text: k + ": " + String(f.subject[k]) }));
       });
       if (f.controls && f.controls.length) {
         d.appendChild(mk("div", { text: "映射 controls：" + f.controls.join(", ") }));
+      }
+      if (g.referenceUrl) {
+        var link = mk("div", { text: "参考：" });
+        link.appendChild(mk("code", { text: g.referenceUrl }));
+        d.appendChild(link);
       }
       card.appendChild(d);
       findingsEl.appendChild(card);

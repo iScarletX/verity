@@ -9,7 +9,13 @@
 <body>
 <header>
   <h1>Verity <small>本地静态审查</small></h1>
+  <p class="tagline">检查 Prompt 与 Agent Skill，告诉你 <strong>能不能用、为什么、先改什么</strong>。</p>
   <p class="scope">本地静态检查 V1：不执行 Skill、不安装依赖、不联网。Prompt 黑盒（V1.5）与 Skill 隔离沙箱（V2）<strong>尚未启用</strong>。</p>
+  <ol class="three-steps" aria-label="3 步开始">
+    <li>粘贴 Prompt <em>或</em> 选择 Skill 文件夹</li>
+    <li>点“开始审查”</li>
+    <li>看结论 &amp; 下一步建议</li>
+  </ol>
 </header>
 
 <main>
@@ -54,8 +60,13 @@
     </p>
   </section>
 
+  <section id="loading" hidden aria-live="polite">
+    <p>正在审查，请稍候……</p>
+  </section>
+
   <section id="result" hidden aria-live="polite">
     <div id="headline" class="headline"></div>
+    <div id="next-steps" class="next-steps"></div>
     <div class="cards">
       <div class="card"><h3>Coverage</h3><p id="coverage"></p></div>
       <div class="card"><h3>问题数量</h3><p id="counts"></p></div>

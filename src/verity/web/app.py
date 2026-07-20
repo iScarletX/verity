@@ -200,6 +200,40 @@ async def index(request: Request) -> Response:
     return Response(text, media_type="text/html; charset=utf-8")
 
 
+async def health(request: Request) -> Response:
+    """Minimal health endpoint. Reports only booleans/versions/scope;
+    never leaks binary paths, SHA-256 values, temp dirs, or env vars.
+    """
+    from .. import __version__ as verity_version
+    body: dict = {
+        "ok": True,
+        "verity": verity_version,
+        "scope": "static-only",
+        "bandit": {"available": False, "version": None},
+        "gitleaks": {"available": False, "version": None},
+    }
+    # Bandit availability (best-effort, no external processes; just try import)
+    try:
+        import bandit  # noqa: F401
+        import importlib.metadata as _im
+        try:
+            body["bandit"] = {"available": True,
+                              "version": _im.version("bandit")}
+        except Exception:
+            body["bandit"] = {"available": True, "version": None}
+    except Exception:
+        pass
+    # Gitleaks availability (via runner discovery; NO path/hash leaked)
+    try:
+        from ..gitleaks_runner import GitleaksRunner
+        ok, _reason, version, _sha = GitleaksRunner().check_binary()
+        body["gitleaks"] = {"available": bool(ok),
+                             "version": version or None}
+    except Exception:
+        pass
+    return JSONResponse(body)
+
+
 async def review_prompt(request: Request) -> Response:
     if request.headers.get("content-type", "").split(";", 1)[0].strip() != "application/json":
         return _error_response("bad_content_type",
@@ -359,6 +393,7 @@ def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600
 
     routes = [
         Route("/", index, methods=["GET"]),
+        Route("/api/health", health, methods=["GET"]),
         Route("/api/review/prompt", review_prompt, methods=["POST"]),
         Route("/api/review/skill", review_skill, methods=["POST"]),
         Route("/api/report/{review_id}/report.{fmt}", download_report, methods=["GET"]),

@@ -115,6 +115,7 @@ def _sarif_location(ev_locations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def _finding_to_result(f: Dict[str, Any],
                        ev_by_id: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    from .guidance import lookup as _guidance_lookup
     ev_ids = f.get("evidenceIds", [])
     all_locations: List[Dict[str, Any]] = []
     for eid in ev_ids:
@@ -127,6 +128,7 @@ def _finding_to_result(f: Dict[str, Any],
     related = all_locations[1:]
 
     origin_kind = (f.get("origin") or {}).get("kind", "")
+    g = _guidance_lookup(f)
     result: Dict[str, Any] = {
         "ruleId": f["findingType"],
         "level": _LEVEL_MAP.get(f["severity"], "warning"),
@@ -140,6 +142,11 @@ def _finding_to_result(f: Dict[str, Any],
             "verity.subjectKey": f["subjectKey"],
             "verity.subject": f.get("subject"),
             "verity.severity": f["severity"],
+            "verity.guidance.id": g.get("id"),
+            "verity.guidance.priority": g.get("priority"),
+            # Full text kept out of identity by design; it's only
+            # ancillary display metadata here.
+            "verity.guidance.plainTitle": g.get("plainTitle"),
         },
     }
     if related:

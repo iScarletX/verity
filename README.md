@@ -68,7 +68,37 @@ report infrastructure but have separate rule registries. See
 - `schema.py` — JSON Schema (Draft 2020-12) for the core objects
 - `cli.py` — CLI entry point
 
-## Web MVP for non-technical users (round 6)
+## Web MVP for non-technical users
+
+### 小白 3 步开始
+
+1. 在 项目目录 `Verity/` 下打开 macOS 终端（或直接双击 `start-verity.command`）
+2. 运行 `./start-verity.command`（或命令行 `python3 tools/start_local_web.py`）
+3. 浏览器自动打开 `http://127.0.0.1:8765/`，按页面提示粘贴 Prompt 或选择 Skill 文件夹
+
+停止服务：在启动它的终端按 `Ctrl+C`。不会后台留守进程。
+
+### 常见错误
+
+| 现象 | 含义 | 处理 |
+|---|---|---|
+| `refusing to bind non-loopback host` | 你传了 `--host 0.0.0.0` 之类的非 loopback 地址 | 换回 `127.0.0.1` |
+| `port 127.0.0.1:8765 is already in use` | 端口被其他进程占用 | 用 `--port` 换个端口，或自行关掉占用方（启动器不会 kill 其他进程） |
+| `Missing dependency: starlette` 等 | 未按锻文件安装依赖 | `pip install -r requirements.lock` |
+| `gitleaks: NOT available` 提示 | 希望含 Secret 扫描但 gitleaks 未安装 | 一次性执行 `python3 tools/install_gitleaks.py`（仅一次，启动器从不自动安装） |
+
+### 命令行多种启动方式
+
+```bash
+# 1. 推荐：安全启动器（含预飞行检查 + 浏览器自动打开）
+python3 tools/start_local_web.py
+python3 tools/start_local_web.py --port 9000
+python3 tools/start_local_web.py --no-browser        # 不自动打开浏览器
+python3 tools/start_local_web.py --check-only        # 仅预飞行检查，不启动
+
+# 2. 直接调用 uvicorn（不含预飞行检查，适合 CI 或已知环境）
+python3 -m verity.web --port 8765
+```
 
 One command starts a local web page:
 
@@ -85,10 +115,24 @@ Open `http://127.0.0.1:8765/` in a browser. Two tabs:
   `<input type="file" webkitdirectory>`), pick `standard` (with
   gitleaks) or `minimal` (no secret scan; the UI explicitly warns).
 
-The result page shows a headline verdict, the coverage banner, finding
-cards with per-finding evidence (relative path + byte range), a list
-of analyzers, the OWASP AST10 matrix, and download links for the
-`report.json`, `report.html`, and `report.sarif` files.
+The result page shows, in this order:
+
+1. Plain-language headline verdict.
+2. "建议处理顺序" — structured next steps (P0 findings first, then
+   Coverage gap, then P1/P2).
+3. Three summary cards (Coverage / 问题数量 / Secret 扫描).
+4. Finding cards with plain-language title, `P0/P1/P2` badge,
+   "为什么重要" paragraph, "建议怎么处理" numbered actions, and a
+   folded "技术详情" block with the Rule id, OWASP mapping, byte
+   ranges, and redacted preview.
+5. "未完成的检查" list and analyzer status.
+6. OWASP AST10 folded matrix and download links for the `report.json`,
+   `report.html`, and `report.sarif` files.
+
+Guidance is generated from a controlled catalog (`verity/guidance.py`)
+keyed by Rule id / Bandit test_id / gitleaks rule id. Unknown ids get
+a safe neutral fallback; no LLM is involved and guidance text never
+enters Finding identity.
 
 Security properties of the Web MVP:
 
