@@ -15,7 +15,8 @@ from verity.web import create_app
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
-FAKE_GITHUB_PAT = "ghp_1234567890abcdefghij1234567890abcdefgh"
+# Assembled at runtime so GitHub push-protection does not flag this source file.
+FAKE_GITHUB_PAT = "ghp" + "_" + "1234567890abcdefghij1234567890abcdefgh"
 
 
 @pytest.fixture

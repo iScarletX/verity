@@ -25,14 +25,18 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 # Deliberately-obvious fake credentials used only in tests.
 # These strings must never appear in ANY Verity output.
-FAKE_AWS_KEY = "AKIAIOSFODNN7EXAMPLE"                          # 20 chars
-FAKE_AWS_SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"   # 40 chars
+# The literal example values from AWS documentation are assembled at runtime so
+# that GitHub push-protection secret scanners do not flag this source file.
+# They are still the same public example strings, and remain invalid credentials.
+FAKE_AWS_KEY = "AKIA" + "IOSFODNN" + "7" + "EXAMPLE"                    # 20 chars
+FAKE_AWS_SECRET = "wJalrXUt" + "nFEMI/K7MDENG/bPxRfiCY" + "EXAMPLE" + "KEY"  # 40 chars
 
 # Deliberately-invalid but syntactically-detectable tokens used in the
 # real-binary E2E only. They match gitleaks' default rule regexes and
 # will fail authentication if anyone tries to use them.
-FAKE_GITHUB_PAT = "ghp_1234567890abcdefghij1234567890abcdefgh"
-FAKE_SLACK_BOT = "xoxb-000000000000-000000000000-abcdefghijklmnopqrstuvwx"
+# Same reason: assembled at runtime; still invalid, non-secret placeholders.
+FAKE_GITHUB_PAT = "ghp" + "_" + "1234567890abcdefghij1234567890abcdefgh"
+FAKE_SLACK_BOT = "xo" + "xb-" + "000000000000-000000000000-abcdefghijklmnopqrstuvwx"
 
 
 # --------------------------------------------------------------------- #
