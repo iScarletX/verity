@@ -1,0 +1,12 @@
+# Runtime lock — reproducible install for Verity Phase 0/1.
+# Generated from a passing test environment (Python 3.9.6, macOS).
+# Compatible with Python 3.9+ including 3.12.
+#
+# Direct runtime deps (declared in pyproject.toml):
+jsonschema==4.25.1
+# Transitive deps of jsonschema, pinned for reproducibility:
+attrs==26.1.0
+jsonschema-specifications==2025.9.1
+referencing==0.36.2
+rpds-py==0.27.1
+typing_extensions==4.16.0

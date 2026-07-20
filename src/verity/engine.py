@@ -39,9 +39,23 @@ from .registry import RuleDefinition, RuleRegistry, FindingTypeRegistry
 
 # --- Rule implementations ------------------------------------------------
 
+@dataclass
+class RuleHit:
+    """A single rule finding candidate.
+
+    A rule may attach multiple pieces of Evidence to one Finding (e.g. two
+    conflicting assignments of the same key). ``evidences`` is order-
+    preserving; the first evidence is treated as the primary anchor for
+    display.
+    """
+
+    evidences: List[EvidenceRecord]
+    subject: Dict
+
+
 RuleImpl = Callable[
     ["RuleContext"],
-    List[Tuple[EvidenceRecord, Dict]],   # (evidence, subject_dict)
+    List[RuleHit],
 ]
 
 
@@ -89,6 +103,20 @@ class Engine:
             )
             plan_items.append(plan_item)
             exec_id = f"e-{uuid.uuid4().hex[:12]}"
+
+            # Applicability gate: prompt_kind not in rule.applicablePromptKinds.
+            # This is a normal, non-failing skip (§9.2 not_applicable): the
+            # gate condition is a declared precondition, not an upstream failure.
+            if self.name == "prompt" and rule.applicablePromptKinds:
+                pk = snapshot.promptKind
+                if pk is None or pk not in rule.applicablePromptKinds:
+                    executions.append(ExecutionRecord(
+                        executionId=exec_id, planItemId=plan_item.planItemId,
+                        status="not_applicable",
+                        reasonCode=f"prompt_kind_gate:required={','.join(rule.applicablePromptKinds)};actual={pk or 'unset'}",
+                    ))
+                    continue
+
             if impl is None:
                 executions.append(ExecutionRecord(
                     executionId=exec_id, planItemId=plan_item.planItemId,
@@ -108,14 +136,20 @@ class Engine:
 
             # Deterministic Finding pipeline. NO LLM path exists here.
             per_event_dedup: set[str] = set()
-            for evidence, subject in results:
-                evidences.append(evidence)
+            for hit in results:
+                for ev in hit.evidences:
+                    evidences.append(ev)
+                ev_fps = [ev.occurrenceFingerprint for ev in hit.evidences]
+                # Union of all locations belonging to this hit.
+                all_locs = []
+                for ev in hit.evidences:
+                    all_locs.extend(l.to_dict() for l in ev.locations)
                 edk = event_dedup_key(
                     rule_id=rule.ruleId,
                     rule_version=rule.ruleVersion,
                     rule_config_digest=rule.ruleConfigDigest,
-                    occurrence_fingerprints=[evidence.occurrenceFingerprint],
-                    locations=[l.to_dict() for l in evidence.locations],
+                    occurrence_fingerprints=ev_fps,
+                    locations=all_locs,
                 )
                 if edk in per_event_dedup:
                     continue  # §5.2 same-snapshot same-rule same-occurrence exact dedup
@@ -126,16 +160,15 @@ class Engine:
                     snapshotId=snapshot.snapshotId,
                     ruleId=rule.ruleId,
                     ruleVersion=rule.ruleVersion,
-                    evidenceIds=[evidence.evidenceId],
+                    evidenceIds=[ev.evidenceId for ev in hit.evidences],
                     eventDedupKey=edk,
                     executionId=exec_id,
                 )
                 events.append(event)
 
                 ftd = self.finding_types.get(rule.findingType)
-                errs = ftd.validate_subject(subject)
+                errs = ftd.validate_subject(hit.subject)
                 if errs:
-                    # subject validation failure -> not a finding; recorded via execution
                     executions.append(ExecutionRecord(
                         executionId=f"e-{uuid.uuid4().hex[:12]}",
                         planItemId=plan_item.planItemId,
@@ -143,7 +176,7 @@ class Engine:
                         reasonCode="subject_schema_violation:" + ";".join(errs),
                     ))
                     continue
-                sk = compute_subject_key(rule.findingType, subject, ftd.subjectKeyFields)
+                sk = compute_subject_key(rule.findingType, hit.subject, ftd.subjectKeyFields)
                 fof = sha256_hex(
                     domain_tag("finding-occurrence"),
                     canonical_json({
@@ -155,12 +188,12 @@ class Engine:
                     snapshotId=snapshot.snapshotId,
                     findingOccurrenceFingerprint=fof,
                     findingType=rule.findingType,
-                    subject=dict(subject),
+                    subject=dict(hit.subject),
                     subjectKey=sk,
                     claim=rule.title,
                     severity=rule.defaultSeverity,
                     origin={"kind": "deterministic_rule", "ruleMatchEventIds": [event.eventId]},
-                    evidenceIds=[evidence.evidenceId],
+                    evidenceIds=[ev.evidenceId for ev in hit.evidences],
                     controls=list(rule.controlIds),
                     tags=[f"engine:{self.name}"],
                 )
@@ -208,18 +241,53 @@ def make_source_span_evidence(*, snapshot_id: str, file_id: str, artifact_path: 
 
 # --- Built-in rule implementations --------------------------------------
 
+# --- Fenced-code / quote helpers ----------------------------------------
+
+_FENCED_CODE = re.compile(rb"(?ms)^```.*?^```\s*$")
+_INLINE_CODE = re.compile(rb"`[^`\n]{1,200}`")
+
+
+def _excluded_ranges(data: bytes) -> List[Tuple[int, int]]:
+    """Byte ranges of fenced/inline code blocks. Rules that want to
+    suppress benign quoting of attack strings can drop matches inside
+    these ranges. Cheap, deterministic, syntax-conservative.
+    """
+    ranges: List[Tuple[int, int]] = []
+    for m in _FENCED_CODE.finditer(data):
+        ranges.append((m.start(), m.end()))
+    for m in _INLINE_CODE.finditer(data):
+        ranges.append((m.start(), m.end()))
+    return ranges
+
+
+def _in_ranges(pos: int, ranges: Sequence[Tuple[int, int]]) -> bool:
+    for s, e in ranges:
+        if s <= pos < e:
+            return True
+    return False
+
+
+# --- P1: instruction-override marker (rewritten, code-exclusion aware) ---
+
 _JAILBREAK_TERMS = re.compile(
-    rb"(?i)\b(ignore (all )?previous instructions|disregard (all )?prior|"
-    rb"you are now dan|jailbreak|bypass (safety|guardrails))\b"
+    rb"(?i)(ignore (?:all )?previous instructions|disregard (?:all )?prior (?:instructions|rules|context)|"
+    rb"you are now dan\b|jailbreak mode|bypass (?:safety|guardrails|filters))"
 )
 
-def prompt_jailbreak_marker(ctx: RuleContext) -> List[Tuple[EvidenceRecord, Dict]]:
-    """Prompt-engine deterministic rule.
 
-    Flags text spans that literally include well-known jailbreak / instruction
-    override markers. Purely regex; repeatable; no LLM.
+def prompt_jailbreak_marker(ctx: RuleContext) -> List[RuleHit]:
+    """Flags text spans that literally contain well-known instruction-
+    override markers.
+
+    Boundaries:
+    - Text inside fenced/inline code is IGNORED (users often quote attack
+      strings when documenting defenses; we don't want to flag those).
+    - Severity is LOW: this is a *risk marker*, not a proven attack. The
+      Finding claim says so.
+    - Repeated occurrences at different byte ranges produce distinct
+      Findings (deduplicated only if identical location).
     """
-    out: List[Tuple[EvidenceRecord, Dict]] = []
+    out: List[RuleHit] = []
     prod = Producer(componentId=ctx.rule.ruleId,
                     componentVersion=ctx.rule.ruleVersion,
                     executionId=ctx.execution_id)
@@ -227,7 +295,10 @@ def prompt_jailbreak_marker(ctx: RuleContext) -> List[Tuple[EvidenceRecord, Dict
         if f.status != "included":
             continue
         data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
         for m in _JAILBREAK_TERMS.finditer(data):
+            if _in_ranges(m.start(), excluded):
+                continue
             ev = make_source_span_evidence(
                 snapshot_id=ctx.snapshot.snapshotId,
                 file_id=f.fileId, artifact_path=f.normalizedPath,
@@ -240,7 +311,7 @@ def prompt_jailbreak_marker(ctx: RuleContext) -> List[Tuple[EvidenceRecord, Dict
                 "artifactPath": f.normalizedPath,
                 "markerCategory": "instruction_override",
             }
-            out.append((ev, subject))
+            out.append(RuleHit(evidences=[ev], subject=subject))
     return out
 
 
@@ -253,7 +324,7 @@ _DANGEROUS_SHELL = re.compile(
     rb"|:\(\)\{\s*:\|:&\s*\};:"
 )
 
-def skill_secret_like_fixture(ctx: RuleContext) -> List[Tuple[EvidenceRecord, Dict]]:
+def skill_secret_like_fixture(ctx: RuleContext) -> List[RuleHit]:
     """Skill-engine deterministic rule — flags fake-secret placeholders.
 
     We intentionally do NOT ship a real gitleaks ruleset here (out of scope
@@ -261,7 +332,7 @@ def skill_secret_like_fixture(ctx: RuleContext) -> List[Tuple[EvidenceRecord, Di
     token that is safe to include in tests, and demonstrates the secret
     evidence code path (redactedPreview only, no raw persistence).
     """
-    out: List[Tuple[EvidenceRecord, Dict]] = []
+    out: List[RuleHit] = []
     prod = Producer(componentId=ctx.rule.ruleId,
                     componentVersion=ctx.rule.ruleVersion,
                     executionId=ctx.execution_id)
@@ -275,7 +346,7 @@ def skill_secret_like_fixture(ctx: RuleContext) -> List[Tuple[EvidenceRecord, Di
                 file_id=f.fileId, artifact_path=f.normalizedPath,
                 file_digest=f.contentDigest or "",
                 byte_range=(m.start(), m.end()),
-                raw_bytes=b"",  # sensitive: no raw bytes hashed
+                raw_bytes=b"",
                 producer=prod,
                 sensitivity="secret",
                 redacted_preview="VERITY_FAKE_SECRET_" + "*" * 8,
@@ -285,17 +356,17 @@ def skill_secret_like_fixture(ctx: RuleContext) -> List[Tuple[EvidenceRecord, Di
                 "artifactPath": f.normalizedPath,
                 "secretCategory": "fake_fixture_secret",
             }
-            out.append((ev, subject))
+            out.append(RuleHit(evidences=[ev], subject=subject))
     return out
 
 
-def skill_dangerous_shell(ctx: RuleContext) -> List[Tuple[EvidenceRecord, Dict]]:
+def skill_dangerous_shell(ctx: RuleContext) -> List[RuleHit]:
     """Skill-engine deterministic rule — flags dangerous shell text patterns.
 
     IMPORTANT: this is text-level detection only; it does NOT execute the
     skill or the shell (spec §17: V1 never executes target content).
     """
-    out: List[Tuple[EvidenceRecord, Dict]] = []
+    out: List[RuleHit] = []
     prod = Producer(componentId=ctx.rule.ruleId,
                     componentVersion=ctx.rule.ruleVersion,
                     executionId=ctx.execution_id)
@@ -316,12 +387,316 @@ def skill_dangerous_shell(ctx: RuleContext) -> List[Tuple[EvidenceRecord, Dict]]
                 "artifactPath": f.normalizedPath,
                 "shellPatternCategory": "dangerous_shell",
             }
-            out.append((ev, subject))
+            out.append(RuleHit(evidences=[ev], subject=subject))
+    return out
+
+
+# --- P2: unfilled template placeholders ---------------------------------
+
+# Deliberately narrow set: mustache-style {{...}}, dollar-brace ${...},
+# angle-bracket <TODO> / <FIXME> / <INSERT ...> / <YOUR ... HERE>, and
+# bracket [INSERT ...]. Rationale:
+# - avoid clashing with plain JSON (`{"key":...}`) by requiring paired braces
+#   with content that looks like a placeholder identifier;
+# - avoid clashing with legitimate code by skipping fenced code blocks;
+# - keep the identifier charset conservative.
+_PLACEHOLDER_PATTERNS = [
+    re.compile(rb"\{\{\s*([A-Za-z_][A-Za-z0-9_\.\- ]{0,80})\s*\}\}"),  # {{ name }}
+    re.compile(rb"\$\{\s*([A-Za-z_][A-Za-z0-9_\.\- ]{0,80})\s*\}"),      # ${ name }
+    re.compile(rb"<\s*(TODO(?:\s+[^>\n]{0,80})?|FIXME(?:\s+[^>\n]{0,80})?|INSERT[^>\n]{0,80}|YOUR[^>\n]{0,80}HERE)\s*>", re.IGNORECASE),
+    re.compile(rb"\[\s*(INSERT[^\]\n]{0,80}|TODO[^\]\n]{0,80}|YOUR[^\]\n]{0,80}HERE)\s*\]", re.IGNORECASE),
+]
+
+
+def prompt_unfilled_placeholder(ctx: RuleContext) -> List[RuleHit]:
+    """Flag likely unfilled placeholders in a Prompt.
+
+    Boundaries and known limits:
+    - Fenced/inline code is excluded (templates are commonly shown in code).
+    - Severity is MEDIUM: unfilled placeholders often cause the model to
+      literalise the token, which is a real quality bug — but this rule
+      cannot know whether the template was intentional demo text.
+    - Same (path, placeholder text, byte range) is emitted only once.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        for pat in _PLACEHOLDER_PATTERNS:
+            for m in pat.finditer(data):
+                if _in_ranges(m.start(), excluded):
+                    continue
+                token = m.group(0)
+                ev = make_source_span_evidence(
+                    snapshot_id=ctx.snapshot.snapshotId,
+                    file_id=f.fileId, artifact_path=f.normalizedPath,
+                    file_digest=f.contentDigest or "",
+                    byte_range=(m.start(), m.end()),
+                    raw_bytes=token, producer=prod,
+                )
+                # placeholderCategory limited enum by pattern index.
+                cat = (
+                    "mustache" if pat is _PLACEHOLDER_PATTERNS[0]
+                    else "dollar_brace" if pat is _PLACEHOLDER_PATTERNS[1]
+                    else "angle_bracket" if pat is _PLACEHOLDER_PATTERNS[2]
+                    else "square_bracket"
+                )
+                subject = {
+                    "artifactPath": f.normalizedPath,
+                    "placeholderCategory": cat,
+                }
+                out.append(RuleHit(evidences=[ev], subject=subject))
+    return out
+
+
+# --- P3: system-only hardcoded secret marker ----------------------------
+
+def prompt_system_hardcoded_secret(ctx: RuleContext) -> List[RuleHit]:
+    """System-only: detects synthetic VERITY_FAKE_SECRET_* tokens embedded
+    in a system prompt. High severity (a hardcoded credential inside a
+    system prompt is directly extractable).
+
+    Boundaries:
+    - Runs ONLY on prompt_kind == 'system_prompt' (enforced via rule
+      applicability gate). If applied to a user prompt, ReviewPlan records
+      the rule as not_applicable, not silently skipped.
+    - The pattern is intentionally the same synthetic marker used in
+      fixtures. Later phases will delegate real secret detection to
+      gitleaks (see reuse decision table).
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        for m in _FAKE_SECRET_PATTERN.finditer(data):
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(m.start(), m.end()),
+                raw_bytes=b"", producer=prod,
+                sensitivity="secret",
+                redacted_preview="VERITY_FAKE_SECRET_" + "*" * 8,
+                evidence_kind_tag="verity_fake_secret",
+            )
+            subject = {
+                "artifactPath": f.normalizedPath,
+                "secretCategory": "fake_fixture_secret",
+            }
+            out.append(RuleHit(evidences=[ev], subject=subject))
+    return out
+
+
+# --- P4: duplicate-key numeric conflict (dual-evidence) -----------------
+
+# Match a strict `KEY: VALUE` or `KEY = VALUE` line where VALUE is a plain
+# integer or decimal. Purposely conservative: only lines whose entire
+# non-whitespace content is `key op number` count. This avoids matching
+# natural-language text like "temperature is 0.7 or maybe 0.9".
+_KV_ASSIGN = re.compile(
+    rb"(?m)^[ \t]*([A-Za-z_][A-Za-z0-9_\-]{0,63})[ \t]*(?:[:=])[ \t]*(-?\d+(?:\.\d+)?)[ \t]*$"
+)
+
+
+def prompt_duplicate_numeric_assignment(ctx: RuleContext) -> List[RuleHit]:
+    """Flag the case where the SAME key is mechanically assigned two
+    DIFFERENT numeric values inside the same prompt file.
+
+    Boundaries:
+    - Only strict `key: N` or `key = N` full-line assignments (not JSON
+      objects, not free text). Case-sensitive on the key.
+    - Only pairs with different values are flagged; identical repeats are
+      ignored (that's redundant, not conflicting).
+    - Each Finding carries TWO Evidence records (both assignment sites).
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        by_key: Dict[bytes, list] = {}
+        for m in _KV_ASSIGN.finditer(data):
+            key = m.group(1)
+            val = m.group(2)
+            by_key.setdefault(key, []).append((m.start(), m.end(), val))
+        for key, occs in by_key.items():
+            distinct_values = {v for (_s, _e, v) in occs}
+            if len(distinct_values) < 2:
+                continue
+            # emit a single Finding with the FIRST two conflicting sites
+            # (deterministic ordering by byte position).
+            occs_sorted = sorted(occs, key=lambda t: t[0])
+            # find first pair with differing values
+            first = occs_sorted[0]
+            second = next(o for o in occs_sorted[1:] if o[2] != first[2])
+            ev1 = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(first[0], first[1]),
+                raw_bytes=data[first[0]:first[1]], producer=prod,
+            )
+            ev2 = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(second[0], second[1]),
+                raw_bytes=data[second[0]:second[1]], producer=prod,
+            )
+            subject = {
+                "artifactPath": f.normalizedPath,
+                "keyName": key.decode("utf-8", errors="replace"),
+            }
+            out.append(RuleHit(evidences=[ev1, ev2], subject=subject))
+    return out
+
+
+# --- P5: control-character contamination -------------------------------
+
+# NUL is caught at intake and never reaches here. This rule targets other
+# control chars that are legal in UTF-8 but almost always accidents in
+# prompts: BEL, backspace, ESC, form feed, and the Unicode bidi override
+# characters (a known prompt-injection vector).
+_CONTROL_CHARS = re.compile(rb"[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]|\xe2\x80[\xaa-\xae]|\xe2\x81[\xa6-\xa9]")
+
+
+def prompt_control_character(ctx: RuleContext) -> List[RuleHit]:
+    """Flag control chars / bidi-override chars in a prompt.
+
+    Boundaries:
+    - Common whitespace (tab, LF, CR) is NOT flagged.
+    - Severity MEDIUM: bidi override in particular is a documented
+      prompt-injection vector, but the mere presence of a stray ESC is
+      more likely a copy/paste accident. The claim text says so.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        for m in _CONTROL_CHARS.finditer(data):
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(m.start(), m.end()),
+                raw_bytes=m.group(0), producer=prod,
+            )
+            cat = "bidi_override" if m.group(0).startswith(b"\xe2") else "control_char"
+            subject = {
+                "artifactPath": f.normalizedPath,
+                "controlCategory": cat,
+            }
+            out.append(RuleHit(evidences=[ev], subject=subject))
+    return out
+
+
+# --- P6: empty / whitespace-only prompt --------------------------------
+
+_WS_ONLY = re.compile(rb"\A\s*\Z")
+
+
+def prompt_empty_or_whitespace(ctx: RuleContext) -> List[RuleHit]:
+    """Flag prompts whose content is empty or entirely whitespace.
+
+    Intake budget/NUL rejection is handled in intake.py. This rule catches
+    prompts that are technically valid ingestion inputs but functionally
+    useless. Severity MEDIUM.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        if _WS_ONLY.match(data):
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(0, len(data)),
+                raw_bytes=data, producer=prod,
+            )
+            subject = {
+                "artifactPath": f.normalizedPath,
+                "emptyCategory": "empty_or_whitespace",
+            }
+            out.append(RuleHit(evidences=[ev], subject=subject))
+    return out
+
+
+# --- P7: open-ended tool authorisation wildcard (system-only) ----------
+
+# Strict-form matches only. Free-text "you may use any tool you like" is
+# NOT matched by design — that would need semantics we do not have.
+_TOOL_WILDCARD = re.compile(
+    rb"(?m)^[ \t]*(?:"
+    rb"allowed_tools[ \t]*[:=][ \t]*\*"                              # allowed_tools: *
+    rb"|permissions[ \t]*[:=][ \t]*\[[ \t]*(?:\"\*\"|'\*')[ \t]*\]"  # permissions: ["*"]
+    rb"|tools[ \t]*[:=][ \t]*\[[ \t]*(?:\"\*\"|'\*')[ \t]*\]"
+    rb")[ \t]*$"
+)
+
+
+def prompt_open_ended_tool_wildcard(ctx: RuleContext) -> List[RuleHit]:
+    """Detect wildcard tool authorisation in a strictly structured line.
+
+    Boundaries:
+    - Only these exact forms; anything more flexible would require a real
+      config parser (deferred to Skill Manifest work in Phase 3).
+    - Severity HIGH: an unrestricted tool grant in a system prompt is a
+      severe least-privilege violation regardless of downstream context.
+    - System-prompt only (applicability gate).
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        for m in _TOOL_WILDCARD.finditer(data):
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(m.start(), m.end()),
+                raw_bytes=m.group(0), producer=prod,
+            )
+            subject = {
+                "artifactPath": f.normalizedPath,
+                "wildcardCategory": "tool_wildcard",
+            }
+            out.append(RuleHit(evidences=[ev], subject=subject))
     return out
 
 
 DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.jailbreak_marker.v1": prompt_jailbreak_marker,
+    "impl.prompt.unfilled_placeholder.v1": prompt_unfilled_placeholder,
+    "impl.prompt.system_hardcoded_secret.v1": prompt_system_hardcoded_secret,
+    "impl.prompt.duplicate_numeric_assignment.v1": prompt_duplicate_numeric_assignment,
+    "impl.prompt.control_character.v1": prompt_control_character,
+    "impl.prompt.empty_or_whitespace.v1": prompt_empty_or_whitespace,
+    "impl.prompt.open_ended_tool_wildcard.v1": prompt_open_ended_tool_wildcard,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
 }

@@ -1,0 +1,5 @@
+You are a helpful assistant. Summarise the following article in three short bullets.
+Keep the tone neutral. Do not fabricate facts.
+
+Article:
+The Verity project is a static auditor for prompts and skills.

@@ -30,7 +30,7 @@ from .canonical import (
     sha256_hex,
     domain_tag,
 )
-from .models import ArtifactFile, ArtifactSnapshot
+from .models import ArtifactFile, ArtifactSnapshot, PROMPT_KINDS
 
 
 @dataclass(frozen=True)
@@ -70,12 +70,32 @@ def _file_content_digest(data: bytes) -> str:
     return sha256_hex(domain_tag("file-content"), data)
 
 
+# Intake-level rejections (§17: intake reject != Finding). Values must be
+# distinguishable from Finding reason codes so downstream can tell them apart.
+MAX_PROMPT_BYTES = 256 * 1024   # 256 KiB is a reasonable hard cap; anything
+                                # bigger is almost certainly not an ordinary
+                                # prompt and should be handled as a Skill or
+                                # rejected outright at intake.
+
+
 def intake_text(text: str, *, artifact_id: Optional[str] = None,
-                virtual_filename: str = "prompt.txt") -> tuple[ArtifactSnapshot, dict[str, bytes]]:
-    """Ingest plain text (a Prompt / System Prompt)."""
+                virtual_filename: str = "prompt.txt",
+                prompt_kind: str = "user_prompt") -> tuple[ArtifactSnapshot, dict[str, bytes]]:
+    """Ingest plain text (a Prompt / System Prompt).
+
+    ``prompt_kind`` must be one of the controlled enum values in
+    ``models.PROMPT_KINDS``.  It is preserved on the Snapshot so that
+    system-only rules do not run against ordinary user prompts.
+    """
     if not isinstance(text, str):
         raise IntakeError("text must be str")
+    if prompt_kind not in PROMPT_KINDS:
+        raise IntakeError(f"unknown prompt_kind: {prompt_kind!r}; expected one of {PROMPT_KINDS}")
     data = text.encode("utf-8")
+    if len(data) > MAX_PROMPT_BYTES:
+        raise IntakeError(f"prompt text exceeds intake budget ({len(data)} > {MAX_PROMPT_BYTES} bytes)")
+    if b"\x00" in data:
+        raise IntakeError("prompt text contains NUL byte (rejected at intake)")
     digest = _file_content_digest(data)
     # Content-addressed fileId so identical content across independent runs
     # yields identical locations (spec §5.1 stable occurrenceFingerprint).
@@ -98,6 +118,7 @@ def intake_text(text: str, *, artifact_id: Optional[str] = None,
         snapshotManifestDigest=smd,
         contentRootDigest=crd,
         files=[af],
+        promptKind=prompt_kind,  # type: ignore[arg-type]
     )
     return snap, {af.fileId: data}
 

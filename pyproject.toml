@@ -7,16 +7,18 @@ name = "verity"
 version = "0.0.1"
 description = "Verity — Prompt & Skill Auditor (Phase 0 + Walking Skeleton, read-only V1)"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.14"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Verity" }]
+authors = [{ name = "The Verity Authors" }]
+# Runtime deps: full pin is in requirements.lock; the range below is the
+# supported install window (identical minimum vs. lockfile major).
 dependencies = [
-  "jsonschema>=4.20",
+  "jsonschema>=4.20,<5",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "pytest>=7",
+  "pytest>=7,<9",
 ]
 
 [project.scripts]

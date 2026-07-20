@@ -69,6 +69,14 @@ class RuleDefinition:
     fixtureIds: List[str] = field(default_factory=list)
     builtIn: bool = True
     ruleConfigDigest: str = "builtin"
+    # Prompt-engine gate: which prompt kinds this rule applies to. Empty
+    # means "any prompt kind". Skill-engine rules must leave this empty.
+    applicablePromptKinds: List[str] = field(default_factory=list)
+    # Number of Evidence records this rule produces per Finding. Most rules
+    # produce exactly one Evidence per Finding; conflict-style rules like
+    # duplicate-key can produce N>1. Not enforced structurally at register
+    # time — rule impls are responsible for building consistent Evidence.
+    evidencePerFinding: int = 1
 
 
 class RegistryError(Exception):

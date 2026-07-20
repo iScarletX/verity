@@ -68,6 +68,12 @@ CORE_SCHEMA: dict = {
                 "digestAlgorithm": {"const": "sha256"},
                 "canonicalizationVersion": {"type": "string"},
                 "files": {"type": "array", "items": {"$ref": "#/$defs/artifactFile"}},
+                "promptKind": {
+                    "oneOf": [
+                        {"type": "null"},
+                        {"enum": ["user_prompt", "system_prompt"]}
+                    ]
+                },
             },
             "additionalProperties": False,
         },

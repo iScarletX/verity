@@ -23,6 +23,10 @@ from . import LOCATION_SCHEMA_VERSION
 Severity = Literal["low", "medium", "high", "critical"]
 Engine = Literal["prompt", "skill"]
 
+# Controlled prompt-kind enum. Not free text.
+PromptKind = Literal["user_prompt", "system_prompt"]
+PROMPT_KINDS: tuple = ("user_prompt", "system_prompt")
+
 
 @dataclass(frozen=True)
 class Location:
@@ -162,6 +166,8 @@ class ArtifactSnapshot:
     files: List[ArtifactFile]
     digestAlgorithm: str = "sha256"
     canonicalizationVersion: str = "1"
+    # Prompt-engine only; None for skill engine.
+    promptKind: Optional[PromptKind] = None
 
 
 # --- Plan / Coverage ----------------------------------------------------

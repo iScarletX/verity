@@ -35,7 +35,7 @@ def _cmd_review(args: argparse.Namespace) -> int:
         else:
             print("prompt engine requires --text or --input-file", file=sys.stderr)
             return 2
-        snap, byts = intake_text(text)
+        snap, byts = intake_text(text, prompt_kind=args.prompt_kind)
     else:
         if not args.input_dir:
             print("skill engine requires --input-dir", file=sys.stderr)
@@ -78,6 +78,9 @@ def main(argv=None) -> int:
 
     pr = sub.add_parser("review", help="Run a Phase 0 read-only review")
     pr.add_argument("--engine", choices=["prompt", "skill"], required=True)
+    pr.add_argument("--prompt-kind", choices=["user_prompt", "system_prompt"],
+                    default="user_prompt",
+                    help="For --engine prompt: controlled prompt-kind enum.")
     pr.add_argument("--text")
     pr.add_argument("--input-file")
     pr.add_argument("--input-dir")

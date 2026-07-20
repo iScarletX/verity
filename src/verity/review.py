@@ -57,9 +57,12 @@ def run_review(ri: ReviewInputs) -> Review:
     # Coverage: check every required, critical plan item has completed status.
     reason_codes: List[str] = []
     critical_gaps: List[str] = []
-    completed_ids = {e.planItemId for e in executions if e.status == "completed"}
+    # §9.2: `completed` OR `not_applicable` (with declared gate reason) both
+    # satisfy the plan; `failed` / `blocked_by_upstream_failure` do not.
+    ok_statuses = {"completed", "not_applicable"}
+    ok_ids = {e.planItemId for e in executions if e.status in ok_statuses}
     for pi in plan_items:
-        if pi.planItemId not in completed_ids:
+        if pi.planItemId not in ok_ids:
             if pi.gatingClass == "critical":
                 critical_gaps.append(pi.planItemId)
                 reason_codes.append(f"critical_plan_item_not_completed:{pi.planItemId}")
