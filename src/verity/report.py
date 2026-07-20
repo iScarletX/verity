@@ -19,7 +19,7 @@ from .models import Review
 
 
 def review_to_dict(review: Review) -> Dict[str, Any]:
-    return {
+    d = {
         "reviewId": review.reviewId,
         "engine": review.engine,
         "snapshot": asdict(review.artifactSnapshot),
@@ -31,6 +31,22 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
         "findings": [asdict(f) for f in review.findings],
         "verdict": compute_verdict(review),
     }
+    if review.artifactModel:
+        # Do not leak raw YAML — only compact fields needed for the report.
+        am = review.artifactModel
+        d["artifactModel"] = {
+            "hasSkillMd": am.get("hasSkillMd"),
+            "manifestFile": am.get("manifestFile"),
+            "manifest": am.get("manifest"),
+            "parserDiagnostics": am.get("parserDiagnostics") or [],
+        }
+    if review.engine == "skill":
+        from .builtins import build_finding_type_registry, build_skill_rule_registry
+        from .owasp import coverage_matrix
+        ftr = build_finding_type_registry()
+        rr = build_skill_rule_registry(ftr)
+        d["owaspCoverage"] = coverage_matrix(rr.all())
+    return d
 
 
 def compute_verdict(review: Review) -> Dict[str, Any]:
@@ -92,6 +108,12 @@ def to_html(review: Review) -> str:
     executions = d["executions"]
 
     banner_kind = "warn"
+    # If the Skill manifest parser failed, mark coverage-insufficient in
+    # the banner explicitly — even if all other rules ran.
+    parser_failed = any(
+        e["status"] == "failed" and e["planItemId"] == "pi-parser-manifest"
+        for e in d["executions"]
+    )
     if verdict["coverage"] != "sufficient":
         banner_msg = "COVERAGE INSUFFICIENT — uncovered checks are NOT the same as no findings."
         banner_kind = "warn"
@@ -164,6 +186,47 @@ def to_html(review: Review) -> str:
     reason_codes = coverage.get("reasonCodes") or []
     critical_gaps = coverage.get("criticalGapPlanItemIds") or []
 
+    parser_diags = (d.get("artifactModel") or {}).get("parserDiagnostics") or []
+    owasp = d.get("owaspCoverage") or {}
+
+    def _parser_rows() -> str:
+        if not parser_diags:
+            return "<tr><td colspan='2'><em>No parser diagnostics.</em></td></tr>"
+        return "".join(
+            f"<tr><td><code>{html.escape(x['code'])}</code></td>"
+            f"<td>{html.escape(x['message'])}</td></tr>"
+            for x in parser_diags
+        )
+
+    def _owasp_rows() -> str:
+        if not owasp:
+            return ""
+        parts = ["<tr><th>Category</th><th>Title</th><th>Coverage</th><th>Rules</th></tr>"]
+        for code, info in owasp.items():
+            parts.append(
+                "<tr>"
+                f"<td>{html.escape(code)}</td>"
+                f"<td>{html.escape(info['title'])}</td>"
+                f"<td>{html.escape(info['status'])}</td>"
+                f"<td>{html.escape(', '.join(info['rules']) or '(none)')}</td>"
+                "</tr>"
+            )
+        return "".join(parts)
+
+    owasp_block = (
+        f"\n<h2>OWASP AST10 coverage</h2>"
+        f"<p class='muted'>Only categories with declared deterministic rules "
+        f"are shown as <code>partial</code>; the rest are honest "
+        f"<code>none</code>. Verity never claims full coverage of any "
+        f"OWASP category.</p>"
+        f"<table>{_owasp_rows()}</table>"
+    ) if owasp else ""
+
+    parser_block = (
+        f"\n<h2>Manifest parser</h2>"
+        f"<table><tr><th>Code</th><th>Message</th></tr>{_parser_rows()}</table>"
+    ) if d.get("engine") == "skill" else ""
+
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -212,6 +275,8 @@ def to_html(review: Review) -> str:
 
 <h2>Reason codes (verdict)</h2>
 <code>{html.escape(json.dumps(verdict['reasonCodes']))}</code>
+{parser_block}
+{owasp_block}
 
 </body></html>
 """

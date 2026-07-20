@@ -11,6 +11,7 @@ been checked to be compatible with Apache-2.0 distribution.
 | Package | Version | License | Source |
 |---|---|---|---|
 | jsonschema | 4.25.1 | MIT | https://github.com/python-jsonschema/jsonschema |
+| PyYAML | 6.0.3 | MIT | https://github.com/yaml/pyyaml |
 | jsonschema-specifications | 2025.9.1 | MIT | https://github.com/python-jsonschema/jsonschema-specifications |
 | referencing | 0.36.2 | MIT | https://github.com/python-jsonschema/referencing |
 | rpds-py | 0.27.1 | MIT | https://github.com/crate-py/rpds |

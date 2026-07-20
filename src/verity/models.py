@@ -229,6 +229,8 @@ class Review:
     evidences: List[EvidenceRecord]
     ruleMatches: List[RuleMatchEvent]
     findings: List[Finding]
+    # Optional ArtifactModel produced by the engine's Parser (Skill engine).
+    artifactModel: Optional[Dict[str, Any]] = None
 
 
 # --- Baseline ----------------------------------------------------------

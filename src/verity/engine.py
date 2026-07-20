@@ -65,6 +65,11 @@ class RuleContext:
     file_bytes: Dict[str, bytes]
     execution_id: str
     rule: RuleDefinition
+    # Optional artifact model produced by an upstream Parser (Skill engine).
+    # ``parser_ok`` is False when the parser failed — rules that declare a
+    # dependency on the manifest via ``rule.requiresManifest`` will not run.
+    artifact_model: Dict = None  # type: ignore[assignment]
+    parser_ok: bool = True
 
 
 class Engine:
@@ -74,21 +79,77 @@ class Engine:
 
     def __init__(self, name: str, rule_registry: RuleRegistry,
                  finding_types: FindingTypeRegistry,
-                 implementations: Dict[str, RuleImpl]) -> None:
+                 implementations: Dict[str, RuleImpl],
+                 parser=None) -> None:
         assert name in ("prompt", "skill")
         self.name = name
         self.rules = rule_registry
         self.finding_types = finding_types
         self.impls = implementations
+        # Optional Parser callable: (snapshot, file_bytes) -> (model, parser_run)
+        self.parser = parser
 
     def run(self, snapshot: ArtifactSnapshot, file_bytes: Dict[str, bytes]
             ) -> Tuple[List[EvidenceRecord], List[RuleMatchEvent], List[Finding],
-                       List[AnalysisPlanItem], List[ExecutionRecord]]:
+                       List[AnalysisPlanItem], List[ExecutionRecord], Dict]:
         evidences: List[EvidenceRecord] = []
         events: List[RuleMatchEvent] = []
         findings: List[Finding] = []
         plan_items: List[AnalysisPlanItem] = []
         executions: List[ExecutionRecord] = []
+
+        # Parser step (Skill engine). Runs BEFORE rules and is a first-class
+        # AnalysisPlanItem so that its failure is reflected in Coverage.
+        artifact_model: Dict = {"hasSkillMd": False, "manifest": None,
+                                 "manifestFile": None, "manifestRaw": None,
+                                 "manifestByteRange": None}
+        parser_ok = True
+        parser_diagnostics = []
+        if self.parser is not None:
+            parser_plan = AnalysisPlanItem(
+                planItemId="pi-parser-manifest",
+                componentKind="parser",
+                componentId="verity.skill.manifest.v1",
+                componentVersion="1.0.0",
+                scope=[snapshot.snapshotId],
+                requirement="required",
+                gatingClass="critical",
+            )
+            plan_items.append(parser_plan)
+            exec_id = f"e-{uuid.uuid4().hex[:12]}"
+            try:
+                artifact_model, parser_run = self.parser(snapshot, file_bytes)
+            except Exception as e:  # pragma: no cover
+                parser_ok = False
+                executions.append(ExecutionRecord(
+                    executionId=exec_id, planItemId=parser_plan.planItemId,
+                    status="failed", reasonCode=f"parser_error:{type(e).__name__}",
+                ))
+            else:
+                parser_diagnostics = list(parser_run.diagnostics)
+                # Attach diagnostics EARLY so rules can inspect them.
+                artifact_model["parserDiagnostics"] = [
+                    {"code": d.code, "message": d.message}
+                    for d in parser_diagnostics
+                ]
+                if parser_run.status in ("completed", "partial"):
+                    executions.append(ExecutionRecord(
+                        executionId=exec_id, planItemId=parser_plan.planItemId,
+                        status="completed" if parser_run.status == "completed" else "partial",
+                        coveredScopes=[snapshot.snapshotId],
+                    ))
+                    # "partial" is OK when the parser produced a usable
+                    # manifest view (e.g. Markdown without frontmatter
+                    # -> empty mapping). Rules will then flag missing
+                    # fields on their own terms.
+                    parser_ok = artifact_model.get("manifest") is not None
+                else:
+                    parser_ok = False
+                    reason = ";".join(d.code for d in parser_diagnostics) or "parser_failed"
+                    executions.append(ExecutionRecord(
+                        executionId=exec_id, planItemId=parser_plan.planItemId,
+                        status="failed", reasonCode=f"parser:{reason}",
+                    ))
         # Deterministic ordering by ruleId
         for rule in sorted(self.rules.by_engine(self.name), key=lambda r: (r.ruleId, r.ruleVersion)):
             impl = self.impls.get(rule.implementationId)
@@ -123,8 +184,21 @@ class Engine:
                     status="failed", reasonCode="implementation_missing",
                 ))
                 continue
+
+            # §9.2 blocked_by_upstream_failure: rules that require manifest
+            # must not silently produce zero findings when the parser failed.
+            requires_manifest = getattr(rule, "requiresManifest", False)
+            if requires_manifest and not parser_ok:
+                executions.append(ExecutionRecord(
+                    executionId=exec_id, planItemId=plan_item.planItemId,
+                    status="blocked_by_upstream_failure",
+                    reasonCode="manifest_parser_failed",
+                ))
+                continue
+
             ctx = RuleContext(snapshot=snapshot, file_bytes=file_bytes,
-                              execution_id=exec_id, rule=rule)
+                              execution_id=exec_id, rule=rule,
+                              artifact_model=artifact_model, parser_ok=parser_ok)
             try:
                 results = impl(ctx)
             except Exception as e:  # pragma: no cover — safety net
@@ -203,7 +277,11 @@ class Engine:
                 executionId=exec_id, planItemId=plan_item.planItemId,
                 status="completed", coveredScopes=[snapshot.snapshotId],
             ))
-        return evidences, events, findings, plan_items, executions
+        # Ensure parser diagnostics are always present in the returned model.
+        artifact_model.setdefault("parserDiagnostics", [
+            {"code": d.code, "message": d.message} for d in parser_diagnostics
+        ])
+        return evidences, events, findings, plan_items, executions, artifact_model
 
 
 # --- Convenience helpers for rule implementations ------------------------
@@ -689,6 +767,10 @@ def prompt_open_ended_tool_wildcard(ctx: RuleContext) -> List[RuleHit]:
     return out
 
 
+# Skill rules live in a separate module so this file stays focused on the
+# engine mechanics and legacy examples.
+from . import skill_rules as _sr  # noqa: E402
+
 DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.jailbreak_marker.v1": prompt_jailbreak_marker,
     "impl.prompt.unfilled_placeholder.v1": prompt_unfilled_placeholder,
@@ -699,4 +781,15 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.open_ended_tool_wildcard.v1": prompt_open_ended_tool_wildcard,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
+    "impl.skill.missing_skill_md.v1": _sr.skill_missing_skill_md,
+    "impl.skill.manifest_parse_failure.v1": _sr.skill_manifest_invalid,
+    "impl.skill.manifest_name_issue.v1": _sr.skill_manifest_name_issue,
+    "impl.skill.manifest_description_missing.v1": _sr.skill_manifest_description_missing,
+    "impl.skill.manifest_missing_reference.v1": _sr.skill_manifest_missing_reference,
+    "impl.skill.manifest_unsafe_reference_path.v1": _sr.skill_manifest_unsafe_reference_path,
+    "impl.skill.manifest_unpinned_dependency.v1": _sr.skill_manifest_unpinned_dependency,
+    "impl.skill.manifest_permission_wildcard.v1": _sr.skill_manifest_permission_wildcard,
+    "impl.skill.manifest_external_instructions.v1": _sr.skill_manifest_external_instructions,
+    "impl.skill.manifest_script_suffix_mismatch.v1": _sr.skill_manifest_script_suffix_mismatch,
+    "impl.skill.python_subprocess_shell_true.v1": _sr.skill_python_subprocess_shell_true,
 }

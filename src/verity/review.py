@@ -32,18 +32,21 @@ class ReviewInputs:
 
 def _build_engine(name: str) -> Engine:
     ftr = build_finding_type_registry()
+    parser = None
     if name == "prompt":
         rr = build_prompt_rule_registry(ftr)
     elif name == "skill":
         rr = build_skill_rule_registry(ftr)
+        from .parser import parse_skill
+        parser = parse_skill
     else:
         raise ValueError(f"unknown engine: {name}")
-    return Engine(name, rr, ftr, DEFAULT_IMPLEMENTATIONS)
+    return Engine(name, rr, ftr, DEFAULT_IMPLEMENTATIONS, parser=parser)
 
 
 def run_review(ri: ReviewInputs) -> Review:
     engine = _build_engine(ri.engine)
-    evidences, events, findings, plan_items, executions = engine.run(
+    evidences, events, findings, plan_items, executions, artifact_model = engine.run(
         ri.snapshot, ri.file_bytes
     )
     review_id = f"r-{uuid.uuid4().hex[:12]}"
@@ -87,4 +90,5 @@ def run_review(ri: ReviewInputs) -> Review:
         evidences=evidences,
         ruleMatches=events,
         findings=findings,
+        artifactModel=artifact_model,
     )

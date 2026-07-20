@@ -72,6 +72,13 @@ class RuleDefinition:
     # Prompt-engine gate: which prompt kinds this rule applies to. Empty
     # means "any prompt kind". Skill-engine rules must leave this empty.
     applicablePromptKinds: List[str] = field(default_factory=list)
+    # When True, the rule reads ``ctx.artifact_model.manifest`` and must be
+    # gated by the manifest parser: on parser failure the rule is recorded as
+    # ``blocked_by_upstream_failure`` (§9.2), never silently absent.
+    requiresManifest: bool = False
+    # Controlled OWASP AST10 mapping (empty means no declared mapping).
+    # Values must be one of the constants in owasp.OWASP_AST10.
+    owaspAst10: List[str] = field(default_factory=list)
     # Number of Evidence records this rule produces per Finding. Most rules
     # produce exactly one Evidence per Finding; conflict-style rules like
     # duplicate-key can produce N>1. Not enforced structurally at register

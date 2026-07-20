@@ -101,6 +101,118 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         requiredEvidenceKinds=["source_span"],
     ))
     # --- Skill engine ---------------------------------------------------
+    # Manifest / metadata findings
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.manifest_issue",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("manifestIssueCategory", "literal_enum",
+                         allowedValues=["missing_skill_md"]),
+        ],
+        subjectKeyFields=["artifactPath", "manifestIssueCategory"],
+        defaultSeverity="high",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.manifest_parse_failure",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("parseErrorCode", "literal_enum", allowedValues=[
+                "frontmatter_not_closed", "yaml_parse_error",
+                "yaml_root_not_mapping", "yaml_too_deep",
+                "yaml_too_many_keys", "frontmatter_over_budget",
+                "frontmatter_too_many_lines",
+                "frontmatter_alias_bomb_suspected",
+                "yaml_unexpected_error",
+            ]),
+        ],
+        subjectKeyFields=["artifactPath", "parseErrorCode"],
+        defaultSeverity="high",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.manifest_field_issue",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("fieldName", "literal_enum",
+                         allowedValues=["name", "description"]),
+            SubjectField("fieldIssue", "literal_enum",
+                         allowedValues=["missing", "blank", "invalid_syntax"]),
+        ],
+        subjectKeyFields=["artifactPath", "fieldName", "fieldIssue"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.manifest_reference_issue",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("referencePath", "evidence_field", "reference.path"),
+            SubjectField("referenceIssue", "literal_enum", allowedValues=[
+                "not_found", "absolute_path", "path_escape",
+                "backslash_path", "suffix_mismatch",
+            ]),
+            SubjectField("declaredPath", "evidence_field", "reference.declared_path"),
+            SubjectField("foundPath", "evidence_field", "reference.found_path"),
+        ],
+        subjectKeyFields=["artifactPath", "referencePath", "referenceIssue"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.manifest_dependency_issue",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("dependencyName", "evidence_field", "dependency.name"),
+            SubjectField("dependencyIssue", "literal_enum",
+                         allowedValues=["unpinned"]),
+        ],
+        subjectKeyFields=["artifactPath", "dependencyName", "dependencyIssue"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.manifest_permission_wildcard",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("permissionValue", "evidence_field", "permission.value"),
+            SubjectField("permissionIssue", "literal_enum",
+                         allowedValues=["wildcard_or_root"]),
+        ],
+        subjectKeyFields=["artifactPath", "permissionValue", "permissionIssue"],
+        defaultSeverity="high",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.manifest_external_instructions",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("externalInstructionUrl", "evidence_field",
+                         "external_instructions.url"),
+        ],
+        subjectKeyFields=["artifactPath", "externalInstructionUrl"],
+        defaultSeverity="high",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.python_subprocess_shell_true",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("callee", "evidence_field", "call.callee"),
+        ],
+        subjectKeyFields=["artifactPath", "callee"],
+        defaultSeverity="high",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    # existing file-level rules from round 1 remain below --------------
     ftr.register(FindingTypeDefinition(
         findingType="skill.fake_secret_fixture",
         engine="skill",
@@ -241,6 +353,136 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
 
 def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
     rr = RuleRegistry(ftr)
+    # S1
+    rr.register(RuleDefinition(
+        ruleId="skill.missing_skill_md",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title="Artifact is missing SKILL.md — no machine-readable manifest to review.",
+        findingType="skill.manifest_issue",
+        implementationId="impl.skill.missing_skill_md.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="high", controlIds=["OWASP-AST04"],
+        owaspAst10=["OWASP-AST04"],
+    ))
+    # S2
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_parse_failure",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title="SKILL.md frontmatter failed to parse or exceeded a safety budget.",
+        findingType="skill.manifest_parse_failure",
+        implementationId="impl.skill.manifest_parse_failure.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="high", controlIds=["OWASP-AST04"],
+        owaspAst10=["OWASP-AST04"],
+    ))
+    # S3 name
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_name_issue",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title="Manifest `name` is missing, blank, or has invalid syntax.",
+        findingType="skill.manifest_field_issue",
+        implementationId="impl.skill.manifest_name_issue.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["OWASP-AST04"],
+        owaspAst10=["OWASP-AST04"], requiresManifest=True,
+    ))
+    # S4 description
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_description_missing",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title="Manifest `description` is missing or blank.",
+        findingType="skill.manifest_field_issue",
+        implementationId="impl.skill.manifest_description_missing.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["OWASP-AST04"],
+        owaspAst10=["OWASP-AST04"], requiresManifest=True,
+    ))
+    # S5 missing reference
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_missing_reference",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("Manifest references a local file that is not present in the "
+               "artifact snapshot."),
+        findingType="skill.manifest_reference_issue",
+        implementationId="impl.skill.manifest_missing_reference.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["OWASP-AST04"],
+        owaspAst10=["OWASP-AST04"], requiresManifest=True,
+    ))
+    # S6 unsafe reference path
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_unsafe_reference_path",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("Manifest reference uses an absolute path, `..` escape, or a "
+               "back-slash separator."),
+        findingType="skill.manifest_reference_issue",
+        implementationId="impl.skill.manifest_unsafe_reference_path.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="high", controlIds=["OWASP-AST04"],
+        owaspAst10=["OWASP-AST04"], requiresManifest=True,
+    ))
+    # S7 unpinned dependencies
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_unpinned_dependency",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("Manifest dependency version is not pinned to a specific "
+               "release (e.g. floating range, `latest`, `*`, missing)."),
+        findingType="skill.manifest_dependency_issue",
+        implementationId="impl.skill.manifest_unpinned_dependency.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["OWASP-AST02"],
+        owaspAst10=["OWASP-AST02", "OWASP-AST07"], requiresManifest=True,
+    ))
+    # S8 permission wildcard
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_permission_wildcard",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("Manifest permission grants an open-ended wildcard or root "
+               "path (e.g. '*', '/', '**')."),
+        findingType="skill.manifest_permission_wildcard",
+        implementationId="impl.skill.manifest_permission_wildcard.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="high", controlIds=["OWASP-AST03"],
+        owaspAst10=["OWASP-AST03"], requiresManifest=True,
+    ))
+    # S9 external instructions
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_external_instructions",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("Manifest declares an external URL as a runtime instruction "
+               "source (fetch_and_follow / runtime_fetch mode)."),
+        findingType="skill.manifest_external_instructions",
+        implementationId="impl.skill.manifest_external_instructions.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="high", controlIds=["OWASP-AST05"],
+        owaspAst10=["OWASP-AST05"], requiresManifest=True,
+    ))
+    # S10 suffix mismatch
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_script_suffix_mismatch",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("Manifest declares a script path whose suffix does not match "
+               "the actual file present in the artifact."),
+        findingType="skill.manifest_reference_issue",
+        implementationId="impl.skill.manifest_script_suffix_mismatch.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["OWASP-AST04"],
+        owaspAst10=["OWASP-AST04"], requiresManifest=True,
+    ))
+    # S11 subprocess shell=True
+    rr.register(RuleDefinition(
+        ruleId="skill.python_subprocess_shell_true",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("Python source contains a subprocess.* call with shell=True. "
+               "This is a mechanically detected dangerous pattern; the code "
+               "is NOT executed by Verity."),
+        findingType="skill.python_subprocess_shell_true",
+        implementationId="impl.skill.python_subprocess_shell_true.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="high", controlIds=["OWASP-AST01"],
+        owaspAst10=["OWASP-AST01"],
+    ))
+    # legacy file-level rules -----------------------------------------
     rr.register(RuleDefinition(
         ruleId="skill.fake_secret_fixture",
         ruleVersion="1.0.0",
@@ -252,7 +494,8 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         applicableKinds=["skill"],
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="high",
-        controlIds=["OWASP-AST-03"],
+        controlIds=["OWASP-AST02"],
+        owaspAst10=["OWASP-AST02"],
     ))
     rr.register(RuleDefinition(
         ruleId="skill.dangerous_shell_pattern",
@@ -265,6 +508,7 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         applicableKinds=["skill"],
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="high",
-        controlIds=["OWASP-AST-01"],
+        controlIds=["OWASP-AST01"],
+        owaspAst10=["OWASP-AST01"],
     ))
     return rr

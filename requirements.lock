@@ -4,6 +4,7 @@
 #
 # Direct runtime deps (declared in pyproject.toml):
 jsonschema==4.25.1
+PyYAML==6.0.3
 # Transitive deps of jsonschema, pinned for reproducibility:
 attrs==26.1.0
 jsonschema-specifications==2025.9.1

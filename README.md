@@ -1,8 +1,8 @@
 # Verity — Prompt & Skill Auditor
 
 > Phase 0 core contracts + a first pass of high-confidence deterministic
-> Prompt rules. Read-only static V1. **Not** a sandbox, **not** a runtime
-> evaluator.
+> Prompt and Skill rules. Read-only static V1. **Not** a sandbox, **not**
+> a runtime evaluator.
 
 ## Product roadmap (must not be lost)
 
@@ -10,7 +10,7 @@ Verity is planned as a three-layer audit tool:
 
 | Version | Layer | Status |
 |---|---|---|
-| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Phase 0 + walking skeleton + first prompt rules implemented** |
+| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Phase 0 + walking skeleton + Prompt rules + first-pass Skill Auditor implemented** |
 | **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) | **Not implemented.** Later phase. |
 | **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill under audit | **Not implemented.** Later phase. |
 
@@ -51,6 +51,9 @@ report infrastructure but have separate rule registries. See
 - `engine.py` — Rule execution + deterministic Finding pipeline (§7.4). Rules return `RuleHit(evidences=[...], subject=...)`; multi-evidence findings (e.g. duplicate assignment) are first-class.
 - `validation_policy.py` — Validator containment contract (§7.2, §7.3)
 - `builtins.py` — Built-in FindingTypes and Rules
+- `parser.py` — Safe SKILL.md / YAML frontmatter parser with resource budgets (safe_load only)
+- `skill_rules.py` — Skill Auditor rule implementations
+- `owasp.py` — OWASP AST10 taxonomy + honest coverage matrix
 - `intake.py` — Safe intake (text + local directory) with path escape / symlink / budget / NUL guards
 - `review.py` — Orchestrator; `not_applicable` gate counts as OK for coverage.
 - `baseline.py` — Baseline compare, coverage-aware (§10.2)
@@ -83,7 +86,49 @@ PYTHONPATH=src python3 -m pytest -q
 Both dependency locks are committed and their licenses are documented
 in `THIRD_PARTY_LICENSES.md`. No network calls at runtime.
 
-## Prompt rule inventory (this round)
+## Skill rule inventory (round 3)
+
+All rules are deterministic, text/AST-level, and never execute the skill
+under review. Rules that depend on `SKILL.md` metadata declare
+`requiresManifest=True`; when the manifest parser fails, they are
+recorded as `blocked_by_upstream_failure` in the ReviewPlan, never
+silently absent.
+
+| Rule ID | Severity | OWASP AST | Boundaries |
+|---|---|---|---|
+| `skill.missing_skill_md` | high | AST04 | Anchors the finding at an existing file (or a synthetic root location if the artifact is empty). |
+| `skill.manifest_parse_failure` | high | AST04 | Emits one Finding per parser diagnostic: `frontmatter_not_closed`, `yaml_parse_error`, `yaml_root_not_mapping`, `yaml_too_deep`, `yaml_too_many_keys`, `frontmatter_over_budget`, `frontmatter_too_many_lines`, `frontmatter_alias_bomb_suspected`. |
+| `skill.manifest_name_issue` | medium | AST04 | `missing` / `blank` / `invalid_syntax`. Syntax is `[A-Za-z0-9][A-Za-z0-9._\- ]{0,62}[A-Za-z0-9]`. |
+| `skill.manifest_description_missing` | medium | AST04 | `missing` / `blank`. No subjective "quality" judgement. |
+| `skill.manifest_missing_reference` | medium | AST04 | Local script/file referenced in `scripts`/`files`/`refs`/`entrypoints` does not exist. Suppressed when the suffix-mismatch rule already covers the case. |
+| `skill.manifest_unsafe_reference_path` | high | AST04 | Reference is an absolute path, contains `..`, or uses back-slash separators. |
+| `skill.manifest_unpinned_dependency` | medium | AST02 + AST07 | Only pinned versions like `1.2.3` or `==1.2.3` are accepted; ranges, `latest`, `*`, missing versions are flagged. |
+| `skill.manifest_permission_wildcard` | high | AST03 | Only strict wildcard values in `permissions`/`allowed_tools`/`tools`: `*`, `/`, `**`, `.../*`. |
+| `skill.manifest_external_instructions` | high | AST05 | Only when `external_instructions.mode ∈ {fetch_and_follow, runtime_fetch}`. Documentation-link URLs are NOT flagged. |
+| `skill.manifest_script_suffix_mismatch` | medium | AST04 | Declared script `.py` but only `.js`/`.sh`/etc. present with same stem. |
+| `skill.python_subprocess_shell_true` | high | AST01 | Python AST-level; positional or keyword `shell=True` on any `subprocess.<x>` call. Verity never executes the code. Syntax errors are silently skipped (analyzer diagnostics for these are Phase 3 work). |
+| `skill.fake_secret_fixture` (legacy) | high | AST02 | Synthetic `VERITY_FAKE_SECRET_*` fixture token; redacted preview only. |
+| `skill.dangerous_shell_pattern` (legacy) | high | AST01 | Text-level pattern only; the shell is NOT executed. |
+
+Honest OWASP AST10 status (shown in every skill report as a matrix):
+
+| OWASP | Status | Notes |
+|---|---|---|
+| AST01 malicious code / dangerous runtime | partial | Text patterns + Python AST `shell=True`. No sandbox, no bandit/semgrep integration yet. |
+| AST02 supply chain | partial | Unpinned dependency + synthetic secret. Real secret detection deferred to gitleaks integration. |
+| AST03 excessive authorisation | partial | Permission wildcard only. |
+| AST04 insecure metadata | partial | Missing/blank fields, unsafe reference paths, suffix mismatch, parse failure. |
+| AST05 untrusted external instructions | partial | Strict-mode `fetch_and_follow` URLs only. |
+| AST06 weak isolation | none | Requires V2 sandbox. |
+| AST07 update drift / integrity | partial | Unpinned dep also maps here (versioning drift). |
+| AST08 insufficient scanning | none | Meta-observation, requires product runtime not present in V1. |
+| AST09 lack of governance | none | Requires review workflow features (Baseline, Disposition history in a UI) not built here. |
+| AST10 cross-platform reuse | none | Would require multi-runtime declaration matrix. |
+
+We never claim `full` coverage. The report enumerates only `partial` and
+`none` per category.
+
+## Prompt rule inventory (round 2)
 
 Prompt Auditor and Skill Auditor use **separate** rule registries. The
 prompt registry now contains the following deterministic rules:
@@ -111,7 +156,7 @@ containing the required kind — they are never silently skipped.
 
 ## CLI demos
 
-Three demonstration fixtures live under `tests/fixtures/`:
+### Prompt demos
 
 ```bash
 # 1. Clean user prompt — no findings expected
@@ -130,6 +175,51 @@ python3 -m verity.cli review --engine prompt --prompt-kind system_prompt \
 python3 -m verity.cli export-schema --out /tmp/verity_out/schema.json
 ```
 
+### Skill demos
+
+```bash
+# clean skill: 0 findings, coverage sufficient, exit 0
+python3 -m verity.cli review --engine skill \
+  --input-dir tests/fixtures/clean_skill --out /tmp/verity_out/clean_skill
+
+# malformed manifest: file-level rules still run; manifest-dependent
+# rules are blocked_by_upstream_failure; coverage insufficient; exit 1
+python3 -m verity.cli review --engine skill \
+  --input-dir tests/fixtures/malformed_manifest_skill \
+  --out /tmp/verity_out/malformed_manifest
+
+# missing refs / unsafe paths: precise reference issues
+python3 -m verity.cli review --engine skill \
+  --input-dir tests/fixtures/missing_refs_skill \
+  --out /tmp/verity_out/missing_refs
+
+# risky permissions + unpinned deps
+python3 -m verity.cli review --engine skill \
+  --input-dir tests/fixtures/risky_permissions_skill \
+  --out /tmp/verity_out/risky_perms
+
+# strict external_instructions mode
+python3 -m verity.cli review --engine skill \
+  --input-dir tests/fixtures/external_instructions_skill \
+  --out /tmp/verity_out/external_instructions
+
+# python AST: subprocess.run(..., shell=True)
+python3 -m verity.cli review --engine skill \
+  --input-dir tests/fixtures/python_shell_true_skill \
+  --out /tmp/verity_out/python_shell_true
+```
+
+Recorded exit codes / findings on the checked-in fixtures:
+
+| Fixture | findings | high/critical | coverage | exit |
+|---|---:|---:|---|---:|
+| `clean_skill` | 0 | 0 | sufficient | 0 |
+| `malformed_manifest_skill` | 4 | 2 | insufficient | 1 |
+| `missing_refs_skill` | 3 | 2 | sufficient | 1 |
+| `risky_permissions_skill` | 4 | 2 | sufficient | 1 |
+| `external_instructions_skill` | 1 | 1 | sufficient | 1 |
+| `python_shell_true_skill` | 1 | 1 | sufficient | 1 |
+
 Each command writes `report.json` and `report.html` under the target
 directory. When high/critical findings are present, exit code is 1 so
 future CI integration can use it as a gate. Coverage-insufficient runs
@@ -143,11 +233,22 @@ Runtime (`requirements.lock`):
 | Package | Version | License |
 |---|---|---|
 | jsonschema | 4.25.1 | MIT |
+| PyYAML | 6.0.3 | MIT |
 | jsonschema-specifications | 2025.9.1 | MIT |
 | referencing | 0.36.2 | MIT |
 | rpds-py | 0.27.1 | MIT |
 | attrs | 26.1.0 | MIT |
 | typing_extensions | 4.16.0 | PSF-2.0 |
+
+**Not** integrated in this round (spec constraint: integrate only with
+running tests):
+
+- gitleaks (planned; real secret detection currently uses only the synthetic
+  fixture token)
+- bandit (planned; Python AST subprocess-shell rule is a hand-rolled
+  precise check, no bandit dependency yet)
+- Semgrep (planned)
+- YARA (planned)
 
 Dev/test (`requirements-dev.lock`): pytest 8.4.2 (MIT) and its transitive
 deps; tomli/exceptiongroup only on Python < 3.11.
@@ -167,12 +268,15 @@ apply, etc.).
 ## Known limitations
 
 - No ZIP / GitHub URL intake yet (Phase 2/3 gate).
-- Skill side still text-level only; no AST parser matrix yet.
+- Python AST covers only the one hand-picked dangerous pattern; other
+  languages (Shell/JS/TS/Ruby/Go) are still text-level only.
 - No semantic candidate generation or Validator LLM calls (Phase 4).
 - No PatchSet apply — proposal shape only (Phase 6).
 - No SARIF output yet (Phase 5).
-- Real secret detection still uses only the synthetic fixture token in
-  the walking skeleton. gitleaks integration is planned.
+- Real secret detection still uses only the synthetic fixture token.
+  gitleaks integration is planned but not present.
+- Bandit / Semgrep / YARA not integrated yet; the roadmap in the reuse
+  decision table calls for these in Phase 3, not now.
 
 ## License
 
