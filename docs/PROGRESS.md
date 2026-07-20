@@ -27,8 +27,9 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Next step.** See `plans/ACTIVE.md`. Nothing new should start without an
-explicit user-approved round description.
+**Next step.** Round 11 is complete. `plans/ACTIVE.md` proposes Round 12:
+trusted local review history + coverage-aware Baseline/Diff + append-only
+Disposition/Suppression. It is not approved for implementation yet.
 
 **What ships right now.** Read-only intake (prompt text or local Skill
 folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks
@@ -45,7 +46,7 @@ ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
 
 ## Round history (append-only)
 
-## Round 11 (2026-07-20) → pending commit
+## Round 11 (2026-07-20) → commit `0c582bc`
 - **First controlled real semantic Provider transport**, closing the gap
   between the Round-8 containment scaffold and a usable opt-in L1 path:
     * separate role-bound `JsonCandidateGeneratorProvider` and

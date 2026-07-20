@@ -1,109 +1,83 @@
-# Round 11 — First controlled real semantic Provider
+# No active implementation round — Round 12 proposal pending approval
 
-## Why this is next
+## Current position
 
-Verity's intended product path is not limited to static files. Its
-approved layers are L0 deterministic static review, L1 controlled
-semantic review, V1.5 Prompt black-box evaluation, and V2 isolated
-Skill execution. At the start of this round L0 was usable and the L1
-containment pipeline existed, but no real Provider transport existed,
-so users could not use L1 outside the in-memory test suite.
+Round 11 is complete and archived. Verity now has:
 
-This round closes that specific gap without crossing into black-box
-Prompt execution, Skill execution, or Agent runtime interception.
+- L0 deterministic static Prompt/Skill review;
+- controlled Bandit and gitleaks analyzers;
+- JSON / HTML / SARIF reports and local Web MVP;
+- an experimental L1 semantic pipeline with a bounded real
+  JSON-over-HTTPS Provider transport, default OFF and CLI-configured.
 
-## Goals
+V1.5 Prompt black-box evaluation and V2 Skill sandbox remain explicitly
+`not_implemented`.
 
-- Add the first real HTTPS JSON Provider adapter behind the existing
-  separate Candidate Generator and Validator protocols.
-- Keep the two roles as distinct Provider instances with distinct
-  trusted configuration, even if a user chooses the same remote model.
-- Resolve credentials only from explicitly named environment variables;
-  never serialize or report the value.
-- Enforce trusted endpoint validation, no redirects, bounded request and
-  response sizes, timeouts, strict JSON decoding, and controlled error
-  reason codes.
-- Wire trusted Provider configuration into the CLI without allowing the
-  reviewed artifact to influence endpoint, model, credentials, role,
-  egress policy, or budgets.
-- Preserve the deterministic path byte-for-byte under every Provider
-  failure mode.
-- Correct front-page documentation that still describes already shipped
-  gitleaks / semantic scaffolding as absent.
+## Owner recommendation for Round 12
 
-## Non-goals
+**Close the V1 product loop before starting V1.5:** add trusted review
+history, Baseline/Diff, and explicit Disposition/Suppression behavior.
 
-- Prompt black-box execution (V1.5).
-- Skill execution or sandboxing (V2).
-- Agent runtime step interception; this remains a later product layer
-  built on explicit event/tool gateways.
-- Raw full-artifact egress.
-- Automatic endpoint discovery, artifact-supplied Provider settings,
-  arbitrary headers, redirects, retries, tools/function calling, or
-  streaming responses.
-- Provider-specific SDK dependencies when the Python standard library is
-  sufficient for the bounded JSON transport.
-- Web entry of API keys or arbitrary Provider URLs in this round. The
-  local Web UI may use only trusted process configuration after CLI
-  behavior and tests are proven.
+Why this is the next priority:
 
-## Plan
+- `baseline.py` exists only as a core matcher; it is not exposed as a
+  usable CLI/Web workflow and is not persisted.
+- Users can inspect one review, but cannot reliably answer “what is new,
+  existing, changed, resolved, or unknown because coverage regressed?”
+- Safe Agent adoption later needs exactly this audit-history foundation:
+  append-only review records, coverage-aware comparisons, and explicit
+  human decisions. Runtime interception without trustworthy history would
+  produce events but weak accountability.
+- Starting Prompt black-box now would add another execution axis before
+  the current V1 findings can be governed over time.
 
-1. Add transport-level tests first: HTTPS-only/loopback policy, role
-   separation, environment-only credential resolution, redirect refusal,
-   request/response caps, timeout/network/HTTP/JSON/schema failures, and
-   no secret/path leakage in reports or exceptions.
-2. Implement a small bounded HTTPS JSON Provider adapter using the
-   existing `ProviderCall` / `ProviderResponse` protocols.
-3. Add a trusted configuration loader and CLI flags/env references. Do
-   not place secret values in argparse values, dataclasses, reports, or
-   logs.
-4. Exercise the complete Candidate → Validator → Finding path with a
-   local fake HTTP server in tests; no external network is required by
-   the test suite.
-5. Update README, architecture, progress, and any newly discovered
-   pitfall entry.
+## Proposed goals
 
-## Acceptance
+- Define a trusted local review-history store that is never controlled by
+  the reviewed artifact.
+- Persist only report-safe projections; do not persist raw secrets,
+  Provider payloads, host absolute paths, or RedactionMap.
+- Add coverage-aware Baseline/Diff for the same logical artifact and
+  compatible profile/scope.
+- Surface `new`, `existing`, `changed`, `resolved`, and
+  `unknown_due_to_coverage`; insufficient coverage must never create a
+  false `resolved` result.
+- Add append-only Disposition records for acknowledge / accept risk /
+  suppress / remove suppression, with reason, scope, policy, timestamp,
+  and optional expiry.
+- Keep Baseline matching separate from Suppression: an ambiguous or
+  heuristic match must not silently carry suppression forward.
+- Expose the workflow first through CLI and report JSON; add Web history
+  only if the local storage and security contracts pass acceptance.
 
-- Existing 288 tests remain green and new tests cover behavior that
-  would fail before this round.
-- Default runs perform zero Provider calls.
-- `--semantic` without complete trusted Provider config continues to
-  report `provider_not_configured`; it must not silently downgrade to a
-  static-only success.
-- Candidate Generator and Validator use separate objects/config records.
-- API-key values do not appear in Review inputs, Provider config
-  serialization, stdout/stderr, JSON, HTML, SARIF, or payload audit.
-- Remote redirects are refused. Requests and responses are hard-capped.
-- Invalid JSON, oversized output, HTTP error, timeout, TLS/network error,
-  and schema violation are visible as semantic failures while
-  deterministic Findings remain unchanged.
-- `python3 -m pytest` passes.
-- After the round commit, `python3 tools/verify_repo.py --require-clean`
-  passes and GitHub CI is green.
+## Proposed non-goals
+
+- Prompt black-box execution.
+- Skill execution or sandboxing.
+- Agent runtime interception.
+- Cloud sync, multi-user service, account system, or remote database.
+- Automatic remediation/PatchSet apply.
+- Fuzzy semantic deletion/merging of Findings.
+
+## Proposed acceptance
+
+- Tests demonstrate all five baseline states, including coverage
+  regression producing `unknown_due_to_coverage`, never `resolved`.
+- Artifact-supplied baseline or suppression files cannot hide Findings.
+- Dispositions are append-only, expire according to policy, and never
+  rewrite original Findings.
+- Baseline scope prevents cross-artifact or incompatible-profile matches.
+- Secret/path leak tests cover on-disk history and exported reports.
+- Existing 312 tests remain green; new behavior has end-to-end tests.
+- Full pytest, `verify_repo.py --require-clean`, and GitHub CI pass.
 
 ## Stage gate
 
-This round may contact an external Provider only after an explicit
-`--semantic` opt-in, a non-`off` egress policy, complete trusted config,
-and all egress/schema/budget controls. No reviewed content may configure
-or weaken those controls.
-
-## Risks
-
-- Generic Provider APIs are not perfectly uniform. The first adapter will
-  support one explicitly documented JSON contract instead of pretending
-  every OpenAI-compatible endpoint behaves identically.
-- Redirects can bypass endpoint trust decisions. They are disabled.
-- Error bodies can contain reflected sensitive content. They are not
-  persisted or surfaced verbatim.
-- A real network integration can make tests flaky. Acceptance uses a
-  local deterministic fake server; no public Provider is called in CI.
+This is a proposal only. Do not modify product code for Round 12 until the
+maintainer explicitly approves this scope. If approved, replace this file
+with the full implementation plan before coding or delegation.
 
 ## Status
 
-- Started: 2026-07-20
-- Implementation complete: 2026-07-20
-- Ended: pending commit + GitHub CI
-- Commit(s): pending
+- Proposed: 2026-07-20
+- Approval: pending
