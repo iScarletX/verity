@@ -28,7 +28,46 @@ which live outside this repository and are only referenced.
 - 3 prompt fixtures (clean / broken_user / risky_system)
 - 80 tests
 
-## Round 5b (2026-07-20)  →  this commit
+## Round 6 (2026-07-20)  →  this commit
+- Local Web MVP for non-technical users (`python -m verity.web`):
+    * Starlette 0.41.3 ASGI app + Uvicorn 0.32.1 runner
+    * Loopback-only bind (`127.0.0.1` default; refuses other hosts)
+    * Host/Origin allow-list, CSP `default-src 'none'; script-src 'self'`,
+      `X-Content-Type-Options`, `Referrer-Policy: no-referrer`,
+      `X-Frame-Options: DENY`, `Cache-Control: no-store`
+    * Endpoints: `GET /`, `POST /api/review/prompt`,
+      `POST /api/review/skill`, `GET /api/report/<id>/report.{json,html,sarif}`
+    * Bounded LRU report store (capacity + TTL); random 128-bit review IDs
+    * Every request path terminates in `verity.review.run_review`
+      — no separate execution path, no LLM, no subprocess in the web
+      layer itself; skill execution / sandboxing remain not implemented.
+- Chinese-language web UI (`static/index.html` + `app.css` + `app.js`):
+    * No CDNs, no external fonts, no `unsafe-eval`
+    * All rendering via `textContent` / DOM APIs; no `innerHTML`
+      assignments (architectural test enforces this)
+    * Prompt tab + Skill folder-upload tab; explicit warning when
+      `minimal` profile is selected
+    * Result view maps to the CLI verdict + coverage + gate policy
+- Safe multipart handling:
+    * Path sanitiser mirrors intake rules (no `..`, no absolute path,
+      no backslash, no NUL, no drive-letter, length cap)
+    * Server writes upload into `verity-web-skill-<random>` tmpdir and
+      removes it in a `finally` block
+    * Per-file, per-request and total-size budgets (500 files, 512 KiB
+      each, 8 MiB total, 12 MiB request wrapper)
+- Errors:
+    * JSON envelope `{ error: { code, message } }` for every failure
+    * No stack traces, host paths, or Secret bytes ever reach the client
+- 35 new tests (index/static assets, security headers, Prompt + Skill
+  endpoints, path guards, budgets, tmpdir cleanup, report download
+  including LRU eviction, view-model absolute-path/Secret leak scan,
+  architectural no-subprocess test). Total tests: 177 -> 212.
+- Dependencies added and pinned: starlette 0.41.3, python-multipart
+  0.0.20, anyio 4.12.1, sniffio 1.3.1, uvicorn 0.32.1, click 8.1.8,
+  h11 0.16.0 (all permissive licenses).
+- Test-only additions: httpx 0.28.1 + httpcore 1.0.9 + certifi + idna.
+
+## Round 5b (2026-07-20)  →  commit `cd2209b`
 - One-command project-local install of the official gitleaks 8.28.0
   binary via ``tools/install_gitleaks.py`` (darwin_arm64 verified):
     * archive SHA-256 `d942f3ad147250c9edbaab3fed9e482f98d3b59ba10ae97b8d75647e3ade492c`

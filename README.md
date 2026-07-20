@@ -2,8 +2,8 @@
 
 > Phase 0 core contracts + high-confidence deterministic Prompt/Skill
 > rules + controlled Bandit and gitleaks integration + SARIF 2.1.0
-> export. Read-only static V1. **Not** a sandbox, **not** a runtime
-> evaluator.
+> export + a local Web MVP for non-technical users. Read-only static
+> V1. **Not** a sandbox, **not** a runtime evaluator.
 
 ## Product roadmap (must not be lost)
 
@@ -11,7 +11,7 @@ Verity is planned as a three-layer audit tool:
 
 | Version | Layer | Status |
 |---|---|---|
-| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Phase 0 + walking skeleton + Prompt rules + Skill Auditor + Bandit + SARIF implemented** |
+| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Phase 0 + walking skeleton + Prompt rules + Skill Auditor + Bandit + gitleaks + SARIF + local Web MVP implemented** |
 | **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) | **Not implemented.** Later phase. |
 | **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill under audit | **Not implemented.** Later phase. |
 
@@ -60,12 +60,56 @@ report infrastructure but have separate rule registries. See
 - `gitleaks_runner.py` — Controlled subprocess adapter for gitleaks (MIT, external binary, pinned 8.28.0). No shell, controlled env, JSON-file report, version + optional SHA-256 gate, tmpdir staging, user config confinement, all raw Secret / Match / Line values scrubbed at parse time.
 - `gitleaks_adapter.py` — Redacted gitleaks results -> secret-sensitivity Evidence (§5.1 secret path). `redactedPreview = "[gitleaks:<ruleId>]"`; the raw secret never enters `occurrenceFingerprint`, subjectKey, JSON, HTML, SARIF or exceptions.
 - `sarif.py` — SARIF 2.1.0 exporter with byte-offset regions, stable partialFingerprints, no secret leakage. Coverage and other Verity-specific fields live in the run's properties bag under flat, namespaced keys (`run.properties["verity.coverage"]`, `run.properties["verity.reviewId"]`, `run.properties["verity.verdict.subject"]`, etc.) — not as a nested `run.properties.coverage` object.
+- `web/` — Local Web MVP (Starlette ASGI app). `python -m verity.web` binds `127.0.0.1` only. UI is Chinese-first, no external assets, no `innerHTML`, strict CSP. Every request routes into the same `run_review` pipeline.
 - `intake.py` — Safe intake (text + local directory) with path escape / symlink / budget / NUL guards
 - `review.py` — Orchestrator; `not_applicable` gate counts as OK for coverage.
 - `baseline.py` — Baseline compare, coverage-aware (§10.2)
 - `report.py` — JSON + static HTML report with CSP, HTML escape, per-finding evidence block (dual-evidence traceable)
 - `schema.py` — JSON Schema (Draft 2020-12) for the core objects
 - `cli.py` — CLI entry point
+
+## Web MVP for non-technical users (round 6)
+
+One command starts a local web page:
+
+```bash
+python3 -m verity.web              # binds 127.0.0.1:8765
+python3 -m verity.web --port 9000  # different port
+```
+
+Open `http://127.0.0.1:8765/` in a browser. Two tabs:
+
+- **检查 Prompt**: paste a user or system prompt, choose the type,
+  click “开始审查”.
+- **检查 Agent Skill**: pick a local folder (uses
+  `<input type="file" webkitdirectory>`), pick `standard` (with
+  gitleaks) or `minimal` (no secret scan; the UI explicitly warns).
+
+The result page shows a headline verdict, the coverage banner, finding
+cards with per-finding evidence (relative path + byte range), a list
+of analyzers, the OWASP AST10 matrix, and download links for the
+`report.json`, `report.html`, and `report.sarif` files.
+
+Security properties of the Web MVP:
+
+- Binds `127.0.0.1` only. `python -m verity.web --host 0.0.0.0` is
+  refused; there is intentionally no override flag in this round.
+- `Host` and `Origin` headers must resolve to a loopback address.
+- Strict CSP: `default-src 'none'; script-src 'self'; style-src 'self'`.
+  No CDN, no external fonts, no `unsafe-eval`. Frontend uses only
+  DOM APIs and `textContent`; there are no `innerHTML` assignments.
+- All uploads go into a per-request temporary directory that is
+  removed in a `finally` block. Path sanitiser rejects absolute paths,
+  `..`, backslashes, NUL, drive letters, empty segments.
+- Reports live in an in-process, size- and TTL-bounded LRU store with
+  128-bit random IDs. Restarting the server invalidates every URL.
+- No subprocess use inside the Web layer itself; skill execution
+  never happens. The Skill Auditor's Bandit / gitleaks analyzers still
+  run as subprocesses — those were audited in rounds 4 and 5.
+- To stop the server, press `Ctrl+C` in the terminal that started it.
+
+Exit codes / gate semantics are the same as the CLI; the UI headline
+maps them into plain-language Chinese.
 
 ## Install / run (clean environment, reproducible)
 
@@ -345,6 +389,13 @@ Runtime (`requirements.lock`):
 | rpds-py | 0.27.1 | MIT |
 | attrs | 26.1.0 | MIT |
 | typing_extensions | 4.16.0 | PSF-2.0 |
+| starlette | 0.41.3 | BSD-3-Clause |
+| python-multipart | 0.0.20 | Apache-2.0 |
+| anyio | 4.12.1 | MIT |
+| sniffio | 1.3.1 | MIT-0 / Apache-2.0 |
+| uvicorn | 0.32.1 | BSD-3-Clause |
+| click | 8.1.8 | BSD-3-Clause |
+| h11 | 0.16.0 | MIT |
 
 **Not** integrated (yet — spec constraint: integrate only with running tests):
 

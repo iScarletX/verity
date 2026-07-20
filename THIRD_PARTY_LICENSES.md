@@ -23,6 +23,13 @@ been checked to be compatible with Apache-2.0 distribution.
 | rpds-py | 0.27.1 | MIT | https://github.com/crate-py/rpds |
 | attrs | 26.1.0 | MIT | https://github.com/python-attrs/attrs |
 | typing_extensions | 4.16.0 | PSF-2.0 | https://github.com/python/typing_extensions |
+| starlette | 0.41.3 | BSD-3-Clause | https://github.com/encode/starlette |
+| python-multipart | 0.0.20 | Apache-2.0 | https://github.com/Kludex/python-multipart |
+| anyio | 4.12.1 | MIT | https://github.com/agronholm/anyio |
+| sniffio | 1.3.1 | MIT-0 / Apache-2.0 | https://github.com/python-trio/sniffio |
+| uvicorn | 0.32.1 | BSD-3-Clause | https://github.com/encode/uvicorn |
+| click | 8.1.8 | BSD-3-Clause | https://github.com/pallets/click |
+| h11 | 0.16.0 | MIT | https://github.com/python-hyper/h11 |
 
 ## Development / test only
 
@@ -33,6 +40,10 @@ been checked to be compatible with Apache-2.0 distribution.
 | packaging | 26.2 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
 | pluggy | 1.6.0 | MIT | https://github.com/pytest-dev/pluggy |
 | tomli | 2.4.1 | MIT | https://github.com/hukkin/tomli (Python < 3.11 only) |
+| httpx | 0.28.1 | BSD-3-Clause | https://github.com/encode/httpx (Starlette TestClient) |
+| httpcore | 1.0.9 | BSD-3-Clause | https://github.com/encode/httpcore |
+| certifi | 2026.6.17 | MPL-2.0 | https://github.com/certifi/python-certifi |
+| idna | 3.18 | BSD-3-Clause | https://github.com/kjd/idna |
 | exceptiongroup | 1.3.1 | MIT | https://github.com/agronholm/exceptiongroup (Python < 3.11 only) |
 
 No network calls are made at runtime. No dependencies bundle native

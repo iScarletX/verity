@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verity — Prompt / Skill 静态审查</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header>
+  <h1>Verity <small>本地静态审查</small></h1>
+  <p class="scope">本地静态检查 V1：不执行 Skill、不安装依赖、不联网。Prompt 黑盒（V1.5）与 Skill 隔离沙箱（V2）<strong>尚未启用</strong>。</p>
+</header>
+
+<main>
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="prompt" class="active">检查 Prompt</button>
+    <button role="tab" aria-selected="false" data-tab="skill">检查 Agent Skill</button>
+  </nav>
+
+  <section id="tab-prompt" class="tab-panel" role="tabpanel">
+    <h2>粘贴一段 Prompt / System Prompt</h2>
+    <label>
+      类型
+      <select id="prompt-kind">
+        <option value="user_prompt">普通 Prompt</option>
+        <option value="system_prompt">System Prompt</option>
+      </select>
+    </label>
+    <textarea id="prompt-text" rows="14" placeholder="将 Prompt 内容粘贴到这里。字节上限约 256 KiB。"></textarea>
+    <div class="row">
+      <span id="prompt-count" class="muted">0 字符</span>
+      <button id="prompt-submit" class="primary">开始审查</button>
+    </div>
+  </section>
+
+  <section id="tab-skill" class="tab-panel" role="tabpanel" hidden>
+    <h2>选择本地 Skill 文件夹</h2>
+    <p class="muted">仅读取一次，不执行代码；符号链接、特殊文件、超预算的内容会被忽略。<strong>暂不支持</strong> ZIP / GitHub URL。</p>
+    <label>
+      扫描 Profile
+      <select id="skill-profile">
+        <option value="standard">standard（含 gitleaks 密钥扫描，推荐）</option>
+        <option value="minimal">minimal（不含密钥扫描；无法给出完整安全结论）</option>
+      </select>
+    </label>
+    <input id="skill-files" type="file" multiple webkitdirectory directory>
+    <div class="row">
+      <span id="skill-count" class="muted">尚未选择文件</span>
+      <button id="skill-submit" class="primary">开始审查</button>
+    </div>
+    <p id="skill-minimal-note" class="warn" hidden>
+      ⚠ 你选择了 <code>minimal</code>：本次不会执行 Secret 扫描；哪怕未发现问题，也<strong>不能视为完整安全结论</strong>。
+    </p>
+  </section>
+
+  <section id="result" hidden aria-live="polite">
+    <div id="headline" class="headline"></div>
+    <div class="cards">
+      <div class="card"><h3>Coverage</h3><p id="coverage"></p></div>
+      <div class="card"><h3>问题数量</h3><p id="counts"></p></div>
+      <div class="card"><h3>Secret 扫描</h3><p id="secret-status"></p></div>
+    </div>
+    <div id="findings" class="section"></div>
+    <div id="blocked" class="section"></div>
+    <div id="analyzers" class="section"></div>
+    <div id="downloads" class="section"></div>
+    <details class="section">
+      <summary>OWASP AST10 覆盖矩阵</summary>
+      <div id="owasp"></div>
+    </details>
+  </section>
+
+  <section id="error" hidden class="error"></section>
+</main>
+
+<footer class="muted">
+  Verity 本地 MVP。数据不出本机；重启进程后所有报告丢失。停止服务请在启动 Verity 的终端按 <code>Ctrl+C</code>。
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
