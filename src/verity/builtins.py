@@ -215,6 +215,23 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="high",
         requiredEvidenceKinds=["source_span"],
     ))
+    # Gitleaks findings (redacted).
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.gitleaks_finding",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("gitleaksRuleId", "evidence_field", "gitleaks.ruleID"),
+            SubjectField("lineNumber", "evidence_field", "gitleaks.startLine"),
+            SubjectField("secretLengthBucket", "literal_enum",
+                         allowedValues=["0", "1-16", "17-32", "33-64",
+                                        "65-128", "129+"]),
+            SubjectField("entropy", "evidence_field", "gitleaks.entropy"),
+        ],
+        subjectKeyFields=["artifactPath", "gitleaksRuleId", "lineNumber"],
+        defaultSeverity="high",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # Bandit-normalised findings (one FindingType covers all test_ids).
     ftr.register(FindingTypeDefinition(
         findingType="skill.bandit_finding",
@@ -551,7 +568,27 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
             defaultSeverity=sev, controlIds=owasp,
             owaspAst10=owasp,
         ))
+    # --- Gitleaks -----------------------------------------------------
+    rr.register(RuleDefinition(
+        ruleId="skill.gitleaks_finding",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("gitleaks detected a secret-like token in a staged skill "
+               "file. Verity runs gitleaks as an external, pinned "
+               "subprocess against a temporary copy of the skill's "
+               "files; the code is NOT executed and the raw secret is "
+               "redacted from every Verity output."),
+        findingType="skill.gitleaks_finding",
+        implementationId="impl.skill.gitleaks.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="high", controlIds=["OWASP-AST02"],
+        owaspAst10=["OWASP-AST02"],
+    ))
     # legacy file-level rules -----------------------------------------
+    # NOTE: skill.fake_secret_fixture is retained as a limited, deterministic
+    # FALLBACK for the fixture token used in Verity's own tests. When
+    # gitleaks is available and completed, real secret coverage is provided
+    # by skill.gitleaks_finding; the fallback does NOT amount to full
+    # secret-scanning coverage on its own (see README).
     rr.register(RuleDefinition(
         ruleId="skill.fake_secret_fixture",
         ruleVersion="1.0.0",

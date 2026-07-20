@@ -812,6 +812,7 @@ def prompt_open_ended_tool_wildcard(ctx: RuleContext) -> List[RuleHit]:
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
 from .bandit_adapter import bandit_result_to_hits as _bandit_hits  # noqa: E402
+from .gitleaks_adapter import gitleaks_result_to_hits as _gitleaks_hits  # noqa: E402
 
 
 def _make_bandit_impl(_):  # closure per rule id, so ctx.rule.ruleId works
@@ -847,4 +848,5 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.skill.manifest_script_suffix_mismatch.v1": _sr.skill_manifest_script_suffix_mismatch,
     "impl.skill.python_subprocess_shell_true.v1": _sr.skill_python_subprocess_shell_true,
     **{f"impl.skill.bandit.{tid}": _make_bandit_impl(tid) for tid in _BANDIT_TEST_IDS},
+    "impl.skill.gitleaks.v1": _gitleaks_hits,
 }

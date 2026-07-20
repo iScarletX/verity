@@ -37,3 +37,16 @@ been checked to be compatible with Apache-2.0 distribution.
 
 No network calls are made at runtime. No dependencies bundle native
 binaries that require additional notices.
+
+## External binaries (not vendored)
+
+| Tool | Version | License | Source |
+|---|---|---|---|
+| gitleaks | 8.28.0 | MIT | https://github.com/gitleaks/gitleaks |
+
+The gitleaks binary is **not** committed to this repository. Users
+install it themselves; ``tools/install_gitleaks.py`` fetches the pinned
+release from the official GitHub Release page and verifies its SHA-256
+against ``tools/gitleaks_release.json``. Verity's runtime treats a
+missing / mismatched / mis-versioned binary as an Analyzer failure with
+Coverage insufficient (see ``verity/gitleaks_runner.py``).

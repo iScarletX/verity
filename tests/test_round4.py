@@ -42,10 +42,19 @@ class StubRunner:
         return self.override
 
 
-def _run_skill(path: Path, *, bandit_runner=None):
+class _NoLeaksGitleaks:
+    def run_on_snapshot(self, snapshot, file_bytes):
+        from verity.gitleaks_runner import GitleaksRunResult
+        return GitleaksRunResult(status="completed", toolVersion="8.28.0",
+                                 toolPath="/opt/test/gitleaks",
+                                 stagedFileCount=0, pathMap={}, results=[])
+
+
+def _run_skill(path: Path, *, bandit_runner=None, gitleaks_runner=None):
     snap, b = intake_directory(str(path))
     return run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b),
-                      bandit_runner=bandit_runner)
+                      bandit_runner=bandit_runner,
+                      gitleaks_runner=gitleaks_runner or _NoLeaksGitleaks())
 
 
 # ====================================================================== #
@@ -121,7 +130,7 @@ class TestBanditStubs:
                                            reasonCode="subprocess_timeout",
                                            toolVersion="1.7.10"))
         r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b),
-                       bandit_runner=stub)
+                       bandit_runner=stub, gitleaks_runner=_NoLeaksGitleaks())
         an_exec = [e for e in r.executions if e.planItemId == "pi-analyzer-bandit"]
         assert an_exec and an_exec[0].status == "failed"
         assert "subprocess_timeout" in (an_exec[0].reasonCode or "")
@@ -132,7 +141,7 @@ class TestBanditStubs:
                                            reasonCode="malformed_json",
                                            toolVersion="1.7.10"))
         r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b),
-                       bandit_runner=stub)
+                       bandit_runner=stub, gitleaks_runner=_NoLeaksGitleaks())
         an_exec = [e for e in r.executions if e.planItemId == "pi-analyzer-bandit"]
         assert an_exec and an_exec[0].status == "failed"
 
@@ -142,7 +151,7 @@ class TestBanditStubs:
                                            reasonCode="required=1.7.10;found=1.5.0",
                                            toolVersion="1.5.0"))
         r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b),
-                       bandit_runner=stub)
+                       bandit_runner=stub, gitleaks_runner=_NoLeaksGitleaks())
         an_exec = [e for e in r.executions if e.planItemId == "pi-analyzer-bandit"]
         assert an_exec and an_exec[0].status == "failed"
         assert "1.7.10" in (an_exec[0].reasonCode or "")
@@ -153,7 +162,7 @@ class TestBanditStubs:
                                            reasonCode="output_over_budget",
                                            toolVersion="1.7.10"))
         r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b),
-                       bandit_runner=stub)
+                       bandit_runner=stub, gitleaks_runner=_NoLeaksGitleaks())
         an_exec = [e for e in r.executions if e.planItemId == "pi-analyzer-bandit"]
         assert an_exec and an_exec[0].status == "failed"
 
@@ -163,7 +172,7 @@ class TestBanditStubs:
         snap, b = intake_directory(str(tmp_path))
         stub = StubRunner(BanditRunResult(status="completed", toolVersion="1.7.10"))
         r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b),
-                       bandit_runner=stub)
+                       bandit_runner=stub, gitleaks_runner=_NoLeaksGitleaks())
         assert not [f for f in r.findings if f.findingType == "skill.bandit_finding"]
 
 

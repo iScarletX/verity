@@ -1,8 +1,9 @@
 # Verity — Prompt & Skill Auditor
 
 > Phase 0 core contracts + high-confidence deterministic Prompt/Skill
-> rules + controlled Bandit integration + SARIF 2.1.0 export.
-> Read-only static V1. **Not** a sandbox, **not** a runtime evaluator.
+> rules + controlled Bandit and gitleaks integration + SARIF 2.1.0
+> export. Read-only static V1. **Not** a sandbox, **not** a runtime
+> evaluator.
 
 ## Product roadmap (must not be lost)
 
@@ -56,6 +57,8 @@ report infrastructure but have separate rule registries. See
 - `owasp.py` — OWASP AST10 taxonomy + honest coverage matrix
 - `bandit_runner.py` — Controlled subprocess adapter for PyCQA Bandit (Apache-2.0). No shell, fixed timeout, output-size cap, tmpdir staging + cleanup, JSON shape validation, pinned-version check.
 - `bandit_adapter.py` — Bandit result -> Evidence/RuleMatch/Finding normalisation; Bandit severity/confidence/CWE preserved as controlled metadata; identity only from `(artifactPath, testId, lineNumber)`.
+- `gitleaks_runner.py` — Controlled subprocess adapter for gitleaks (MIT, external binary, pinned 8.28.0). No shell, controlled env, JSON-file report, version + optional SHA-256 gate, tmpdir staging, user config confinement, all raw Secret / Match / Line values scrubbed at parse time.
+- `gitleaks_adapter.py` — Redacted gitleaks results -> secret-sensitivity Evidence (§5.1 secret path). `redactedPreview = "[gitleaks:<ruleId>]"`; the raw secret never enters `occurrenceFingerprint`, subjectKey, JSON, HTML, SARIF or exceptions.
 - `sarif.py` — SARIF 2.1.0 exporter with byte-offset regions, stable partialFingerprints, coverage in run.properties, no secret leakage.
 - `intake.py` — Safe intake (text + local directory) with path escape / symlink / budget / NUL guards
 - `review.py` — Orchestrator; `not_applicable` gate counts as OK for coverage.
@@ -67,6 +70,26 @@ report infrastructure but have separate rule registries. See
 ## Install / run (clean environment, reproducible)
 
 Requires Python 3.9+ (tested on 3.9.6; supported through 3.13; declared `requires-python = ">=3.9,<3.14"`).
+
+### Installing gitleaks (external binary)
+
+gitleaks is a Go binary (MIT). Verity requires **exactly gitleaks 8.28.0**
+under the `standard` skill-review profile. The binary is not vendored
+in this repo.
+
+```bash
+# Interactive install with SHA-256 verification (developer utility;
+# performs network IO):
+python3 tools/install_gitleaks.py --target ~/.local/bin
+# Or install by any other means to the same version, then either:
+#   * add it to PATH, or
+#   * set VERITY_GITLEAKS_PATH=/absolute/path/to/gitleaks
+```
+
+If gitleaks is missing, mis-versioned, or its SHA-256 does not match
+the pinned release descriptor (`tools/gitleaks_release.json`), Verity
+marks the analyzer failed and Coverage insufficient. It never silently
+falls back to a weaker scanner and claims completion.
 
 ```bash
 # Clean install using pinned locks
@@ -111,7 +134,8 @@ silently absent.
 | `skill.manifest_script_suffix_mismatch` | medium | AST04 | Declared script `.py` but only `.js`/`.sh`/etc. present with same stem. |
 | `skill.python_subprocess_shell_true` | high | AST01 | Python AST-level; keyword `shell=True` on any `subprocess.<x>` call. **Superseded at (file, line) by Bandit `B602` when Bandit ran successfully** (no double-report). Verity never executes the code. |
 | `skill.bandit_finding` (rules `skill.bandit.<test_id>`) | varies | AST01/AST02/AST05 depending on test | 12 curated Bandit test_ids: B102 (exec) / B105/B106/B107 (hardcoded passwords) / B301 (pickle load) / B303 (weak hash) / B310 (unsafe urlopen) / B506 (yaml.load unsafe) / B602 (subprocess shell=True) / B605 (os.system) / B607 (partial exec path) / B701 (jinja2 autoescape). Bandit's `issue_text` never contributes to identity; Verity's severity is the policy value, not Bandit's raw severity. |
-| `skill.fake_secret_fixture` (legacy) | high | AST02 | Synthetic `VERITY_FAKE_SECRET_*` fixture token; redacted preview only. |
+| `skill.gitleaks_finding` | high | AST02 | Secret detected by gitleaks 8.28.0 (external subprocess). The raw secret is redacted BEFORE the adapter sees it; identity = `(artifactPath, gitleaksRuleId, lineNumber)`. Only rendered when gitleaks completed; when gitleaks failed, Coverage is insufficient and the report says so. |
+| `skill.fake_secret_fixture` (limited fallback) | high | AST02 | Detects only the synthetic `VERITY_FAKE_SECRET_*` fixture token used by Verity's own tests. **This is NOT a substitute for real secret scanning** — gitleaks provides that under `--profile standard`. |
 | `skill.dangerous_shell_pattern` (legacy) | high | AST01 | Text-level pattern only; the shell is NOT executed. |
 
 Honest OWASP AST10 status (shown in every skill report as a matrix):
@@ -183,6 +207,31 @@ python3 -m verity.cli export-schema --out /tmp/verity_out/schema.json
 
 Every skill review also writes `report.sarif` (SARIF 2.1.0) next to
 `report.json` / `report.html`.
+
+### Skill review profiles
+
+```bash
+# standard (default): gitleaks required for secret coverage
+python3 -m verity.cli review --engine skill --profile standard \
+  --input-dir tests/fixtures/clean_skill --out /tmp/verity_out/std
+
+# minimal: explicit opt-out; report says "not_requested_by_profile"
+python3 -m verity.cli review --engine skill --profile minimal \
+  --input-dir tests/fixtures/clean_skill --out /tmp/verity_out/min
+```
+
+Recorded exit codes on an environment where **gitleaks is NOT installed**
+(as of the environment where this README was refreshed):
+
+| Fixture | profile | gitleaks status | coverage | exit |
+|---|---|---|---|---:|
+| `clean_skill` | standard | not_installed | insufficient | 0 |
+| `clean_skill` | minimal | not_requested_by_profile | sufficient | 0 |
+| `python_shell_true_skill` | standard | not_installed | insufficient | 1 (Bandit high) |
+
+Install gitleaks and the same commands should print `coverage=sufficient`
+on `clean_skill --profile standard`.
+
 
 ```bash
 # clean skill: 0 findings, coverage sufficient, exit 0
@@ -258,8 +307,6 @@ Runtime (`requirements.lock`):
 
 **Not** integrated (yet — spec constraint: integrate only with running tests):
 
-- gitleaks (planned; real secret detection currently uses only the synthetic
-  fixture token)
 - Semgrep (planned)
 - YARA (planned)
 

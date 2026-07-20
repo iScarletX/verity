@@ -23,14 +23,21 @@ from .models import (
 )
 
 
+# Skill review profiles. `standard` requires gitleaks; `minimal` explicitly
+# opts out and marks Secret coverage as user-declined in the ReviewPlan.
+SKILL_PROFILES = ("standard", "minimal")
+
+
 @dataclass
 class ReviewInputs:
     engine: str  # "prompt" or "skill"
     snapshot: ArtifactSnapshot
     file_bytes: Dict[str, bytes]
+    profile: str = "standard"  # skill-engine only
 
 
-def _build_engine(name: str, *, bandit_runner=None) -> Engine:
+def _build_engine(name: str, *, bandit_runner=None, gitleaks_runner=None,
+                  profile: str = "standard") -> Engine:
     ftr = build_finding_type_registry()
     parser = None
     analyzers = []
@@ -73,14 +80,68 @@ def _build_engine(name: str, *, bandit_runner=None) -> Engine:
             "gatingClass": "normal",
             "run": _run_bandit,
         })
+
+        if profile == "minimal":
+            # Explicit user opt-out. We STILL record the analyzer as a
+            # plan item so its absence is visible in Coverage/reports.
+            def _run_gitleaks_skipped(snapshot, file_bytes):
+                updates = {"gitleaksRun": {
+                    "status": "not_requested_by_profile",
+                    "toolName": "gitleaks",
+                    "toolVersion": "",
+                    "reasonCode": "minimal_profile_selected",
+                }}
+                return updates, "not_applicable", "minimal_profile:secret_scan_skipped"
+
+            analyzers.append({
+                "componentId": "gitleaks",
+                "componentVersion": "required-when-standard",
+                "gatingClass": "critical",
+                "run": _run_gitleaks_skipped,
+            })
+        else:
+            if gitleaks_runner is None:
+                from .gitleaks_runner import GitleaksRunner
+                gitleaks_runner = GitleaksRunner()
+
+            def _run_gitleaks(snapshot, file_bytes):
+                gr = gitleaks_runner.run_on_snapshot(snapshot, file_bytes)
+                updates = {"gitleaksRun": {
+                    "status": gr.status,
+                    "toolName": gr.toolName,
+                    "toolVersion": gr.toolVersion,
+                    "toolPath": gr.toolPath,
+                    "toolSha256": gr.toolSha256,
+                    "exitCode": gr.exitCode,
+                    "durationSeconds": gr.durationSeconds,
+                    "stagedFileCount": gr.stagedFileCount,
+                    "pathMap": gr.pathMap,
+                    "results": gr.results,   # already redacted by runner
+                    "reasonCode": gr.reasonCode,
+                }}
+                if gr.status == "completed":
+                    return updates, "completed", None
+                return updates, "failed", f"gitleaks:{gr.reasonCode or gr.status}"
+
+            analyzers.append({
+                "componentId": "gitleaks",
+                "componentVersion": "8.28.0",
+                "gatingClass": "critical",
+                "run": _run_gitleaks,
+            })
     else:
         raise ValueError(f"unknown engine: {name}")
     return Engine(name, rr, ftr, DEFAULT_IMPLEMENTATIONS, parser=parser,
                   analyzers=analyzers)
 
 
-def run_review(ri: ReviewInputs, *, bandit_runner=None) -> Review:
-    engine = _build_engine(ri.engine, bandit_runner=bandit_runner)
+def run_review(ri: ReviewInputs, *, bandit_runner=None,
+               gitleaks_runner=None) -> Review:
+    if ri.profile not in SKILL_PROFILES:
+        raise ValueError(f"unknown profile: {ri.profile}")
+    engine = _build_engine(ri.engine, bandit_runner=bandit_runner,
+                           gitleaks_runner=gitleaks_runner,
+                           profile=ri.profile)
     evidences, events, findings, plan_items, executions, artifact_model = engine.run(
         ri.snapshot, ri.file_bytes
     )

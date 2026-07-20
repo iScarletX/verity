@@ -35,6 +35,7 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
         # Do not leak raw YAML — only compact fields needed for the report.
         am = review.artifactModel
         br = am.get("banditRun") or {}
+        gr = am.get("gitleaksRun") or {}
         d["artifactModel"] = {
             "hasSkillMd": am.get("hasSkillMd"),
             "manifestFile": am.get("manifestFile"),
@@ -52,6 +53,18 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
                 # Raw results also omitted; the SARIF export uses artifactModel
                 # from the Review directly, not from this projection.
             } if am.get("banditRun") else None,
+            "gitleaksRun": {
+                "status": gr.get("status"),
+                "toolName": gr.get("toolName"),
+                "toolVersion": gr.get("toolVersion"),
+                "toolSha256": gr.get("toolSha256"),
+                "exitCode": gr.get("exitCode"),
+                "durationSeconds": gr.get("durationSeconds"),
+                "stagedFileCount": gr.get("stagedFileCount"),
+                "reasonCode": gr.get("reasonCode"),
+                # pathMap / raw results NOT included (host paths / already
+                # redacted results are attached to the Review directly).
+            } if am.get("gitleaksRun") else None,
         }
     if review.engine == "skill":
         from .builtins import build_finding_type_registry, build_skill_rule_registry
@@ -240,6 +253,37 @@ def to_html(review: Review) -> str:
         f"<table><tr><th>Code</th><th>Message</th></tr>{_parser_rows()}</table>"
     ) if d.get("engine") == "skill" else ""
 
+    # Secret-scanner block
+    am2 = d.get("artifactModel") or {}
+    gr_view = am2.get("gitleaksRun") or {}
+    br_view = am2.get("banditRun") or {}
+
+    def _tool_row(name, view):
+        if not view:
+            return ""
+        return (
+            "<tr>"
+            f"<td>{html.escape(name)}</td>"
+            f"<td>{html.escape(str(view.get('status') or ''))}</td>"
+            f"<td>{html.escape(str(view.get('toolVersion') or ''))}</td>"
+            f"<td>{html.escape(str(view.get('reasonCode') or ''))}</td>"
+            "</tr>"
+        )
+
+    analyzers_block = (
+        "\n<h2>Analyzers</h2>"
+        "<table><tr><th>Analyzer</th><th>Status</th><th>Version</th><th>Reason / notes</th></tr>"
+        f"{_tool_row('bandit', br_view)}"
+        f"{_tool_row('gitleaks', gr_view)}"
+        "</table>"
+        + (
+            "<p class='muted'><strong>Secret coverage note.</strong> gitleaks was "
+            "not run in this review. Do not read the absence of Secret "
+            "findings as evidence that no secret is present.</p>"
+            if (gr_view.get("status") or "") != "completed" else ""
+        )
+    ) if d.get("engine") == "skill" else ""
+
     return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">
@@ -289,6 +333,7 @@ def to_html(review: Review) -> str:
 <h2>Reason codes (verdict)</h2>
 <code>{html.escape(json.dumps(verdict['reasonCodes']))}</code>
 {parser_block}
+{analyzers_block}
 {owasp_block}
 
 </body></html>

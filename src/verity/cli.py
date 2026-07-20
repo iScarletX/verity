@@ -47,7 +47,8 @@ def _cmd_review(args: argparse.Namespace) -> int:
             print(f"intake error: {e}", file=sys.stderr)
             return 3
 
-    review = run_review(ReviewInputs(engine=args.engine, snapshot=snap, file_bytes=byts))
+    review = run_review(ReviewInputs(engine=args.engine, snapshot=snap,
+                                     file_bytes=byts, profile=args.profile))
 
     out_dir = Path(args.out) if args.out else Path("out")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -87,6 +88,12 @@ def main(argv=None) -> int:
     pr.add_argument("--text")
     pr.add_argument("--input-file")
     pr.add_argument("--input-dir")
+    pr.add_argument("--profile", choices=["standard", "minimal"],
+                    default="standard",
+                    help=("Skill-engine review profile. `standard` requires "
+                          "gitleaks and marks Coverage insufficient when "
+                          "unavailable. `minimal` explicitly opts out of "
+                          "secret scanning and the report says so."))
     pr.add_argument("--out", default="out")
     pr.set_defaults(func=_cmd_review)
 

@@ -155,11 +155,18 @@ def review_to_sarif(review_dict: Dict[str, Any]) -> Dict[str, Any]:
     extensions: List[Dict[str, Any]] = []
     am = review_dict.get("artifactModel") or {}
     br = am.get("banditRun") or {}
-    if br.get("toolVersion"):
+    if br.get("toolVersion") and br.get("status") == "completed":
         extensions.append({
             "name": "bandit",
             "version": br.get("toolVersion"),
             "informationUri": "https://bandit.readthedocs.io/",
+        })
+    gr = am.get("gitleaksRun") or {}
+    if gr.get("toolVersion") and gr.get("status") == "completed":
+        extensions.append({
+            "name": "gitleaks",
+            "version": gr.get("toolVersion"),
+            "informationUri": "https://github.com/gitleaks/gitleaks",
         })
 
     coverage = review_dict.get("coverage", {}).get("status", "unknown")

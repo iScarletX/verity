@@ -28,7 +28,49 @@ which live outside this repository and are only referenced.
 - 3 prompt fixtures (clean / broken_user / risky_system)
 - 80 tests
 
-## Round 4 (2026-07-20)  →  this commit
+## Round 5 (2026-07-20)  →  this commit
+- Controlled gitleaks integration (external binary, MIT):
+    * Pinned version: **gitleaks 8.28.0** (Verity fails the analyzer when
+      any other version is installed).
+    * `tools/gitleaks_release.json` records SHA-256 for darwin/linux
+      x64/arm64 tarballs; `tools/install_gitleaks.py` fetches the
+      official Release and verifies SHA-256 before installing.
+    * The binary is NOT vendored in the git repo.
+    * `verity/gitleaks_runner.py`: no-shell subprocess, 45 s timeout,
+      controlled env, output cap, JSON report file (not stdout), version
+      + optional SHA-256 gate, tmpdir staging, symlink/special/excluded
+      never staged, user-supplied `.gitleaks.toml` never staged (config
+      confinement), tmpdir removed in finally.
+    * `verity/gitleaks_adapter.py`: converts redacted gitleaks results
+      to secret-sensitivity Evidence (§5.1 secret path):
+      `occurrenceFingerprint` never hashes raw Secret / Match bytes.
+      Raw Secret / Match / Line values are dropped in the runner before
+      the adapter sees them; the retained metadata is rule id, relative
+      file, line/column, entropy (if numeric), a coarse length bucket,
+      and a fixed redactedPreview `"[gitleaks:<ruleId>]"`.
+- New Skill FindingType `skill.gitleaks_finding` (default severity high;
+  OWASP-AST02). Identity = (artifactPath, gitleaksRuleId, lineNumber).
+- Skill review PROFILES:
+    * `standard` (default): gitleaks is required. Missing/timeout/
+      version_mismatch/hash_mismatch/malformed_json all mark the
+      analyzer failed and Coverage insufficient.
+    * `minimal`: explicit user opt-out. The gitleaks plan item still
+      appears in the ReviewPlan with status `not_applicable` and reason
+      `minimal_profile:secret_scan_skipped`; the report says
+      "not_requested_by_profile" so "0 secret findings" cannot be read
+      as "safe".
+- `skill.fake_secret_fixture` retained explicitly as a LIMITED fallback
+  for the fixture token used in Verity's own tests; the RuleDefinition
+  title documents it as not a full-secret-scanning replacement.
+- Report: JSON exposes a redacted `gitleaksRun` block (no host paths,
+  no raw results). HTML gets an Analyzers section that lists bandit
+  and gitleaks status with a **Secret coverage note** when gitleaks did
+  not complete. SARIF `tool.extensions` includes gitleaks **only** when
+  it actually completed.
+- CLI: `--profile standard|minimal`.
+- 21 new tests (139 -> 158 passing, 2 skipped E2E when binary absent).
+
+## Round 4 (2026-07-20)  →  commit `581c830`
 - Controlled Bandit 1.7.10 (Apache-2.0) integration:
     * `verity/bandit_runner.py`: subprocess with fixed timeout,
       no-shell, controlled env, output-size cap, JSON shape validation,
@@ -101,8 +143,8 @@ which live outside this repository and are only referenced.
 - No LLM egress, no candidate generator, no live validator (Phase 4)
 - No ZIP / GitHub URL intake (Phase 2/3)
 - No sandbox (V2)
-- No gitleaks / semgrep / YARA integration (bandit is now integrated as
-  of round 4)
+- No semgrep / YARA integration (bandit + gitleaks are now integrated as
+  of rounds 4 and 5)
 - No PatchSet apply — only proposal shape (Phase 6)
 - No GitHub Action yet; SARIF file is produced but no CI workflow is
   bundled with the repo.

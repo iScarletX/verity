@@ -20,9 +20,29 @@ REPO = Path(__file__).parent.parent
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+class _StubGitleaks:
+    """Stub that behaves like a successful gitleaks run with no leaks.
+
+    Used across the existing skill-rule test suite so that the STANDARD
+    profile (which requires gitleaks) still exercises the same coverage
+    outcomes as before round 5, independently of whether the real
+    gitleaks binary is installed in the test environment.
+    """
+    def run_on_snapshot(self, snapshot, file_bytes):
+        from verity.gitleaks_runner import GitleaksRunResult
+        return GitleaksRunResult(status="completed",
+                                 toolVersion="8.28.0",
+                                 toolPath="/opt/test/gitleaks",
+                                 stagedFileCount=len([f for f in snapshot.files
+                                                       if f.status == 'included']),
+                                 pathMap={},
+                                 results=[])
+
+
 def _run(path: str):
     snap, b = intake_directory(path)
-    return run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b))
+    return run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b),
+                      gitleaks_runner=_StubGitleaks())
 
 
 def _types(r) -> set[str]:
