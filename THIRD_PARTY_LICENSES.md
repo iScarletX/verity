@@ -12,6 +12,12 @@ been checked to be compatible with Apache-2.0 distribution.
 |---|---|---|---|
 | jsonschema | 4.25.1 | MIT | https://github.com/python-jsonschema/jsonschema |
 | PyYAML | 6.0.3 | MIT | https://github.com/yaml/pyyaml |
+| bandit | 1.7.10 | Apache-2.0 | https://github.com/PyCQA/bandit |
+| stevedore | 5.5.0 | Apache-2.0 | https://opendev.org/openstack/stevedore |
+| rich | 15.0.0 | MIT | https://github.com/Textualize/rich |
+| markdown-it-py | 3.0.0 | MIT | https://github.com/executablebooks/markdown-it-py |
+| mdurl | 0.1.2 | MIT | https://github.com/executablebooks/mdurl |
+| Pygments | 2.20.0 | BSD-2-Clause | https://github.com/pygments/pygments |
 | jsonschema-specifications | 2025.9.1 | MIT | https://github.com/python-jsonschema/jsonschema-specifications |
 | referencing | 0.36.2 | MIT | https://github.com/python-jsonschema/referencing |
 | rpds-py | 0.27.1 | MIT | https://github.com/crate-py/rpds |
@@ -26,7 +32,6 @@ been checked to be compatible with Apache-2.0 distribution.
 | iniconfig | 2.1.0 | MIT | https://github.com/pytest-dev/iniconfig |
 | packaging | 26.2 | Apache-2.0 OR BSD-2-Clause | https://github.com/pypa/packaging |
 | pluggy | 1.6.0 | MIT | https://github.com/pytest-dev/pluggy |
-| Pygments | 2.20.0 | BSD-2-Clause | https://github.com/pygments/pygments |
 | tomli | 2.4.1 | MIT | https://github.com/hukkin/tomli (Python < 3.11 only) |
 | exceptiongroup | 1.3.1 | MIT | https://github.com/agronholm/exceptiongroup (Python < 3.11 only) |
 

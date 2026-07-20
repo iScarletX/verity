@@ -1,8 +1,8 @@
 # Verity — Prompt & Skill Auditor
 
-> Phase 0 core contracts + a first pass of high-confidence deterministic
-> Prompt and Skill rules. Read-only static V1. **Not** a sandbox, **not**
-> a runtime evaluator.
+> Phase 0 core contracts + high-confidence deterministic Prompt/Skill
+> rules + controlled Bandit integration + SARIF 2.1.0 export.
+> Read-only static V1. **Not** a sandbox, **not** a runtime evaluator.
 
 ## Product roadmap (must not be lost)
 
@@ -10,7 +10,7 @@ Verity is planned as a three-layer audit tool:
 
 | Version | Layer | Status |
 |---|---|---|
-| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Phase 0 + walking skeleton + Prompt rules + first-pass Skill Auditor implemented** |
+| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Phase 0 + walking skeleton + Prompt rules + Skill Auditor + Bandit + SARIF implemented** |
 | **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) | **Not implemented.** Later phase. |
 | **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill under audit | **Not implemented.** Later phase. |
 
@@ -54,6 +54,9 @@ report infrastructure but have separate rule registries. See
 - `parser.py` — Safe SKILL.md / YAML frontmatter parser with resource budgets (safe_load only)
 - `skill_rules.py` — Skill Auditor rule implementations
 - `owasp.py` — OWASP AST10 taxonomy + honest coverage matrix
+- `bandit_runner.py` — Controlled subprocess adapter for PyCQA Bandit (Apache-2.0). No shell, fixed timeout, output-size cap, tmpdir staging + cleanup, JSON shape validation, pinned-version check.
+- `bandit_adapter.py` — Bandit result -> Evidence/RuleMatch/Finding normalisation; Bandit severity/confidence/CWE preserved as controlled metadata; identity only from `(artifactPath, testId, lineNumber)`.
+- `sarif.py` — SARIF 2.1.0 exporter with byte-offset regions, stable partialFingerprints, coverage in run.properties, no secret leakage.
 - `intake.py` — Safe intake (text + local directory) with path escape / symlink / budget / NUL guards
 - `review.py` — Orchestrator; `not_applicable` gate counts as OK for coverage.
 - `baseline.py` — Baseline compare, coverage-aware (§10.2)
@@ -106,7 +109,8 @@ silently absent.
 | `skill.manifest_permission_wildcard` | high | AST03 | Only strict wildcard values in `permissions`/`allowed_tools`/`tools`: `*`, `/`, `**`, `.../*`. |
 | `skill.manifest_external_instructions` | high | AST05 | Only when `external_instructions.mode ∈ {fetch_and_follow, runtime_fetch}`. Documentation-link URLs are NOT flagged. |
 | `skill.manifest_script_suffix_mismatch` | medium | AST04 | Declared script `.py` but only `.js`/`.sh`/etc. present with same stem. |
-| `skill.python_subprocess_shell_true` | high | AST01 | Python AST-level; positional or keyword `shell=True` on any `subprocess.<x>` call. Verity never executes the code. Syntax errors are silently skipped (analyzer diagnostics for these are Phase 3 work). |
+| `skill.python_subprocess_shell_true` | high | AST01 | Python AST-level; keyword `shell=True` on any `subprocess.<x>` call. **Superseded at (file, line) by Bandit `B602` when Bandit ran successfully** (no double-report). Verity never executes the code. |
+| `skill.bandit_finding` (rules `skill.bandit.<test_id>`) | varies | AST01/AST02/AST05 depending on test | 12 curated Bandit test_ids: B102 (exec) / B105/B106/B107 (hardcoded passwords) / B301 (pickle load) / B303 (weak hash) / B310 (unsafe urlopen) / B506 (yaml.load unsafe) / B602 (subprocess shell=True) / B605 (os.system) / B607 (partial exec path) / B701 (jinja2 autoescape). Bandit's `issue_text` never contributes to identity; Verity's severity is the policy value, not Bandit's raw severity. |
 | `skill.fake_secret_fixture` (legacy) | high | AST02 | Synthetic `VERITY_FAKE_SECRET_*` fixture token; redacted preview only. |
 | `skill.dangerous_shell_pattern` (legacy) | high | AST01 | Text-level pattern only; the shell is NOT executed. |
 
@@ -177,6 +181,9 @@ python3 -m verity.cli export-schema --out /tmp/verity_out/schema.json
 
 ### Skill demos
 
+Every skill review also writes `report.sarif` (SARIF 2.1.0) next to
+`report.json` / `report.html`.
+
 ```bash
 # clean skill: 0 findings, coverage sufficient, exit 0
 python3 -m verity.cli review --engine skill \
@@ -214,11 +221,14 @@ Recorded exit codes / findings on the checked-in fixtures:
 | Fixture | findings | high/critical | coverage | exit |
 |---|---:|---:|---|---:|
 | `clean_skill` | 0 | 0 | sufficient | 0 |
-| `malformed_manifest_skill` | 4 | 2 | insufficient | 1 |
+| `malformed_manifest_skill` | 2 | 2 | insufficient | 1 |
 | `missing_refs_skill` | 3 | 2 | sufficient | 1 |
 | `risky_permissions_skill` | 4 | 2 | sufficient | 1 |
 | `external_instructions_skill` | 1 | 1 | sufficient | 1 |
-| `python_shell_true_skill` | 1 | 1 | sufficient | 1 |
+| `python_shell_true_skill` | 3 | 1 | sufficient | 1 |
+
+(`python_shell_true_skill`: Bandit B602 high + B607 medium x2. The hand-
+written `subprocess shell=True` rule is suppressed on that (file, line).)
 
 Each command writes `report.json` and `report.html` under the target
 directory. When high/critical findings are present, exit code is 1 so
@@ -234,19 +244,22 @@ Runtime (`requirements.lock`):
 |---|---|---|
 | jsonschema | 4.25.1 | MIT |
 | PyYAML | 6.0.3 | MIT |
+| bandit | 1.7.10 | Apache-2.0 |
+| stevedore | 5.5.0 | Apache-2.0 |
+| rich | 15.0.0 | MIT |
+| markdown-it-py | 3.0.0 | MIT |
+| mdurl | 0.1.2 | MIT |
+| Pygments | 2.20.0 | BSD-2-Clause |
 | jsonschema-specifications | 2025.9.1 | MIT |
 | referencing | 0.36.2 | MIT |
 | rpds-py | 0.27.1 | MIT |
 | attrs | 26.1.0 | MIT |
 | typing_extensions | 4.16.0 | PSF-2.0 |
 
-**Not** integrated in this round (spec constraint: integrate only with
-running tests):
+**Not** integrated (yet — spec constraint: integrate only with running tests):
 
 - gitleaks (planned; real secret detection currently uses only the synthetic
   fixture token)
-- bandit (planned; Python AST subprocess-shell rule is a hand-rolled
-  precise check, no bandit dependency yet)
 - Semgrep (planned)
 - YARA (planned)
 
@@ -268,15 +281,26 @@ apply, etc.).
 ## Known limitations
 
 - No ZIP / GitHub URL intake yet (Phase 2/3 gate).
-- Python AST covers only the one hand-picked dangerous pattern; other
-  languages (Shell/JS/TS/Ruby/Go) are still text-level only.
+- Only Python has an AST-level scanner (Bandit + one hand-picked rule);
+  other languages (Shell/JS/TS/Ruby/Go) are still text-level only.
 - No semantic candidate generation or Validator LLM calls (Phase 4).
 - No PatchSet apply — proposal shape only (Phase 6).
-- No SARIF output yet (Phase 5).
 - Real secret detection still uses only the synthetic fixture token.
   gitleaks integration is planned but not present.
-- Bandit / Semgrep / YARA not integrated yet; the roadmap in the reuse
-  decision table calls for these in Phase 3, not now.
+- Semgrep / YARA not integrated yet.
+- SARIF file is produced, but the repo does not ship a GitHub Actions
+  workflow. Uploading `report.sarif` to GitHub Code Scanning is the
+  user's responsibility.
+
+### verdict.subject on insufficient coverage
+
+When coverage is insufficient the JSON, HTML and SARIF reports all
+emit `verdict.subject = null` (SARIF: `run.properties.verity.verdict.subject`
+is `null`). This is intentional: Verity refuses to say "ready" /
+"low_detected_risk" when it does not know whether the required checks
+were actually completed. Consumers must handle `subject == null`
+safely; the checked-in HTML template shows a *COVERAGE INSUFFICIENT*
+banner in that case.
 
 ## License
 

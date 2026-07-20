@@ -30,22 +30,57 @@ class ReviewInputs:
     file_bytes: Dict[str, bytes]
 
 
-def _build_engine(name: str) -> Engine:
+def _build_engine(name: str, *, bandit_runner=None) -> Engine:
     ftr = build_finding_type_registry()
     parser = None
+    analyzers = []
     if name == "prompt":
         rr = build_prompt_rule_registry(ftr)
     elif name == "skill":
         rr = build_skill_rule_registry(ftr)
         from .parser import parse_skill
         parser = parse_skill
+        # Bandit analyzer. Default: a real BanditRunner subprocess call.
+        # Tests may inject a stub via ``bandit_runner``.
+        if bandit_runner is None:
+            from .bandit_runner import BanditRunner
+            bandit_runner = BanditRunner()
+
+        def _run_bandit(snapshot, file_bytes):
+            br = bandit_runner.run_on_snapshot(snapshot, file_bytes)
+            updates = {"banditRun": {
+                "status": br.status,
+                "toolName": br.toolName,
+                "toolVersion": br.toolVersion,
+                "exitCode": br.exitCode,
+                "durationSeconds": br.durationSeconds,
+                "stagedFileCount": br.stagedFileCount,
+                "pathMap": br.pathMap,
+                "results": br.results,
+                "reasonCode": br.reasonCode,
+            }}
+            if br.status == "completed":
+                return updates, "completed", None
+            if br.status == "timeout":
+                return updates, "failed", f"bandit:{br.reasonCode}"
+            if br.status == "version_mismatch":
+                return updates, "failed", f"bandit:{br.reasonCode}"
+            return updates, "failed", f"bandit:{br.reasonCode or 'unknown'}"
+
+        analyzers.append({
+            "componentId": "bandit",
+            "componentVersion": "1.7.10",
+            "gatingClass": "normal",
+            "run": _run_bandit,
+        })
     else:
         raise ValueError(f"unknown engine: {name}")
-    return Engine(name, rr, ftr, DEFAULT_IMPLEMENTATIONS, parser=parser)
+    return Engine(name, rr, ftr, DEFAULT_IMPLEMENTATIONS, parser=parser,
+                  analyzers=analyzers)
 
 
-def run_review(ri: ReviewInputs) -> Review:
-    engine = _build_engine(ri.engine)
+def run_review(ri: ReviewInputs, *, bandit_runner=None) -> Review:
+    engine = _build_engine(ri.engine, bandit_runner=bandit_runner)
     evidences, events, findings, plan_items, executions, artifact_model = engine.run(
         ri.snapshot, ri.file_bytes
     )

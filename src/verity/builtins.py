@@ -13,6 +13,9 @@ from .registry import (
 )
 
 
+from typing import List, Tuple
+
+
 def build_finding_type_registry() -> FindingTypeRegistry:
     ftr = FindingTypeRegistry()
     # --- Prompt engine ---------------------------------------------------
@@ -210,6 +213,24 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         ],
         subjectKeyFields=["artifactPath", "callee"],
         defaultSeverity="high",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    # Bandit-normalised findings (one FindingType covers all test_ids).
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.bandit_finding",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("testId", "evidence_field", "bandit.test_id"),
+            SubjectField("lineNumber", "evidence_field", "bandit.line_number"),
+            SubjectField("banditSeverity", "literal_enum",
+                         allowedValues=["low", "medium", "high"]),
+            SubjectField("banditConfidence", "literal_enum",
+                         allowedValues=["LOW", "MEDIUM", "HIGH", "UNDEFINED"]),
+            SubjectField("cwe", "evidence_field", "bandit.cwe"),
+        ],
+        subjectKeyFields=["artifactPath", "testId", "lineNumber"],
+        defaultSeverity="medium",
         requiredEvidenceKinds=["source_span"],
     ))
     # existing file-level rules from round 1 remain below --------------
@@ -469,19 +490,67 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         defaultSeverity="medium", controlIds=["OWASP-AST04"],
         owaspAst10=["OWASP-AST04"], requiresManifest=True,
     ))
-    # S11 subprocess shell=True
+    # S11 subprocess shell=True (hand-written; suppressed at runtime when
+    # Bandit's B602 already reported the same (file, line) — see engine).
     rr.register(RuleDefinition(
         ruleId="skill.python_subprocess_shell_true",
         ruleVersion="1.0.0", supersedes=[], engine="skill",
         title=("Python source contains a subprocess.* call with shell=True. "
                "This is a mechanically detected dangerous pattern; the code "
-               "is NOT executed by Verity."),
+               "is NOT executed by Verity. Superseded by skill.bandit.B602 "
+               "when Bandit ran successfully at the same location."),
         findingType="skill.python_subprocess_shell_true",
         implementationId="impl.skill.python_subprocess_shell_true.v1",
         applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
         defaultSeverity="high", controlIds=["OWASP-AST01"],
         owaspAst10=["OWASP-AST01"],
     ))
+    # --- Bandit-normalised rules ------------------------------------
+    # Curated subset: test_ids we've verified produce high-signal Findings
+    # in Python source. Each has an explicit severity + OWASP mapping.
+    _BANDIT_RULES: List[Tuple[str, str, str, List[str]]] = [
+        # test_id, verity_severity, human title, owasp
+        ("B102", "high",
+         "exec() used on untrusted input.", ["OWASP-AST01"]),
+        ("B301", "high",
+         "pickle load from untrusted source (arbitrary code execution).",
+         ["OWASP-AST01"]),
+        ("B303", "medium",
+         "Use of insecure MD/SHA1 hash function.", ["OWASP-AST01"]),
+        ("B310", "medium",
+         "urllib_urlopen with untrusted scheme (file://, ftp://).",
+         ["OWASP-AST05"]),
+        ("B506", "high",
+         "yaml.load used without SafeLoader (arbitrary object deserialisation).",
+         ["OWASP-AST01"]),
+        ("B602", "high",
+         "subprocess call with shell=True (Bandit).", ["OWASP-AST01"]),
+        ("B605", "high",
+         "os.system used with a shell command string.", ["OWASP-AST01"]),
+        ("B607", "medium",
+         "Process started with a partial executable path.", ["OWASP-AST01"]),
+        ("B701", "medium",
+         "jinja2 template autoescape disabled.", ["OWASP-AST01"]),
+        ("B105", "medium",
+         "Hardcoded password string.", ["OWASP-AST02"]),
+        ("B106", "medium",
+         "Hardcoded password default argument.", ["OWASP-AST02"]),
+        ("B107", "medium",
+         "Hardcoded password default parameter.", ["OWASP-AST02"]),
+    ]
+    for test_id, sev, title, owasp in _BANDIT_RULES:
+        rr.register(RuleDefinition(
+            ruleId=f"skill.bandit.{test_id}",
+            ruleVersion="1.0.0", supersedes=[], engine="skill",
+            title=(f"[Bandit {test_id}] {title} (Verity runs Bandit as an "
+                   "external subprocess against a temporary copy of the "
+                   "skill's Python files; the code is NOT executed.)"),
+            findingType="skill.bandit_finding",
+            implementationId=f"impl.skill.bandit.{test_id}",
+            applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+            defaultSeverity=sev, controlIds=owasp,
+            owaspAst10=owasp,
+        ))
     # legacy file-level rules -----------------------------------------
     rr.register(RuleDefinition(
         ruleId="skill.fake_secret_fixture",

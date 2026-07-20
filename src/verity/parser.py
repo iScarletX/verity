@@ -89,7 +89,10 @@ def _split_frontmatter(data: bytes) -> Tuple[Optional[bytes], Optional[bytes], L
             "frontmatter_not_closed",
             "YAML frontmatter opened with '---' but no matching closing '---' was found",
         ))
-        return None, data, diags
+        # Return a marker (b"") for yaml_bytes so the caller can distinguish
+        # "unclosed frontmatter" (untrustworthy) from "no frontmatter at all"
+        # (partial-but-usable, empty manifest).
+        return b"", rest, diags
     yaml_bytes = rest[:m.start()]
     body = rest[m.end():]
     return yaml_bytes, body, diags
@@ -269,13 +272,22 @@ def parse_skill(snapshot, file_bytes: Dict[str, bytes]) -> Tuple[Dict[str, Any],
     run.diagnostics.extend(diags)
 
     if yaml_bytes is None:
-        # No frontmatter: not a parse error. Present the manifest as an
-        # empty mapping so downstream rules can flag missing fields on
-        # their own terms (spec §A5).
+        # No frontmatter at all: not a parse error. Present the manifest
+        # as an empty mapping so downstream rules can flag missing fields
+        # on their own terms (spec §A5).
         run.status = "partial"
         model["manifest"] = _normalize_manifest({})
         model["manifestRaw"] = {}
         model["manifestByteRange"] = None
+        return model, run
+    if yaml_bytes == b"":
+        # Frontmatter started but never closed. The bytes between the
+        # opening `---` and end-of-file are UNTRUSTED because we cannot
+        # tell where the intended frontmatter ends and body begins.
+        # We refuse to parse and mark the parser as failed so that
+        # downstream manifest-dependent rules become
+        # ``blocked_by_upstream_failure`` (§9.2).
+        run.status = "failed"
         return model, run
 
     # Record the frontmatter byte range for evidence location.

@@ -18,8 +18,9 @@ import sys
 from pathlib import Path
 
 from .intake import IntakeBudget, IntakeError, intake_directory, intake_text
-from .report import to_html, to_json
+from .report import review_to_dict, to_html, to_json
 from .review import ReviewInputs, run_review
+from .sarif import to_sarif_json
 from .schema import export_schema
 
 
@@ -50,13 +51,15 @@ def _cmd_review(args: argparse.Namespace) -> int:
 
     out_dir = Path(args.out) if args.out else Path("out")
     out_dir.mkdir(parents=True, exist_ok=True)
+    d = review_to_dict(review)
     (out_dir / "report.json").write_text(to_json(review), encoding="utf-8")
     (out_dir / "report.html").write_text(to_html(review), encoding="utf-8")
+    (out_dir / "report.sarif").write_text(to_sarif_json(d), encoding="utf-8")
 
     n_findings = len(review.findings)
     n_high = sum(1 for f in review.findings if f.severity in ("high", "critical"))
     print(f"engine={args.engine} snapshot={snap.snapshotId} findings={n_findings} high_or_critical={n_high} coverage={review.coverage.status}")
-    print(f"wrote {out_dir/'report.json'} and {out_dir/'report.html'}")
+    print(f"wrote {out_dir/'report.json'}, {out_dir/'report.html'}, {out_dir/'report.sarif'}")
     # Exit non-zero when there are high/critical findings so CI can use it later.
     return 1 if n_high else 0
 

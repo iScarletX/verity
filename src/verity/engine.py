@@ -20,7 +20,7 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Sequence, Tuple
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 from .canonical import (
     canonical_json,
@@ -80,7 +80,7 @@ class Engine:
     def __init__(self, name: str, rule_registry: RuleRegistry,
                  finding_types: FindingTypeRegistry,
                  implementations: Dict[str, RuleImpl],
-                 parser=None) -> None:
+                 parser=None, analyzers: Optional[List] = None) -> None:
         assert name in ("prompt", "skill")
         self.name = name
         self.rules = rule_registry
@@ -88,6 +88,10 @@ class Engine:
         self.impls = implementations
         # Optional Parser callable: (snapshot, file_bytes) -> (model, parser_run)
         self.parser = parser
+        # Optional analyzers: each entry is a dict with keys:
+        #   componentId, componentVersion, gatingClass, run(snapshot, file_bytes)
+        # -> returns (artifact_model_updates: dict, status, reasonCode)
+        self.analyzers = list(analyzers or [])
 
     def run(self, snapshot: ArtifactSnapshot, file_bytes: Dict[str, bytes]
             ) -> Tuple[List[EvidenceRecord], List[RuleMatchEvent], List[Finding],
@@ -150,6 +154,43 @@ class Engine:
                         executionId=exec_id, planItemId=parser_plan.planItemId,
                         status="failed", reasonCode=f"parser:{reason}",
                     ))
+
+        # Analyzer step (e.g. Bandit). Each analyzer is a first-class
+        # AnalysisPlanItem so its failure is visible in Coverage. Analyzers
+        # publish results into ``artifact_model`` for consumption by rules.
+        for an in self.analyzers:
+            an_plan = AnalysisPlanItem(
+                planItemId=f"pi-analyzer-{an['componentId']}",
+                componentKind="analyzer",
+                componentId=an["componentId"],
+                componentVersion=an["componentVersion"],
+                scope=[snapshot.snapshotId],
+                requirement="required",
+                gatingClass=an.get("gatingClass", "normal"),
+            )
+            plan_items.append(an_plan)
+            exec_id = f"e-{uuid.uuid4().hex[:12]}"
+            try:
+                updates, status, reason = an["run"](snapshot, file_bytes)
+            except Exception as e:  # pragma: no cover
+                executions.append(ExecutionRecord(
+                    executionId=exec_id, planItemId=an_plan.planItemId,
+                    status="failed", reasonCode=f"analyzer_error:{type(e).__name__}",
+                ))
+                continue
+            if updates:
+                artifact_model.update(updates)
+            if status == "completed":
+                executions.append(ExecutionRecord(
+                    executionId=exec_id, planItemId=an_plan.planItemId,
+                    status="completed", coveredScopes=[snapshot.snapshotId],
+                    reasonCode=reason,
+                ))
+            else:
+                executions.append(ExecutionRecord(
+                    executionId=exec_id, planItemId=an_plan.planItemId,
+                    status=status, reasonCode=reason,
+                ))
         # Deterministic ordering by ruleId
         for rule in sorted(self.rules.by_engine(self.name), key=lambda r: (r.ruleId, r.ruleVersion)):
             impl = self.impls.get(rule.implementationId)
@@ -770,6 +811,19 @@ def prompt_open_ended_tool_wildcard(ctx: RuleContext) -> List[RuleHit]:
 # Skill rules live in a separate module so this file stays focused on the
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
+from .bandit_adapter import bandit_result_to_hits as _bandit_hits  # noqa: E402
+
+
+def _make_bandit_impl(_):  # closure per rule id, so ctx.rule.ruleId works
+    def _impl(ctx):
+        return _bandit_hits(ctx, run_result=None)
+    return _impl
+
+
+_BANDIT_TEST_IDS = (
+    "B102", "B301", "B303", "B310", "B506", "B602", "B605", "B607",
+    "B701", "B105", "B106", "B107",
+)
 
 DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.jailbreak_marker.v1": prompt_jailbreak_marker,
@@ -792,4 +846,5 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.skill.manifest_external_instructions.v1": _sr.skill_manifest_external_instructions,
     "impl.skill.manifest_script_suffix_mismatch.v1": _sr.skill_manifest_script_suffix_mismatch,
     "impl.skill.python_subprocess_shell_true.v1": _sr.skill_python_subprocess_shell_true,
+    **{f"impl.skill.bandit.{tid}": _make_bandit_impl(tid) for tid in _BANDIT_TEST_IDS},
 }

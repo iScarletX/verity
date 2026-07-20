@@ -50,18 +50,25 @@ class TestFixturesEndToEnd:
         assert r.coverage.status == "sufficient"
 
     def test_malformed_manifest_still_runs_file_rules(self):
-        """Parser fails, but non-manifest file rules must still fire —
-        proves 'partial failure isolation' from spec §9.2."""
+        """Parser fails (unclosed frontmatter is untrustworthy), but non-
+        manifest file rules must still fire — partial failure isolation
+        from spec §9.2."""
         r = _run(str(FIXTURES / "malformed_manifest_skill"))
         types = _types(r)
         # file-level rule still fires:
         assert "skill.dangerous_shell_pattern" in types
-        # manifest-dependent rules that need a proper manifest are
-        # NOT silently absent — the parser is unclosed but returns an
-        # empty-manifest view, so field-issue rules do run and flag
-        # `name`/`description` missing. That is the correct behaviour:
-        # 'missing manifest content' is a Finding, not a silent skip.
-        assert "skill.manifest_field_issue" in types
+        # A parse-failure Finding IS emitted (the parser itself surfaces
+        # the frontmatter_not_closed diagnostic to a rule).
+        assert "skill.manifest_parse_failure" in types
+        # And manifest-dependent rules are blocked_by_upstream_failure,
+        # NOT silently absent.
+        blocked = [e for e in r.executions
+                   if e.status == "blocked_by_upstream_failure"]
+        blocked_ids = {e.planItemId for e in blocked}
+        assert "pi-skill.manifest_name_issue" in blocked_ids
+        assert "pi-skill.manifest_description_missing" in blocked_ids
+        # Coverage reflects the failure:
+        assert r.coverage.status == "insufficient"
 
     def test_missing_refs_and_unsafe_paths(self):
         r = _run(str(FIXTURES / "missing_refs_skill"))
@@ -96,13 +103,20 @@ class TestFixturesEndToEnd:
         r = _run(str(FIXTURES / "doc_url_skill"))
         assert "skill.manifest_external_instructions" not in _types(r)
 
-    def test_python_subprocess_shell_true_hits_call_only(self):
+    def test_python_subprocess_shell_true_reported_by_bandit_supersede(self):
+        """When Bandit is present, ``skill.bandit.B602`` supersedes the
+        hand-written rule at the same (file, line). We MUST see exactly
+        one Finding for that location, and the hand-written rule must be
+        suppressed — not double-reported."""
         r = _run(str(FIXTURES / "python_shell_true_skill"))
-        hits = [f for f in r.findings
+        b602 = [f for f in r.findings
+                if f.findingType == "skill.bandit_finding"
+                and f.subject.get("testId") == "B602"]
+        hand = [f for f in r.findings
                 if f.findingType == "skill.python_subprocess_shell_true"]
-        assert len(hits) == 1
-        assert hits[0].severity == "high"
-        assert hits[0].subject["callee"] == "subprocess.run"
+        assert len(b602) == 1, [f.subject for f in r.findings]
+        assert hand == []
+        assert b602[0].severity == "high"
 
 
 # ========================================================================

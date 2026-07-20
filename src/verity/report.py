@@ -34,11 +34,24 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
     if review.artifactModel:
         # Do not leak raw YAML — only compact fields needed for the report.
         am = review.artifactModel
+        br = am.get("banditRun") or {}
         d["artifactModel"] = {
             "hasSkillMd": am.get("hasSkillMd"),
             "manifestFile": am.get("manifestFile"),
             "manifest": am.get("manifest"),
             "parserDiagnostics": am.get("parserDiagnostics") or [],
+            "banditRun": {
+                "status": br.get("status"),
+                "toolName": br.get("toolName"),
+                "toolVersion": br.get("toolVersion"),
+                "exitCode": br.get("exitCode"),
+                "durationSeconds": br.get("durationSeconds"),
+                "stagedFileCount": br.get("stagedFileCount"),
+                "reasonCode": br.get("reasonCode"),
+                # NOTE: do NOT include pathMap (contains absolute host paths).
+                # Raw results also omitted; the SARIF export uses artifactModel
+                # from the Review directly, not from this projection.
+            } if am.get("banditRun") else None,
         }
     if review.engine == "skill":
         from .builtins import build_finding_type_registry, build_skill_rule_registry

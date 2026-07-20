@@ -537,7 +537,24 @@ def skill_python_subprocess_shell_true(ctx: RuleContext) -> List[RuleHit]:
     A syntax error is not a Finding: it just means the Python analyzer
     could not analyze the file. We surface that fact via a diagnostic on
     the ExecutionRecord (the engine already records rule completion).
+
+    De-duplication with Bandit (spec §6 supersedes): if the Bandit
+    analyzer ran successfully and produced a B602 result for the same
+    (file, line), we suppress the hand-written Finding here. This avoids
+    double-reporting the same code position; the Bandit built-in rule
+    ``skill.bandit.B602`` supersedes ``skill.python_subprocess_shell_true``.
     """
+    b602_positions = set()
+    br = (ctx.artifact_model or {}).get("banditRun")
+    if br and br.get("status") == "completed":
+        path_map = br.get("pathMap") or {}
+        for r in (br.get("results") or []):
+            if r.get("test_id") != "B602":
+                continue
+            fid = path_map.get(r.get("filename"))
+            if fid:
+                b602_positions.add((fid, int(r.get("line_number") or 0)))
+
     hits: List[RuleHit] = []
     for f in _iter_py_files(ctx):
         source = ctx.file_bytes.get(f.fileId, b"")
@@ -564,6 +581,8 @@ def skill_python_subprocess_shell_true(ctx: RuleContext) -> List[RuleHit]:
                     end_line = node.end_lineno or node.lineno
                     end_col = node.end_col_offset or (node.col_offset + len(segment))
                     end = sum(len(l) for l in lines[:end_line - 1]) + end_col
+                    if (f.fileId, node.lineno) in b602_positions:
+                        break  # already reported by Bandit B602
                     ev = make_source_span_evidence(
                         snapshot_id=ctx.snapshot.snapshotId,
                         file_id=f.fileId, artifact_path=f.normalizedPath,
