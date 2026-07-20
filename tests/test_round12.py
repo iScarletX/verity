@@ -64,6 +64,10 @@ def test_storage_permissions_symlink_corrupt_oversize_and_atomicity(tmp_path):
     pp.unlink(); pp.write_bytes(good); os.chmod(pp,0o600)
     huge=tmp_path/"huge"; huge.write_bytes(b"{"+b"x"*(1024*1024)+b"}")
     with pytest.raises(HistoryError): _strict_load(huge)
+    unknown=tmp_path/"unknown"; unknown.write_text('{"schemaVersion":1,"recordType":"future"}')
+    with pytest.raises(HistoryError): _strict_load(unknown)
+    extra=tmp_path/"extra"; extra.write_text('{"schemaVersion":1,"recordType":"skillProject","artifactId":"a","displayName":"x","alias":null,"createdAt":"x","versionIds":[],"unexpected":true}')
+    with pytest.raises(HistoryError): _strict_load(extra)
     def fail(src,dst): raise OSError("interrupt")
     with pytest.raises(OSError): _atomic_json(pp,{"schemaVersion":1},replace=fail)
     assert pp.read_bytes()==good

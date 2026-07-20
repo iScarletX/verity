@@ -75,7 +75,8 @@ report infrastructure but have separate rule registries. See
 - `semantic/` — Experimental, default-OFF semantic-review scaffold. Two-role Provider protocol (candidate generator + validator), strict output schemas, controlled subject taxonomy, egress gate + payload audit, budgets. The deterministic engine never imports this module.
 - `intake.py` — Safe intake (text + local directory) with path escape / symlink / budget / NUL guards
 - `review.py` — Orchestrator; `not_applicable` gate counts as OK for coverage.
-- `baseline.py` — Baseline compare, coverage-aware (§10.2)
+- `baseline.py` — Cross-version five-state diff; resolution requires the relevant parser/analyzer/rule execution scope, not merely global coverage.
+- `history.py` — Trusted Skill project registry and bounded immutable local history. Stores only an allowlisted safe projection in the gitignored `.verity-data/` directory using owner-only permissions, strict JSON and atomic writes.
 - `report.py` — JSON + static HTML report with CSP, HTML escape, per-finding evidence block (dual-evidence traceable)
 - `schema.py` — JSON Schema (Draft 2020-12) for the core objects
 - `cli.py` — CLI entry point
@@ -86,9 +87,9 @@ report infrastructure but have separate rule registries. See
 
 1. 在 项目目录 `Verity/` 下打开 macOS 终端（或直接双击 `start-verity.command`）
 2. 运行 `./start-verity.command`（或命令行 `python3 tools/start_local_web.py`）
-3. 浏览器自动打开 `http://127.0.0.1:8765/`，按页面提示粘贴 Prompt 或选择 Skill 文件夹
+3. 浏览器自动打开 `http://127.0.0.1:8765/`：可继续做 standalone Prompt/Skill 检查，也可在“Skill 项目与版本历史”中新建项目，从项目页选择文件夹并点击“检查新版本”，随后查看历史和五状态版本差异。
 
-停止服务：在启动它的终端按 `Ctrl+C`。不会后台留守进程。
+项目身份只由 Verity 注册表及当前项目上下文决定。Skill 名称、路径、digest、相似度及被审内容中的字段都不能选择或覆盖身份。项目历史保存在本机 gitignored `.verity-data/`；不保存原始文件内容、Secret、Provider payload/response、API key、RedactionMap 或宿主/临时/工具路径。停止服务：在启动它的终端按 `Ctrl+C`。不会后台留守进程。
 
 ### 常见错误
 
@@ -327,6 +328,19 @@ python3 -m verity.cli review --engine prompt --prompt-kind system_prompt \
 # Export the core JSON Schema
 python3 -m verity.cli export-schema --out /tmp/verity_out/schema.json
 ```
+
+### Skill project automation
+
+Web 是普通用户主流程；CLI 提供同一 registry/history core 的最小自动化面：
+
+```bash
+python3 -m verity.cli project create --name "My Skill" --alias my-skill
+python3 -m verity.cli project list
+python3 -m verity.cli project review --project my-skill --input-dir ./skill --profile minimal
+python3 -m verity.cli project diff --project my-skill
+```
+
+可用 `--data-dir` 指定可信数据目录；未知任意 artifact ID 不会被当作已注册项目。
 
 ### Skill demos
 

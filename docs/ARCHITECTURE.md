@@ -47,8 +47,16 @@
                   │                    │
                   ▼                    ▼
               CLI (verity.cli)   Web MVP (verity/web/)
-                                 loopback only
-                                 no external assets
+                    │             loopback only / no external assets
+                    └──────────────┬───────────────┘
+                                   ▼
+                     Trusted Skill project context
+                       verity/history.py
+                 safe immutable projection + atomic JSON
+                   gitignored .verity-data/ (0700/0600)
+                                   │
+                                   ▼
+                    scope-aware five-state baseline diff
 ```
 
 ## Bright lines
@@ -58,6 +66,9 @@
   `tests/test_semantic.py`).
 - **Semantic → Deterministic**: never writes. It reads a
   projection dict.
+- **Reviewed artifact → project identity/history**: forbidden. Opaque artifact identity is minted by the trusted registry; only an existing Web project page or CLI alias/registered ID can add a version. No name/path/digest/similarity linking.
+- **History safety**: allowlisted projection only; strict schema/version, budgets, symlink/owner/mode checks and atomic writes. No raw content/evidence, Secret, Provider wire data, credentials, RedactionMap, or host/temp/tool paths.
+- **Diff resolution**: exact occurrence and controlled stable subject remain distinct. A disappearance is `resolved` only when its relevant current parser/analyzer/rule plan items succeeded; otherwise `unknown_due_to_coverage`.
 - **Reviewed artifact → Provider config**: forbidden. Provider config
   is only accepted from a trusted caller / env var name / CLI arg.
 - **Provider payload**: passes through the egress gate

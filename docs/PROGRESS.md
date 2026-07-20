@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "3451b3b0c2fdde771ef30215b2eab9838f755f7e"
-  tests_collected: 312
-  tests_passed: 312
+  commit: "ccfeafc35576aee875bc4bc111063092c634d7ac"
+  tests_collected: 318
+  tests_passed: 318
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,16 +27,9 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Next step.** Round 11 is complete. `plans/ACTIVE.md` proposes Round 12:
-trusted local review history + coverage-aware Baseline/Diff + append-only
-Disposition/Suppression. It is not approved for implementation yet.
+**Next step.** Round 12 is implemented and archived. `plans/ACTIVE.md` is an unapproved Round 13 proposal placeholder; no Disposition or Suppression implementation is authorized.
 
-**What ships right now.** Read-only intake (prompt text or local Skill
-folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks
-(pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports,
-Chinese remediation catalog, experimental semantic pipeline plus its
-first bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI
-configuration only), CLI and local Web MVP.
+**What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, and trusted Web-first Skill project identity/history with scope-aware five-state version diff.
 
 **Deliberately absent.** No Web Provider-config surface. No Skill
 execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No
@@ -45,6 +38,13 @@ ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
 ---
 
 ## Round history (append-only)
+
+## Round 12 (2026-07-20) → commits `ccfeafc` + final documentation commit
+- Added a Verity-owned Skill project registry. Opaque artifact identity is minted locally and inherited only from an existing trusted Web/CLI project context; reviewed names, paths, digests and content cannot establish identity.
+- Added bounded immutable history under the gitignored `.verity-data/` directory with owner-only modes, strict schema/version parsing, duplicate-key/corruption/symlink/unsafe-mode rejection, atomic writes, record/project/version/total budgets, and an allowlisted projection that excludes raw content, evidence/Secret data, Provider wire data, credentials, RedactionMap, and host/temp/tool paths.
+- Reworked baseline disappearance semantics to consult relevant parser/analyzer/rule executions. Five states (`new`, `existing`, `changed`, `resolved`, `unknown_due_to_coverage`) are exposed; relevant failures cannot become resolved, and artifact/scope mismatch is rejected.
+- Added Web-first project list/create/project version submission/history/diff APIs and UI while preserving standalone Prompt/Skill review, loopback/CSP/no-`innerHTML`, upload budgets and temporary cleanup. Added the shared-core minimal CLI project create/list/review/diff surface.
+- Added six Round-12 tests covering the five states and relevant analyzer failure counterexample, cross-artifact/scope refusal, identity isolation and immutable versions, leak-safe projection, permissions/symlink/corruption/unknown schema/oversize/atomic interruption, real Web two-version E2E, and standalone Web regression. Full suite: 318 passed.
 
 ## Round 11 (2026-07-20) → commit `0c582bc`
 - **First controlled real semantic Provider transport**, closing the gap

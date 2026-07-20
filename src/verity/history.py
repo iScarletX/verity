@@ -38,6 +38,13 @@ def _strict_load(path: Path) -> dict:
     except Exception as e: raise HistoryError("corrupt history record") from e
     if not isinstance(obj, dict) or obj.get("schemaVersion") != SCHEMA_VERSION:
         raise HistoryError("unsupported history schema")
+    kind=obj.get("recordType")
+    project_keys={"schemaVersion","recordType","artifactId","displayName","alias","createdAt","versionIds"}
+    review_keys={"schemaVersion","recordType","artifactId","snapshotId","reviewId","createdAt","engine","profile","scopeId","contentDigest","coverage","plan","executions","findingCounts","findings","reviewStatus"}
+    expected=project_keys if kind=="skillProject" else review_keys if kind=="skillReview" else None
+    if expected is None or set(obj)!=expected: raise HistoryError("history record violates strict schema")
+    if kind=="skillProject" and not isinstance(obj.get("versionIds"),list): raise HistoryError("invalid project schema")
+    if kind=="skillReview" and not all(isinstance(obj.get(k),list) for k in ("plan","executions","findings")): raise HistoryError("invalid review schema")
     return obj
 
 
