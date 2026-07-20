@@ -34,6 +34,10 @@ class ReviewInputs:
     snapshot: ArtifactSnapshot
     file_bytes: Dict[str, bytes]
     profile: str = "standard"  # skill-engine only
+    # Optional semantic-review switch. ``None`` = default (off).  This is
+    # kept as ``Any`` to avoid an import cycle; run_review re-imports the
+    # real type.
+    semantic_config: Optional[object] = None
 
 
 def _build_engine(name: str, *, bandit_runner=None, gitleaks_runner=None,
@@ -136,7 +140,8 @@ def _build_engine(name: str, *, bandit_runner=None, gitleaks_runner=None,
 
 
 def run_review(ri: ReviewInputs, *, bandit_runner=None,
-               gitleaks_runner=None) -> Review:
+               gitleaks_runner=None,
+               candidate_generator=None, validator=None) -> Review:
     if ri.profile not in SKILL_PROFILES:
         raise ValueError(f"unknown profile: {ri.profile}")
     engine = _build_engine(ri.engine, bandit_runner=bandit_runner,
@@ -176,6 +181,35 @@ def run_review(ri: ReviewInputs, *, bandit_runner=None,
         criticalGapPlanItemIds=critical_gaps,
         reasonCodes=reason_codes,
     )
+    # Semantic sub-pipeline (default OFF; reads deterministic projection
+    # only, never mutates it). Import inline so deterministic engine can
+    # continue to run in environments where semantic isn't wanted.
+    semantic_view: Optional[Dict[str, Any]] = None
+    if ri.semantic_config is not None:
+        from .semantic import SemanticConfig  # type: ignore
+        from .semantic.orchestrator import SemanticOrchestrator
+        cfg = ri.semantic_config
+        if not isinstance(cfg, SemanticConfig):
+            raise TypeError("semantic_config must be a SemanticConfig instance")
+        # Build a lightweight review-dict projection for the orchestrator.
+        # We intentionally do NOT reuse report.review_to_dict here to keep
+        # the deterministic module free of any semantic dependency.
+        from dataclasses import asdict as _asdict
+        proj = {
+            "reviewId": review_id,
+            "engine": ri.engine,
+            "snapshot": _asdict(ri.snapshot),
+            "artifactModel": artifact_model,
+        }
+        # Attach evidences (dict form) for the orchestrator's extractors.
+        # They produce their own Evidence anyway; but downstream may want.
+        proj["evidences"] = [_asdict(e) for e in evidences]
+        orch = SemanticOrchestrator(cfg)
+        sem_result = orch.run(proj, ri.file_bytes,
+                              generator=candidate_generator,
+                              validator=validator)
+        semantic_view = _semantic_view(sem_result)
+
     return Review(
         reviewId=review_id,
         artifactSnapshot=ri.snapshot,
@@ -187,4 +221,20 @@ def run_review(ri: ReviewInputs, *, bandit_runner=None,
         ruleMatches=events,
         findings=findings,
         artifactModel=artifact_model,
+        semantic=semantic_view,
     )
+
+
+def _semantic_view(sem_result) -> Dict[str, Any]:
+    from dataclasses import asdict as _asdict
+    return {
+        "status": sem_result.status,
+        "reasonCode": sem_result.reasonCode,
+        "egressPolicy": sem_result.egressPolicy,
+        "callCounts": dict(sem_result.callCounts),
+        "candidates": [_asdict(c) for c in sem_result.candidates],
+        "assessments": [_asdict(a) for a in sem_result.assessments],
+        "findings": [_asdict(f) for f in sem_result.findings],
+        "planItems": [_asdict(p) for p in sem_result.planItems],
+        "payloadAudit": [_asdict(a) for a in sem_result.payloadAudit],
+    }

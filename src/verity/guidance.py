@@ -266,6 +266,47 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
     # Aggregation entries (dispatched below) --------------------------
     # skill.bandit_finding is per-testId; handled dynamically.
     # skill.gitleaks_finding is per-ruleID; handled dynamically.
+
+    # Semantic catalog (experimental; round 8) ------------------------
+    "semantic.prompt.instruction_conflict": Guidance(
+        id="semantic.prompt.instruction_conflict",
+        plainTitle="Prompt 内两条指令可能相互矛盾",
+        whyItMatters=(
+            "当提示词同时提出两条难以同时满足的要求时，模型会选一个、忽略另一个，"
+            "输出质量就会不稳定。本判断来自 LLM Validator，只作为参考，不能局限 deterministic 结果。"
+        ),
+        whatToDo=[
+            "回头看两条证据，确认是否真的不相容（有时只是描述不同阶段）。",
+            "如果实际矛盾，只保留一条，或把两条拆到不同的请求阶段（例如 planning vs execution）。",
+        ],
+        priority="P1",
+    ),
+    "semantic.prompt.missing_output_contract": Guidance(
+        id="semantic.prompt.missing_output_contract",
+        plainTitle="Prompt 要求结构化输出，但未给出字段契约",
+        whyItMatters=(
+            "只说“返回 JSON”但不列字段，模型会自己发明字段名，下游代码难以稳定解析。"
+            "该判断来自 LLM Validator，只作为参考。"
+        ),
+        whatToDo=[
+            "列出必需字段名、类型、是否可选，例如 { title: string, tags: string[] }.",
+            "或参照固定 JSON Schema，在 prompt 中直接引用。",
+        ],
+        priority="P2",
+    ),
+    "semantic.skill.declared_behavior_mismatch": Guidance(
+        id="semantic.skill.declared_behavior_mismatch",
+        plainTitle="Skill 声明行为与代码可能不一致",
+        whyItMatters=(
+            "声明“只读文件”但代码里发起网络请求、或者声明写了某个命令但实现里看不到，"
+            "会让使用方无法基于 Manifest 预估风险。该判断来自 LLM Validator，只作为参考。"
+        ),
+        whatToDo=[
+            "重新射 Manifest 中的 description 与具体 permission，与实现对齐。",
+            "如果实现确实需要额外能力，先在 Manifest 里声明。",
+        ],
+        priority="P1",
+    ),
 }
 
 

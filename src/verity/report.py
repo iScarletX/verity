@@ -72,6 +72,41 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
         ftr = build_finding_type_registry()
         rr = build_skill_rule_registry(ftr)
         d["owaspCoverage"] = coverage_matrix(rr.all())
+    # Capability matrix (static / semantic / runtime).  Static is
+    # always driven by deterministic results; semantic reflects the
+    # optional sub-pipeline; runtime (prompt black-box + skill sandbox)
+    # is intentionally NOT implemented in V1.
+    static_status = "completed"
+    if (d.get("coverage") or {}).get("status") != "sufficient":
+        static_status = "failed" if any(
+            e.get("status") in ("failed", "blocked_by_upstream_failure")
+            for e in d.get("executions") or []
+        ) else "completed"
+    if review.semantic:
+        sem = review.semantic
+        if sem["status"] == "off":
+            semantic_status = "not_enabled"
+        elif sem["status"] == "provider_not_configured":
+            semantic_status = "failed"
+        elif sem["status"] == "budget_exhausted":
+            semantic_status = "failed"
+        elif sem["status"] == "completed":
+            semantic_status = "completed"
+        else:
+            semantic_status = sem["status"]
+        d["semantic"] = sem
+    else:
+        semantic_status = "not_enabled"
+    d["capabilities"] = {
+        "static": {"status": static_status,
+                    "note": "deterministic rules + parsers + analyzers"},
+        "semantic": {"status": semantic_status,
+                      "note": "experimental; default OFF; not enabled unless user opts in"},
+        "promptBlackbox": {"status": "not_implemented",
+                            "note": "V1.5 planned; not part of V1"},
+        "skillSandbox": {"status": "not_implemented",
+                           "note": "V2 planned; not part of V1"},
+    }
     return d
 
 

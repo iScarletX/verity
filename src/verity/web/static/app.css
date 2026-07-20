@@ -71,6 +71,9 @@ button.primary:disabled { background: #999; cursor: default; }
 .next-steps h3 { margin: 0 0 .3rem; font-size: 1rem; }
 .next-steps ol { margin: 0 0 0 1.2rem; padding: 0; }
 #loading { padding: 1rem; background: #f6f8fa; border-radius: 8px; margin: 1rem 0; }
+.experimental { background: #fbf7e6; border: 1px dashed #dcaf3e; padding: .8rem 1rem; border-radius: 8px; margin: 1rem 0; }
+.experimental summary { cursor: pointer; font-weight: 500; }
+.experimental label { margin-top: .4rem; }
 button:focus-visible, a:focus-visible, textarea:focus-visible, select:focus-visible, input[type=file]:focus-visible {
   outline: 3px solid #1668dc; outline-offset: 2px;
 }

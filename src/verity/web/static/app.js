@@ -56,10 +56,20 @@
     fetch("/api/review/prompt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: text, prompt_kind: kind }),
+      body: JSON.stringify(Object.assign({ text: text, prompt_kind: kind },
+                                          semanticOpts())),
     }).then(handleJson).catch(handleFetchError).finally(function () {
       disable(false);
     });
+  }
+
+  function semanticOpts() {
+    var box = $("semantic-enabled");
+    if (!box || !box.checked) return {};
+    return {
+      semantic_enabled: true,
+      egress_policy: ($("egress-policy") || { value: "metadata_only" }).value,
+    };
   }
 
   // ---------------- skill tab ----------------
@@ -85,6 +95,11 @@
     }
     var fd = new FormData();
     fd.append("profile", $("skill-profile").value);
+    var opts = semanticOpts();
+    if (opts.semantic_enabled) {
+      fd.append("semantic_enabled", "true");
+      fd.append("egress_policy", opts.egress_policy);
+    }
     for (var i = 0; i < files.length; i++) {
       var f = files[i];
       // webkitRelativePath is the browser-normalised relative path
@@ -339,6 +354,49 @@
         tbl.appendChild(row);
       });
       owaspEl.appendChild(tbl);
+    }
+
+    // Capability matrix
+    var capEl = $("capabilities");
+    capEl.textContent = "";
+    var caps = view.capabilities || {};
+    if (Object.keys(caps).length) {
+      capEl.appendChild(mk("h3", { text: "能力矩阵" }));
+      var t = mk("table", { className: "owasp-table" });
+      var hd = mk("tr");
+      ["能力", "状态", "说明"].forEach(function (h) { hd.appendChild(mk("th", { text: h })); });
+      t.appendChild(hd);
+      var order = ["static", "semantic", "promptBlackbox", "skillSandbox"];
+      var label = { static: "静态检查", semantic: "语义审查",
+                    promptBlackbox: "Prompt 黑盒 (V1.5)",
+                    skillSandbox: "Skill 隔离沙箱 (V2)" };
+      order.forEach(function (k) {
+        var c = caps[k]; if (!c) return;
+        var row = mk("tr");
+        row.appendChild(mk("td", { text: label[k] || k }));
+        row.appendChild(mk("td", { text: c.status }));
+        row.appendChild(mk("td", { text: c.note || "" }));
+        t.appendChild(row);
+      });
+      capEl.appendChild(t);
+    }
+
+    // Semantic sub-block
+    var semEl = $("semantic-view");
+    semEl.textContent = "";
+    if (view.semantic) {
+      semEl.appendChild(mk("h3", { text: "语义审查（实验性）" }));
+      var s = view.semantic;
+      semEl.appendChild(mk("div", { text: "状态：" + s.status
+        + (s.reasonCode ? "（" + s.reasonCode + "）" : "") }));
+      semEl.appendChild(mk("div", { text: "出境策略：" + s.egressPolicy
+        + "；候选数：" + s.candidateCount }));
+      var confirmed = ((s.assessmentCounts || {}).confirmed) || 0;
+      var failed = ((s.assessmentCounts || {}).validation_failed) || 0;
+      semEl.appendChild(mk("div", { text:
+        "确认 " + confirmed + "，拒绝 " + ((s.assessmentCounts || {}).rejected || 0)
+        + "，证据不足 " + ((s.assessmentCounts || {}).insufficient_evidence || 0)
+        + "，验证失败 " + failed }));
     }
 
     // Downloads

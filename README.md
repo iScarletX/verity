@@ -2,8 +2,12 @@
 
 > Phase 0 core contracts + high-confidence deterministic Prompt/Skill
 > rules + controlled Bandit and gitleaks integration + SARIF 2.1.0
-> export + a local Web MVP for non-technical users. Read-only static
-> V1. **Not** a sandbox, **not** a runtime evaluator.
+> export + a local Web MVP for non-technical users + an **experimental,
+> default-OFF semantic-review scaffold** (Evidence → SemanticCandidate
+> → Validator → CandidateAssessment → semantic Finding).
+> Read-only static V1. **Not** a sandbox, **not** a runtime evaluator.
+> **No real LLM Provider is bundled** — opting in without configuring
+> one honestly returns `provider_not_configured`.
 
 ## Product roadmap (must not be lost)
 
@@ -61,6 +65,7 @@ report infrastructure but have separate rule registries. See
 - `gitleaks_adapter.py` — Redacted gitleaks results -> secret-sensitivity Evidence (§5.1 secret path). `redactedPreview = "[gitleaks:<ruleId>]"`; the raw secret never enters `occurrenceFingerprint`, subjectKey, JSON, HTML, SARIF or exceptions.
 - `sarif.py` — SARIF 2.1.0 exporter with byte-offset regions, stable partialFingerprints, no secret leakage. Coverage and other Verity-specific fields live in the run's properties bag under flat, namespaced keys (`run.properties["verity.coverage"]`, `run.properties["verity.reviewId"]`, `run.properties["verity.verdict.subject"]`, etc.) — not as a nested `run.properties.coverage` object.
 - `web/` — Local Web MVP (Starlette ASGI app). `python -m verity.web` binds `127.0.0.1` only. UI is Chinese-first, no external assets, no `innerHTML`, strict CSP. Every request routes into the same `run_review` pipeline.
+- `semantic/` — Experimental, default-OFF semantic-review scaffold. Two-role Provider protocol (candidate generator + validator), strict output schemas, controlled subject taxonomy, egress gate + payload audit, budgets. The deterministic engine never imports this module.
 - `intake.py` — Safe intake (text + local directory) with path escape / symlink / budget / NUL guards
 - `review.py` — Orchestrator; `not_applicable` gate counts as OK for coverage.
 - `baseline.py` — Baseline compare, coverage-aware (§10.2)
@@ -461,6 +466,48 @@ in its docstring. Behavioural coverage is expected to grow as later
 phases land (bandit/semgrep/gitleaks integration, LLM egress, patch
 apply, etc.).
 
+## Semantic review (experimental, default OFF)
+
+Round 8 introduces the plumbing for controlled LLM-assisted review that
+never mutates deterministic results:
+
+- Two Provider roles (`candidate_generator`, `validator`) with strict
+  JSON schemas and controlled subject taxonomy.
+- Data-egress policies:
+  - `metadata_only` — send location + finding-type shape only, no snippet.
+  - `redacted_evidence` — also include a short byte-range snippet from
+    non-sensitive Evidence. `raw_full_artifact` is intentionally NOT
+    implemented in this round.
+  - `off` — default; also refuses to be paired with `enabled=True`.
+- Verity re-derives `candidateId` from subject + evidence occurrence +
+  snapshot id, so the provider cannot pin identity or downgrade a
+  deterministic finding.
+- Severity in confirmed semantic findings comes only from the semantic
+  catalog's policy; the validator has no severity input.
+- Every outbound request is size-capped and its digest goes into a
+  payload-audit trail. Sensitive Evidence and RedactionMap NEVER reach
+  a Provider payload.
+- Deterministic findings are UNAFFECTED under every semantic anomaly
+  (bad JSON, extra fields, id spoofing, prompt injection targeting the
+  pipeline). This is asserted by tests.
+
+CLI opt-in:
+
+```bash
+python3 -m verity.cli review --engine prompt --text "..." \
+    --semantic --egress-policy metadata_only
+```
+
+Web UI: fold-open the “实验性：语义审查” block on the front page and
+tick the checkbox. Without a Provider the response's `semantic.status`
+is `provider_not_configured`; the capability matrix marks `semantic:
+failed` and the deterministic outcome is unchanged.
+
+Since this repo does not bundle a real LLM Provider, the semantic
+path is exercised entirely by in-memory mock Providers in the test
+suite. A future round will add a first controlled HTTPS Provider
+using the same interface.
+
 ## Known limitations
 
 - No ZIP / GitHub URL intake yet (Phase 2/3 gate).
@@ -474,6 +521,8 @@ apply, etc.).
 - SARIF file is produced, but the repo does not ship a GitHub Actions
   workflow. Uploading `report.sarif` to GitHub Code Scanning is the
   user's responsibility.
+- No real LLM Provider ships with the semantic-review scaffold; it is
+  interface + gates + tests + mock Providers only in this round.
 
 ### verdict.subject on insufficient coverage
 

@@ -185,6 +185,27 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
         secret_scan_ok = False
 
     next_steps = next_steps_summary(findings, coverage, secret_scan_status)
+    # Semantic sub-pipeline projection (may be absent when semantic=off).
+    semantic_view = None
+    sem = review_dict.get("semantic") or None
+    if sem is not None:
+        semantic_view = {
+            "status": sem.get("status") or "unknown",
+            "reasonCode": sem.get("reasonCode"),
+            "egressPolicy": sem.get("egressPolicy") or "off",
+            "callCounts": sem.get("callCounts") or {},
+            "candidateCount": len(sem.get("candidates") or []),
+            "assessmentCounts": _assessment_counts(sem.get("assessments") or []),
+            "findings": [_semantic_finding_view(f)
+                          for f in sem.get("findings") or []],
+            "planItems": [
+                {"planItemId": p.get("planItemId"),
+                 "status": p.get("status"),
+                 "reasonCode": p.get("reasonCode")}
+                for p in (sem.get("planItems") or [])
+            ],
+        }
+    capabilities = review_dict.get("capabilities") or {}
     return {
         "reviewId": review_id,
         "engine": review_dict.get("engine"),
@@ -213,4 +234,27 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
             "本地静态检查 V1：不执行 Skill、不安装依赖、不联网。"
             "Prompt 黑盒（V1.5）与 Skill 隔离沙箱（V2）尚未启用。"
         ),
+        "capabilities": capabilities,
+        "semantic": semantic_view,
+    }
+
+
+def _assessment_counts(assessments):
+    counts = {"confirmed": 0, "rejected": 0, "insufficient_evidence": 0,
+              "validation_failed": 0, "pending": 0}
+    for a in assessments:
+        st = a.get("state")
+        if st in counts:
+            counts[st] += 1
+    return counts
+
+
+def _semantic_finding_view(f):
+    return {
+        "id": f.get("findingId"),
+        "type": f.get("findingType"),
+        "severity": f.get("severity"),
+        "claim": f.get("claim"),
+        "originKind": (f.get("origin") or {}).get("kind"),
+        "subject": f.get("subject") or {},
     }

@@ -64,8 +64,22 @@ def _cmd_review(args: argparse.Namespace) -> int:
             print(f"intake error: {e}", file=sys.stderr)
             return 3
 
+    sem_cfg = None
+    if args.semantic:
+        # Round 8: opt-in only; no real Provider in this repo. When the
+        # user passes --semantic without configuring a Provider (out of
+        # scope here) the semantic pipeline will honestly emit
+        # provider_not_configured. That is the intended behaviour.
+        from .semantic import SemanticConfig
+        try:
+            sem_cfg = SemanticConfig(enabled=True,
+                                     egress_policy=args.egress_policy)
+        except ValueError as exc:
+            print(f"invalid --semantic configuration: {exc}", file=sys.stderr)
+            return 2
     review = run_review(ReviewInputs(engine=args.engine, snapshot=snap,
-                                     file_bytes=byts, profile=args.profile))
+                                     file_bytes=byts, profile=args.profile,
+                                     semantic_config=sem_cfg))
 
     out_dir = Path(args.out) if args.out else Path("out")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -126,6 +140,18 @@ def main(argv=None) -> int:
                           "unavailable. `minimal` explicitly opts out of "
                           "secret scanning and the report says so."))
     pr.add_argument("--out", default="out")
+    pr.add_argument("--semantic", action="store_true",
+                    help=("Opt into the experimental semantic review "
+                          "(default OFF). Requires a configured Provider; "
+                          "without one, the run honestly reports "
+                          "provider_not_configured."))
+    pr.add_argument("--egress-policy",
+                    choices=["off", "metadata_only", "redacted_evidence"],
+                    default="metadata_only",
+                    help=("Data-egress policy for semantic Provider calls. "
+                          "Only used when --semantic is set. "
+                          "'redacted_evidence' includes short evidence "
+                          "snippets; 'metadata_only' sends locations only."))
     pr.set_defaults(func=_cmd_review)
 
     ps = sub.add_parser("export-schema", help="Export JSON Schema (Draft 2020-12)")

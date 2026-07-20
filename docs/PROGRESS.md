@@ -28,7 +28,70 @@ which live outside this repository and are only referenced.
 - 3 prompt fixtures (clean / broken_user / risky_system)
 - 80 tests
 
-## Round 7 (2026-07-20)  →  this commit
+## Round 8 (2026-07-20)  →  this commit
+- **Semantic-review V1 scaffolding** (Evidence → SemanticCandidate →
+  Validator → CandidateAssessment → semantic Finding), default OFF:
+    * New package `verity/semantic/` isolated from the deterministic
+      engine by convention AND by tests (architectural test asserts no
+      deterministic module imports `verity.semantic`).
+    * `SemanticConfig`: default `enabled=False`; enabling requires an
+      explicit `egress_policy ∈ {metadata_only, redacted_evidence}`.
+      `raw_full_artifact` is intentionally NOT implemented in V1.
+    * Provider protocol split into two roles
+      (`CandidateGeneratorProvider`, `ValidatorProvider`) that are
+      always instantiated as separate objects (no shared state).
+    * `base_url` restricted to `https://` or loopback `http`; API keys
+      referenced by env-var name only (`ProviderCredentials.api_key_env`).
+    * Semantic catalog with 3 controlled FindingTypes
+      (`semantic.prompt.instruction_conflict`,
+      `semantic.prompt.missing_output_contract`,
+      `semantic.skill.declared_behavior_mismatch`) each with
+      subject taxonomy, POLICY severity, fixed falsification question,
+      OWASP AST10 mapping (honest empty when none), guidance entry.
+    * Deterministic Evidence extractors seed each type; providers can
+      only *reference* extractor Evidence, never invent new evidence.
+    * Strict JSON Schema (`additionalProperties: false`) for candidate
+      list and validation result. Extra fields => reject; unknown
+      reason codes => reject; oversized rationale => reject.
+    * Verity re-derives `candidateId` from subject + evidence
+      occurrences + snapshot id; the provider cannot pin identity.
+      Validator replies whose `candidateId` doesn't match fail the
+      whole assessment (state = `validation_failed`).
+    * Severity in confirmed findings comes from the semantic catalog's
+      policy; Validators have no severity input at all.
+    * **Data-egress gateway** drops sensitive Evidence, strips absolute
+      paths, caps every string field, and records only sizes +
+      SHA-256 in the payload audit — never the payload itself.
+    * Hard budgets: max candidate-generation calls, max validation
+      calls, max candidates per extractor / total, max evidence per
+      candidate. Exhaustion is surfaced as `budget_exhausted` in the
+      semantic run status; deterministic findings are unaffected.
+    * Capability matrix in reports: static / semantic / promptBlackbox /
+      skillSandbox = {completed, not_enabled, failed, not_implemented}.
+    * CLI `--semantic --egress-policy …` opt-in.
+    * Web MVP `POST /api/review/prompt` and `/skill` accept
+      `semantic_enabled` + `egress_policy`; UI has a folded
+      “实验性：语义审查（默认关闭）” block. Result page shows the
+      capability matrix and semantic sub-block.
+    * No real Provider is bundled. Opt-in without a Provider honestly
+      returns `provider_not_configured` (status/finding view /
+      capability matrix all say "semantic axis failed") — no silent
+      success.
+    * 38 new tests covering: default off, deterministic invariant
+      under bad JSON / extra field / evidence forgery / candidate id
+      spoofing / validator schema violation / rationale-too-long,
+      confirmed vs rejected vs insufficient_evidence semantics,
+      policy severity is enforced, no smuggled Finding via extra keys,
+      egress metadata_only vs redacted_evidence, sensitive Evidence
+      dropped by the gate, payload audit records only sizes/digest,
+      budget exhaustion, provider role isolation, capability matrix
+      projection, CLI + Web opt-in with provider_not_configured,
+      architectural test that no deterministic module imports
+      `verity.semantic`.
+- No new Python dependencies.
+- Total tests: 239 -> 277 passing.
+
+## Round 7 (2026-07-20)  →  commit `8040bac`
 - Controlled remediation catalog (`verity/guidance.py`): human-readable
   Chinese `plainTitle` / `whyItMatters` / `whatToDo` / `priority`
   (`P0`/`P1`/`P2`) for every built-in Prompt rule, Skill Manifest rule,

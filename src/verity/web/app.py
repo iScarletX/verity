@@ -195,6 +195,26 @@ def _sanitize_upload_path(raw: str) -> str:
 
 # ---------------- Endpoints --------------------------------------------
 
+def _maybe_semantic_config(payload: Dict[str, Any]):
+    """Parse an optional semantic opt-in from a Prompt (JSON) or Skill
+    (form) payload. Returns either ``None``, a ``SemanticConfig``, or a
+    ready-to-return ``JSONResponse`` describing the config error.
+    """
+    enabled = payload.get("semantic_enabled")
+    if enabled in (None, False, "", "false", "off", 0, "0"):
+        return None
+    if enabled not in (True, "true", "on", 1, "1"):
+        return _error_response("bad_semantic",
+                               "semantic_enabled must be a boolean-ish flag",
+                               400)
+    policy = payload.get("egress_policy") or "metadata_only"
+    from ..semantic import SemanticConfig
+    try:
+        return SemanticConfig(enabled=True, egress_policy=str(policy))
+    except ValueError as exc:
+        return _error_response("bad_semantic", str(exc), 400)
+
+
 async def index(request: Request) -> Response:
     text = (STATIC_DIR / "index.html").read_text()
     return Response(text, media_type="text/html; charset=utf-8")
@@ -265,7 +285,12 @@ async def review_prompt(request: Request) -> Response:
     except IntakeError as e:
         return _error_response("intake_error", str(e), 400)
 
-    review = run_review(ReviewInputs(engine="prompt", snapshot=snap, file_bytes=byts))
+    sem_cfg = _maybe_semantic_config(payload)
+    if isinstance(sem_cfg, JSONResponse):
+        return sem_cfg
+    review = run_review(ReviewInputs(engine="prompt", snapshot=snap,
+                                      file_bytes=byts,
+                                      semantic_config=sem_cfg))
     stored = _make_report(review, "prompt")
     rid = request.app.state.store.put(stored)
     view = _view_for(review, "prompt", rid)
@@ -333,9 +358,16 @@ async def review_skill(request: Request) -> Response:
             ))
         except IntakeError as e:
             return _error_response("intake_error", str(e), 400)
+        sem_cfg_or_err = _maybe_semantic_config(
+            {"semantic_enabled": form.get("semantic_enabled"),
+             "egress_policy": form.get("egress_policy")}
+        )
+        if isinstance(sem_cfg_or_err, JSONResponse):
+            return sem_cfg_or_err
         try:
             review = run_review(ReviewInputs(engine="skill", snapshot=snap,
-                                             file_bytes=byts, profile=profile))
+                                             file_bytes=byts, profile=profile,
+                                             semantic_config=sem_cfg_or_err))
         except ValueError as e:
             # e.g. unknown profile (already guarded, but be safe)
             return _error_response("review_error", str(e), 400)

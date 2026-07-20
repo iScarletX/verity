@@ -231,6 +231,12 @@ class Review:
     findings: List[Finding]
     # Optional ArtifactModel produced by the engine's Parser (Skill engine).
     artifactModel: Optional[Dict[str, Any]] = None
+    # Optional projection of the semantic-review sub-pipeline. Populated
+    # only when SemanticConfig.enabled=True. Contents are a plain dict
+    # (see verity.semantic.orchestrator.SemanticRunResult) so that
+    # report projection can consume it without importing the semantic
+    # module (spec: deterministic engine never imports semantic).
+    semantic: Optional[Dict[str, Any]] = None
 
 
 # --- Baseline ----------------------------------------------------------
