@@ -28,7 +28,39 @@ which live outside this repository and are only referenced.
 - 3 prompt fixtures (clean / broken_user / risky_system)
 - 80 tests
 
-## Round 5 (2026-07-20)  →  this commit
+## Round 5b (2026-07-20)  →  this commit
+- One-command project-local install of the official gitleaks 8.28.0
+  binary via ``tools/install_gitleaks.py`` (darwin_arm64 verified):
+    * archive SHA-256 `d942f3ad147250c9edbaab3fed9e482f98d3b59ba10ae97b8d75647e3ade492c`
+    * binary SHA-256 `5588b5d942dffa048720f7e6e1d274283219fb5722a2c7564d22e83ba39087d7`
+    * installed at `.tools/gitleaks/8.28.0/gitleaks` (gitignored)
+    * install manifest at `.tools/gitleaks/8.28.0/manifest.json`
+- Safe tar extraction:
+    * refuses anything other than the exact entry name ``gitleaks``
+    * refuses non-regular files, symlinks, hardlinks
+    * caps archive size (40 MiB) and extracted binary size (200 MiB)
+    * downloads to a size-capped temp file, verifies SHA-256 BEFORE
+      handing bytes to ``tarfile``
+- Runtime discovery + two-layer SHA:
+    * ``VERITY_GITLEAKS_PATH`` env var takes precedence
+    * then the project-local install manifest
+    * then PATH
+    * Skill content is never a source of the tool path or config
+    * `check_binary` re-hashes the binary on every invocation and
+      compares against the install manifest's binarySha256; drift is
+      surfaced as `gitleaks_hash_mismatch`
+- E2E tests flipped from skip to pass:
+    * `TestGitleaksRealBinary::test_clean_scan_completes`
+    * `TestGitleaksRealBinary::test_synthetic_leak_detected`
+      (uses gitleaks' own `github-pat` + `slack-bot-token` default rules;
+      the deliberately-non-functional `ghp_1234...` and
+      `xoxb-000000000000-...` tokens are detectable by upstream rules
+      but useless as credentials.)
+- Nine new install-machinery tests (release descriptor pinned, manifest
+  shape, runner discovery, two-layer SHA policy, tamper rejection).
+- Total tests: 168 -> 177 passing (0 skipped when gitleaks is installed).
+
+## Round 5 (2026-07-20)  →  commit `25986ca`
 - Controlled gitleaks integration (external binary, MIT):
     * Pinned version: **gitleaks 8.28.0** (Verity fails the analyzer when
       any other version is installed).

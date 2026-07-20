@@ -44,9 +44,14 @@ binaries that require additional notices.
 |---|---|---|---|
 | gitleaks | 8.28.0 | MIT | https://github.com/gitleaks/gitleaks |
 
-The gitleaks binary is **not** committed to this repository. Users
-install it themselves; ``tools/install_gitleaks.py`` fetches the pinned
-release from the official GitHub Release page and verifies its SHA-256
-against ``tools/gitleaks_release.json``. Verity's runtime treats a
-missing / mismatched / mis-versioned binary as an Analyzer failure with
-Coverage insufficient (see ``verity/gitleaks_runner.py``).
+The gitleaks binary is **not** committed to this repository.
+``tools/install_gitleaks.py`` downloads it once from the official
+GitHub Release page (URL and SHA-256 pinned in
+``tools/gitleaks_release.json``) and installs into
+``.tools/gitleaks/<version>/`` (gitignored). A per-install manifest
+(``.tools/gitleaks/<version>/manifest.json``) records both the archive
+SHA-256 (upstream) and the extracted binary SHA-256 (computed on this
+machine). Verity's runtime re-verifies the binary SHA-256 on every
+invocation. A missing / mismatched / mis-versioned binary is an
+Analyzer failure with Coverage insufficient (see
+``verity/gitleaks_runner.py``).

@@ -71,25 +71,50 @@ report infrastructure but have separate rule registries. See
 
 Requires Python 3.9+ (tested on 3.9.6; supported through 3.13; declared `requires-python = ">=3.9,<3.14"`).
 
-### Installing gitleaks (external binary)
+### Installing gitleaks (external binary, one command, not vendored)
 
 gitleaks is a Go binary (MIT). Verity requires **exactly gitleaks 8.28.0**
-under the `standard` skill-review profile. The binary is not vendored
-in this repo.
+under the `standard` skill-review profile. The binary is NOT committed
+to this repository.
 
 ```bash
-# Interactive install with SHA-256 verification (developer utility;
-# performs network IO):
-python3 tools/install_gitleaks.py --target ~/.local/bin
-# Or install by any other means to the same version, then either:
-#   * add it to PATH, or
-#   * set VERITY_GITLEAKS_PATH=/absolute/path/to/gitleaks
+# One-time install into the project-local directory. The installer:
+#   * downloads the official Release tarball from the URL pinned in
+#     tools/gitleaks_release.json,
+#   * verifies the archive SHA-256 against the pinned value,
+#   * safely extracts only the `gitleaks` regular-file entry (no
+#     symlinks, no absolute paths, no .. escapes, size-capped),
+#   * computes the binary's own SHA-256 and writes it to a per-install
+#     manifest at .tools/gitleaks/<version>/manifest.json.
+python3 tools/install_gitleaks.py
 ```
 
-If gitleaks is missing, mis-versioned, or its SHA-256 does not match
-the pinned release descriptor (`tools/gitleaks_release.json`), Verity
-marks the analyzer failed and Coverage insufficient. It never silently
-falls back to a weaker scanner and claims completion.
+The default install path is `<repo>/.tools/gitleaks/8.28.0/gitleaks`, which
+is in `.gitignore`. Verity auto-discovers this location — you do not need
+to modify your global `PATH`. To install elsewhere, pass `--target`.
+
+**Two-layer SHA-256 policy** (why two hashes):
+
+1. *archive SHA-256*: recorded in `tools/gitleaks_release.json`; this is
+   the SHA published by the gitleaks project on their Release page. The
+   installer enforces it before extraction.
+2. *binary SHA-256*: computed at install time and stored in the install
+   manifest. Every subsequent Verity run re-computes the binary hash on
+   disk and rejects any drift. (The archive hash and the binary hash are
+   different bytes; we do not re-download at runtime.)
+
+Tool path resolution (only trusted sources are considered):
+
+1. `VERITY_GITLEAKS_PATH` environment variable, if set.
+2. Project-local install manifest under `.tools/gitleaks/<pinned>/`.
+3. `gitleaks` on the system `PATH`.
+
+Skill content is NEVER a source of the tool path or config.
+
+If gitleaks is missing, mis-versioned, or its binary SHA-256 no longer
+matches the install manifest, Verity marks the analyzer failed and
+Coverage insufficient. It never silently falls back to a weaker
+scanner and claims completion.
 
 ```bash
 # Clean install using pinned locks
@@ -232,17 +257,16 @@ of the following exit codes. **Coverage-insufficient runs never exit 0.**
 | 3 | `coverage_block` | Coverage insufficient AND no High/Critical Finding. Chosen instead of 2 so it does not collide with argparse's usage-error exit 2. |
 | 2 | (argparse) | Reserved by argparse for CLI usage errors (POSIX convention). |
 
-Recorded exit codes on an environment where **gitleaks is NOT installed**
-(as of the environment where this README was refreshed):
+Recorded exit codes with gitleaks 8.28.0 installed via
+`tools/install_gitleaks.py` (the default developer setup):
 
 | Fixture | profile | gitleaks status | coverage | gate | exit |
 |---|---|---|---|---|---:|
-| `clean_skill` | standard | not_installed | insufficient | `coverage_block` | 3 |
+| `clean_skill` | standard | completed (0 leaks) | sufficient | `pass` | 0 |
+| synthetic leaky skill (`ghp_...`, `xoxb-...`) | standard | completed (3 leaks) | sufficient | `findings_block` | 1 |
+| `clean_skill` | standard, `VERITY_GITLEAKS_PATH=/nonexistent` | not_installed | insufficient | `coverage_block` | 3 |
 | `clean_skill` | minimal | not_requested_by_profile | sufficient | `pass` | 0 |
-| `python_shell_true_skill` | standard | not_installed | insufficient | `findings_block` (Bandit high wins) | 1 |
-
-Install gitleaks and the same commands should print `coverage=sufficient`
-and `gate=pass` on `clean_skill --profile standard`.
+| `python_shell_true_skill` | standard | completed | sufficient | `findings_block` (Bandit high wins) | 1 |
 
 
 ```bash

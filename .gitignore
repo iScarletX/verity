@@ -13,3 +13,4 @@ build/
 htmlcov/
 .DS_Store
 /out/
+/.tools/

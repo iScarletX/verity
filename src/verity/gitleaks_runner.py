@@ -43,7 +43,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 HERE = Path(__file__).parent
-RELEASE_JSON = HERE.parent.parent / "tools" / "gitleaks_release.json"
+# When Verity is installed as a package (site-packages), the repo layout
+# is not available. We still probe for the release descriptor and the
+# optional project-local install directory relative to the source tree.
+REPO_HINT = HERE.parent.parent
+RELEASE_JSON = REPO_HINT / "tools" / "gitleaks_release.json"
+LOCAL_INSTALL_ROOT = REPO_HINT / ".tools" / "gitleaks"
 
 REQUIRED_GITLEAKS_VERSION = "8.28.0"
 DEFAULT_TIMEOUT_SECONDS = 45
@@ -72,6 +77,45 @@ def _load_pinned_release() -> Optional[dict]:
         return json.loads(RELEASE_JSON.read_text())
     except FileNotFoundError:
         return None
+
+
+def _local_install(version: str) -> Optional[dict]:
+    """Return the install manifest for a version installed under the
+    project-local ``.tools/gitleaks/<version>/`` directory, or None."""
+    manifest_path = LOCAL_INSTALL_ROOT / version / "manifest.json"
+    try:
+        raw = manifest_path.read_text()
+    except FileNotFoundError:
+        return None
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+
+def _expected_binary_sha_for(binary_path: str) -> Optional[str]:
+    """Locate a manifest whose ``installedPath`` matches ``binary_path``.
+
+    We only enforce hash equality when a manifest exists (i.e. the user
+    installed via ``tools/install_gitleaks.py``). For hand-installed
+    binaries there is nothing to compare against; the version check
+    remains authoritative.
+    """
+    if not LOCAL_INSTALL_ROOT.is_dir():
+        return None
+    real = os.path.realpath(binary_path)
+    for version_dir in LOCAL_INSTALL_ROOT.iterdir():
+        manifest_path = version_dir / "manifest.json"
+        try:
+            data = json.loads(manifest_path.read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            continue
+        installed = data.get("installedPath")
+        if not installed:
+            continue
+        if os.path.realpath(installed) == real:
+            return data.get("binarySha256")
+    return None
 
 
 def _pick_asset_key() -> Optional[str]:
@@ -187,11 +231,24 @@ class GitleaksRunner:
 
     @staticmethod
     def _resolve_binary() -> Optional[str]:
-        # 1) explicit env variable takes precedence
+        # 1) explicit env variable takes precedence.
         env_path = os.environ.get("VERITY_GITLEAKS_PATH")
         if env_path:
             return env_path
-        # 2) fall back to PATH
+        # 2) project-local install created by tools/install_gitleaks.py.
+        #    This lets developers use Verity without changing their
+        #    global PATH; the tool_path still only comes from trusted
+        #    sources (env var, install manifest, PATH), never from any
+        #    file in the reviewed skill.
+        pinned = _load_pinned_release() or {}
+        pinned_version = pinned.get("version")
+        if pinned_version:
+            manifest = _local_install(pinned_version)
+            if manifest:
+                candidate = manifest.get("installedPath")
+                if candidate and os.path.isfile(candidate):
+                    return candidate
+        # 3) fall back to PATH.
         return shutil.which("gitleaks")
 
     def binary_path(self) -> Optional[str]:
@@ -227,25 +284,30 @@ class GitleaksRunner:
             return False, "gitleaks_not_installed", "", ""
         if not os.path.isfile(path):
             return False, "gitleaks_binary_missing", "", ""
-        # SHA-256 (optional but on-by-default).
+        # Two-layer SHA-256 policy:
+        #   * ``tools/gitleaks_release.json`` records the *archive*
+        #     (tar.gz) SHA-256 published upstream.
+        #   * ``tools/install_gitleaks.py`` verifies that archive hash,
+        #     extracts the ``gitleaks`` binary safely, computes the
+        #     resulting *binary* SHA-256, and writes it to an install
+        #     manifest. The runtime re-verifies the binary hash on every
+        #     invocation using the manifest — the archive hash cannot be
+        #     compared against the extracted binary (different bytes).
+        # For hand-installed binaries (no manifest present) the version
+        # check below remains authoritative.
         sha = ""
         if self.verify_sha256:
-            release = _load_pinned_release() or {}
-            key = _pick_asset_key()
-            expected = None
-            if key and release:
-                expected = (release.get("assets") or {}).get(key, {}).get("sha256")
-            if expected:
-                h = hashlib.sha256()
-                with open(path, "rb") as fh:
-                    while True:
-                        chunk = fh.read(1 << 20)
-                        if not chunk:
-                            break
-                        h.update(chunk)
-                sha = h.hexdigest()
-                if sha != expected:
-                    return False, "gitleaks_hash_mismatch", "", sha
+            h = hashlib.sha256()
+            with open(path, "rb") as fh:
+                while True:
+                    chunk = fh.read(1 << 20)
+                    if not chunk:
+                        break
+                    h.update(chunk)
+            sha = h.hexdigest()
+            expected_binary = _expected_binary_sha_for(path)
+            if expected_binary and sha != expected_binary:
+                return False, "gitleaks_hash_mismatch", "", sha
         # Version.
         try:
             proc = self.spawn([path, "version"], cwd=".", env=self._controlled_env())

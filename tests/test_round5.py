@@ -28,6 +28,12 @@ FIXTURES = Path(__file__).parent / "fixtures"
 FAKE_AWS_KEY = "AKIAIOSFODNN7EXAMPLE"                          # 20 chars
 FAKE_AWS_SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"   # 40 chars
 
+# Deliberately-invalid but syntactically-detectable tokens used in the
+# real-binary E2E only. They match gitleaks' default rule regexes and
+# will fail authentication if anyone tries to use them.
+FAKE_GITHUB_PAT = "ghp_1234567890abcdefghij1234567890abcdefgh"
+FAKE_SLACK_BOT = "xoxb-000000000000-000000000000-abcdefghijklmnopqrstuvwx"
+
 
 # --------------------------------------------------------------------- #
 # Stub gitleaks runners                                                 #
@@ -345,38 +351,61 @@ class TestSarifRound5:
 # F. Real gitleaks binary (skipped if not available)                    #
 # --------------------------------------------------------------------- #
 
-@pytest.mark.skipif(shutil.which("gitleaks") is None,
+def _gitleaks_available() -> bool:
+    if shutil.which("gitleaks"):
+        return True
+    # Fall back to the project-local install created by
+    # ``tools/install_gitleaks.py`` (see README).
+    return GitleaksRunner()._resolve_binary() is not None
+
+
+@pytest.mark.skipif(not _gitleaks_available(),
                     reason="gitleaks not installed in this environment")
-class TestGitleaksRealBinary:  # pragma: no cover — E2E only
+class TestGitleaksRealBinary:  # E2E only when a real binary is available
     def test_clean_scan_completes(self, tmp_path):
         (tmp_path / "SKILL.md").write_text(
             "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
         (tmp_path / "hello.py").write_text("print('hi')\n")
         snap, b = intake_directory(str(tmp_path))
-        r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b),
-                       gitleaks_runner=GitleaksRunner(verify_sha256=False))
+        r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b))
         ex = [e for e in r.executions if e.planItemId == "pi-analyzer-gitleaks"]
-        assert ex and ex[0].status in ("completed", "failed")
+        assert ex and ex[0].status == "completed"
+        # No findings, no false positives.
+        assert not [f for f in r.findings
+                    if f.findingType == "skill.gitleaks_finding"]
+        # Two-layer verification worked: tool_sha256 matches the install manifest.
+        gr = r.artifactModel["gitleaksRun"]
+        assert gr["toolVersion"] == "8.28.0"
+        assert gr["toolSha256"] and len(gr["toolSha256"]) == 64
 
     def test_synthetic_leak_detected(self, tmp_path):
         (tmp_path / "SKILL.md").write_text(
             "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
-        (tmp_path / "config.env").write_text(
-            f"AWS_ACCESS_KEY_ID={FAKE_AWS_KEY}\n")
+        # NB: FAKE_AWS_KEY (AKIA...EXAMPLE) is intentionally allow-listed
+        # by gitleaks' default rules. We use GitHub PAT + Slack bot
+        # token formats, which the default ruleset flags reliably.
+        (tmp_path / "secrets.env").write_text(
+            f"GITHUB_TOKEN={FAKE_GITHUB_PAT}\n"
+            f"SLACK_TOKEN={FAKE_SLACK_BOT}\n")
         snap, b = intake_directory(str(tmp_path))
-        r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b),
-                       gitleaks_runner=GitleaksRunner(verify_sha256=False))
-        # Real binary: this fixture is a well-known example key and
-        # gitleaks' default ruleset detects it.
+        r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b))
         gitleaks_findings = [f for f in r.findings
                               if f.findingType == "skill.gitleaks_finding"]
-        # Do not assert count exactly (rule set may evolve), just that
-        # some detection occurred.
         assert gitleaks_findings, "expected at least one gitleaks finding"
-        # And the raw secret must not appear in any export:
+        rule_ids = {f.subject.get("gitleaksRuleId") for f in gitleaks_findings}
+        # Both syntactic patterns should be detected by upstream defaults.
+        assert "github-pat" in rule_ids
+        # The raw fake credentials MUST NOT appear in any export.
         j = to_json(r); h = to_html(r); s = to_sarif_json(review_to_dict(r))
         for out in (j, h, s):
-            assert FAKE_AWS_KEY not in out
+            assert FAKE_GITHUB_PAT not in out
+            assert FAKE_SLACK_BOT not in out
+        # And Verity's redactedPreview / gitleaks extension are present.
+        assert "[gitleaks:github-pat]" in j
+        d = review_to_dict(r)
+        exts = review_to_sarif(d)["runs"][0]["tool"].get("extensions", [])
+        assert any(x["name"] == "gitleaks" and x["version"] == "8.28.0"
+                   for x in exts)
 
 
 # --------------------------------------------------------------------- #
