@@ -21,8 +21,8 @@
        │  DETERMINISTIC (V1)  │             │  SEMANTIC (V1 exp'l)    │
        │  verity/engine.py    │             │  verity/semantic/       │
        │  verity/skill_rules  │             │  DEFAULT OFF            │
-       │  verity/parser.py    │             │  Provider protocol only │
-       │  verity/gitleaks_*   │             │  no Provider bundled    │
+       │  verity/parser.py    │             │  Provider protocols +   │
+       │  verity/gitleaks_*   │             │  bounded HTTPS JSON     │
        │  verity/bandit_*     │             └─────────┬───────────────┘
        │                      │                       │
        │  Rules → Evidence    │            Extractor  │
@@ -64,6 +64,11 @@
   (`verity/semantic/egress.py`) which drops sensitive Evidence, caps
   string lengths, and records only sizes + SHA-256 in the payload
   audit.
+- **Provider transport**: `verity/semantic/http_provider.py` binds one
+  trusted config to one role, allows remote HTTPS or loopback HTTP only,
+  disables redirects, resolves keys from environment-variable names at
+  call time, bounds request/response bytes and time, and discards error
+  bodies. Candidate Generator and Validator remain separate instances.
 
 ## Mature-component reuse
 

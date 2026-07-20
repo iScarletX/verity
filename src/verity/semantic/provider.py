@@ -4,10 +4,9 @@ Two distinct Protocols so that Candidate-generator and Validator can
 never accidentally be the same object (types diverge on the request
 payload types too).
 
-No real HTTP client is bundled in this round — the pipeline is fully
-driven by dependency injection. Tests supply in-memory implementations
-that record every call; a real HTTPS-based provider will live behind
-the same protocol in a later round.
+The protocols stay transport-independent. ``http_provider.py`` supplies
+the first bounded JSON-over-HTTPS implementation; tests may still inject
+in-memory implementations that record every call.
 """
 
 from __future__ import annotations

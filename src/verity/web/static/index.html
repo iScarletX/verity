@@ -27,7 +27,7 @@
   <details class="experimental" id="semantic-panel">
     <summary>实验性：语义审查（默认关闭）</summary>
     <p class="muted">启用后 Verity 会将<strong>受控、脱敏后</strong>的 evidence 发给可信 LLM Provider 进行语义审查。<br>
-      本轮仓库不内置任何真实 Provider，开启后将诚实返回 <code>provider_not_configured</code>。</p>
+      Web 页面暂不接收 Provider 地址或密钥；仅勾选此项会诚实返回 <code>provider_not_configured</code>。真实 Provider 当前须由可信 CLI 配置启用。</p>
     <label><input type="checkbox" id="semantic-enabled"> 启用语义审查（需额外 Provider 配置）</label>
     <label>数据出境策略
       <select id="egress-policy">

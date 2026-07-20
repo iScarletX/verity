@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "c8175e919d1b2ac0fbf34fbfa46e69c37fbb5e21"
-  tests_collected: 288
-  tests_passed: 288
+  commit: "3451b3b0c2fdde771ef30215b2eab9838f755f7e"
+  tests_collected: 312
+  tests_passed: 312
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -33,17 +33,55 @@ explicit user-approved round description.
 **What ships right now.** Read-only intake (prompt text or local Skill
 folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks
 (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports,
-Chinese remediation catalog, experimental semantic scaffold (default
-OFF; `provider_not_configured` when opted in without a Provider), CLI
-and local Web MVP.
+Chinese remediation catalog, experimental semantic pipeline plus its
+first bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI
+configuration only), CLI and local Web MVP.
 
-**Deliberately absent.** No LLM Provider client. No Skill execution or
-sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or
-GitHub-URL intake. No PatchSet apply (proposals only).
+**Deliberately absent.** No Web Provider-config surface. No Skill
+execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No
+ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
 
 ---
 
 ## Round history (append-only)
+
+## Round 11 (2026-07-20) → pending commit
+- **First controlled real semantic Provider transport**, closing the gap
+  between the Round-8 containment scaffold and a usable opt-in L1 path:
+    * separate role-bound `JsonCandidateGeneratorProvider` and
+      `JsonValidatorProvider` classes behind the existing protocols;
+    * explicit wire contract at `/v1/verity/candidate-generator` and
+      `/v1/verity/validator` with model, role, and sanitized input;
+    * remote HTTPS only (loopback HTTP allowed for trusted local/test
+      Providers), URL credential/query/fragment rejection, redirects
+      refused, system TLS validation, bounded timeout/request/response;
+    * credential values resolved only from validated environment-variable
+      names at call time; values never enter config serialization, JSON
+      body, stdout/stderr, report, SARIF, or payload audit;
+    * strict JSON parser rejects invalid UTF-8/JSON, duplicate object
+      keys, non-finite numbers, and non-object roots before the existing
+      candidate/validator JSON Schemas run;
+    * Provider HTTP/network/error bodies are reduced to controlled reason
+      codes and are never reflected into reports.
+- CLI trusted configuration for both roles. All four URL/model values are
+  required together; incomplete configuration is a usage error. API keys
+  cannot be passed as CLI values, only as environment-variable names.
+- Gate correction discovered during owner review: when a user explicitly
+  requests `--semantic`, only semantic status `completed` may exit 0.
+  `provider_not_configured`, transport/schema failure, or budget exhaustion
+  produces `gate=coverage_block` / exit 3 unless a High/Critical finding
+  already produces the stricter exit 1.
+- Semantic orchestrator now marks generator/validator transport failures
+  and schema violations as top-level semantic `failed` instead of leaving
+  a misleading `completed` status around failed plan items.
+- Web remains intentionally unconfigured for real Providers this round;
+  its copy now states that real Provider use requires trusted CLI config.
+- Corrected stale README limitations that incorrectly said gitleaks,
+  semantic generation/validation, and repository CI were absent.
+- Round 10 was formally archived with commit `3451b3b`.
+- Tests: 288 → 312 passing (+24 Provider/config/transport/CLI E2E and
+  failure-containment tests), 0 skipped. The E2E test uses a local fake
+  HTTP Provider; CI does not call a public network Provider.
 
 This file tracks Verity's own implementation progress. It is separate from
 the main-agent design docs (spec / reuse decision table / CHANGELOG),

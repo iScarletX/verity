@@ -15,7 +15,8 @@ Bright-line architectural rules (enforced by tests and by convention):
   base URL, model id, headers, system prompt, or API key.
 - **Default off.** Without an explicit ``SemanticConfig`` the orchestrator
   runs in ``off`` mode and every semantic plan item is recorded as
-  ``not_requested_by_profile``; no Provider is instantiated.
+  ``not_requested_by_profile``; no Provider is instantiated. The optional
+  bounded HTTP Provider requires explicit trusted caller configuration.
 - **Egress policies:** ``off``, ``metadata_only``, ``redacted_evidence``.
   ``raw_full_artifact`` is intentionally NOT implemented in this round.
 - **Payload audit:** every outbound request records only sizes, field
@@ -27,13 +28,17 @@ Bright-line architectural rules (enforced by tests and by convention):
   candidate, new Finding, new severity, or new evidence reference.
 """
 
-from .config import (SemanticConfig, EgressPolicy, ProviderCredentials,
-                     SEMANTIC_DEFAULT)
+from .config import (SemanticConfig, EgressPolicy, ProviderConfig,
+                     ProviderCredentials, SEMANTIC_DEFAULT)
+from .http_provider import (JsonCandidateGeneratorProvider,
+                            JsonValidatorProvider)
 from .orchestrator import SemanticOrchestrator, SemanticRunResult
 from .provider import CandidateGeneratorProvider, ValidatorProvider
 
 __all__ = [
-    "SemanticConfig", "EgressPolicy", "ProviderCredentials", "SEMANTIC_DEFAULT",
-    "SemanticOrchestrator", "SemanticRunResult",
+    "SemanticConfig", "EgressPolicy", "ProviderConfig", "ProviderCredentials",
+    "SEMANTIC_DEFAULT", "JsonCandidateGeneratorProvider",
+    "JsonValidatorProvider", "SemanticOrchestrator",
+    "SemanticRunResult",
     "CandidateGeneratorProvider", "ValidatorProvider",
 ]

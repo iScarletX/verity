@@ -14,6 +14,24 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-20 — An explicitly requested optional stage must gate success
+
+- **Symptom**: `verity review --semantic` could return exit 0 when static
+  coverage passed even though the semantic Provider was missing or the
+  semantic stage failed.
+- **Root cause**: The CLI exit ladder only considered deterministic
+  coverage and High/Critical deterministic Findings. Semantic status was
+  projected in the report but was not part of the command's requested
+  acceptance contract.
+- **Fix**: When `--semantic` is explicit, only semantic status
+  `completed` is eligible for `gate=pass`; other semantic states produce
+  exit 3 unless a High/Critical Finding already produces exit 1.
+- **Prevention**: Any future optional execution layer (Prompt black-box,
+  Skill sandbox, Agent runtime trace) must distinguish “not requested”
+  from “requested but incomplete” in both reports and process exit codes.
+- **Evidence**: Round 11 CLI E2E and
+  `TestCliSemantic::test_cli_opt_in_reports_provider_not_configured`.
+
 ### 2026-07-20 — Documents can drift from reality faster than code
 
 - **Symptom**: A `README.md` line said "277 tests" while a later

@@ -92,8 +92,10 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
             semantic_status = "failed"
         elif sem["status"] == "completed":
             semantic_status = "completed"
+        elif sem["status"] == "failed":
+            semantic_status = "failed"
         else:
-            semantic_status = sem["status"]
+            semantic_status = "failed"
         d["semantic"] = sem
     else:
         semantic_status = "not_enabled"

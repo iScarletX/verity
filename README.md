@@ -7,11 +7,13 @@
 > Phase 0 core contracts + high-confidence deterministic Prompt/Skill
 > rules + controlled Bandit and gitleaks integration + SARIF 2.1.0
 > export + a local Web MVP for non-technical users + an **experimental,
-> default-OFF semantic-review scaffold** (Evidence → SemanticCandidate
-> → Validator → CandidateAssessment → semantic Finding).
-> Read-only static V1. **Not** a sandbox, **not** a runtime evaluator.
-> **No real LLM Provider is bundled** — opting in without configuring
-> one honestly returns `provider_not_configured`.
+> default-OFF controlled semantic-review path** (Evidence →
+> SemanticCandidate → Validator → CandidateAssessment → semantic Finding)
+> with an optional bounded JSON-over-HTTPS Provider adapter.
+> Read-only V1. **Not** a sandbox, **not** a runtime evaluator. Semantic
+> calls occur only after explicit opt-in and trusted caller configuration;
+> opting in without complete configuration honestly returns
+> `provider_not_configured`.
 
 ## Product roadmap (must not be lost)
 
@@ -25,9 +27,10 @@ Verity is planned as a three-layer audit tool:
 
 **V1 is strictly read-only.** It does NOT execute the skill under review,
 install its dependencies, start unknown services, call into review-target
-code, recursively expand unknown nested archives, or contact external
-LLM providers. This round also does not fetch from GitHub or open ZIPs;
-those gates come later (Phase 2/3 in the spec).
+code, or recursively expand unknown nested archives. External semantic
+Provider calls are default-OFF and allowed only after explicit user opt-in,
+trusted endpoint/model/credential configuration, a non-`off` egress policy,
+and schema/payload/budget gates. ZIP and GitHub intake remain later gates.
 
 **Scope invariants (from `01-Verity工程规格-v0.3.md`):**
 
@@ -351,7 +354,7 @@ of the following exit codes. **Coverage-insufficient runs never exit 0.**
 |---:|---|---|
 | 0 | `pass` | Coverage sufficient AND no High/Critical findings. Medium/Low findings do NOT block by design; use downstream tooling for stricter gates. |
 | 1 | `findings_block` | At least one High/Critical Finding is present. Wins over the coverage gate: if both are triggered the exit code is 1. |
-| 3 | `coverage_block` | Coverage insufficient AND no High/Critical Finding. Chosen instead of 2 so it does not collide with argparse's usage-error exit 2. |
+| 3 | `coverage_block` | Coverage insufficient, or an explicitly requested semantic review did not complete, AND no High/Critical Finding. Chosen instead of 2 so it does not collide with argparse's usage-error exit 2. |
 | 2 | (argparse) | Reserved by argparse for CLI usage errors (POSIX convention). |
 
 Recorded exit codes with gitleaks 8.28.0 installed via
@@ -495,38 +498,64 @@ never mutates deterministic results:
   (bad JSON, extra fields, id spoofing, prompt injection targeting the
   pipeline). This is asserted by tests.
 
-CLI opt-in:
+CLI opt-in without Provider configuration remains an honest failed
+semantic axis (`provider_not_configured`):
 
 ```bash
 python3 -m verity.cli review --engine prompt --text "..." \
     --semantic --egress-policy metadata_only
 ```
 
-Web UI: fold-open the “实验性：语义审查” block on the front page and
-tick the checkbox. Without a Provider the response's `semantic.status`
-is `provider_not_configured`; the capability matrix marks `semantic:
-failed` and the deterministic outcome is unchanged.
+To use the bounded JSON Provider, configure both roles explicitly. API
+keys are read from named environment variables and must not be placed on
+the command line:
 
-Since this repo does not bundle a real LLM Provider, the semantic
-path is exercised entirely by in-memory mock Providers in the test
-suite. A future round will add a first controlled HTTPS Provider
-using the same interface.
+```bash
+export VERITY_GENERATOR_KEY='...'
+export VERITY_VALIDATOR_KEY='...'
+python3 -m verity.cli review --engine prompt --text "..." \
+  --semantic --egress-policy redacted_evidence \
+  --semantic-generator-url https://trusted-provider.example \
+  --semantic-generator-model generator-model \
+  --semantic-generator-api-key-env VERITY_GENERATOR_KEY \
+  --semantic-validator-url https://trusted-provider.example \
+  --semantic-validator-model validator-model \
+  --semantic-validator-api-key-env VERITY_VALIDATOR_KEY
+```
+
+Provider wire contract:
+
+- `POST <base_url>/v1/verity/candidate-generator`
+- `POST <base_url>/v1/verity/validator`
+- body: `{ "model": "...", "role": "...", "input": { ... } }`
+- response: the strict candidate-list or validation-result JSON object.
+
+Remote URLs must be HTTPS; loopback HTTP is allowed for a trusted local
+Provider. Redirects, streaming, retries, arbitrary headers, tool calls,
+and raw full-artifact egress are not supported. Request/response sizes
+and timeouts are bounded. Provider error bodies are discarded rather
+than copied into reports.
+
+The local Web UI still has no trusted Provider configuration surface in
+this round: checking its semantic option without process-level wiring
+returns `provider_not_configured`. The deterministic outcome is unchanged.
 
 ## Known limitations
 
-- No ZIP / GitHub URL intake yet (Phase 2/3 gate).
+- No ZIP / GitHub URL intake yet.
 - Only Python has an AST-level scanner (Bandit + one hand-picked rule);
   other languages (Shell/JS/TS/Ruby/Go) are still text-level only.
-- No semantic candidate generation or Validator LLM calls (Phase 4).
-- No PatchSet apply — proposal shape only (Phase 6).
-- Real secret detection still uses only the synthetic fixture token.
-  gitleaks integration is planned but not present.
-- Semgrep / YARA not integrated yet.
-- SARIF file is produced, but the repo does not ship a GitHub Actions
-  workflow. Uploading `report.sarif` to GitHub Code Scanning is the
-  user's responsibility.
-- No real LLM Provider ships with the semantic-review scaffold; it is
-  interface + gates + tests + mock Providers only in this round.
+- The first real semantic adapter uses Verity's explicit JSON contract;
+  it is not a claim of universal vendor-SDK compatibility. The Web UI
+  does not yet configure it.
+- No PatchSet apply — proposal shape only.
+- Semgrep / YARA are not integrated. Real secret scanning is provided by
+  pinned gitleaks under the `standard` Skill profile; the synthetic-token
+  rule is only a limited deterministic fallback.
+- SARIF is produced and repository CI runs `verify_repo.py`; automatic
+  upload to GitHub Code Scanning is still the user's responsibility.
+- V1.5 Prompt black-box evaluation and V2 Skill sandbox execution remain
+  explicitly not implemented.
 
 ### verdict.subject on insufficient coverage
 

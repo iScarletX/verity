@@ -17,9 +17,11 @@ Exit codes for ``review``:
                              Wins over the coverage gate: if both are triggered
                              the exit code is 1 (High/Critical is the stricter
                              signal a CI needs to surface first).
-  3  ``gate=coverage_block`` Coverage is insufficient AND no High/Critical
-                             Finding is present. Chosen instead of 2 so it does
-                             not collide with argparse's usage-error exit 2.
+  3  ``gate=coverage_block`` Coverage is insufficient, OR an explicitly
+                             requested semantic review did not complete, AND no
+                             High/Critical Finding is present. Chosen instead
+                             of 2 so it does not collide with argparse's
+                             usage-error exit 2.
   2  reserved by argparse for CLI usage errors (POSIX convention).
 
 A one-line ``gate=...`` marker is printed on stdout for both CI and human
@@ -65,21 +67,69 @@ def _cmd_review(args: argparse.Namespace) -> int:
             return 3
 
     sem_cfg = None
+    candidate_generator = None
+    validator = None
     if args.semantic:
-        # Round 8: opt-in only; no real Provider in this repo. When the
-        # user passes --semantic without configuring a Provider (out of
-        # scope here) the semantic pipeline will honestly emit
-        # provider_not_configured. That is the intended behaviour.
-        from .semantic import SemanticConfig
+        from .semantic import (JsonCandidateGeneratorProvider,
+                               JsonValidatorProvider, ProviderConfig,
+                               ProviderCredentials, SemanticConfig)
+        provider_values = (
+            args.semantic_generator_url,
+            args.semantic_generator_model,
+            args.semantic_validator_url,
+            args.semantic_validator_model,
+        )
+        has_any_provider_value = any(provider_values)
+        has_complete_provider_config = all(provider_values)
+        if has_any_provider_value and not has_complete_provider_config:
+            print("invalid --semantic configuration: generator and validator "
+                  "URL/model settings must be provided together", file=sys.stderr)
+            return 2
         try:
-            sem_cfg = SemanticConfig(enabled=True,
-                                     egress_policy=args.egress_policy)
+            if has_complete_provider_config:
+                gen_cfg = ProviderConfig(
+                    role="candidate_generator",
+                    provider_id="json_http",
+                    model_id=args.semantic_generator_model,
+                    base_url=args.semantic_generator_url,
+                    credentials=ProviderCredentials(
+                        api_key_env=args.semantic_generator_api_key_env),
+                    timeout_seconds=args.semantic_timeout,
+                )
+                val_cfg = ProviderConfig(
+                    role="validator",
+                    provider_id="json_http",
+                    model_id=args.semantic_validator_model,
+                    base_url=args.semantic_validator_url,
+                    credentials=ProviderCredentials(
+                        api_key_env=args.semantic_validator_api_key_env),
+                    timeout_seconds=args.semantic_timeout,
+                )
+                sem_cfg = SemanticConfig(
+                    enabled=True,
+                    egress_policy=args.egress_policy,
+                    provider_config={
+                        "candidate_generator": gen_cfg,
+                        "validator": val_cfg,
+                    },
+                )
+                # Deliberately distinct role-bound objects, even if the
+                # endpoint and model happen to be the same.
+                candidate_generator = JsonCandidateGeneratorProvider(gen_cfg)
+                validator = JsonValidatorProvider(val_cfg)
+            else:
+                # Explicit opt-in without trusted Provider config remains
+                # a visible provider_not_configured result.
+                sem_cfg = SemanticConfig(enabled=True,
+                                         egress_policy=args.egress_policy)
         except ValueError as exc:
             print(f"invalid --semantic configuration: {exc}", file=sys.stderr)
             return 2
     review = run_review(ReviewInputs(engine=args.engine, snapshot=snap,
                                      file_bytes=byts, profile=args.profile,
-                                     semantic_config=sem_cfg))
+                                     semantic_config=sem_cfg),
+                        candidate_generator=candidate_generator,
+                        validator=validator)
 
     out_dir = Path(args.out) if args.out else Path("out")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -91,12 +141,17 @@ def _cmd_review(args: argparse.Namespace) -> int:
     n_findings = len(review.findings)
     n_high = sum(1 for f in review.findings if f.severity in ("high", "critical"))
     coverage_ok = review.coverage.status == "sufficient"
+    semantic_status = ((review.semantic or {}).get("status")
+                       if args.semantic else "not_enabled")
+    semantic_ok = not args.semantic or semantic_status == "completed"
 
-    # Findings gate wins over coverage gate (see module docstring).
+    # Findings gate wins over coverage/semantic gates. An explicitly
+    # requested semantic review that fails must never silently return a
+    # static-only pass.
     if n_high:
         gate = "findings_block"
         exit_code = 1
-    elif not coverage_ok:
+    elif not coverage_ok or not semantic_ok:
         gate = "coverage_block"
         exit_code = 3
     else:
@@ -105,7 +160,8 @@ def _cmd_review(args: argparse.Namespace) -> int:
 
     print(f"engine={args.engine} snapshot={snap.snapshotId} "
           f"findings={n_findings} high_or_critical={n_high} "
-          f"coverage={review.coverage.status} gate={gate}")
+          f"coverage={review.coverage.status} semantic={semantic_status} "
+          f"gate={gate}")
     print(f"wrote {out_dir/'report.json'}, {out_dir/'report.html'}, {out_dir/'report.sarif'}")
     return exit_code
 
@@ -152,6 +208,18 @@ def main(argv=None) -> int:
                           "Only used when --semantic is set. "
                           "'redacted_evidence' includes short evidence "
                           "snippets; 'metadata_only' sends locations only."))
+    provider = pr.add_argument_group(
+        "trusted semantic Provider",
+        "All four URL/model flags are required together. Credentials are "
+        "read only from the named environment variables; do not pass a key "
+        "on the command line. The reviewed artifact cannot set these values.")
+    provider.add_argument("--semantic-generator-url")
+    provider.add_argument("--semantic-generator-model")
+    provider.add_argument("--semantic-generator-api-key-env")
+    provider.add_argument("--semantic-validator-url")
+    provider.add_argument("--semantic-validator-model")
+    provider.add_argument("--semantic-validator-api-key-env")
+    provider.add_argument("--semantic-timeout", type=float, default=30.0)
     pr.set_defaults(func=_cmd_review)
 
     ps = sub.add_parser("export-schema", help="Export JSON Schema (Draft 2020-12)")

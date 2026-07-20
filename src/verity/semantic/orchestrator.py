@@ -286,6 +286,11 @@ class SemanticOrchestrator:
                     "candidate_generator", ft.findingType,
                     "failed",
                     (response.reason_code if response else exc_reason) or "generator_error"))
+                result.status = "failed"
+                if result.reasonCode is None:
+                    result.reasonCode = (
+                        (response.reason_code if response else exc_reason)
+                        or "generator_error")
                 continue
 
             candidates = self._parse_and_check_candidates(
@@ -298,6 +303,9 @@ class SemanticOrchestrator:
                 result.planItems.append(self._plan_item(
                     "candidate_generator", ft.findingType,
                     "failed", "generator_output_schema_violation"))
+                result.status = "failed"
+                if result.reasonCode is None:
+                    result.reasonCode = "generator_output_schema_violation"
                 continue
             # cap total
             for c in candidates:
@@ -365,13 +373,17 @@ class SemanticOrchestrator:
             result.payloadAudit.append(audit)
 
             if response is None or not response.ok:
+                reason = ((response.reason_code if response else exc_reason)
+                          or "validator_error")
                 result.assessments.append(SemanticAssessmentRecord(
                     candidateId=cand.candidateId,
                     state="validation_failed",
-                    reasonCodes=[(response.reason_code if response else exc_reason)
-                                  or "validator_error"],
+                    reasonCodes=[reason],
                     validationCallId=call_id,
                 ))
+                result.status = "failed"
+                if result.reasonCode is None:
+                    result.reasonCode = reason
                 continue
 
             state, reasons = self._parse_and_check_validation(
@@ -381,6 +393,10 @@ class SemanticOrchestrator:
                 candidateId=cand.candidateId,
                 state=state, reasonCodes=reasons, validationCallId=call_id,
             ))
+            if state == "validation_failed":
+                result.status = "failed"
+                if result.reasonCode is None:
+                    result.reasonCode = reasons[0] if reasons else "validation_failed"
 
             if state == "confirmed":
                 # Build a semantic Finding projection using the POLICY

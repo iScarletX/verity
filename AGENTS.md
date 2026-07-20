@@ -95,12 +95,15 @@ dependencies, or contact an external LLM Provider on this path.
 
 **Controlled semantic (V1 experimental).** Verity may call an
 external LLM Provider **only** when: the user explicitly enables it
-(`--semantic` / Web opt-in), the Provider config comes from a
-trusted source (never from the reviewed artifact), a non-`off` egress
-policy is chosen, the JSON schemas + payload audit + budget gates are
-enforced, and the deterministic pipeline path is unaffected. **No
-real Provider is bundled**; opting in without one returns
-`provider_not_configured`.
+(`--semantic`; the Web UI has no trusted Provider-config surface yet),
+the Provider config comes from a trusted source (never from the
+reviewed artifact), a non-`off` egress policy is chosen, the JSON
+schemas + payload audit + budget gates are enforced, and the
+deterministic pipeline path is unaffected. A bounded JSON-over-HTTPS
+Provider adapter is available through explicit trusted CLI config;
+remote redirects are refused and credentials are resolved only from
+named environment variables. Opting in without complete config returns
+`provider_not_configured` and cannot exit as a successful full review.
 
 **V1.5 Prompt black-box (planned, NOT implemented).** May run a paste
 prompt against a model only when the user explicitly starts a
@@ -198,8 +201,9 @@ Before doing anything else:
    confirm.
 
 Baseline constraints:
-- Read-only static V1. No real LLM Provider is bundled; no Skill
-  execution; no sandbox. Do not fake progress on V1.5 or V2.
+- Read-only V1. Controlled semantic Provider calls are default-OFF and
+  require explicit trusted config; no Skill execution or sandbox. Do
+  not fake progress on V1.5 or V2.
 - Public GitHub repo: never commit secrets, API keys, real
   credentials, private chat logs, or host absolute paths.
 - Round-based development. If the task is not covered by

@@ -15,8 +15,10 @@ serialised config, out of ReviewInputs, and out of any report.
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
+from urllib.parse import urlsplit
 
 
 # --- Egress policy ---------------------------------------------------
@@ -37,6 +39,11 @@ class ProviderCredentials:
     does not need an API key (e.g. a local mock).
     """
     api_key_env: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.api_key_env and not re.fullmatch(
+                r"[A-Za-z_][A-Za-z0-9_]{0,127}", self.api_key_env):
+            raise ValueError("api_key_env must be a valid environment-variable name")
 
     def resolve(self) -> Optional[str]:
         if not self.api_key_env:
@@ -69,12 +76,33 @@ class ProviderConfig:
     def __post_init__(self) -> None:
         if self.role not in ("candidate_generator", "validator"):
             raise ValueError(f"unknown role: {self.role!r}")
+        if not self.provider_id or len(self.provider_id) > 80:
+            raise ValueError("provider_id is required and must be at most 80 characters")
+        if not self.model_id or len(self.model_id) > 200:
+            raise ValueError("model_id is required and must be at most 200 characters")
+        if not (0 < self.timeout_seconds <= 120):
+            raise ValueError("timeout_seconds must be in (0, 120]")
+        if not (1024 <= self.max_request_bytes <= 2 * 1024 * 1024):
+            raise ValueError("max_request_bytes must be between 1 KiB and 2 MiB")
+        if not (1024 <= self.max_response_bytes <= 2 * 1024 * 1024):
+            raise ValueError("max_response_bytes must be between 1 KiB and 2 MiB")
         if self.base_url:
             u = self.base_url.strip()
-            if not (u.startswith("https://") or u.startswith("http://127.0.0.1")
-                    or u.startswith("http://localhost")):
+            parsed = urlsplit(u)
+            if (parsed.username or parsed.password or parsed.query or parsed.fragment
+                    or not parsed.hostname):
+                raise ValueError(
+                    "provider base_url must not contain credentials, query, or fragment")
+            if parsed.scheme == "https":
+                pass
+            elif parsed.scheme == "http" and parsed.hostname in {
+                    "127.0.0.1", "localhost", "::1"}:
+                pass
+            else:
                 raise ValueError(
                     "provider base_url must be https:// or a loopback http URL")
+            if u.endswith("/"):
+                object.__setattr__(self, "base_url", u.rstrip("/"))
 
 
 # --- Budget ---------------------------------------------------------

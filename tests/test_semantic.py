@@ -697,7 +697,7 @@ class TestCliSemantic:
     def test_cli_opt_in_reports_provider_not_configured(self, tmp_path):
         p = self._cli(["review", "--engine", "prompt", "--semantic",
                        "--text", "hi", "--out", str(tmp_path)], tmp_path)
-        assert p.returncode in (0, 3), p.stderr
+        assert p.returncode == 3, p.stderr
         j = json.loads((tmp_path / "report.json").read_text())
         assert j["semantic"]["status"] == "provider_not_configured"
         assert j["capabilities"]["semantic"]["status"] == "failed"
