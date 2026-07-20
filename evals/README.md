@@ -42,8 +42,8 @@ data assets live under `evals/`:
 - `evals/reports/`      — recorded outputs (with PII / secrets
                           scrubbed) for regression tracking
 
-None of the above is present yet. `docs/CURRENT_STATE.md` will
-reflect any change.
+None of the above is present yet. `docs/PROGRESS.md` will reflect
+any change.
 
 ## How to run everything today
 

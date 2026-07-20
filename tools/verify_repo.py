@@ -123,29 +123,33 @@ def _looks_like_secret_literal(text: str) -> List[str]:
 # Individual checks                                                     #
 # --------------------------------------------------------------------- #
 
+# Minimal handover-file set (round 10). No CLAUDE.md, no
+# SESSION_START, no CURRENT_STATE, no docs/spec, no .githooks, no
+# plans/TEMPLATE. Everything else that had substance in round 9 was
+# merged into one of the files below.
 REQUIRED_FILES = [
+    # SSOT trio
     "README.md",
     "AGENTS.md",
-    "CLAUDE.md",
-    "docs/CURRENT_STATE.md",
-    "docs/SESSION_START.md",
+    "docs/PROGRESS.md",
+    # Plans
+    "plans/ACTIVE.md",
+    "plans/archive/README.md",
+    # Docs
     "docs/ARCHITECTURE.md",
     "docs/LESSONS.md",
-    "docs/COLLABORATION.md",
-    "docs/PROGRESS.md",
-    "docs/spec/ENGINEERING_SPEC-v0.3.md",
-    "docs/spec/REUSE_DECISIONS-v0.2.md",
-    "plans/ACTIVE.md",
-    "plans/TEMPLATE.md",
-    "plans/archive/README.md",
+    "docs/MEMORY.md",
+    # Eval + gates
     "evals/README.md",
     "tools/verify_repo.py",
     ".github/workflows/ci.yml",
+    # Build / dependency baseline
     "requirements.lock",
     "requirements-dev.lock",
     "THIRD_PARTY_LICENSES.md",
     "LICENSE",
     "pyproject.toml",
+    # Tooling scripts already in the repo
     "tools/install_gitleaks.py",
     "tools/gitleaks_release.json",
     "tools/start_local_web.py",
@@ -162,38 +166,25 @@ def check_required_files(rep: VerifyReport) -> None:
                       f"{len(REQUIRED_FILES)} files present")
 
 
-AGENTS_KEY_PHRASES = [
-    "Session Start", "Session End", "Phase gates",
-    "MUST NOT be added here",  # sanity check we point at the right file
-]
-
-
 def check_agents_md_has_ssot(rep: VerifyReport) -> None:
+    """AGENTS.md is the single agent-rulebook and must contain the
+    canonical sections that other files may link to."""
     text = _read_text(REPO / "AGENTS.md")
-    missing_hdr = [h for h in ("Single Source of Truth", "Session Start",
-                                "Session End", "Phase gates",
-                                "Prohibited actions",
-                                "Documentation drift protection")
-                   if h not in text]
-    if missing_hdr:
+    required = (
+        "Single Source of Truth",
+        "Session Start",
+        "Session End",
+        "Phase gates",
+        "Prohibited actions",
+        "Standard handover prompt",
+    )
+    missing = [h for h in required if h not in text]
+    if missing:
         rep.append_fail("agents_md_ssot_headers",
-                        "missing sections: " + ", ".join(missing_hdr))
+                        "missing sections: " + ", ".join(missing))
     else:
         rep.append_ok("agents_md_ssot_headers",
                       "AGENTS.md contains all canonical sections")
-
-
-def check_claude_md_is_thin(rep: VerifyReport) -> None:
-    text = _read_text(REPO / "CLAUDE.md")
-    if len(text) > 2000:
-        rep.append_fail("claude_md_is_thin",
-                        f"CLAUDE.md is {len(text)} chars; keep it a pointer")
-        return
-    if "AGENTS.md" not in text:
-        rep.append_fail("claude_md_is_thin",
-                        "CLAUDE.md must point at AGENTS.md")
-        return
-    rep.append_ok("claude_md_is_thin", f"CLAUDE.md is {len(text)} chars")
 
 
 VERIFIED_BLOCK_RE = re.compile(
@@ -209,24 +200,25 @@ VERIFIED_BLOCK_RE = re.compile(
 )
 
 
-def check_current_state_block(rep: VerifyReport) -> None:
-    text = _read_text(REPO / "docs" / "CURRENT_STATE.md")
+def check_progress_verified_block(rep: VerifyReport) -> None:
+    """docs/PROGRESS.md carries the top-of-file verified_against block
+    (replaces the round-9 docs/CURRENT_STATE.md)."""
+    text = _read_text(REPO / "docs" / "PROGRESS.md")
     m = VERIFIED_BLOCK_RE.search(text)
     if not m:
-        rep.append_fail("current_state_verified_block",
+        rep.append_fail("progress_verified_block",
                         "verified_against block not parseable")
         return
     date, commit, collected, passed, skipped = m.groups()
     if int(passed) > int(collected):
-        rep.append_fail("current_state_verified_block",
+        rep.append_fail("progress_verified_block",
                         "tests_passed > tests_collected")
         return
     if int(passed) + int(skipped) != int(collected):
         rep.append_fail(
-            "current_state_verified_block",
+            "progress_verified_block",
             f"passed + skipped ({int(passed)} + {int(skipped)}) != collected ({collected})")
         return
-    # Ancestor check (only when we are inside a git repo).
     proc = _git("cat-file", "-e", commit)
     if proc.returncode == 0:
         head = _git("rev-parse", "HEAD").stdout.strip()
@@ -234,10 +226,10 @@ def check_current_state_block(rep: VerifyReport) -> None:
             mb = _git("merge-base", "--is-ancestor", commit, head)
             if mb.returncode != 0:
                 rep.append_fail(
-                    "current_state_verified_block",
+                    "progress_verified_block",
                     f"verified_against commit {commit[:12]} is not an ancestor of HEAD")
                 return
-    rep.append_ok("current_state_verified_block",
+    rep.append_ok("progress_verified_block",
                   f"date={date} commit={commit[:12]} tests={passed}/{collected}")
 
 
@@ -250,17 +242,16 @@ CAPABILITY_ROWS = [
 
 
 def check_capability_matrix_matches_runtime(rep: VerifyReport) -> None:
-    """CURRENT_STATE capability strings must match the runtime strings
-    that verity/report.py emits.  We don't execute Verity here; we
-    just assert the four expected labels are present in the doc and
-    that the report.py source contains matching literals for the two
-    fixed strings ``not_implemented`` and ``not_enabled``.
+    """PROGRESS top-block capability strings must match the runtime
+    strings that verity/report.py emits. We don't execute Verity here;
+    we just assert the four expected labels are present in the doc and
+    that the report.py source contains matching literals.
     """
-    doc = _read_text(REPO / "docs" / "CURRENT_STATE.md")
+    doc = _read_text(REPO / "docs" / "PROGRESS.md")
     for label, status in CAPABILITY_ROWS:
         if label not in doc:
             rep.append_fail("capability_matrix_matches_runtime",
-                            f"missing label in CURRENT_STATE: {label}")
+                            f"missing label in PROGRESS: {label}")
             return
         if status not in doc:
             rep.append_fail("capability_matrix_matches_runtime",
@@ -273,7 +264,7 @@ def check_capability_matrix_matches_runtime(rep: VerifyReport) -> None:
                             f"report.py missing literal {status!r}")
             return
     rep.append_ok("capability_matrix_matches_runtime",
-                  "CURRENT_STATE labels + statuses agree with report.py")
+                  "PROGRESS labels + statuses agree with report.py")
 
 
 def check_no_absolute_paths_in_docs(rep: VerifyReport) -> None:
@@ -289,11 +280,10 @@ def check_no_absolute_paths_in_docs(rep: VerifyReport) -> None:
         text = _read_text(p)
         if not text:
             continue
-        # The standard handover prompt intentionally names the local
-        # path in a fenced code block. It is the SSOT for the handover
-        # prompt and is user-visible on purpose. We allow the host-path
-        # prefix only inside ``docs/SESSION_START.md`` and nowhere else.
-        allow = str(p).endswith("docs/SESSION_START.md")
+        # The standard handover prompt in AGENTS.md §9 intentionally
+        # names the local path in a fenced code block. That is the
+        # SSOT for the prompt and is user-visible on purpose.
+        allow = str(p).endswith("AGENTS.md")
         for pat in ("/Users/", "/private/", "/tmp/verity-"):
             if pat in text and not allow:
                 offenders.append(f"{p.relative_to(REPO)}: {pat}")
@@ -350,9 +340,9 @@ def check_pyproject_and_readme_links(rep: VerifyReport) -> None:
                             f"pyproject.toml missing {expect!r}")
             return
     readme = _read_text(REPO / "README.md")
-    if "docs/CURRENT_STATE.md" not in readme and "CURRENT_STATE" not in readme:
+    if "docs/PROGRESS.md" not in readme:
         rep.append_fail("pyproject_and_readme_links",
-                        "README.md must link to CURRENT_STATE.md")
+                        "README.md must link to docs/PROGRESS.md")
         return
     if "AGENTS.md" not in readme:
         rep.append_fail("pyproject_and_readme_links",
@@ -477,8 +467,7 @@ def run_all(*, require_clean: bool = False,
     rep = VerifyReport()
     check_required_files(rep)
     check_agents_md_has_ssot(rep)
-    check_claude_md_is_thin(rep)
-    check_current_state_block(rep)
+    check_progress_verified_block(rep)
     check_capability_matrix_matches_runtime(rep)
     check_no_absolute_paths_in_docs(rep)
     check_no_secret_literals(rep)

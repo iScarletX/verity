@@ -86,10 +86,15 @@
 For every fact that could drift, look here:
 
 - Behaviour policy → `AGENTS.md`
-- What's actually running now → `docs/CURRENT_STATE.md`
-- History → `docs/PROGRESS.md`
+- Current state + append-only history → `docs/PROGRESS.md`
+  (top summary block + round-by-round history below it)
 - Active plan → `plans/ACTIVE.md`
-- Engineering spec (authoritative) →
-  `docs/spec/ENGINEERING_SPEC-v0.3.md`
-- Mature-project reuse → `docs/spec/REUSE_DECISIONS-v0.2.md`
 - Known pitfalls → `docs/LESSONS.md`
+- Collaboration preferences → `docs/MEMORY.md`
+- Machine gate → `tools/verify_repo.py`
+- CI gate → `.github/workflows/ci.yml`
+
+The upstream engineering spec and mature-project reuse decisions live
+outside this repository (in the maintainer's design docs). This
+repository does not carry a spec snapshot; if the spec is revised, the
+change lands in code and shows up in `docs/PROGRESS.md`.

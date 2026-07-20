@@ -1,9 +1,8 @@
 # Verity — Prompt & Skill Auditor
 
-> **New agents / new chats — start here:** read `AGENTS.md`, then
-> `docs/SESSION_START.md`, then run `python3 tools/verify_repo.py`.
-> The current test count and capability matrix live in
-> `docs/CURRENT_STATE.md` (single source of truth).
+> **New agents / new chats — start here:** read `AGENTS.md`, then run
+> `python3 tools/verify_repo.py`. The current test count and
+> capability matrix live at the top of `docs/PROGRESS.md`.
 >
 > Phase 0 core contracts + high-confidence deterministic Prompt/Skill
 > rules + controlled Bandit and gitleaks integration + SARIF 2.1.0
@@ -222,7 +221,7 @@ python3 -m pip install --upgrade pip setuptools wheel  # older venvs ship an old
 pip install -r requirements.lock       # runtime deps
 pip install -r requirements-dev.lock   # dev/test deps
 pip install -e .                       # install package in editable mode
-pytest -q                              # run tests   (count in docs/CURRENT_STATE.md)
+pytest -q                              # run tests   (count in docs/PROGRESS.md top block)
 ```
 
 Or without a venv (uses ``--user``):

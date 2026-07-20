@@ -21,11 +21,13 @@ adding, put the most recent entry at the TOP.
   face value and did not re-run pytest.
 - **Root cause**: Test counts were written directly into files that
   outlive them. There was no single machine-checked source of truth.
-- **Fix**: Numbers live only in `docs/CURRENT_STATE.md`, checked by
-  `tools/verify_repo.py`. README links to `CURRENT_STATE`.
+- **Fix**: Numbers live only in the top summary of
+  `docs/PROGRESS.md` (the `verified_against` block + capability
+  matrix), checked by `tools/verify_repo.py`. README links to that
+  block.
 - **Prevention**: Do not write easily-drifting numbers into any file
-  other than `CURRENT_STATE`. Extend `verify_repo.py` to complain
-  when it finds one.
+  other than the top of `docs/PROGRESS.md`. Extend `verify_repo.py`
+  to complain when it finds one.
 - **Evidence**: this round (handover system).
 
 ### 2026-07-20 — GitHub Push Protection can misclassify fake fixtures

@@ -56,8 +56,8 @@ def test_looks_like_secret_literal_flags_aws():
     assert "aws-access-key-full-literal" in verify_repo._looks_like_secret_literal(lit)
 
 
-def test_verified_block_regex_parses_current_state():
-    text = (REPO / "docs" / "CURRENT_STATE.md").read_text()
+def test_verified_block_regex_parses_progress():
+    text = (REPO / "docs" / "PROGRESS.md").read_text()
     m = verify_repo.VERIFIED_BLOCK_RE.search(text)
     assert m is not None
     date, commit, collected, passed, skipped = m.groups()
@@ -114,10 +114,10 @@ def _scratch_repo(tmp_path):
     return dst
 
 
-def test_absolute_path_in_current_state_is_detected(tmp_path, monkeypatch):
+def test_absolute_path_in_progress_is_detected(tmp_path, monkeypatch):
     dst = _scratch_repo(tmp_path)
-    (dst / "docs" / "CURRENT_STATE.md").write_text(
-        (dst / "docs" / "CURRENT_STATE.md").read_text()
+    (dst / "docs" / "PROGRESS.md").write_text(
+        (dst / "docs" / "PROGRESS.md").read_text()
         + "\n\nprivate: /Users/attacker/thing"
     )
     monkeypatch.setattr(verify_repo, "REPO", dst)
@@ -140,9 +140,9 @@ def test_missing_required_file_is_detected(tmp_path, monkeypatch):
 
 def test_capability_matrix_mismatch_detected(tmp_path, monkeypatch):
     dst = _scratch_repo(tmp_path)
-    # Break the CURRENT_STATE capability label so it no longer matches
-    # the runtime string in report.py.
-    cs = dst / "docs" / "CURRENT_STATE.md"
+    # Break the PROGRESS top-block capability label so it no longer
+    # matches the runtime string in report.py.
+    cs = dst / "docs" / "PROGRESS.md"
     cs.write_text(cs.read_text().replace("not_implemented", "coming_soon"))
     monkeypatch.setattr(verify_repo, "REPO", dst)
     rep = verify_repo.VerifyReport()

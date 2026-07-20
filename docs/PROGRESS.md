@@ -1,5 +1,50 @@
 # Verity in-repo progress log
 
+## Current state (short summary)
+
+<!-- verify_repo.py: begin verified_against block -->
+```yaml
+verified_against:
+  date: "2026-07-20"
+  # Commit that was HEAD when the numbers below were measured. Must be
+  # an ancestor of HEAD at verify time (or equal to it). This avoids
+  # a doc trying to know its own future commit hash.
+  commit: "c8175e919d1b2ac0fbf34fbfa46e69c37fbb5e21"
+  tests_collected: 288
+  tests_passed: 288
+  tests_skipped: 0
+  verify_command: "python3 tools/verify_repo.py"
+```
+<!-- verify_repo.py: end verified_against block -->
+
+**Capability matrix.** Kept in sync with `verity/report.py::review_to_dict`.
+Strings below MUST match the runtime literals.
+
+| Capability                          | Status            |
+|-------------------------------------|-------------------|
+| Static (deterministic) auditing     | `completed`       |
+| Semantic (LLM-assisted) auditing    | `not_enabled`     |
+| V1.5 Prompt black-box               | `not_implemented` |
+| V2 Skill isolated sandbox           | `not_implemented` |
+
+**Next step.** See `plans/ACTIVE.md`. Nothing new should start without an
+explicit user-approved round description.
+
+**What ships right now.** Read-only intake (prompt text or local Skill
+folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks
+(pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports,
+Chinese remediation catalog, experimental semantic scaffold (default
+OFF; `provider_not_configured` when opted in without a Provider), CLI
+and local Web MVP.
+
+**Deliberately absent.** No LLM Provider client. No Skill execution or
+sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or
+GitHub-URL intake. No PatchSet apply (proposals only).
+
+---
+
+## Round history (append-only)
+
 This file tracks Verity's own implementation progress. It is separate from
 the main-agent design docs (spec / reuse decision table / CHANGELOG),
 which live outside this repository and are only referenced.
@@ -28,7 +73,39 @@ which live outside this repository and are only referenced.
 - 3 prompt fixtures (clean / broken_user / risky_system)
 - 80 tests
 
-## Round 9 (2026-07-20)  →  this commit
+## Round 10 (2026-07-20) → this commit
+- **Collapse handover set** to the minimal 8 files, per user request:
+    * removed: `CLAUDE.md`, `docs/SESSION_START.md`,
+      `docs/CURRENT_STATE.md`, `docs/COLLABORATION.md`,
+      `docs/spec/*` (both snapshot copies + empty dir),
+      `.githooks/*` (opt-in hook + README + empty dir),
+      `plans/TEMPLATE.md`.
+    * merged into `AGENTS.md`: the Session-Start / Session-End flows
+      and the standard handover prompts that previously lived in
+      `docs/SESSION_START.md`.
+    * merged into `docs/PROGRESS.md`: the `verified_against` block,
+      capability matrix, and short state summary that previously
+      lived in `docs/CURRENT_STATE.md`. History remains append-only.
+    * moved into `docs/MEMORY.md`: the public-safe collaboration
+      preferences that previously lived in `docs/COLLABORATION.md`.
+- `tools/verify_repo.py` updated to reflect the new file layout:
+    * `REQUIRED_FILES` now names the minimal 8-item set
+      (no CLAUDE, no SESSION_START, no CURRENT_STATE, no spec/*,
+      no plans/TEMPLATE, no .githooks/*).
+    * `check_current_state_block` renamed to
+      `check_progress_verified_block`, reads the block from
+      `docs/PROGRESS.md` top.
+    * `capability_matrix_matches_runtime` reads the matrix from the
+      PROGRESS top block.
+    * `check_agents_md_has_ssot` updated section titles.
+    * self-tests in `tests/test_verify_repo.py` follow.
+- README / ARCHITECTURE / evals README updated to point at PROGRESS
+  and MEMORY instead of the removed files.
+- No product surface change; no new Python dependencies.
+- Tests: 288 -> 288 passing (same count; the verify-repo self-tests
+  were renamed/adjusted, none added or removed).
+
+## Round 9 (2026-07-20)  →  commit `c8175e9`
 - **Handover system + machine gates** (no product functionality
   change). See `plans/archive/round-9-handover.md` (this round's
   plan, filed by rule at end of round).
