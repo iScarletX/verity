@@ -28,7 +28,63 @@ which live outside this repository and are only referenced.
 - 3 prompt fixtures (clean / broken_user / risky_system)
 - 80 tests
 
-## Round 8 (2026-07-20)  →  this commit
+## Round 9 (2026-07-20)  →  this commit
+- **Handover system + machine gates** (no product functionality
+  change). See `plans/archive/round-9-handover.md` (this round's
+  plan, filed by rule at end of round).
+- New / substantially rewritten SSOT files:
+    * `AGENTS.md` — canonical rules for any AI agent working on Verity
+    * `CLAUDE.md` — thin pointer at `AGENTS.md` (no rule duplication)
+    * `docs/CURRENT_STATE.md` — machine-readable snapshot with a
+      ``verified_against`` YAML block (commit + test counts); the
+      commit is required to be an *ancestor* of `HEAD` at verify time
+      so no self-reference trap
+    * `docs/SESSION_START.md` — new-agent onboarding + the canonical
+      handover prompts (long + short)
+    * `docs/ARCHITECTURE.md` — one-page component + bright-line map
+    * `docs/LESSONS.md` — append-only pitfall ledger seeded with
+      seven concrete lessons from earlier rounds
+    * `docs/COLLABORATION.md` — public-safe collaboration preferences
+    * `docs/spec/ENGINEERING_SPEC-v0.3.md` — in-repo snapshot of the
+      external spec, with a snapshot-header explaining the sync rule
+    * `docs/spec/REUSE_DECISIONS-v0.2.md` — same treatment for the
+      mature-project reuse decisions table
+    * `plans/ACTIVE.md` and `plans/TEMPLATE.md`; archived plans live
+      under `plans/archive/` with an explicit README saying we do NOT
+      fabricate archived plans for Rounds 1–8
+    * `evals/README.md` — how tests read as an AI eval suite; the
+      directory is otherwise empty until V1.5 / real Provider work
+- New machine gate `tools/verify_repo.py`:
+    * 10 static checks (required files, AGENTS SSOT headers,
+      CLAUDE-md-is-thin, CURRENT_STATE verified_against block,
+      capability matrix agrees with runtime, no host absolute paths
+      in docs, no full-literal secret patterns, pyproject + README
+      pointers, .gitignore covers `.tools` + caches, CI YAML shape)
+    * Runs full pytest by default; `--skip-tests` for doc-only edits;
+      `--require-clean` for CI mode
+    * `capability_matrix_matches_runtime` cross-checks that the
+      status strings in `CURRENT_STATE` also appear as literals in
+      `verity/report.py` — stops docs from drifting from code
+    * Has its own tests (`tests/test_verify_repo.py`, 11 tests) that
+      exercise each individual check against a fabricated failing
+      scratch repo
+- New CI gate `.github/workflows/ci.yml`:
+    * runs on `push` and `pull_request`,
+    * `permissions: contents: read` (no write, no secrets, no
+      artifact uploads),
+    * concurrency-cancel on same ref,
+    * installs pinned deps + gitleaks 8.28.0 (verified SHA-256 via
+      the checked-in installer),
+    * finally runs `python tools/verify_repo.py --require-clean`
+- Optional `.githooks/pre-push` + README explaining opt-in
+  enablement (`git config core.hooksPath .githooks`). The project
+  does NOT auto-install hooks or touch user git config.
+- README no longer carries drifting test counts; it links to
+  `docs/CURRENT_STATE.md` and to `AGENTS.md` / `SESSION_START.md`.
+- Tests: 277 -> 288 passing (+11 for `tools/verify_repo.py`).
+- No new Python dependencies.
+
+## Round 8 (2026-07-20)  →  commit `4f421f9`
 - **Semantic-review V1 scaffolding** (Evidence → SemanticCandidate →
   Validator → CandidateAssessment → semantic Finding), default OFF:
     * New package `verity/semantic/` isolated from the deterministic
