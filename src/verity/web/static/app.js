@@ -40,13 +40,25 @@
     api("/api/projects/"+encodeURIComponent(selectedProject)).then(function(data){
       $("project-page").hidden=false; $("project-title").textContent=data.project.displayName;
       var h=$("project-history"); h.textContent=""; data.versions.forEach(function(v){ h.appendChild(mk("p",{text:v.createdAt+" · "+v.contentDigest.slice(0,12)+" · Coverage "+v.coverage.status+" · "+Object.values(v.findingCounts).reduce(function(a,b){return a+b;},0)+" 个问题"})); });
-      if(data.versions.length>1) api("/api/projects/"+encodeURIComponent(selectedProject)+"/diff").then(function(x){ $("project-diff").textContent="版本差异：新增 "+x.diff.counts.new+"，持续 "+x.diff.counts.existing+"，变化 "+x.diff.counts.changed+"，已解决 "+x.diff.counts.resolved+"，因覆盖未知 "+x.diff.counts.unknown_due_to_coverage; });
+      var diffBox=$("project-diff"); diffBox.textContent="";
+      if(data.versions.length>1) api("/api/projects/"+encodeURIComponent(selectedProject)+"/diff").then(function(x){
+        var d=x.diff; diffBox.appendChild(mk("h4",{text:"与上一版本相比"}));
+        diffBox.appendChild(mk("p",{text:"新增 "+d.counts.new+"，持续 "+d.counts.existing+"，变化 "+d.counts.changed+"，已解决 "+d.counts.resolved+"，因覆盖不足无法确认 "+d.counts.unknown_due_to_coverage}));
+        var labels={new:"新增",existing:"仍然存在",changed:"发生变化",resolved:"已解决",unknown_due_to_coverage:"无法确认"};
+        d.changes.forEach(function(change){
+          var s=change.summary||{}; var item=mk("details");
+          item.appendChild(mk("summary",{text:(labels[change.state]||change.state)+" · "+(s.findingType||"unknown")+" · "+(s.severity||"")}));
+          item.appendChild(mk("p",{text:s.claim||""}));
+          if(change.state==="unknown_due_to_coverage") item.appendChild(mk("p",{className:"warn",text:"本轮相关检查未完整完成，因此不能宣称已经修复。"}));
+          diffBox.appendChild(item);
+        });
+      });
     }).catch(showProjectError);
   }
   function showProjectError(e) { $("project-diff").textContent=e.message; }
   $("project-create").addEventListener("click",function(){ api("/api/projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({displayName:$("project-name").value})}).then(function(){ $("project-name").value=""; loadProjects(); }).catch(showProjectError); });
   $("project-submit").addEventListener("click",function(){
-    if(!selectedProject) return; var fd=new FormData(); Array.prototype.forEach.call($("project-files").files,function(f){fd.append("files",f,f.webkitRelativePath||f.name);}); fd.append("profile","minimal");
+    if(!selectedProject) return; var fd=new FormData(); Array.prototype.forEach.call($("project-files").files,function(f){fd.append("files",f,f.webkitRelativePath||f.name);}); fd.append("profile",$("project-profile").value);
     api("/api/projects/"+encodeURIComponent(selectedProject)+"/versions",{method:"POST",body:fd}).then(loadProject).catch(showProjectError);
   });
   loadProjects();

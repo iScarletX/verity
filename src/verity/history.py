@@ -1,7 +1,7 @@
 """Trusted local Skill project identity and safe immutable review history."""
 from __future__ import annotations
 
-import json, os, secrets, stat, tempfile
+import json, os, secrets, stat, tempfile, threading
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +21,112 @@ class HistoryError(RuntimeError): pass
 
 def default_data_dir() -> Path:
     return Path(os.environ.get("VERITY_DATA_DIR", ".verity-data"))
+
+
+def _valid_opaque_id(value: Any, prefix: str, hex_length: int) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith(prefix)
+        and len(value) == len(prefix) + hex_length
+        and all(c in "0123456789abcdef" for c in value[len(prefix):])
+    )
+
+
+def _bounded_string(value: Any, *, max_length: int = 512) -> bool:
+    return isinstance(value, str) and len(value) <= max_length and "\x00" not in value
+
+
+def _exact_keys(value: Any, keys: set[str]) -> bool:
+    return isinstance(value, dict) and set(value) == keys
+
+
+def _validate_review_projection(obj: dict) -> None:
+    if obj.get("engine") != "skill" or obj.get("profile") not in {
+            "standard", "minimal"}:
+        raise HistoryError("invalid review scope")
+    if not (_bounded_string(obj.get("createdAt"), max_length=80)
+            and _bounded_string(obj.get("scopeId"), max_length=160)
+            and _valid_opaque_id(obj.get("contentDigest"), "", 64)):
+        raise HistoryError("invalid review metadata")
+
+    coverage = obj.get("coverage")
+    if not _exact_keys(coverage, {"status", "reasonCodes"}):
+        raise HistoryError("invalid coverage projection")
+    if coverage["status"] not in {"sufficient", "insufficient", "failed"}:
+        raise HistoryError("invalid coverage status")
+    if (not isinstance(coverage["reasonCodes"], list)
+            or len(coverage["reasonCodes"]) > 512
+            or not all(_bounded_string(x) for x in coverage["reasonCodes"])):
+        raise HistoryError("invalid coverage reasons")
+
+    plan = obj.get("plan")
+    if not isinstance(plan, list) or len(plan) > 2048:
+        raise HistoryError("invalid plan projection")
+    plan_ids = set()
+    for item in plan:
+        if not _exact_keys(item, {"planItemId", "componentKind",
+                                  "componentId", "componentVersion"}):
+            raise HistoryError("invalid plan item")
+        if (item["componentKind"] not in {"parser", "analyzer", "rule",
+                                           "candidate_generator", "validator"}
+                or not all(_bounded_string(item[k]) for k in (
+                    "planItemId", "componentId", "componentVersion"))
+                or item["planItemId"] in plan_ids):
+            raise HistoryError("invalid plan item values")
+        plan_ids.add(item["planItemId"])
+
+    executions = obj.get("executions")
+    allowed_statuses = {"completed", "partial", "failed", "cancelled",
+                        "unsupported", "not_applicable",
+                        "blocked_by_upstream_failure"}
+    if not isinstance(executions, list) or len(executions) > 4096:
+        raise HistoryError("invalid execution projection")
+    for execution in executions:
+        if (not _exact_keys(execution, {"planItemId", "status"})
+                or not _bounded_string(execution["planItemId"])
+                or execution["planItemId"] not in plan_ids
+                or execution["status"] not in allowed_statuses):
+            raise HistoryError("invalid execution item")
+
+    counts = obj.get("findingCounts")
+    if not _exact_keys(counts, {"low", "medium", "high", "critical"}):
+        raise HistoryError("invalid finding counts")
+    if not all(isinstance(v, int) and not isinstance(v, bool) and v >= 0
+               for v in counts.values()):
+        raise HistoryError("invalid finding count values")
+
+    findings = obj.get("findings")
+    finding_keys = {"findingId", "fingerprint", "findingType", "subjectKey",
+                    "severity", "claim", "requiredPlanItemIds"}
+    if not isinstance(findings, list) or len(findings) > 4096:
+        raise HistoryError("invalid findings projection")
+    seen_findings = set()
+    calculated_counts = {s: 0 for s in ("low", "medium", "high", "critical")}
+    for finding in findings:
+        if not _exact_keys(finding, finding_keys):
+            raise HistoryError("invalid finding projection")
+        if (not _valid_opaque_id(finding["findingId"], "F-", 16)
+                or not _valid_opaque_id(finding["fingerprint"], "", 64)
+                or not _valid_opaque_id(finding["subjectKey"], "", 64)
+                or not _bounded_string(finding["findingType"], max_length=160)
+                or finding["severity"] not in calculated_counts
+                or not _bounded_string(finding["claim"], max_length=512)
+                or not isinstance(finding["requiredPlanItemIds"], list)
+                or len(finding["requiredPlanItemIds"]) > 64
+                or not all(_bounded_string(x)
+                           and x in plan_ids
+                           for x in finding["requiredPlanItemIds"])
+                or finding["findingId"] in seen_findings):
+            raise HistoryError("invalid finding values")
+        seen_findings.add(finding["findingId"])
+        calculated_counts[finding["severity"]] += 1
+    if calculated_counts != counts:
+        raise HistoryError("finding counts do not match findings")
+    expected_review_status = (
+        "complete" if coverage["status"] == "sufficient"
+        else "coverage_incomplete")
+    if obj.get("reviewStatus") != expected_review_status:
+        raise HistoryError("invalid review status")
 
 
 def _strict_load(path: Path) -> dict:
@@ -43,8 +149,37 @@ def _strict_load(path: Path) -> dict:
     review_keys={"schemaVersion","recordType","artifactId","snapshotId","reviewId","createdAt","engine","profile","scopeId","contentDigest","coverage","plan","executions","findingCounts","findings","reviewStatus"}
     expected=project_keys if kind=="skillProject" else review_keys if kind=="skillReview" else None
     if expected is None or set(obj)!=expected: raise HistoryError("history record violates strict schema")
-    if kind=="skillProject" and not isinstance(obj.get("versionIds"),list): raise HistoryError("invalid project schema")
-    if kind=="skillReview" and not all(isinstance(obj.get(k),list) for k in ("plan","executions","findings")): raise HistoryError("invalid review schema")
+    if kind == "skillProject":
+        if not _valid_opaque_id(obj.get("artifactId"), "a-", 32):
+            raise HistoryError("invalid project identity")
+        if (not _bounded_string(obj.get("displayName"), max_length=80)
+                or not obj["displayName"].strip()
+                or not _bounded_string(obj.get("createdAt"), max_length=80)):
+            raise HistoryError("invalid project metadata")
+        alias = obj.get("alias")
+        if alias is not None and (
+                not _bounded_string(alias, max_length=40)
+                or not alias
+                or not alias.replace("-", "").replace("_", "").isalnum()):
+            raise HistoryError("invalid project alias")
+        if not isinstance(obj.get("versionIds"), list):
+            raise HistoryError("invalid project schema")
+        if (len(obj["versionIds"]) > MAX_VERSIONS
+                or len(set(obj["versionIds"])) != len(obj["versionIds"])
+                or not all(_valid_opaque_id(v, "r-", 12)
+                           for v in obj["versionIds"])):
+            raise HistoryError("invalid version identity")
+    if kind == "skillReview":
+        if not _valid_opaque_id(obj.get("artifactId"), "a-", 32):
+            raise HistoryError("invalid review artifact identity")
+        if not _valid_opaque_id(obj.get("reviewId"), "r-", 12):
+            raise HistoryError("invalid review identity")
+        if not _valid_opaque_id(obj.get("snapshotId"), "s-", 12):
+            raise HistoryError("invalid snapshot identity")
+        if not all(isinstance(obj.get(k), list)
+                   for k in ("plan", "executions", "findings")):
+            raise HistoryError("invalid review schema")
+        _validate_review_projection(obj)
     return obj
 
 
@@ -58,8 +193,13 @@ def _check_safe(path: Path, directory=False) -> None:
 
 
 def _mkdir(path: Path) -> None:
+    # Check before mkdir/chmod so an attacker-controlled symlink cannot make
+    # Verity change permissions on its target before the rejection happens.
+    if path.is_symlink():
+        raise HistoryError("symlinked history path refused")
     path.mkdir(parents=True, exist_ok=True, mode=0o700)
-    os.chmod(path, 0o700); _check_safe(path, True)
+    _check_safe(path, True)
+    os.chmod(path, 0o700)
 
 
 def _atomic_json(path: Path, obj: dict, replace=os.replace) -> None:
@@ -115,20 +255,37 @@ def project_review(review, *, profile: str) -> dict:
 
 class HistoryStore:
     def __init__(self, root=None):
-        self.root=Path(root) if root else default_data_dir(); self.projects=self.root/"projects"
-        _mkdir(self.root); _mkdir(self.projects)
+        self.root = Path(root) if root else default_data_dir()
+        self.projects = self.root / "projects"
+        self._lock = threading.RLock()
+        _mkdir(self.root)
+        _mkdir(self.projects)
     def _project_path(self, aid): return self.projects/aid/"project.json"
     def _validate_id(self, aid):
-        if not isinstance(aid,str) or not aid.startswith("a-") or len(aid)!=34 or not all(c in "0123456789abcdef" for c in aid[2:]): raise HistoryError("unknown project")
+        if not _valid_opaque_id(aid, "a-", 32):
+            raise HistoryError("unknown project")
     def create_project(self, display_name: str, alias: str|None=None) -> dict:
-        name=display_name.strip()
-        if not name or len(name)>80 or any(ord(c)<32 for c in name): raise HistoryError("invalid display name")
-        if len(list(self.projects.glob("*/project.json"))) >= MAX_PROJECTS: raise HistoryError("project budget exceeded")
-        if alias is not None and (not alias or len(alias)>40 or not alias.replace("-","").replace("_","").isalnum()): raise HistoryError("invalid alias")
-        if alias and any(p.get("alias")==alias for p in self.list_projects()): raise HistoryError("alias already exists")
-        aid="a-"+secrets.token_hex(16); now=datetime.now(timezone.utc).isoformat()
-        p={"schemaVersion":SCHEMA_VERSION,"recordType":"skillProject","artifactId":aid,"displayName":name,"alias":alias,"createdAt":now,"versionIds":[]}
-        _atomic_json(self._project_path(aid),p); return p
+        name = display_name.strip()
+        if not name or len(name) > 80 or any(ord(c) < 32 for c in name):
+            raise HistoryError("invalid display name")
+        if alias is not None and (
+                not alias or len(alias) > 40
+                or not alias.replace("-", "").replace("_", "").isalnum()):
+            raise HistoryError("invalid alias")
+        with self._lock:
+            if len(list(self.projects.glob("*/project.json"))) >= MAX_PROJECTS:
+                raise HistoryError("project budget exceeded")
+            if alias and any(p.get("alias") == alias
+                             for p in self.list_projects()):
+                raise HistoryError("alias already exists")
+            aid = "a-" + secrets.token_hex(16)
+            now = datetime.now(timezone.utc).isoformat()
+            p = {"schemaVersion": SCHEMA_VERSION,
+                 "recordType": "skillProject", "artifactId": aid,
+                 "displayName": name, "alias": alias,
+                 "createdAt": now, "versionIds": []}
+            _atomic_json(self._project_path(aid), p)
+            return p
     def list_projects(self):
         out=[]
         for path in sorted(self.projects.glob("*/project.json")):
@@ -140,24 +297,47 @@ class HistoryStore:
         return matches[0]
     def get_project(self, ref): return self.resolve(ref)
     def add_review(self, ref, review, *, profile="standard"):
-        p=self.resolve(ref)
-        if review.engine!="skill" or review.artifactSnapshot.artifactId!=p["artifactId"]: raise HistoryError("review identity mismatch")
-        if len(p["versionIds"])>=MAX_VERSIONS: raise HistoryError("version budget exceeded")
-        rec=project_review(review,profile=profile); vp=self.projects/p["artifactId"]/"versions"/f'{rec["reviewId"]}.json'
-        if vp.exists(): raise HistoryError("immutable review already exists")
-        total=sum(x.stat().st_size for x in self.root.rglob("*.json") if x.is_file())
-        size=len(json.dumps(rec).encode())
-        if total+size>MAX_TOTAL_BYTES: raise HistoryError("total history budget exceeded")
-        _atomic_json(vp,rec)
-        p=dict(p); p["versionIds"]=[*p["versionIds"],rec["reviewId"]]
-        try: _atomic_json(self._project_path(p["artifactId"]),p)
-        except Exception:
-            vp.unlink(missing_ok=True); raise
-        return rec
+        with self._lock:
+            p = self.resolve(ref)
+            if (review.engine != "skill"
+                    or review.artifactSnapshot.artifactId != p["artifactId"]):
+                raise HistoryError("review identity mismatch")
+            if len(p["versionIds"]) >= MAX_VERSIONS:
+                raise HistoryError("version budget exceeded")
+            rec = project_review(review, profile=profile)
+            vp = (self.projects / p["artifactId"] / "versions"
+                  / f'{rec["reviewId"]}.json')
+            if vp.exists():
+                raise HistoryError("immutable review already exists")
+            total = sum(x.stat().st_size for x in self.root.rglob("*.json")
+                        if x.is_file())
+            size = len(json.dumps(rec).encode())
+            if total + size > MAX_TOTAL_BYTES:
+                raise HistoryError("total history budget exceeded")
+            _atomic_json(vp, rec)
+            p = dict(p)
+            p["versionIds"] = [*p["versionIds"], rec["reviewId"]]
+            try:
+                _atomic_json(self._project_path(p["artifactId"]), p)
+            except Exception:
+                vp.unlink(missing_ok=True)
+                raise
+            return rec
     def versions(self, ref):
-        p=self.resolve(ref); out=[]
+        p = self.resolve(ref)
+        out = []
+        versions_dir = self.projects / p["artifactId"] / "versions"
+        if p["versionIds"]:
+            _check_safe(versions_dir, True)
         for rid in p["versionIds"]:
-            vp=self.projects/p["artifactId"]/"versions"/f"{rid}.json"; _check_safe(vp); out.append(_strict_load(vp))
+            if not _valid_opaque_id(rid, "r-", 12):
+                raise HistoryError("invalid version identity")
+            vp = versions_dir / f"{rid}.json"
+            _check_safe(vp)
+            record = _strict_load(vp)
+            if record["artifactId"] != p["artifactId"] or record["reviewId"] != rid:
+                raise HistoryError("version identity mismatch")
+            out.append(record)
         return out
     def diff(self, ref, previous_review_id=None, current_review_id=None):
         p=self.resolve(ref); vs=self.versions(p["artifactId"])
@@ -169,5 +349,37 @@ class HistoryStore:
             return [Finding(findingId=f["findingId"],snapshotId=r["snapshotId"],findingOccurrenceFingerprint=f["fingerprint"],findingType=f["findingType"],subject={},subjectKey=f["subjectKey"],claim=f["claim"],severity=f["severity"],origin={"kind":"deterministic_rule"},evidenceIds=[]) for f in r["findings"]]
         req={f["findingId"]:f["requiredPlanItemIds"] for f in prev["findings"]}
         cov=CoverageAssessment("stored",cur["reviewId"],"stored",1,cur["coverage"]["status"],reasonCodes=cur["coverage"]["reasonCodes"])
-        recs=compare(fs(prev),fs(cur),previous_snapshot_id=prev["snapshotId"],current_snapshot_id=cur["snapshotId"],baseline_scope_id=cur["scopeId"],current_coverage=cov,required_plan_items=req,current_execution_status={e["planItemId"]:e["status"] for e in cur["executions"]})
-        return {"previousReviewId":prev["reviewId"],"currentReviewId":cur["reviewId"],"counts":{s:sum(x.state==s for x in recs) for s in ("new","existing","changed","resolved","unknown_due_to_coverage")},"changes":[asdict(x) for x in recs]}
+        recs = compare(
+            fs(prev), fs(cur),
+            previous_snapshot_id=prev["snapshotId"],
+            current_snapshot_id=cur["snapshotId"],
+            baseline_scope_id=cur["scopeId"], current_coverage=cov,
+            required_plan_items=req,
+            current_execution_status={e["planItemId"]: e["status"]
+                                      for e in cur["executions"]},
+        )
+        prev_findings = {f["findingId"]: f for f in prev["findings"]}
+        cur_findings = {f["findingId"]: f for f in cur["findings"]}
+        changes = []
+        for match in recs:
+            source = None
+            if match.currentFindingIds:
+                source = cur_findings.get(match.currentFindingIds[0])
+            if source is None and match.previousFindingIds:
+                source = prev_findings.get(match.previousFindingIds[0])
+            safe_summary = {
+                "findingType": source.get("findingType") if source else "unknown",
+                "severity": source.get("severity") if source else "medium",
+                "claim": source.get("claim") if source else "",
+            }
+            item = asdict(match)
+            item["summary"] = safe_summary
+            changes.append(item)
+        states = ("new", "existing", "changed", "resolved",
+                  "unknown_due_to_coverage")
+        return {
+            "previousReviewId": prev["reviewId"],
+            "currentReviewId": cur["reviewId"],
+            "counts": {s: sum(x.state == s for x in recs) for s in states},
+            "changes": changes,
+        }

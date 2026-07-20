@@ -26,6 +26,12 @@
     <div id="project-list"></div>
     <section id="project-page" hidden>
       <h3 id="project-title"></h3>
+      <label>扫描 Profile
+        <select id="project-profile">
+          <option value="standard">standard（含 gitleaks，推荐）</option>
+          <option value="minimal">minimal（跳过 Secret 扫描）</option>
+        </select>
+      </label>
       <input id="project-files" type="file" multiple webkitdirectory directory>
       <button id="project-submit" class="primary">检查新版本</button>
       <div id="project-history"></div><div id="project-diff"></div>

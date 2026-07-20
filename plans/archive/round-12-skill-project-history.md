@@ -182,13 +182,13 @@ The second part cannot safely exist without the first.
 - Product scope approved: yes, 2026-07-20.
 - Session Start gates: pytest 312/312 and `verify_repo.py` PASS before
   implementation.
-- Programming executor: pending maintainer choice between the main Agent
-  and Coding Agent 程砚 (`p-2026-07-18-3`). Only one may modify the Verity
-  directory during implementation.
+- Programming executor: initial implementation by Coding Agent 程砚
+  (`p-2026-07-18-3`), followed by independent main-Agent review and
+  verification fixes. The agents did not modify the directory concurrently.
 
 ## Status
 
 - Started (planning): 2026-07-20
 - Implementation: complete
 - Ended: 2026-07-20
-- Commit(s): ccfeafc + final documentation commit
+- Commit(s): `ccfeafc`, `a00bb45`, plus owner-verification follow-up

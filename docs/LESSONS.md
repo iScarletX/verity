@@ -14,6 +14,37 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-20 — Agent completion reports can race with Git visibility
+
+- **Symptom**: The first independent check after a sub-agent report saw
+  `HEAD` still at the planning commit and no code diff; minutes later two
+  already-created Round-12 commits became visible at `HEAD`/`origin/main`.
+- **Root cause**: The asynchronous task report and repository inspection
+  were not observed as one atomic event. A status label also briefly said
+  `completed` while the detailed report correctly said `blocked`.
+- **Fix**: Re-check `git reflog`, `git log --all`, file object hashes, and
+  `origin/main` before deciding whether work is absent or merely racing;
+  then independently inspect and test the final commit.
+- **Prevention**: Never accept or reject delegated work from the transport
+  status alone. Require commit hash + push + CI evidence, and perform a
+  second repository read when the report and Git state disagree.
+- **Evidence**: Round 12 commits `ccfeafc`, `a00bb45` and owner follow-up.
+
+### 2026-07-20 — Relevant coverage, not global coverage, decides resolution
+
+- **Symptom**: The original baseline matcher could mark an old Finding
+  `resolved` whenever overall current coverage was sufficient, even if
+  the exact analyzer/rule needed for that Finding had failed.
+- **Root cause**: Coverage was treated as one review-wide boolean rather
+  than a mapping from each prior Finding to its required current plan
+  items.
+- **Fix**: Persist controlled required-plan-item ids per Finding and require
+  those specific executions to be completed/not-applicable before
+  `resolved`; otherwise emit `unknown_due_to_coverage`.
+- **Prevention**: Future black-box, sandbox, and Agent-runtime comparisons
+  must attach relevant execution scope to every historical result.
+- **Evidence**: Round 12 persisted-history five-state E2E test.
+
 ### 2026-07-20 — An explicitly requested optional stage must gate success
 
 - **Symptom**: `verity review --semantic` could return exit 0 when static

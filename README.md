@@ -89,7 +89,7 @@ report infrastructure but have separate rule registries. See
 2. 运行 `./start-verity.command`（或命令行 `python3 tools/start_local_web.py`）
 3. 浏览器自动打开 `http://127.0.0.1:8765/`：可继续做 standalone Prompt/Skill 检查，也可在“Skill 项目与版本历史”中新建项目，从项目页选择文件夹并点击“检查新版本”，随后查看历史和五状态版本差异。
 
-项目身份只由 Verity 注册表及当前项目上下文决定。Skill 名称、路径、digest、相似度及被审内容中的字段都不能选择或覆盖身份。项目历史保存在本机 gitignored `.verity-data/`；不保存原始文件内容、Secret、Provider payload/response、API key、RedactionMap 或宿主/临时/工具路径。停止服务：在启动它的终端按 `Ctrl+C`。不会后台留守进程。
+项目身份只由 Verity 注册表及当前项目上下文决定。Skill 名称、路径、digest、相似度及被审内容中的字段都不能选择或覆盖身份。项目历史保存在本机 gitignored `.verity-data/`；不保存原始文件内容、Secret、Provider payload/response、API key、RedactionMap 或宿主/临时/工具路径。项目版本审查默认使用含 gitleaks 的 `standard` profile；选择 `minimal` 属于用户明确降级。版本差异同时显示五状态总数和可展开的问题详情。停止服务：在启动它的终端按 `Ctrl+C`。不会后台留守进程。
 
 ### 常见错误
 

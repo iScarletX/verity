@@ -174,10 +174,27 @@ def _cmd_project(args: argparse.Namespace) -> int:
             p=store.create_project(args.name,args.alias); print(f'created project {p["displayName"]} alias={p.get("alias") or "-"}')
         elif args.project_cmd=="list":
             for p in store.list_projects(): print(f'{p["displayName"]}\t{p.get("alias") or "-"}\t{len(p["versionIds"])} versions')
-        elif args.project_cmd=="review":
-            p=store.resolve(args.project); snap,byts=intake_directory(args.input_dir,artifact_id=p["artifactId"],budget=IntakeBudget())
-            review=run_review(ReviewInputs("skill",snap,byts,profile=args.profile)); rec=store.add_review(p["artifactId"],review,profile=args.profile)
-            print(f'recorded review={rec["reviewId"]} coverage={rec["coverage"]["status"]}')
+        elif args.project_cmd == "review":
+            p = store.resolve(args.project)
+            snap, byts = intake_directory(
+                args.input_dir, artifact_id=p["artifactId"],
+                budget=IntakeBudget())
+            review = run_review(ReviewInputs(
+                "skill", snap, byts, profile=args.profile))
+            rec = store.add_review(
+                p["artifactId"], review, profile=args.profile)
+            high = sum(1 for f in review.findings
+                       if f.severity in ("high", "critical"))
+            if high:
+                gate, exit_code = "findings_block", 1
+            elif review.coverage.status != "sufficient":
+                gate, exit_code = "coverage_block", 3
+            else:
+                gate, exit_code = "pass", 0
+            print(f'recorded review={rec["reviewId"]} '
+                  f'coverage={rec["coverage"]["status"]} '
+                  f'high_or_critical={high} gate={gate}')
+            return exit_code
         elif args.project_cmd=="diff":
             print(json.dumps(store.diff(args.project,args.previous,args.current),ensure_ascii=False,indent=2))
         return 0

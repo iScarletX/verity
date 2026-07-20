@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "ccfeafc35576aee875bc4bc111063092c634d7ac"
-  tests_collected: 318
-  tests_passed: 318
+  commit: "a00bb459f194dccb74ab4ea2e361d0cf56e3c7df"
+  tests_collected: 330
+  tests_passed: 330
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -39,12 +39,32 @@ ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
 
 ## Round history (append-only)
 
-## Round 12 (2026-07-20) → commits `ccfeafc` + final documentation commit
+## Round 12 (2026-07-20) → commits `ccfeafc`, `a00bb45` + owner-verification follow-up
 - Added a Verity-owned Skill project registry. Opaque artifact identity is minted locally and inherited only from an existing trusted Web/CLI project context; reviewed names, paths, digests and content cannot establish identity.
 - Added bounded immutable history under the gitignored `.verity-data/` directory with owner-only modes, strict schema/version parsing, duplicate-key/corruption/symlink/unsafe-mode rejection, atomic writes, record/project/version/total budgets, and an allowlisted projection that excludes raw content, evidence/Secret data, Provider wire data, credentials, RedactionMap, and host/temp/tool paths.
 - Reworked baseline disappearance semantics to consult relevant parser/analyzer/rule executions. Five states (`new`, `existing`, `changed`, `resolved`, `unknown_due_to_coverage`) are exposed; relevant failures cannot become resolved, and artifact/scope mismatch is rejected.
 - Added Web-first project list/create/project version submission/history/diff APIs and UI while preserving standalone Prompt/Skill review, loopback/CSP/no-`innerHTML`, upload budgets and temporary cleanup. Added the shared-core minimal CLI project create/list/review/diff surface.
-- Added six Round-12 tests covering the five states and relevant analyzer failure counterexample, cross-artifact/scope refusal, identity isolation and immutable versions, leak-safe projection, permissions/symlink/corruption/unknown schema/oversize/atomic interruption, real Web two-version E2E, and standalone Web regression. Full suite: 318 passed.
+- Initial implementation added six Round-12 tests. Independent owner
+  verification then added twelve more adversarial/behavioral checks and
+  fixed the issues they exposed:
+    * history root symlinks are rejected before any chmod can affect their
+      targets; project metadata, opaque version ids, nested review
+      projections, counts, enums, and the versions directory are all
+      validated before use;
+    * project/version/total-size budgets and interrupted atomic writes are
+      behaviorally tested; concurrent version appends are serialized;
+    * the persisted-history workflow proves all five diff states, including
+      relevant Bandit failure producing `unknown_due_to_coverage`;
+    * same-name/same-content projects stay distinct, and artifact-supplied
+      project/baseline fields cannot override the trusted Web project URL;
+    * project uploads use the same path-escape defense as standalone
+      uploads; both reject duplicate/case-colliding paths before write,
+      and project review defaults to the `standard` secret-scan profile;
+    * CLI project review now preserves the normal 0/1/3 gate semantics;
+    * Web diff renders safe per-finding expandable details, not only counts.
+- Full owner-verified suite: 330 passed, 0 skipped. Disposition/Suppression,
+  V1.5 Prompt black-box, V2 Skill sandbox, Agent runtime and MCP remain
+  unimplemented and outside Round 12.
 
 ## Round 11 (2026-07-20) → commit `0c582bc`
 - **First controlled real semantic Provider transport**, closing the gap

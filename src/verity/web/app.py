@@ -326,11 +326,18 @@ async def review_skill(request: Request) -> Response:
     tmpdir = tempfile.mkdtemp(prefix="verity-web-skill-")
     try:
         total = 0
+        seen_upload_paths: set[str] = set()
+        seen_upload_paths_lower: set[str] = set()
         for uf in files:
             try:
                 rel = _sanitize_upload_path(uf.filename or "")
             except MultipartPathError as e:
                 return _error_response("bad_path", str(e), 400)
+            if rel in seen_upload_paths or rel.lower() in seen_upload_paths_lower:
+                return _error_response(
+                    "bad_path", "duplicate or case-colliding upload path", 400)
+            seen_upload_paths.add(rel)
+            seen_upload_paths_lower.add(rel.lower())
             # Read with size cap.
             data = await uf.read()
             if len(data) > MAX_SKILL_FILE_BYTES:
@@ -436,13 +443,33 @@ async def project_version(request: Request) -> Response:
     if not files or len(files)>MAX_SKILL_FILES: return _error_response("bad_files","Choose a bounded Skill folder.",400)
     tmpdir=tempfile.mkdtemp(prefix="verity-web-project-")
     try:
-        total=0
+        total = 0
+        seen_upload_paths: set[str] = set()
+        seen_upload_paths_lower: set[str] = set()
         for uf in files:
-            try: rel=_sanitize_upload_path(uf.filename or "")
-            except MultipartPathError as e: return _error_response("bad_path",str(e),400)
-            data=await uf.read(); total+=len(data)
-            if len(data)>MAX_SKILL_FILE_BYTES or total>MAX_SKILL_TOTAL_BYTES: return _error_response("upload_too_large","Upload exceeds budget.",413)
-            dst=Path(tmpdir)/rel; dst.parent.mkdir(parents=True,exist_ok=True); dst.write_bytes(data)
+            try:
+                rel = _sanitize_upload_path(uf.filename or "")
+            except MultipartPathError as e:
+                return _error_response("bad_path", str(e), 400)
+            if rel in seen_upload_paths or rel.lower() in seen_upload_paths_lower:
+                return _error_response(
+                    "bad_path", "duplicate or case-colliding upload path", 400)
+            seen_upload_paths.add(rel)
+            seen_upload_paths_lower.add(rel.lower())
+            data = await uf.read()
+            total += len(data)
+            if (len(data) > MAX_SKILL_FILE_BYTES
+                    or total > MAX_SKILL_TOTAL_BYTES):
+                return _error_response(
+                    "upload_too_large", "Upload exceeds budget.", 413)
+            dst = Path(tmpdir) / rel
+            try:
+                dst.resolve().relative_to(Path(tmpdir).resolve())
+            except ValueError:
+                return _error_response(
+                    "bad_path", "path escapes upload directory", 400)
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            dst.write_bytes(data)
         snap,byts=intake_directory(tmpdir,artifact_id=project["artifactId"],budget=IntakeBudget(max_files=MAX_SKILL_FILES,max_file_size=MAX_SKILL_FILE_BYTES,max_total_size=MAX_SKILL_TOTAL_BYTES))
         review=run_review(ReviewInputs("skill",snap,byts,profile=profile))
         rec=request.app.state.history.add_review(project["artifactId"],review,profile=profile)
