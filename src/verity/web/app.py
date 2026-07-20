@@ -37,6 +37,7 @@ from starlette.staticfiles import StaticFiles
 
 from ..intake import (IntakeBudget, IntakeError, intake_directory,
                       intake_text, PROMPT_KINDS)
+from ..history import HistoryError, HistoryStore
 from ..models import PROMPT_KINDS as _PROMPT_KINDS  # kept for clarity
 from ..report import review_to_dict, to_html as report_html, to_json as report_json
 from ..review import ReviewInputs, SKILL_PROFILES, run_review
@@ -380,6 +381,79 @@ async def review_skill(request: Request) -> Response:
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
+async def list_projects(request: Request) -> Response:
+    try:
+        projects = request.app.state.history.list_projects()
+        # Internal IDs are needed by API navigation but never rendered on the
+        # ordinary page; names are the primary user identity.
+        return JSONResponse({"projects": projects})
+    except HistoryError:
+        return _error_response("history_unavailable", "Project history is unavailable.", 409)
+
+
+async def create_project(request: Request) -> Response:
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict): raise ValueError
+        p = request.app.state.history.create_project(payload.get("displayName", ""), payload.get("alias"))
+        return JSONResponse({"project": p}, status_code=201)
+    except (ValueError, json.JSONDecodeError):
+        return _error_response("bad_json", "Expected project displayName.", 400)
+    except HistoryError as e:
+        return _error_response("project_error", str(e), 409)
+
+
+async def project_detail(request: Request) -> Response:
+    try:
+        p = request.app.state.history.get_project(request.path_params["project_ref"])
+        return JSONResponse({"project": p, "versions": request.app.state.history.versions(p["artifactId"])})
+    except HistoryError as e:
+        return _error_response("project_error", str(e), 404)
+
+
+async def project_diff(request: Request) -> Response:
+    try:
+        q=request.query_params
+        d=request.app.state.history.diff(request.path_params["project_ref"], q.get("previous"), q.get("current"))
+        return JSONResponse({"diff": d})
+    except HistoryError as e:
+        return _error_response("diff_error", str(e), 409)
+
+
+async def project_version(request: Request) -> Response:
+    """Trusted project URL supplies identity; multipart content cannot."""
+    try:
+        project=request.app.state.history.get_project(request.path_params["project_ref"])
+    except HistoryError as e:
+        return _error_response("project_error", str(e), 404)
+    try:
+        form=await request.form(max_files=MAX_SKILL_FILES+4,max_fields=MAX_SKILL_FILES+32)
+    except Exception:
+        return _error_response("bad_multipart","invalid multipart body",400)
+    profile=str(form.get("profile","standard"))
+    if profile not in SKILL_PROFILES: return _error_response("bad_profile","profile must be standard or minimal",400)
+    files=[v for v in form.getlist("files") if isinstance(v,UploadFile)]
+    if not files or len(files)>MAX_SKILL_FILES: return _error_response("bad_files","Choose a bounded Skill folder.",400)
+    tmpdir=tempfile.mkdtemp(prefix="verity-web-project-")
+    try:
+        total=0
+        for uf in files:
+            try: rel=_sanitize_upload_path(uf.filename or "")
+            except MultipartPathError as e: return _error_response("bad_path",str(e),400)
+            data=await uf.read(); total+=len(data)
+            if len(data)>MAX_SKILL_FILE_BYTES or total>MAX_SKILL_TOTAL_BYTES: return _error_response("upload_too_large","Upload exceeds budget.",413)
+            dst=Path(tmpdir)/rel; dst.parent.mkdir(parents=True,exist_ok=True); dst.write_bytes(data)
+        snap,byts=intake_directory(tmpdir,artifact_id=project["artifactId"],budget=IntakeBudget(max_files=MAX_SKILL_FILES,max_file_size=MAX_SKILL_FILE_BYTES,max_total_size=MAX_SKILL_TOTAL_BYTES))
+        review=run_review(ReviewInputs("skill",snap,byts,profile=profile))
+        rec=request.app.state.history.add_review(project["artifactId"],review,profile=profile)
+        stored=_make_report(review,"skill"); rid=request.app.state.store.put(stored)
+        return JSONResponse({"version":rec,"review":_view_for(review,"skill",rid)},status_code=201)
+    except (HistoryError,IntakeError) as e:
+        return _error_response("version_error",str(e),409)
+    finally:
+        shutil.rmtree(tmpdir,ignore_errors=True)
+
+
 async def download_report(request: Request) -> Response:
     review_id = request.path_params["review_id"]
     fmt = request.path_params["fmt"]
@@ -414,8 +488,8 @@ def _is_valid_review_id(rid: str) -> bool:
 
 # --- App factory -------------------------------------------------------
 
-def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600
-               ) -> Starlette:
+def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600,
+               history_root=None) -> Starlette:
     """Build the ASGI app. Tests call this and drive it with httpx."""
     # Force mimetypes for CSS/JS/HTML to what we serve; older Pythons may
     # otherwise return application/octet-stream on some systems.
@@ -428,6 +502,11 @@ def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600
         Route("/api/health", health, methods=["GET"]),
         Route("/api/review/prompt", review_prompt, methods=["POST"]),
         Route("/api/review/skill", review_skill, methods=["POST"]),
+        Route("/api/projects", list_projects, methods=["GET"]),
+        Route("/api/projects", create_project, methods=["POST"]),
+        Route("/api/projects/{project_ref}", project_detail, methods=["GET"]),
+        Route("/api/projects/{project_ref}/versions", project_version, methods=["POST"]),
+        Route("/api/projects/{project_ref}/diff", project_diff, methods=["GET"]),
         Route("/api/report/{review_id}/report.{fmt}", download_report, methods=["GET"]),
         Mount("/static", app=StaticFiles(directory=str(STATIC_DIR)), name="static"),
     ]
@@ -438,4 +517,5 @@ def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600
     )
     app.state.store = ReportStore(capacity=store_capacity,
                                    ttl_seconds=store_ttl_seconds)
+    app.state.history = HistoryStore(history_root)
     return app

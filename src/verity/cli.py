@@ -37,6 +37,7 @@ import sys
 from pathlib import Path
 
 from .intake import IntakeBudget, IntakeError, intake_directory, intake_text
+from .history import HistoryError, HistoryStore
 from .report import review_to_dict, to_html, to_json
 from .review import ReviewInputs, run_review
 from .sarif import to_sarif_json
@@ -166,6 +167,24 @@ def _cmd_review(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _cmd_project(args: argparse.Namespace) -> int:
+    try:
+        store=HistoryStore(args.data_dir)
+        if args.project_cmd=="create":
+            p=store.create_project(args.name,args.alias); print(f'created project {p["displayName"]} alias={p.get("alias") or "-"}')
+        elif args.project_cmd=="list":
+            for p in store.list_projects(): print(f'{p["displayName"]}\t{p.get("alias") or "-"}\t{len(p["versionIds"])} versions')
+        elif args.project_cmd=="review":
+            p=store.resolve(args.project); snap,byts=intake_directory(args.input_dir,artifact_id=p["artifactId"],budget=IntakeBudget())
+            review=run_review(ReviewInputs("skill",snap,byts,profile=args.profile)); rec=store.add_review(p["artifactId"],review,profile=args.profile)
+            print(f'recorded review={rec["reviewId"]} coverage={rec["coverage"]["status"]}')
+        elif args.project_cmd=="diff":
+            print(json.dumps(store.diff(args.project,args.previous,args.current),ensure_ascii=False,indent=2))
+        return 0
+    except (HistoryError,IntakeError) as e:
+        print(f"project error: {e}",file=sys.stderr); return 3
+
+
 def _cmd_export_schema(args: argparse.Namespace) -> int:
     text = json.dumps(export_schema(), indent=2, ensure_ascii=False, sort_keys=True)
     if args.out:
@@ -221,6 +240,15 @@ def main(argv=None) -> int:
     provider.add_argument("--semantic-validator-api-key-env")
     provider.add_argument("--semantic-timeout", type=float, default=30.0)
     pr.set_defaults(func=_cmd_review)
+
+    pp=sub.add_parser("project",help="Trusted local Skill project history")
+    pp.add_argument("--data-dir")
+    psub=pp.add_subparsers(dest="project_cmd",required=True)
+    pc=psub.add_parser("create"); pc.add_argument("--name",required=True); pc.add_argument("--alias")
+    psub.add_parser("list")
+    prj=psub.add_parser("review"); prj.add_argument("--project",required=True); prj.add_argument("--input-dir",required=True); prj.add_argument("--profile",choices=["standard","minimal"],default="standard")
+    pd=psub.add_parser("diff"); pd.add_argument("--project",required=True); pd.add_argument("--previous"); pd.add_argument("--current")
+    pp.set_defaults(func=_cmd_project)
 
     ps = sub.add_parser("export-schema", help="Export JSON Schema (Draft 2020-12)")
     ps.add_argument("--out")

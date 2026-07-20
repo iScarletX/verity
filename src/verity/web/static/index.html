@@ -19,6 +19,19 @@
 </header>
 
 <main>
+  <section class="projects" aria-labelledby="projects-title">
+    <h2 id="projects-title">Skill 项目与版本历史</h2>
+    <p class="muted">先创建可信项目，再从项目中提交“检查新版本”。Verity 不按名称或内容自动关联版本。</p>
+    <div class="row"><input id="project-name" maxlength="80" placeholder="项目显示名称"><button id="project-create">新建项目</button></div>
+    <div id="project-list"></div>
+    <section id="project-page" hidden>
+      <h3 id="project-title"></h3>
+      <input id="project-files" type="file" multiple webkitdirectory directory>
+      <button id="project-submit" class="primary">检查新版本</button>
+      <div id="project-history"></div><div id="project-diff"></div>
+    </section>
+  </section>
+
   <nav class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-tab="prompt" class="active">检查 Prompt</button>
     <button role="tab" aria-selected="false" data-tab="skill">检查 Agent Skill</button>
@@ -102,7 +115,7 @@
 </main>
 
 <footer class="muted">
-  Verity 本地 MVP。数据不出本机；重启进程后所有报告丢失。停止服务请在启动 Verity 的终端按 <code>Ctrl+C</code>。
+  Verity 本地 MVP。显式 Skill 项目历史保存在本机安全数据目录；临时 standalone 报告在重启后丢失。停止服务请在启动 Verity 的终端按 <code>Ctrl+C</code>。
 </footer>
 
 <script src="/static/app.js"></script>

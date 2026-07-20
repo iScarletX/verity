@@ -24,6 +24,33 @@
     return el;
   };
 
+  // ---------------- trusted Skill projects ----------------
+  var selectedProject = null;
+  function api(url, options) { return fetch(url, options).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error((j.error || {}).message || "请求失败"); return j; }); }); }
+  function loadProjects() {
+    api("/api/projects").then(function (data) {
+      var box=$("project-list"); box.textContent="";
+      data.projects.forEach(function (p) {
+        var b=mk("button",{text:p.displayName+"（"+p.versionIds.length+" 个版本）"});
+        b.addEventListener("click",function(){ selectedProject=p.artifactId; loadProject(); }); box.appendChild(b);
+      });
+    }).catch(showProjectError);
+  }
+  function loadProject() {
+    api("/api/projects/"+encodeURIComponent(selectedProject)).then(function(data){
+      $("project-page").hidden=false; $("project-title").textContent=data.project.displayName;
+      var h=$("project-history"); h.textContent=""; data.versions.forEach(function(v){ h.appendChild(mk("p",{text:v.createdAt+" · "+v.contentDigest.slice(0,12)+" · Coverage "+v.coverage.status+" · "+Object.values(v.findingCounts).reduce(function(a,b){return a+b;},0)+" 个问题"})); });
+      if(data.versions.length>1) api("/api/projects/"+encodeURIComponent(selectedProject)+"/diff").then(function(x){ $("project-diff").textContent="版本差异：新增 "+x.diff.counts.new+"，持续 "+x.diff.counts.existing+"，变化 "+x.diff.counts.changed+"，已解决 "+x.diff.counts.resolved+"，因覆盖未知 "+x.diff.counts.unknown_due_to_coverage; });
+    }).catch(showProjectError);
+  }
+  function showProjectError(e) { $("project-diff").textContent=e.message; }
+  $("project-create").addEventListener("click",function(){ api("/api/projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({displayName:$("project-name").value})}).then(function(){ $("project-name").value=""; loadProjects(); }).catch(showProjectError); });
+  $("project-submit").addEventListener("click",function(){
+    if(!selectedProject) return; var fd=new FormData(); Array.prototype.forEach.call($("project-files").files,function(f){fd.append("files",f,f.webkitRelativePath||f.name);}); fd.append("profile","minimal");
+    api("/api/projects/"+encodeURIComponent(selectedProject)+"/versions",{method:"POST",body:fd}).then(loadProject).catch(showProjectError);
+  });
+  loadProjects();
+
   // ---------------- tabs ----------------
   document.querySelectorAll(".tabs button").forEach(function (b) {
     b.addEventListener("click", function () {
