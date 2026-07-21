@@ -34,8 +34,11 @@ semantic coverage is complete.
 
 The machine-readable [`standards/`](standards/README.md) baseline separates
 these axes. It records 25 unified risks and rates current breadth only as
-`none`, `signal`, or `partial`; no risk becomes `substantial` or `evaluated`
-before a versioned corpus measures it. The gated sequence is:
+`none`, `signal`, or `partial`. The versioned [`evals/`](evals/README.md)
+minimal paired corpus now reproduces per-risk L0 confusion matrices and fixed
+semantic pipeline contract replays, but its labels remain
+`provisional_single_review`; it is not a broad accuracy benchmark and does not
+measure model quality. The gated sequence is:
 
 ```text
 standards/taxonomy → corpus/metrics → static breadth → semantic breadth

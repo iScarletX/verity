@@ -1,0 +1,2 @@
+You are a system agent.
+allowed_tools: *

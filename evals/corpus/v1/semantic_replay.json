@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "replayClass": "semantic_contract_only",
+  "license": "Apache-2.0",
+  "provenance": "verity_synthetic",
+  "description": "Fixed Provider replay cases for semantic pipeline contract testing. They do not measure any model.",
+  "cases": [
+    {
+      "caseId": "semantic-instruction-conflict-positive",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "path": "semantic-cases/instruction-conflict-positive/prompt.txt",
+      "findingType": "semantic.prompt.instruction_conflict",
+      "riskId": "VR-PROMPT-004",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "conflictKind": "contradictory_directive"
+      },
+      "claim": "The cited directives require mutually exclusive output forms.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-instruction-conflict-safe",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "path": "semantic-cases/instruction-conflict-safe/prompt.txt",
+      "findingType": "semantic.prompt.instruction_conflict",
+      "riskId": "VR-PROMPT-004",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "conflictKind": "contradictory_directive"
+      },
+      "claim": "The cited directives require mutually exclusive output forms.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-output-contract-positive",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "path": "semantic-cases/output-contract-positive/prompt.txt",
+      "findingType": "semantic.prompt.missing_output_contract",
+      "riskId": "VR-PROMPT-006",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "expectedFormat": "json"
+      },
+      "claim": "The JSON request does not define required fields.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-output-contract-safe",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "path": "semantic-cases/output-contract-safe/prompt.txt",
+      "findingType": "semantic.prompt.missing_output_contract",
+      "riskId": "VR-PROMPT-006",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "expectedFormat": "json"
+      },
+      "claim": "The JSON request does not define required fields.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-behavior-mismatch-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/behavior-mismatch-positive",
+      "findingType": "semantic.skill.declared_behavior_mismatch",
+      "riskId": "VR-SKILL-012",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "mismatchKind": "capability_undeclared"
+      },
+      "claim": "The implementation starts a process not declared by the description.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-behavior-mismatch-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/behavior-mismatch-safe",
+      "findingType": "semantic.skill.declared_behavior_mismatch",
+      "riskId": "VR-SKILL-012",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "mismatchKind": "capability_undeclared"
+      },
+      "claim": "The implementation starts a process not declared by the description.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    }
+  ]
+}

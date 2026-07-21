@@ -158,6 +158,12 @@ REQUIRED_FILES = [
     "standards/sources.json",
     "standards/risks.json",
     "standards/detector_mappings.json",
+    # Versioned offline detection corpus and reproducible baselines
+    "evals/corpus/v1/manifest.json",
+    "evals/corpus/v1/semantic_replay.json",
+    "evals/reports/corpus-v1-l0.json",
+    "evals/reports/corpus-v1-semantic-contract.json",
+    "tools/run_corpus.py",
 ]
 
 
@@ -451,6 +457,21 @@ def check_detection_standards(rep: VerifyReport) -> None:
         f"{len(sources)} primary sources; {len(risks)} risks; runtime mapped")
 
 
+def check_corpus_baselines(rep: VerifyReport) -> None:
+    """Re-run the offline corpus and reject answer/report drift."""
+    proc = subprocess.run(
+        [sys.executable, "tools/run_corpus.py", "--check"], cwd=REPO,
+        env={**os.environ, "PYTHONPATH": str(REPO / "src")},
+        capture_output=True, text=True, check=False,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr.strip() or proc.stdout.strip())[-500:]
+        rep.append_fail("corpus_baselines", detail)
+        return
+    rep.append_ok("corpus_baselines",
+                  "20 L0 paired cases + 6 semantic contract replays reproducible")
+
+
 def check_working_tree_clean(rep: VerifyReport) -> None:
     proc = _git("status", "--porcelain")
     if proc.returncode != 0:
@@ -497,6 +518,7 @@ def run_all(*, require_clean: bool = False,
     check_git_ignored(rep)
     check_ci_workflow_shape(rep)
     check_detection_standards(rep)
+    check_corpus_baselines(rep)
     if require_clean:
         check_working_tree_clean(rep)
     if not skip_tests:

@@ -16,7 +16,7 @@
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_missing_reference","riskIds":["VR-SKILL-002"],"contribution":"partial"},
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_unsafe_reference_path","riskIds":["VR-SKILL-002"],"contribution":"partial"},
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_unpinned_dependency","riskIds":["VR-SKILL-003"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_permission_wildcard","riskIds":["VR-SKILL-004","VR-PROMPT-007"],"contribution":"signal"},
+    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_permission_wildcard","riskIds":["VR-SKILL-004"],"contribution":"signal"},
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_external_instructions","riskIds":["VR-SKILL-005","VR-PROMPT-008"],"contribution":"signal"},
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_script_suffix_mismatch","riskIds":["VR-SKILL-002"],"contribution":"signal"},
     {"detectorType":"deterministic_rule","detectorId":"skill.python_subprocess_shell_true","riskIds":["VR-SKILL-006"],"contribution":"signal"},

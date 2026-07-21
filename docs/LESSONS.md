@@ -14,6 +14,37 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-21 — A tiny passing corpus is not 100% detection accuracy
+
+- **Symptom**: The initial paired corpus produced perfect TP/TN results for ten
+  measured risks, which could be marketed as 100% precision/recall despite
+  containing only one positive and one safe counterexample per risk.
+- **Root cause**: Correct arithmetic does not make a small, author-labelled,
+  detector-adjacent corpus representative.
+- **Fix**: Reports declare `minimal_pair_baseline`, have no aggregate safety
+  score, distinguish unsupported/unmeasured risks, report High/Critical misses
+  separately, and mark every label `provisional_single_review`. Semantic fixed
+  replays declare `modelQualityMeasured: false`.
+- **Prevention**: Stronger coverage claims require larger independently
+  reviewed, provenance/licence controlled, leakage-checked corpora and approved
+  per-risk thresholds. Never turn a small green fixture suite into a product
+  accuracy percentage.
+- **Evidence**: Round 15 corpus manifest, reports and machine gate.
+
+### 2026-07-21 — Evaluation labels must not be detector-owned
+
+- **Symptom**: Existing unit tests are written around specific Rule ids and
+  implementation boundaries, so reusing them as an accuracy benchmark would
+  let detectors define their own answer key.
+- **Root cause**: Pipeline regression testing and independent detection
+  evaluation solve different problems.
+- **Fix**: Corpus cases name stable risk ids only; detector output reaches the
+  same ids through the independent Round-14 mapping. Exact-byte duplicates of
+  existing developer fixtures are refused.
+- **Prevention**: Keep case labels/rationales separate from Rule ids and retain
+  train/test leakage gates as the corpus grows.
+- **Evidence**: `verity.corpus`, Round-15 hygiene tests.
+
 ### 2026-07-21 — Execution completion is not detection completeness
 
 - **Symptom**: Runtime and documentation used `static: completed`, which

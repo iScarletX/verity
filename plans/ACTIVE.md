@@ -1,68 +1,84 @@
-# Round 15 — Versioned Golden Corpus and measurement foundation
+# Round 16 — Standards-driven static detection breadth
 
 ## Status
 
 - Product scope approved: **yes**
-- Implementation: not started; begins only after Round-14 CI is green
+- Implementation: not started; begins only after Round-15 CI is green
 - Owner: main maintainer agent
 
 ## Objective
 
-Turn the Round-14 risk taxonomy into a reproducible evaluation baseline before
-adding more detectors. Build a public-safe versioned corpus and offline
-measurement harness that can answer, per risk and detection layer:
+Improve L0 static breadth from the Round-14 gap matrix using Round-15 paired
+corpus measurement. Do not chase rule count. Prioritize authoritative,
+deterministic, high-value coverage and mature maintained detectors where their
+license/containment/output boundaries are acceptable.
 
-- how many labelled positive cases are detected (recall);
-- how many emitted detections are correct (precision);
-- how often safe counterexamples are incorrectly reported;
-- whether repeated runs are stable;
-- which languages and artifact forms are represented;
-- whether a result is unsupported because a detector/layer is absent.
+## Ordered workstreams
 
-## Source and reuse policy
+### 1. Agent Skills specification conformance
 
-- Prefer official standards examples and mature-project test concepts, but
-  copy corpus content only when license and attribution permit it.
-- Otherwise write minimal synthetic fixtures that reproduce the risk without
-  carrying third-party source text.
-- Every corpus case records provenance, license, expected risks, safe/unsafe
-  label, language, object type and rationale.
-- No production secret, personal data, private URL, malware payload, executable
-  exploit, or reviewed Skill execution.
-- Detect and fail on corpus duplicates and likely train/test leakage within
-  this repository.
+Correct and version Skill metadata validation against the official Agent Skills
+specification, including at minimum:
 
-## Deliverables
+- exact `name` syntax/length/consecutive-hyphen and parent-directory matching;
+- `description` required/length boundaries;
+- `compatibility`, `metadata`, `allowed-tools` type/length constraints;
+- supported spec version in report/plan metadata;
+- body/reference limits that can be proved statically.
 
-1. Versioned corpus manifest/schema tied to Round-14 risk ids.
-2. Initial balanced representative slice covering existing detectors plus
-   high-priority safe counterexamples; unsupported risks remain explicitly
-   unsupported rather than receiving fake samples.
-3. Offline deterministic runner and report with per-risk confusion matrices.
-4. Separate semantic-case contracts and stubbed/replay evaluation support;
-   no real Provider calls and no model-quality release claim this round.
-5. Metrics: precision, recall, safe false-positive rate, deterministic
-   stability, language/object coverage and unsupported-case counts.
-6. Machine gates for provenance, license, hygiene, duplicate content,
-   deterministic expectations and taxonomy drift.
-7. A baseline report committed only if it is deterministic, public-safe and
-   reproducible from the repository.
+Existing historical Rule identity must be migrated deliberately (`supersedes`)
+or preserved when only control metadata changes. Every change gets paired
+Corpus cases, including legacy values that the old implementation accepted.
 
-## Acceptance constraints
+### 2. Capability fact model
 
-- Corpus metrics never become a single safety score.
-- High-severity risks are reported separately; averaging cannot hide misses.
-- A risk cannot become `substantial` or `evaluated` merely because it has one
-  fixture or because existing unit tests pass.
-- Corpus expected labels are independent of detector output; detectors cannot
-  write their own answer key.
-- No Rule, analyzer, Provider, OpenRouter integration, V1.5 runner, or V2
-  sandbox behavior is added.
-- Full pytest, `verify_repo.py --require-clean`, push, and green CI.
+Build deterministic normalized facts for file, process, network, credential,
+configuration, installation and tool capabilities. Facts are not Findings.
+They become evidence for least-privilege comparisons and Round-17 semantic
+review. Unsupported languages remain explicit.
 
-## Explicitly deferred
+### 3. Mature detector candidate decisions
 
-- Round 16 static detector/tool additions and specification corrections.
-- Round 17 semantic catalog expansion and real model measurement.
-- Provider/OpenRouter production work (no Round 18 in the approved sequence).
-- V1.5 Prompt black-box and V2 Skill sandbox.
+Evaluate, then accept or reject with evidence:
+
+- OSV-Scanner for dependency vulnerabilities;
+- ShellCheck for shell analysis (GPL/distribution boundary must be resolved);
+- Semgrep open-source engine for cross-language/taint breadth (separate from
+  hosted platform features and terms);
+- a JavaScript/TypeScript path if Semgrep is not acceptable.
+
+For every accepted external tool: pin version/hash, scan only staged snapshot
+copies, no shell invocation, strict structured output, budgets/timeouts,
+redaction, Coverage failure semantics, Finding dedup and positive/safe corpus.
+No automatic installation outside the repository.
+
+### 4. Prompt deterministic contract expansion
+
+Only standards/corpus-backed deterministic checks: structured contracts,
+variable definition/use, trust-boundary markers, declared tool names and
+machine-parseable conflicts. Contextual judgment remains L1; absence of an
+optional best practice is not automatically a vulnerability.
+
+## Acceptance and measurement
+
+- Every new/changed detector maps to Round-14 risk ids and causes no registry
+  drift.
+- Every detector has independent positive/safe Corpus cases, boundary cases,
+  language/object declaration and visible unsupported scope.
+- Per-risk baseline changes are reviewed; High/Critical FN cannot be hidden by
+  averages. No aggregate safety score.
+- Agent Skills spec mismatch identified in Round 14 is closed or documented
+  with an explicit compatibility reason.
+- No risk is promoted to `substantial`/`evaluated` while labels remain
+  `provisional_single_review` or corpus breadth is inadequate.
+- Full pytest, corpus reproduction, `verify_repo.py --require-clean`, push and
+  green CI.
+
+## Explicit non-goals
+
+- Expanding semantic Finding Types (Round 17).
+- Real Provider/OpenRouter/model calls or Web API-key/model UI.
+- V1.5 Prompt black-box execution.
+- V2 Skill execution/sandbox.
+- ZIP/GitHub URL intake.
+- Automatically applying fixes or installing reviewed Skill dependencies.

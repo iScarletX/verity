@@ -1,0 +1,2 @@
+Return only a JSON object.
+Never return JSON; answer only in prose.

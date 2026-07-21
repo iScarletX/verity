@@ -1,8 +1,7 @@
 # evals — Verity's tests read as an AI evaluation suite
 
-This directory does not currently hold any executable content. It
-exists to describe how Verity's own test suite functions as a
-model-agnostic evaluation gate for the pipeline.
+This directory now holds the first versioned offline detection corpus in
+addition to describing how Verity's test suite acts as a pipeline gate.
 
 ## What is already an eval, and where
 
@@ -31,19 +30,38 @@ model-agnostic evaluation gate for the pipeline.
   smuggled findings, extra fields, prompt injection in the reviewed
   content).
 
-## What goes here next
+## Versioned corpus baseline
 
-Round 15 builds the first **versioned detection corpus** here before any real
-Provider production work. Unlike ordinary unit tests, it must label expected
-risk ids and safe counterexamples, then measure precision, recall, false
-positives, repeat stability and language coverage separately by risk and
-layer. Latency and cost apply to semantic layers. Corpus provenance, license,
-sensitive-data hygiene and train/test leakage controls are release gates.
+`evals/corpus/v1/manifest.json` contains 20 independently labelled synthetic
+L0 cases: one positive and one safe counterexample for each of 10 current
+risk classes. Every case records provenance, license, object/language, assessed
+risks, expected risks/severity, and rationale. Answer keys contain risk ids,
+not Rule ids. Exact-byte duplicates of existing developer fixtures are
+rejected to reduce test/corpus leakage. Initial labels are explicitly
+`provisional_single_review`; they require independent review before supporting
+any stronger release claim.
 
-Passing the current pytest suite proves pipeline behavior and invariants; it
-does **not** prove detection breadth or model quality. No risk in
-`standards/risks.json` may become `substantial` or `evaluated` without a
-versioned corpus result.
+`evals/corpus/v1/semantic_replay.json` contains six fixed Provider replay cases
+(confirmed/rejected pairs for all three semantic Finding Types). These measure
+only Candidate → Validation → Assessment contract behavior. They explicitly
+set `modelQualityMeasured: false` and do not call any external model.
+
+`tools/run_corpus.py --check` reruns each case twice and reproduces separate
+committed reports:
+
+- `evals/reports/corpus-v1-l0.json`
+- `evals/reports/corpus-v1-semantic-contract.json`
+
+The L0 report provides per-risk TP/FP/TN/FN, precision, recall, safe false-
+positive rate, deterministic stability, language/object coverage, and explicit
+`unsupported`/`unmeasured` statuses. High/Critical positives are reported
+separately. There is deliberately no aggregate safety score.
+
+The initial paired cases currently pass, but **one positive plus one safe
+counterexample is not broad accuracy evidence**. This is a measurement
+foundation, not a 100% accuracy claim. No risk becomes `substantial` or
+`evaluated` until a later, larger, versioned and leakage-controlled corpus
+meets an approved threshold.
 
 When real-Provider integration or V1.5 Prompt black-box arrives, its
 data assets live under `evals/`:
@@ -55,12 +73,13 @@ data assets live under `evals/`:
 - `evals/reports/`      — recorded outputs (with PII / secrets
                           scrubbed) for regression tracking
 
-None of the above is present yet. `docs/PROGRESS.md` will reflect
-any change.
+Real Provider and V1.5 assets remain absent. `docs/PROGRESS.md` reflects any
+future change.
 
 ## How to run everything today
 
 ```bash
-python3 -m pytest                 # authoritative test runner
-python3 tools/verify_repo.py      # authoritative repo gate
+python3 -m pytest                       # authoritative test runner
+python3 tools/run_corpus.py --check      # reproduce both corpus reports
+python3 tools/verify_repo.py             # includes corpus reproduction gate
 ```

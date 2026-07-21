@@ -1,0 +1,2 @@
+Return only a JSON object.
+Encode the JSON as UTF-8.

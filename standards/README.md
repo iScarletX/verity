@@ -42,8 +42,10 @@ deterministic rules and three semantic Finding Types):
 | V2 sandbox | 25 | 0 | 0 | 0 | 0 |
 
 These counts are a prioritization baseline, **not a safety score**. Round 15
-must build a versioned corpus and measurements before any risk can be called
-`substantial` or `evaluated`.
+added the versioned minimal paired corpus under `evals/corpus/v1/` and
+reproducible reports under `evals/reports/`. It is sufficient to expose
+TP/FP/TN/FN, stability, unsupported and unmeasured states, but not broad enough
+to promote any risk to `substantial` or `evaluated`.
 
 ## Source-use policy
 

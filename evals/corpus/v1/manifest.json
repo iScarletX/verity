@@ -1,0 +1,360 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "verity-detection-corpus",
+  "corpusVersion": "1.0.0",
+  "license": "Apache-2.0",
+  "provenance": "verity_synthetic",
+  "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
+  "cases": [
+    {
+      "caseId": "prompt-injection-positive",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "path": "cases/prompt-injection-positive/prompt.txt",
+      "rationale": "Contains an explicit instruction-override marker outside quotation/code boundaries.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "low",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-injection-safe",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-injection-safe/prompt.txt",
+      "rationale": "Quotes the marker inline as defensive documentation rather than an instruction.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-placeholder-positive",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "path": "cases/prompt-placeholder-positive/prompt.txt",
+      "rationale": "Contains an unresolved mustache placeholder in an active instruction.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-placeholder-safe",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-placeholder-safe/prompt.txt",
+      "rationale": "Contains a complete JSON object, not a prompt template placeholder.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-conflict-positive",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "path": "cases/prompt-conflict-positive/prompt.txt",
+      "rationale": "Assigns two different numeric values to the same key.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-conflict-safe",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-conflict-safe/prompt.txt",
+      "rationale": "Repeats the same numeric assignment without a contradiction.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-hidden-positive",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-005"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-005"
+      ],
+      "path": "cases/prompt-hidden-positive/prompt.txt",
+      "rationale": "Contains a Unicode right-to-left override in active text.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-hidden-safe",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "zh-en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-005"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-hidden-safe/prompt.txt",
+      "rationale": "Normal Chinese/English text with punctuation and no control override.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-tools-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-007"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-007"
+      ],
+      "path": "cases/prompt-tools-positive/prompt.txt",
+      "rationale": "Uses a strict open-ended tool wildcard in a system prompt.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-tools-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-007"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-tools-safe/prompt.txt",
+      "rationale": "Declares a narrow named read-only tool rather than a wildcard.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-structure-positive",
+      "objectType": "skill",
+      "language": "markdown",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "path": "cases/skill-structure-positive",
+      "rationale": "The synthetic package omits required SKILL.md.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-structure-safe",
+      "objectType": "skill",
+      "language": "markdown",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-structure-safe",
+      "rationale": "Contains minimal parseable required Skill metadata.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-path-positive",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-002"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-002"
+      ],
+      "path": "cases/skill-path-positive",
+      "rationale": "Manifest reference escapes the package root.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-path-safe",
+      "objectType": "skill",
+      "language": "python",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-002"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-path-safe",
+      "rationale": "Reference resolves to an included in-package script.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-dependency-positive",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-003"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-003"
+      ],
+      "path": "cases/skill-dependency-positive",
+      "rationale": "Dependency version is a floating range.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-dependency-safe",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-003"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-dependency-safe",
+      "rationale": "Dependency is pinned to one exact version.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-permission-positive",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-004"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-004"
+      ],
+      "path": "cases/skill-permission-positive",
+      "rationale": "Manifest grants an open-ended wildcard permission.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-permission-safe",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-004"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-permission-safe",
+      "rationale": "Manifest declares one narrow read-only path capability.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-command-positive",
+      "objectType": "skill",
+      "language": "python",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-006"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-006"
+      ],
+      "path": "cases/skill-command-positive",
+      "rationale": "Python invokes a fixed benign command through shell=True to exercise the dangerous-call detector without an exploit payload.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-command-safe",
+      "objectType": "skill",
+      "language": "python",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-006"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-command-safe",
+      "rationale": "Python uses an absolute executable and argument vector with shell disabled.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    }
+  ]
+}

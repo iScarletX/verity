@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "9dc88f22d31d78c30f36368bdab9d3959e7b99db"
-  tests_collected: 348
-  tests_passed: 348
+  commit: "2831270c7403d35e26c284741e5187ee6dd63c3e"
+  tests_collected: 361
+  tests_passed: 361
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -29,7 +29,9 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The Round-14 machine-readable taxonomy records 17 official/candidate sources, 25 unified risks and exact mappings for all 36 runtime detectors. Current L0 breadth: 5 none / 11 signal / 9 partial. Current L1 breadth: 19 none / 5 signal / 1 partial. No risk is substantial/evaluated before Round-15 corpus measurement; V1.5 and V2 remain entirely none/not implemented.
 
-**Next step.** Round 15 builds the versioned, licensed, leak-safe Golden Corpus and measurement harness for per-risk precision, recall, false positives, stability and language coverage. It does not add detectors or connect a real Provider.
+**Corpus baseline.** Round 15 adds 20 synthetic paired L0 cases across 10 risks and six fixed semantic contract replays. Reports are reproducible, per-risk and score-free; High/Critical misses are separate, unsupported/unmeasured risks remain visible, semantic replay sets `modelQualityMeasured: false`, and all labels remain `provisional_single_review`. This is a measurement foundation, not a 100% accuracy claim.
+
+**Next step.** Round 16 uses the standards gaps and corpus to prioritize static breadth: official Agent Skills conformance first, then capability facts/cross-language mature detector candidates. No real Provider, V1.5, or V2 work is authorized.
 
 **What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, and trusted Web-first Skill project identity/history with scope-aware five-state version diff.
 
@@ -41,7 +43,38 @@ ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
 
 ## Round history (append-only)
 
-## Round 14 (2026-07-21) → plan `9dc88f2` + implementation commit
+## Round 15 (2026-07-21) → implementation commit pending
+
+- Added a strict versioned Corpus manifest with 20 synthetic L0 cases: one
+  risk-positive and one safe counterexample for each of ten currently
+  measurable risks. Every case carries independent risk-id answers,
+  object/language, rationale, expected severity, provenance, licence and
+  `provisional_single_review` label status.
+- Added exact-byte duplicate/payload/path/symlink/budget/Schema hygiene gates;
+  existing developer fixtures cannot be copied verbatim into the Corpus.
+- Added a real offline evaluator that runs Verity twice per case and reports
+  per-risk TP/FP/TN/FN, precision, recall, safe false-positive rate,
+  deterministic stability, language/object coverage, explicit unsupported vs
+  unmeasured states, and separate High/Critical misses. It intentionally emits
+  no aggregate safety score.
+- Added six fixed Provider replays (confirmed/rejected pairs for all three
+  current semantic Finding Types). They exercise Candidate → Validation →
+  Assessment → Finding contracts while declaring `modelQualityMeasured=false`;
+  no network/model call is made.
+- Added separate reproducible L0 and semantic-contract reports plus
+  `tools/run_corpus.py --check`. `verify_repo.py` now reruns and verifies both
+  baselines on every local/CI gate.
+- First minimal paired baseline: 20/20 deterministic runs stable; ten measured
+  risks each pass their one positive/one safe pair; 5 High/Critical positive
+  cases detected. This is explicitly too small and single-reviewed for broad
+  accuracy claims; 10 risks remain unmeasured and 5 unsupported at L0.
+- Artificial cross-scope mapping discovered during report audit was removed:
+  the Skill wildcard Rule now maps only to the Skill capability risk, not the
+  parallel Prompt risk.
+- Full suite: 361 passed, 0 skipped. No detector, Provider, V1.5 or V2 behavior
+  was added.
+
+## Round 14 (2026-07-21) → plan `9dc88f2` + implementation commit `2831270`
 
 - Established a primary-source-first baseline: OWASP LLM 2025, the 2025
   Agentic threat paper and separate 2026 Agentic Top 10 framework, NIST AI RMF

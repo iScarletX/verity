@@ -1,0 +1,871 @@
+{
+  "aggregateSafetyScore": null,
+  "baselineClass": "minimal_pair_baseline",
+  "caseCount": 20,
+  "caseResults": [
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "caseId": "prompt-injection-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "expectedSeverity": "low",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "caseId": "prompt-injection-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "caseId": "prompt-placeholder-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "caseId": "prompt-placeholder-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "caseId": "prompt-conflict-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "caseId": "prompt-conflict-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-005"
+      ],
+      "caseId": "prompt-hidden-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-005"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-005"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-005"
+      ],
+      "caseId": "prompt-hidden-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-007"
+      ],
+      "caseId": "prompt-tools-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-007"
+      ],
+      "expectedSeverity": "high",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-007"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-007"
+      ],
+      "caseId": "prompt-tools-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "caseId": "skill-structure-positive",
+      "coverageStatuses": [
+        "insufficient",
+        "insufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedSeverity": "high",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "caseId": "skill-structure-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-002"
+      ],
+      "caseId": "skill-path-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-002"
+      ],
+      "expectedSeverity": "high",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-SKILL-002"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-002"
+      ],
+      "caseId": "skill-path-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-003"
+      ],
+      "caseId": "skill-dependency-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-003"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-SKILL-003"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-003"
+      ],
+      "caseId": "skill-dependency-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-004"
+      ],
+      "caseId": "skill-permission-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-004"
+      ],
+      "expectedSeverity": "high",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-SKILL-004"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-004"
+      ],
+      "caseId": "skill-permission-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-006"
+      ],
+      "caseId": "skill-command-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-006"
+      ],
+      "expectedSeverity": "high",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-SKILL-006"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-006"
+      ],
+      "caseId": "skill-command-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    }
+  ],
+  "corpusId": "verity-detection-corpus",
+  "corpusVersion": "1.0.0",
+  "disclaimer": "Minimal paired per-risk offline baseline only. One positive and one safe counterexample cannot establish broad precision/recall. This is not a safety score and not a semantic, black-box, or sandbox evaluation.",
+  "highOrCriticalUnsafeCases": {
+    "caseCount": 5,
+    "fn": 0,
+    "tp": 5
+  },
+  "repetitions": 2,
+  "riskResults": [
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-PROMPT-001",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-PROMPT-002",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-PROMPT-003",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-PROMPT-004",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "en",
+        "zh-en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-PROMPT-005",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-PROMPT-006",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unsupported"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-PROMPT-007",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-PROMPT-008",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-PROMPT-009",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unsupported"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "markdown"
+      ],
+      "objectTypes": [
+        "skill"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-SKILL-001",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "python",
+        "yaml-markdown"
+      ],
+      "objectTypes": [
+        "skill"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-SKILL-002",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "yaml-markdown"
+      ],
+      "objectTypes": [
+        "skill"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-SKILL-003",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "yaml-markdown"
+      ],
+      "objectTypes": [
+        "skill"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-SKILL-004",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-SKILL-005",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "python"
+      ],
+      "objectTypes": [
+        "skill"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-SKILL-006",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-SKILL-007",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-SKILL-008",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-SKILL-009",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-SKILL-010",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-SKILL-011",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-SKILL-012",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unsupported"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-SKILL-013",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unsupported"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-SKILL-014",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-MCP-001",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unsupported"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-GOV-001",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
+    }
+  ],
+  "schemaVersion": 1,
+  "stability": {
+    "rate": 1.0,
+    "stableCases": 20,
+    "unstableCases": 0
+  }
+}

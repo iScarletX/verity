@@ -73,6 +73,10 @@
 - `verity.standards.validate_runtime_detector_coverage()` binds all runtime
   deterministic Rules and semantic Finding Types to the taxonomy and fails on
   registry drift.
+- `verity.corpus` reads an independent risk-id answer key and measures the
+  current L0 pipeline twice per case. Fixed semantic Provider replays exercise
+  contracts only and explicitly do not measure model quality. Separate
+  reproducible reports contain no aggregate safety score.
 
 ## Bright lines
 
