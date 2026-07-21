@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "retrievedAt": "2026-07-21",
+  "sources": [
+    {
+      "sourceId": "OWASP-LLM-2025",
+      "title": "OWASP Top 10 for LLM Applications 2025",
+      "publisher": "OWASP GenAI Security Project",
+      "version": "2025",
+      "publishedDate": "2024",
+      "url": "https://genai.owasp.org/llm-top-10/",
+      "kind": "threat_taxonomy",
+      "usageBasis": "identifier_and_paraphrase",
+      "controls": ["LLM01", "LLM02", "LLM03", "LLM04", "LLM05", "LLM06", "LLM07", "LLM08", "LLM09", "LLM10"]
+    },
+    {
+      "sourceId": "OWASP-AGENTIC-2025",
+      "title": "Agentic AI - Threats and Mitigations",
+      "publisher": "OWASP Agentic Security Initiative",
+      "version": "1.0",
+      "publishedDate": "2025-02-17",
+      "url": "https://genai.owasp.org/resource/agentic-ai-threats-and-mitigations/",
+      "kind": "threat_model",
+      "usageBasis": "identifier_and_paraphrase",
+      "controls": ["THREAT-GOAL-HIJACKING", "THREAT-TOOL-MISUSE", "THREAT-IDENTITY-PRIVILEGE-ABUSE", "THREAT-AGENT-SUPPLY-CHAIN", "THREAT-UNEXPECTED-CODE-EXECUTION", "THREAT-MEMORY-CONTEXT-POISONING", "THREAT-INSECURE-INTER-AGENT-COMMUNICATION", "THREAT-CASCADING-FAILURES", "THREAT-HUMAN-AGENT-TRUST-EXPLOITATION"]
+    },
+    {
+      "sourceId": "OWASP-AGENTIC-TOP10-2026",
+      "title": "OWASP Top 10 for Agentic Applications 2026",
+      "publisher": "OWASP GenAI Security Project",
+      "version": "2026",
+      "publishedDate": "2025-12-09",
+      "url": "https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/",
+      "kind": "threat_taxonomy",
+      "usageBasis": "framework provenance only; official sub-control text was not retrievable on 2026-07-21",
+      "controls": ["FRAMEWORK"]
+    },
+    {
+      "sourceId": "NIST-AI-RMF-1.0",
+      "title": "Artificial Intelligence Risk Management Framework",
+      "publisher": "National Institute of Standards and Technology",
+      "version": "1.0",
+      "publishedDate": "2023-01-26",
+      "url": "https://www.nist.gov/itl/ai-risk-management-framework",
+      "kind": "risk_framework",
+      "usageBasis": "identifier_and_paraphrase",
+      "controls": ["GOVERN", "MAP", "MEASURE", "MANAGE"]
+    },
+    {
+      "sourceId": "NIST-AI-600-1",
+      "title": "Artificial Intelligence Risk Management Framework: Generative Artificial Intelligence Profile",
+      "publisher": "National Institute of Standards and Technology",
+      "version": "NIST AI 600-1",
+      "publishedDate": "2024-07-26",
+      "url": "https://doi.org/10.6028/NIST.AI.600-1",
+      "kind": "risk_profile",
+      "usageBasis": "identifier_and_paraphrase",
+      "controls": ["CONFABULATION", "DATA-PRIVACY", "INFORMATION-INTEGRITY", "INFORMATION-SECURITY", "HUMAN-AI-CONFIGURATION", "VALUE-CHAIN-COMPONENT-INTEGRATION"]
+    },
+    {
+      "sourceId": "MITRE-ATLAS",
+      "title": "MITRE ATLAS",
+      "publisher": "MITRE",
+      "version": "living",
+      "publishedDate": "2026",
+      "url": "https://atlas.mitre.org/",
+      "kind": "adversary_knowledge_base",
+      "usageBasis": "identifier_and_paraphrase",
+      "controls": ["LLM-PROMPT-INJECTION", "LLM-JAILBREAK", "LLM-DATA-LEAKAGE", "AI-AGENT-TOOL-INVOCATION", "AI-SUPPLY-CHAIN-COMPROMISE", "AI-AGENT-CONTEXT-POISONING", "AI-AGENT-TOOL-POISONING", "ESCAPE-TO-HOST"]
+    },
+    {
+      "sourceId": "CWE-4.20",
+      "title": "Common Weakness Enumeration",
+      "publisher": "MITRE",
+      "version": "4.20",
+      "publishedDate": "2026-06-10",
+      "url": "https://cwe.mitre.org/",
+      "kind": "weakness_catalog",
+      "usageBasis": "terms_of_use_identifier_and_paraphrase",
+      "controls": ["CWE-20", "CWE-22", "CWE-78", "CWE-94", "CWE-295", "CWE-319", "CWE-502", "CWE-521", "CWE-798", "CWE-918"]
+    },
+    {
+      "sourceId": "CAPEC-3.9",
+      "title": "Common Attack Pattern Enumeration and Classification",
+      "publisher": "MITRE",
+      "version": "3.9",
+      "publishedDate": "2023-07-06",
+      "url": "https://capec.mitre.org/",
+      "kind": "attack_pattern_catalog",
+      "usageBasis": "terms_of_use_identifier_and_paraphrase",
+      "controls": ["CAPEC-88", "CAPEC-126", "CAPEC-242", "CAPEC-640"]
+    },
+    {
+      "sourceId": "SLSA-1.2",
+      "title": "Supply-chain Levels for Software Artifacts Specification",
+      "publisher": "OpenSSF",
+      "version": "1.2",
+      "publishedDate": "2025",
+      "url": "https://slsa.dev/spec/v1.2/",
+      "kind": "supply_chain_specification",
+      "usageBasis": "identifier_and_paraphrase",
+      "controls": ["BUILD-TRACK", "SOURCE-TRACK", "PROVENANCE", "VERIFICATION-SUMMARY"]
+    },
+    {
+      "sourceId": "OPENSSF-SCORECARD",
+      "title": "OpenSSF Scorecard",
+      "publisher": "Open Source Security Foundation",
+      "version": "living",
+      "publishedDate": "2026",
+      "url": "https://scorecard.dev/",
+      "kind": "supply_chain_assessment",
+      "usageBasis": "identifier_and_paraphrase",
+      "controls": ["VULNERABILITIES", "PINNED-DEPENDENCIES", "DANGEROUS-WORKFLOW", "TOKEN-PERMISSIONS", "SIGNED-RELEASES", "SAST"]
+    },
+    {
+      "sourceId": "AGENT-SKILLS-SPEC",
+      "title": "Agent Skills Specification",
+      "publisher": "Agent Skills",
+      "version": "living",
+      "publishedDate": "2026",
+      "url": "https://agentskills.io/specification",
+      "kind": "artifact_specification",
+      "usageBasis": "identifier_and_paraphrase",
+      "controls": ["DIRECTORY-STRUCTURE", "SKILL-MD", "NAME", "DESCRIPTION", "COMPATIBILITY", "ALLOWED-TOOLS", "FILE-REFERENCES", "VALIDATION"]
+    },
+    {
+      "sourceId": "MCP-SECURITY-2025-11-25",
+      "title": "Model Context Protocol Security Best Practices",
+      "publisher": "Model Context Protocol",
+      "version": "2025-11-25",
+      "publishedDate": "2025-11-25",
+      "url": "https://modelcontextprotocol.io/docs/tutorials/security/security_best_practices",
+      "kind": "protocol_security_guidance",
+      "usageBasis": "identifier_and_paraphrase",
+      "controls": ["CONFUSED-DEPUTY", "TOKEN-PASSTHROUGH", "SSRF", "SESSION-HIJACKING", "LOCAL-SERVER-COMPROMISE", "SCOPE-MINIMIZATION"]
+    },
+    {
+      "sourceId": "BANDIT-DOCS",
+      "title": "Bandit documentation",
+      "publisher": "PyCQA",
+      "version": "1.7.10",
+      "publishedDate": "2024",
+      "url": "https://bandit.readthedocs.io/en/latest/",
+      "kind": "detector_documentation",
+      "usageBasis": "Apache-2.0 documented integration",
+      "controls": ["PYTHON-AST-SECURITY"]
+    },
+    {
+      "sourceId": "GITLEAKS-DOCS",
+      "title": "Gitleaks",
+      "publisher": "Gitleaks project",
+      "version": "8.28.0",
+      "publishedDate": "2026",
+      "url": "https://github.com/gitleaks/gitleaks",
+      "kind": "detector_documentation",
+      "usageBasis": "MIT documented integration",
+      "controls": ["SECRET-DETECTION", "FEATURE-COMPLETE-MAINTENANCE"]
+    },
+    {
+      "sourceId": "SHELLCHECK-DOCS",
+      "title": "ShellCheck",
+      "publisher": "ShellCheck project",
+      "version": "living",
+      "publishedDate": "2026",
+      "url": "https://www.shellcheck.net/",
+      "kind": "detector_candidate_documentation",
+      "usageBasis": "GPL-3.0 candidate evaluation only; integration requires license and distribution review",
+      "controls": ["SHELL-ANALYSIS"]
+    },
+    {
+      "sourceId": "OSV-SCANNER-DOCS",
+      "title": "OSV-Scanner",
+      "publisher": "Google Open Source Security Team",
+      "version": "living",
+      "publishedDate": "2026",
+      "url": "https://google.github.io/osv-scanner/",
+      "kind": "detector_candidate_documentation",
+      "usageBasis": "Apache-2.0 candidate evaluation only",
+      "controls": ["DEPENDENCY-VULNERABILITY-SCANNING", "OSV-DATABASE"]
+    },
+    {
+      "sourceId": "SEMGREP-DOCS",
+      "title": "Semgrep documentation",
+      "publisher": "Semgrep",
+      "version": "living",
+      "publishedDate": "2026",
+      "url": "https://docs.semgrep.dev/",
+      "kind": "detector_candidate_documentation",
+      "usageBasis": "evaluation_reference_only",
+      "controls": ["SAST", "SCA", "SECRETS", "TAINT-TRACKING", "SUPPORTED-LANGUAGES"]
+    }
+  ]
+}

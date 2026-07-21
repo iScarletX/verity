@@ -293,7 +293,7 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         applicableKinds=["prompt"],
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="low",
-        controlIds=["OWASP-LLM-01"],
+        controlIds=["OWASP-LLM01:2025"],
     ))
     rr.register(RuleDefinition(
         ruleId="prompt.unfilled_placeholder",
@@ -323,7 +323,7 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         applicableKinds=["prompt"],
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="high",
-        controlIds=["OWASP-LLM-06"],
+        controlIds=["OWASP-LLM02:2025", "OWASP-LLM07:2025"],
         applicablePromptKinds=["system_prompt"],
     ))
     rr.register(RuleDefinition(
@@ -355,7 +355,7 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         applicableKinds=["prompt"],
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="medium",
-        controlIds=["OWASP-LLM-01"],
+        controlIds=["OWASP-LLM01:2025"],
     ))
     rr.register(RuleDefinition(
         ruleId="prompt.empty_or_whitespace",

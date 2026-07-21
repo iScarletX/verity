@@ -14,6 +14,35 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-21 — Execution completion is not detection completeness
+
+- **Symptom**: Runtime and documentation used `static: completed`, which
+  correctly meant planned checks ran but could be read as broad or complete
+  risk coverage. The semantic pipeline also had strong safety tests while its
+  catalog covered only three Finding Types.
+- **Root cause**: Execution status and detector breadth shared one informal
+  word instead of independent controlled axes.
+- **Fix**: Added a machine-readable standards/taxonomy baseline with
+  `none`/`signal`/`partial`/`substantial`/`evaluated`; runtime reports now say
+  that `completed` is execution status only. Pre-corpus claims are capped at
+  `partial` by code.
+- **Prevention**: New detectors must map to a unified risk id; stronger breadth
+  claims require a versioned corpus measurement.
+- **Evidence**: Round 14 `standards/`, `verity.standards`, machine gate.
+
+### 2026-07-21 — Standards identifiers require explicit versions
+
+- **Symptom**: A Prompt secret rule still used `OWASP-LLM-06`, inherited from
+  an older OWASP list, while OWASP 2025 defines LLM06 as Excessive Agency and
+  uses LLM02/LLM07 for sensitive disclosure/system-prompt leakage.
+- **Root cause**: A bare control number survived a standards revision.
+- **Fix**: Source versions and retrieval dates are registered; Prompt control
+  ids now use explicit 2025 labels. The 2025 Agentic threat paper and 2026
+  Agentic Top 10 are recorded as separate sources.
+- **Prevention**: Never map a detector to an unversioned mutable Top-10 number.
+  Do not infer unavailable official subcontrols from secondary articles.
+- **Evidence**: Round 14 source registry and Prompt registry correction.
+
 ### 2026-07-20 — Agent completion reports can race with Git visibility
 
 - **Symptom**: The first independent check after a sub-agent report saw

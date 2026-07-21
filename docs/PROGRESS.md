@@ -5,13 +5,13 @@
 <!-- verify_repo.py: begin verified_against block -->
 ```yaml
 verified_against:
-  date: "2026-07-20"
+  date: "2026-07-21"
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "a00bb459f194dccb74ab4ea2e361d0cf56e3c7df"
-  tests_collected: 339
-  tests_passed: 339
+  commit: "9dc88f22d31d78c30f36368bdab9d3959e7b99db"
+  tests_collected: 348
+  tests_passed: 348
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,7 +27,9 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Next step.** Round 13 is implemented. Advisory dispositions annotate findings without changing severity/counts. Use `--respect-dispositions` CLI flag to opt into CI acceptance of disposed high/critical findings.
+**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The Round-14 machine-readable taxonomy records 17 official/candidate sources, 25 unified risks and exact mappings for all 36 runtime detectors. Current L0 breadth: 5 none / 11 signal / 9 partial. Current L1 breadth: 19 none / 5 signal / 1 partial. No risk is substantial/evaluated before Round-15 corpus measurement; V1.5 and V2 remain entirely none/not implemented.
+
+**Next step.** Round 15 builds the versioned, licensed, leak-safe Golden Corpus and measurement harness for per-risk precision, recall, false positives, stability and language coverage. It does not add detectors or connect a real Provider.
 
 **What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, and trusted Web-first Skill project identity/history with scope-aware five-state version diff.
 
@@ -39,7 +41,35 @@ ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
 
 ## Round history (append-only)
 
-## Round 13 (2026-07-21) → (commit pending)
+## Round 14 (2026-07-21) → plan `9dc88f2` + implementation commit
+
+- Established a primary-source-first baseline: OWASP LLM 2025, the 2025
+  Agentic threat paper and separate 2026 Agentic Top 10 framework, NIST AI RMF
+  and GenAI Profile, MITRE ATLAS/CWE/CAPEC, SLSA, OpenSSF Scorecard, Agent
+  Skills, MCP security guidance, and mature detector documentation/candidates.
+  Sources carry version/date/URL/usage basis and controlled identifiers; text
+  is paraphrased, not copied wholesale.
+- Added 25 stable Verity risk ids spanning Prompt, Skill, MCP and audit
+  governance. Every risk declares source crosswalks (or one explicit
+  Verity-original rationale), layer-specific conclusion boundaries, honest
+  current breadth and visible gaps.
+- Separated execution status from capability breadth. Round-14 breadth is
+  capped at `none`/`signal`/`partial`; code rejects `substantial` or
+  `evaluated` without a corpus reference.
+- Mapped all 33 deterministic Rules and three semantic Finding Types exactly;
+  runtime registry drift now fails both tests and `verify_repo.py` through the
+  new `detection_standards` gate.
+- Corrected stale bare OWASP Prompt control ids to explicit 2025 mappings.
+  Recorded that Agent Skills name validation is currently looser than the
+  official specification and that Gitleaks upstream is now feature-complete/
+  security-fix maintenance; these are Round-16 gaps, not hidden hotfixes.
+- Front-page/report/architecture/eval docs now state that `completed` is one
+  review's execution status, not complete detection. Provider production,
+  new rules, V1.5 and V2 were not added.
+- Full suite: 348 passed, 0 skipped; machine standards baseline: 17 sources,
+  25 risks, 36 runtime detector mappings.
+
+## Round 13 (2026-07-21) → commit `4e0b845`
 
 - **Objective**: Add user-controlled advisory annotations to finding
   occurrences (fingerprints) within a project, without changing severity,

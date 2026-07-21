@@ -33,6 +33,7 @@ Every fact about Verity lives in exactly one place.
 | One-page architecture map             | `docs/ARCHITECTURE.md`        |
 | Known pitfalls                        | `docs/LESSONS.md` (append-only) |
 | Project collaboration preferences     | `docs/MEMORY.md`              |
+| Detection sources, taxonomy, breadth  | `standards/*.json`            |
 | Evaluation suite (tests as eval)      | `evals/README.md`             |
 | Machine acceptance gate               | `tools/verify_repo.py`        |
 | CI gate                               | `.github/workflows/ci.yml`    |

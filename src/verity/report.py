@@ -101,9 +101,11 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
         semantic_status = "not_enabled"
     d["capabilities"] = {
         "static": {"status": static_status,
-                    "note": "deterministic rules + parsers + analyzers"},
+                    "note": ("execution status only; current detection breadth "
+                             "is signal/partial in the standards taxonomy")},
         "semantic": {"status": semantic_status,
-                      "note": "experimental; default OFF; not enabled unless user opts in"},
+                      "note": ("experimental, default OFF; execution status "
+                               "does not imply semantic breadth")},
         "promptBlackbox": {"status": "not_implemented",
                             "note": "V1.5 planned; not part of V1"},
         "skillSandbox": {"status": "not_implemented",

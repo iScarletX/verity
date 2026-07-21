@@ -21,9 +21,26 @@ Verity is planned as a three-layer audit tool:
 
 | Version | Layer | Status |
 |---|---|---|
-| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Phase 0 + walking skeleton + Prompt rules + Skill Auditor + Bandit + gitleaks + SARIF + local Web MVP implemented** |
-| **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) | **Not implemented.** Later phase. |
+| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Core execution/safety architecture implemented; detection breadth remains signal/partial and must be measured before V1 closure.** |
+| **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) | **Not implemented.** Blocked until standards, corpus, static breadth and semantic breadth foundations are complete. |
 | **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill under audit | **Not implemented.** Later phase. |
+
+### Detection breadth is not execution status
+
+`static: completed` in a report means the checks planned for that review
+executed. It does **not** mean Verity detects every static risk. Likewise, a
+future `semantic: completed` means the controlled semantic stage ran, not that
+semantic coverage is complete.
+
+The machine-readable [`standards/`](standards/README.md) baseline separates
+these axes. It records 25 unified risks and rates current breadth only as
+`none`, `signal`, or `partial`; no risk becomes `substantial` or `evaluated`
+before a versioned corpus measures it. The gated sequence is:
+
+```text
+standards/taxonomy → corpus/metrics → static breadth → semantic breadth
+→ stop for maintainer decision before Provider production work or V1.5
+```
 
 **V1 is strictly read-only.** It does NOT execute the skill under review,
 install its dependencies, start unknown services, call into review-target
@@ -268,15 +285,15 @@ Honest OWASP AST10 status (shown in every skill report as a matrix):
 
 | OWASP | Status | Notes |
 |---|---|---|
-| AST01 malicious code / dangerous runtime | partial | Text patterns + Python AST `shell=True`. No sandbox, no bandit/semgrep integration yet. |
-| AST02 supply chain | partial | Unpinned dependency + synthetic secret. Real secret detection deferred to gitleaks integration. |
+| AST01 malicious code / dangerous runtime | partial | Text patterns + selected Bandit Python AST checks. No taint/cross-language analysis or sandbox. |
+| AST02 supply chain | partial | Unpinned dependency checks + pinned gitleaks secret detection. No vulnerability/provenance verification. |
 | AST03 excessive authorisation | partial | Permission wildcard only. |
 | AST04 insecure metadata | partial | Missing/blank fields, unsafe reference paths, suffix mismatch, parse failure. |
 | AST05 untrusted external instructions | partial | Strict-mode `fetch_and_follow` URLs only. |
 | AST06 weak isolation | none | Requires V2 sandbox. |
 | AST07 update drift / integrity | partial | Unpinned dep also maps here (versioning drift). |
 | AST08 insufficient scanning | none | Meta-observation, requires product runtime not present in V1. |
-| AST09 lack of governance | none | Requires review workflow features (Baseline, Disposition history in a UI) not built here. |
+| AST09 lack of governance | partial | Trusted history, coverage-aware diff and expiring dispositions exist; corpus-backed measurements and broader governance controls remain absent. |
 | AST10 cross-platform reuse | none | Would require multi-runtime declaration matrix. |
 
 We never claim `full` coverage. The report enumerates only `partial` and

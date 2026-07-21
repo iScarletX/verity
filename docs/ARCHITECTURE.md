@@ -59,6 +59,21 @@
                     scope-aware five-state baseline diff
 ```
 
+## Two independent coverage axes
+
+- **Execution status** lives in ReviewPlan / Execution / Coverage and answers:
+  did the checks planned for this review run? Runtime capability words such as
+  `completed`, `failed`, `not_enabled`, and `not_implemented` belong here.
+- **Detection breadth** lives in the machine-readable `standards/` taxonomy
+  and answers: how broadly and accurately can Verity detect this risk class?
+  Its controlled levels are `none`, `signal`, `partial`, `substantial`, and
+  `evaluated`.
+- A run may be `completed` while detection breadth remains `signal` or
+  `partial`. Before the Round-15 corpus exists, no risk may exceed `partial`.
+- `verity.standards.validate_runtime_detector_coverage()` binds all runtime
+  deterministic Rules and semantic Finding Types to the taxonomy and fails on
+  registry drift.
+
 ## Bright lines
 
 - **Deterministic → Semantic**: only. The deterministic engine
@@ -102,6 +117,7 @@
 For every fact that could drift, look here:
 
 - Behaviour policy → `AGENTS.md`
+- Detection sources, taxonomy, breadth, gaps → `standards/*.json`
 - Current state + append-only history → `docs/PROGRESS.md`
   (top summary block + round-by-round history below it)
 - Active plan → `plans/ACTIVE.md`

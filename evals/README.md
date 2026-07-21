@@ -18,6 +18,7 @@ model-agnostic evaluation gate for the pipeline.
 | Semantic scaffold (schemas, containment,   | `tests/test_semantic.py`                          |
 |   provider mocks, deterministic invariant) |                                                   |
 | 19-item Phase-0 acceptance matrix          | `tests/test_acceptance_19.py`                     |
+| Standards/taxonomy provenance + detector mapping | `tests/test_round14_standards.py`, `standards/` |
 
 ## What these tests are NOT
 
@@ -30,7 +31,19 @@ model-agnostic evaluation gate for the pipeline.
   smuggled findings, extra fields, prompt injection in the reviewed
   content).
 
-## What goes here later
+## What goes here next
+
+Round 15 builds the first **versioned detection corpus** here before any real
+Provider production work. Unlike ordinary unit tests, it must label expected
+risk ids and safe counterexamples, then measure precision, recall, false
+positives, repeat stability and language coverage separately by risk and
+layer. Latency and cost apply to semantic layers. Corpus provenance, license,
+sensitive-data hygiene and train/test leakage controls are release gates.
+
+Passing the current pytest suite proves pipeline behavior and invariants; it
+does **not** prove detection breadth or model quality. No risk in
+`standards/risks.json` may become `substantial` or `evaluated` without a
+versioned corpus result.
 
 When real-Provider integration or V1.5 Prompt black-box arrives, its
 data assets live under `evals/`:

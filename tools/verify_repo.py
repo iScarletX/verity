@@ -153,6 +153,11 @@ REQUIRED_FILES = [
     "tools/install_gitleaks.py",
     "tools/gitleaks_release.json",
     "tools/start_local_web.py",
+    # Detection capability baseline
+    "standards/README.md",
+    "standards/sources.json",
+    "standards/risks.json",
+    "standards/detector_mappings.json",
 ]
 
 
@@ -429,6 +434,23 @@ def check_ci_workflow_shape(rep: VerifyReport) -> None:
     rep.append_ok("ci_workflow_shape", "ci.yml permissions + steps ok")
 
 
+def check_detection_standards(rep: VerifyReport) -> None:
+    """Validate authoritative-source taxonomy and exact runtime mapping."""
+    try:
+        sys.path.insert(0, str(REPO / "src"))
+        from verity.standards import (load_risks, load_sources,
+                                      validate_runtime_detector_coverage)
+        sources = load_sources()
+        risks = load_risks(sources)
+        validate_runtime_detector_coverage()
+    except Exception as exc:
+        rep.append_fail("detection_standards", str(exc)[:500])
+        return
+    rep.append_ok(
+        "detection_standards",
+        f"{len(sources)} primary sources; {len(risks)} risks; runtime mapped")
+
+
 def check_working_tree_clean(rep: VerifyReport) -> None:
     proc = _git("status", "--porcelain")
     if proc.returncode != 0:
@@ -474,6 +496,7 @@ def run_all(*, require_clean: bool = False,
     check_pyproject_and_readme_links(rep)
     check_git_ignored(rep)
     check_ci_workflow_shape(rep)
+    check_detection_standards(rep)
     if require_clean:
         check_working_tree_clean(rep)
     if not skip_tests:
