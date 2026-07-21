@@ -38,14 +38,17 @@ these axes. It records 25 unified risks and rates current breadth only as
 `none`, `signal`, or `partial`. Current L1 breadth is still only 15 none / 9
 signal / 1 partial: seven semantic Finding Types do not make semantic review
 complete. The versioned [`evals/`](evals/README.md)
-minimal paired corpus now reproduces per-risk L0 confusion matrices and fixed
-semantic pipeline contract replays, but its labels remain
-`provisional_single_review`; it is not a broad accuracy benchmark and does not
-measure model quality. The gated sequence is:
+minimal paired corpus reproduces per-risk L0 confusion matrices and fixed
+semantic pipeline contract replays. A separate 42-case synthetic three-split
+protocol can measure one explicitly chosen real-model configuration, but no
+real-model report has been produced and its labels remain
+`provisional_single_review`; it is not broad production accuracy evidence. The
+gated sequence is:
 
 ```text
 standards/taxonomy → corpus/metrics → static breadth → semantic breadth
-→ stop for maintainer decision before Provider production work or V1.5
+→ synthetic real-model quality protocol → explainable score/remediation
+→ stop before Provider productization or V1.5 without a new decision
 ```
 
 **V1 is strictly read-only.** It does NOT execute the skill under review,

@@ -1,0 +1,1 @@
+Return YAML with exactly these fields: service (string), replicas (integer), and regions (list of strings).

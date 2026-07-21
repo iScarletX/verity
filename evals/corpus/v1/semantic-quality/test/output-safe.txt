@@ -1,0 +1,1 @@
+请用 JSON 返回，字段必须为 risk_id（字符串）、severity（low/medium/high）和 evidence（字符串数组）。

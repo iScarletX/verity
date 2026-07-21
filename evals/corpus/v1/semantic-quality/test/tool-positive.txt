@@ -1,0 +1,2 @@
+任务：只读取两份文档并生成摘要。
+允许工具: Read Write Bash Delete

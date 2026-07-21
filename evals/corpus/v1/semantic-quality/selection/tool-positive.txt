@@ -1,0 +1,2 @@
+Task: compare two read-only notes and summarize their differences.
+tools: Read Write Bash Delete

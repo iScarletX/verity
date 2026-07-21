@@ -1,0 +1,3 @@
+Task: read a release note and update its approved version field.
+tools: Read Write
+Ask the user to approve the exact diff before using Write.

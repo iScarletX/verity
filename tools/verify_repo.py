@@ -162,6 +162,7 @@ REQUIRED_FILES = [
     # Versioned offline detection corpus and reproducible baselines
     "evals/corpus/v1/manifest.json",
     "evals/corpus/v1/semantic_replay.json",
+    "evals/corpus/v1/semantic_quality.json",
     "evals/reports/corpus-v1-l0.json",
     "evals/reports/corpus-v1-semantic-contract.json",
     "tools/run_corpus.py",
@@ -476,6 +477,25 @@ def check_corpus_baselines(rep: VerifyReport) -> None:
                   "26 L0 cases + 14 semantic contract replays reproducible")
 
 
+def check_semantic_quality_protocol(rep: VerifyReport) -> None:
+    """Validate split isolation and deterministic seed eligibility offline."""
+    try:
+        sys.path.insert(0, str(REPO / "src"))
+        from verity.semantic_quality import (
+            load_semantic_quality_manifest,
+            validate_semantic_quality_seed_coverage)
+        manifest = load_semantic_quality_manifest()
+        checked = validate_semantic_quality_seed_coverage()
+    except Exception as exc:
+        rep.append_fail("semantic_quality_protocol", str(exc)[:500])
+        return
+    counts = {split: sum(c["split"] == split for c in manifest["cases"])
+              for split in ("calibration", "selection", "test")}
+    rep.append_ok(
+        "semantic_quality_protocol",
+        f"{checked} synthetic eligible cases; splits={counts}; no model called")
+
+
 def check_working_tree_clean(rep: VerifyReport) -> None:
     proc = _git("status", "--porcelain")
     if proc.returncode != 0:
@@ -523,6 +543,7 @@ def run_all(*, require_clean: bool = False,
     check_ci_workflow_shape(rep)
     check_detection_standards(rep)
     check_corpus_baselines(rep)
+    check_semantic_quality_protocol(rep)
     if require_clean:
         check_working_tree_clean(rep)
     if not skip_tests:

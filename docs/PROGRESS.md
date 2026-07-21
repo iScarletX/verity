@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "17592678bbd13ff78950436caf27a5fb4e200b83"
-  tests_collected: 387
-  tests_passed: 387
+  commit: "f27cdf804b5c0a3f289f05441f939545373a5ddd"
+  tests_collected: 408
+  tests_passed: 408
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -29,19 +29,51 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 25 unified risks, 42 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 12 signal / 9 partial. Current L1 breadth: 15 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks and 14 fixed semantic contract replays (confirmed/rejected for seven types). Reports remain reproducible, per-risk and score-free; labels remain `provisional_single_review`; semantic replay explicitly sets `modelQualityMeasured=false`. This is a measurement foundation, not a broad accuracy claim.
+**Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and a separate 42-case semantic model-quality protocol (14 calibration / 14 selection / 14 sealed test; every split has confirmed/rejected pairs for seven types). Fixed reports remain reproducible and score-free. All labels remain `provisional_single_review`. Contract replay still sets `modelQualityMeasured=false`; no real-model report exists and sealed test v1 has not been consumed.
 
-**Next step.** **Stop for maintainer decision.** The approved foundation sequence (Rounds 14–17) is complete. Do not start Provider/OpenRouter production work, UI API-key/model changes, V1.5 or V2 without a new approved round.
+**Next step.** **Maintainer action required before more implementation.** If a trusted research credential is intentionally supplied through an environment variable, run Round-18 calibration and selection locally, freeze one configuration, then explicitly decide whether to consume sealed test. Do not implement Round-19 scoring/remediation, Provider Web productization, V1.5 or V2 until those results are reviewed and a new round is approved.
 
-**What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, and trusted Web-first Skill project identity/history with scope-aware five-state version diff.
+**What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates.
 
-**Deliberately absent.** No Web Provider-config surface. No Skill
-execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No
-ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
+**Deliberately absent.** No real-model quality result, user-facing 0–100 score, review-confidence grade, automatic remediation/PatchSet apply, or Web Provider-config surface. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake.
 
 ---
 
 ## Round history (append-only)
+
+## Round 18 (2026-07-21) → implementation commit pending
+
+- Added a strict 42-case synthetic semantic quality protocol: 14 calibration,
+  14 selection and 14 sealed-test cases. Every split independently contains
+  one unsafe and one safe counterexample for all seven closed semantic Finding
+  Types; all payloads are distinct and retain `provisional_single_review`.
+- Added an offline eligibility gate proving all 42 cases produce deterministic
+  extractor seeds. A no-seed safe case therefore cannot be counted as a model
+  true negative. This gate never calls a model and does not consume sealed test.
+- Added an eval-only OpenAI-compatible chat-completions adapter and research
+  command. They accept only the versioned synthetic Corpus, use two role
+  objects, strict JSON, HTTPS/loopback, redirect refusal, environment-variable
+  credentials, no tools/streaming/retries, response caps and a whole-run call
+  budget checked before egress. Product CLI/Web behavior is unchanged.
+- Added conservative metrics: per split/type/language/object TP/FP/TN/FN,
+  precision, recall, safe false-positive rate, inconclusive/error rates and
+  repeated-decision stability. `insufficient_evidence` is not a true negative;
+  Provider/schema failures do not enter the confusion matrix. There is no
+  aggregate safety score.
+- Mutable real-model reports default to gitignored local storage and exclude
+  raw case text, source snippets, claims, subjects, Provider traffic, endpoint,
+  credential name/value, account metadata and host paths. Fixed contract replay
+  remains separate with `modelQualityMeasured=false`.
+- Borrowed only evaluation principles from SkillOpt and game-agent benchmarks:
+  held-out gates, bounded changes, state-verifiable outcomes, deterministic
+  replay and dimension-level reporting. No external benchmark was integrated
+  as a dependency, detector or security standard.
+- No research credential was present, so no real model was called, no
+  `modelQualityMeasured=true` real report was produced, and sealed test v1 was
+  not consumed. Local Stub E2E validates the 56-call command path only.
+- Full suite: 408 passed, 0 skipped. Round 17 landed as commit `f27cdf8` with
+  GitHub CI #13 successful. No score/remediation, Web Provider, V1.5 or V2 was
+  implemented.
 
 ## Round 17 (2026-07-21) → implementation commit pending
 

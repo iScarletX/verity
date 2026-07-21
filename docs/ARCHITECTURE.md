@@ -78,7 +78,11 @@
   current L0 pipeline twice per case. Fourteen fixed semantic Provider replays
   cover confirmed/rejected pairs for seven controlled Finding Types; they
   exercise contracts only and explicitly do not measure model quality.
-  Separate reproducible reports contain no aggregate safety score.
+  `verity.semantic_quality` separately validates a 42-case synthetic
+  calibration/selection/sealed-test protocol and may drive an eval-only
+  OpenAI-compatible adapter through the same SemanticOrchestrator. Its mutable
+  scrubbed reports are local research records, not deterministic CI baselines.
+  Neither path contains an aggregate safety score.
 
 ## Bright lines
 
@@ -94,6 +98,10 @@
 - **Diff resolution**: exact occurrence and controlled stable subject remain distinct. A disappearance is `resolved` only when its relevant current parser/analyzer/rule plan items succeeded; otherwise `unknown_due_to_coverage`.
 - **Reviewed artifact → Provider config**: forbidden. Provider config
   is only accepted from a trusted caller / env var name / CLI arg.
+- **Eval-only Provider**: `semantic/eval_provider.py` is reachable only from
+  `tools/run_semantic_model_eval.py`, accepts only the versioned synthetic
+  corpus, has a whole-run call-budget preflight, and is not wired into product
+  CLI/Web review. It stores no raw Provider request or response.
 - **Provider payload**: passes through the egress gate
   (`verity/semantic/egress.py`) which drops sensitive Evidence, caps
   string lengths, and records only sizes + SHA-256 in the payload

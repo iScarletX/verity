@@ -14,6 +14,39 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-21 — Model-quality evaluation needs a sealed split and error-aware denominator
+
+- **Symptom**: A fixed Provider replay proves schema/orchestrator contracts but
+  can be mistaken for model accuracy; a safe case with no candidate or an
+  `insufficient_evidence` answer can also be accidentally counted as a correct
+  safe decision.
+- **Root cause**: Contract correctness, extractor eligibility, model judgment
+  and final product safety are different measurements.
+- **Fix**: Added 42 disjoint synthetic cases across calibration, selection and
+  explicit-consumption sealed test. Every case must produce a deterministic
+  seed. Inconclusive and Provider/schema errors are reported separately and do
+  not become true negatives; whole-run call budgets are checked before egress.
+- **Prevention**: Never tune on sealed test results, never score a no-seed case
+  as model quality, and never turn a mutable real-model run into a required CI
+  baseline or aggregate safety score.
+- **Evidence**: Round 18 protocol, eval-only adapter and scrubbed report tests.
+
+### 2026-07-21 — Evaluation methods can transfer without importing execution frameworks
+
+- **Symptom**: Skill optimization and game-agent benchmarks offer useful
+  validation, replay and multidimensional scoring ideas, but directly adding
+  them would execute games/skills, add mixed licences and cross Verity's V1
+  read-only boundary.
+- **Root cause**: Methodological relevance was being conflated with dependency
+  or detector relevance.
+- **Fix**: Adopted only protocol principles: held-out gates, bounded proposals,
+  state-verifiable outcomes, deterministic replay and dimension-level reports.
+  No external benchmark became a dependency or security standard.
+- **Prevention**: For every research reference, separately record “method to
+  borrow”, “code to reuse”, and “security evidence supplied”; do not infer the
+  latter two from the first.
+- **Evidence**: Round 18 eval documentation and unchanged dependency locks.
+
 ### 2026-07-21 — Semantic breadth must remain a closed catalog
 
 - **Symptom**: Expanding from three semantic examples creates pressure to ask

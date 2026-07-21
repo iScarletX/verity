@@ -74,8 +74,55 @@ data assets live under `evals/`:
 - `evals/reports/`      — recorded outputs (with PII / secrets
                           scrubbed) for regression tracking
 
-Real Provider and V1.5 assets remain absent. `docs/PROGRESS.md` reflects any
-future change.
+## Synthetic real-model semantic quality protocol
+
+Round 18 adds `evals/corpus/v1/semantic_quality.json`: 42 independent synthetic
+cases split into 14 calibration, 14 selection and 14 sealed-test cases. Every
+split has one unsafe and one safe counterexample for each of the seven closed
+semantic Finding Types, and every case must produce a deterministic extractor
+seed before it is eligible for model-quality metrics. Labels remain
+`provisional_single_review`.
+
+The protocol follows a strict freeze rule:
+
+1. `calibration` may be used to develop the role prompts;
+2. `selection` may choose one frozen generator/validator model configuration;
+3. `test` is final-report only. Running it requires
+   `--acknowledge-sealed-test`; using its results to tune anything consumes and
+   invalidates protocol v1 as sealed evidence.
+
+The explicit research command is:
+
+```bash
+export VERITY_EVAL_API_KEY='<set locally; never commit>'
+python3 tools/run_semantic_model_eval.py \
+  --split calibration \
+  --base-url https://trusted-provider.example/v1 \
+  --generator-model '<pinned-model-id>' \
+  --validator-model '<pinned-model-id>' \
+  --api-key-env VERITY_EVAL_API_KEY
+```
+
+It accepts only the versioned synthetic corpus, uses the existing closed
+SemanticOrchestrator, defaults to two repetitions and a 60-call hard preflight
+cap, and writes a scrubbed report to gitignored
+`.verity-data/model-evals/`. The report has per-type/language/object confusion
+matrices, inconclusive/error rates and decision stability. It has no aggregate
+safety score and stores no case text, source snippets, claims, subjects, raw
+Provider traffic, endpoint, credential name/value, account metadata or host
+path. Real model outputs are mutable research records and are not required CI
+baselines.
+
+No real Provider report existed at Round-18 implementation close because no
+credential was present. The sealed test split was not consumed. This is an
+implemented evaluation protocol, not a model-quality result and not a Web
+Provider integration.
+
+Method references such as SkillOpt, GameWorld, VideoGameQA-Bench, DSGBench,
+TALES, TextWorld, VideoGameBench, Orak, BALROG, Jericho and ViStoryBench informed
+split isolation, bounded updates, state-verifiable outcomes, trajectory replay
+and multi-dimensional reporting. None is a Verity dependency or detection
+standard, and their task/game scores are not security evidence.
 
 ## How to run everything today
 
