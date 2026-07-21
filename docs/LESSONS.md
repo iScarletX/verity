@@ -14,6 +14,34 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-21 — A safety score needs a separate confidence axis and hard severity caps
+
+- **Symptom**: A single 0–100 number can make missing checks look safe, average
+  away a Critical/High finding, or imply that `100` means complete safety.
+- **Root cause**: Detected risk, execution Coverage and detector breadth are
+  different facts but dashboards often collapse them into one score.
+- **Fix**: Numeric score exists only with sufficient deterministic Coverage;
+  Critical/High/Medium/Low impose 39/59/79/99 caps and deductions reconcile to
+  unified risks. A separate B–D confidence grade lists semantic/profile/
+  breadth/runtime gaps; A is deliberately unreachable today.
+- **Prevention**: Never substitute zero or 100 for unavailable, never let a
+  model author weights/severity, and never hide confidence limitations behind
+  a score.
+- **Evidence**: Round 19 score policy, Web/static-HTML parity and machine gate.
+
+### 2026-07-21 — Historical scores must be recorded, not recomputed with a new formula
+
+- **Symptom**: Recalculating an old version with today's policy can manufacture
+  an apparent score improvement or decline that never existed at review time.
+- **Root cause**: Findings may persist while mappings, weights, profile and
+  capability scope evolve.
+- **Fix**: History schema v2 stores an allowlisted score/confidence projection
+  at creation. Schema-v1 remains readable but `scoreComparison` is explicitly
+  not comparable; policy/Coverage mismatches are also refused.
+- **Prevention**: Version every score policy, do not backfill old records, and
+  keep five-state Finding diff authoritative over numeric movement.
+- **Evidence**: Round 19 history compatibility/comparison tests.
+
 ### 2026-07-21 — Model-quality evaluation needs a sealed split and error-aware denominator
 
 - **Symptom**: A fixed Provider replay proves schema/orchestrator contracts but

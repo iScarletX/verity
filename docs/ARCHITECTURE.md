@@ -74,6 +74,11 @@
 - `verity.standards.validate_runtime_detector_coverage()` binds all runtime
   deterministic Rules and semantic Finding Types to the taxonomy and fails on
   registry drift.
+- `verity.scoring` is a pure policy projection after report capabilities are
+  known. It maps Findings through the standards detector map, applies bounded
+  diminishing deductions and severity caps, and refuses a numeric score on
+  Coverage/mapping failure. Review confidence and remediation are separate;
+  neither changes Finding identity, severity, gate exit codes or dispositions.
 - `verity.corpus` reads an independent risk-id answer key and measures the
   current L0 pipeline twice per case. Fourteen fixed semantic Provider replays
   cover confirmed/rejected pairs for seven controlled Finding Types; they
@@ -94,7 +99,8 @@
 - **Reviewed artifact → project identity/history**: forbidden. Opaque artifact identity is minted by the trusted registry; only an existing Web project page or CLI alias/registered ID can add a version. No name/path/digest/similarity linking.
 - **Skill root name**: intake retains only one bounded final directory/browser-root component for official Agent Skills name matching. It is not a host path, does not select project identity, is not part of content digests, and is not persisted in history.
 - **Capability facts**: deterministic Manifest/Python-AST observations only. They are not Findings, never change gates, expose limitations, and provide evidence for later least-privilege/semantic work.
-- **History safety**: allowlisted projection only; strict schema/version, budgets, symlink/owner/mode checks and atomic writes. No raw content/evidence, Secret, Provider wire data, credentials, RedactionMap, or host/temp/tool paths.
+- **History safety**: allowlisted projection only; strict schema/version, budgets, symlink/owner/mode checks and atomic writes. Schema v2 stores the score/confidence projection created at review time; v1 stays readable but is never backfilled. No raw content/evidence, Secret, Provider wire data, credentials, RedactionMap, or host/temp/tool paths.
+- **Score comparison**: requires compatible scope, sufficient Coverage, available scores and the same score-policy version. It is always secondary to the five-state Finding diff and cannot itself prove remediation.
 - **Diff resolution**: exact occurrence and controlled stable subject remain distinct. A disappearance is `resolved` only when its relevant current parser/analyzer/rule plan items succeeded; otherwise `unknown_due_to_coverage`.
 - **Reviewed artifact → Provider config**: forbidden. Provider config
   is only accepted from a trusted caller / env var name / CLI arg.

@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "f27cdf804b5c0a3f289f05441f939545373a5ddd"
-  tests_collected: 408
-  tests_passed: 408
+  commit: "6cacd83c8b54f172b49c340978d381ab5646e4c9"
+  tests_collected: 427
+  tests_passed: 427
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -31,17 +31,47 @@ Strings below MUST match the runtime literals.
 
 **Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and a separate 42-case semantic model-quality protocol (14 calibration / 14 selection / 14 sealed test; every split has confirmed/rejected pairs for seven types). Fixed reports remain reproducible and score-free. All labels remain `provisional_single_review`. Contract replay still sets `modelQualityMeasured=false`; no real-model report exists and sealed test v1 has not been consumed.
 
-**Next step.** **Maintainer action required before more implementation.** If a trusted research credential is intentionally supplied through an environment variable, run Round-18 calibration and selection locally, freeze one configuration, then explicitly decide whether to consume sealed test. Do not implement Round-19 scoring/remediation, Provider Web productization, V1.5 or V2 until those results are reviewed and a new round is approved.
+**Next step.** V1 closure audit only: verify the shipping Web/CLI/report/history story, migration and score semantics end-to-end before any release claim. A trusted research credential is still required for Round-18 calibration/selection; sealed test remains unconsumed. Do not productize Provider/OpenRouter or start V1.5/V2 as part of closure.
 
-**What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates.
+**What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates.
 
-**Deliberately absent.** No real-model quality result, user-facing 0–100 score, review-confidence grade, automatic remediation/PatchSet apply, or Web Provider-config surface. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake.
+**Deliberately absent.** No real-model quality result, automatic remediation/PatchSet apply, or Web Provider-config surface. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
 
 ## Round history (append-only)
 
-## Round 18 (2026-07-21) → implementation commit pending
+## Round 19 (2026-07-21) → implementation commit pending
+
+- Added deterministic score policy v1.0.0. Numeric 0–100 score exists only
+  with sufficient deterministic Coverage; Critical/High/Medium/Low impose
+  hard 39/59/79/99 ceilings. Every deduction maps through the standards
+  detector map to unified risk ids; unknown mappings make scoring unavailable.
+- Root-cause duplicate deductions diminish at 100/50/25/0 percent using
+  `riskId + subjectKey`; distinct roots in the same risk retain full weight.
+  Arithmetic, policy version, evaluated layers, deduction layers and caps are
+  exposed. Models, artifacts and dispositions cannot set or alter the score.
+- Added a separate B–D review-confidence policy. Static-only sufficient runs
+  are normally C; successful controlled semantic runs may reach B; requested
+  semantic failure or deterministic Coverage failure is D. A is deliberately
+  unreachable while V1.5/V2 and evaluated detection breadth are absent.
+- Added controlled remediation records tied to existing Finding/Evidence ids,
+  with catalog actions and deterministic same-scope re-review checks. Apply
+  mode is always `proposal_only`; no user file is modified.
+- JSON, single-file escaped/CSP HTML and no-innerHTML Web UI now show score or
+  “暂不评分”, confidence limits, deduction arithmetic and remediation checks.
+  Existing verdict/headline/exit-code semantics remain unchanged.
+- History schema v2 stores the allowlisted score/confidence projection created
+  at review time. Schema-v1 remains readable and is never backfilled. Score
+  comparison requires available scores, sufficient Coverage, same policy and
+  identical evaluated layers; five-state Finding diff remains authoritative.
+  Dispositions stay advisory and never rewrite raw score or severity.
+- Machine gate now proves safe=100 only as completed-scope arithmetic,
+  High/Critical <=59, Coverage gaps unavailable, and confidence not A.
+- Full suite: 427 passed, 0 skipped. Round 18 landed as `6cacd83`; GitHub CI #14
+  succeeded. No real model was called and sealed test remains unconsumed.
+
+## Round 18 (2026-07-21) → implementation commit `6cacd83`
 
 - Added a strict 42-case synthetic semantic quality protocol: 14 calibration,
   14 selection and 14 sealed-test cases. Every split independently contains

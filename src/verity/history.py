@@ -10,7 +10,8 @@ from typing import Any
 from .baseline import compare
 from .models import Finding, CoverageAssessment, AnalysisPlanItem, ExecutionRecord
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+SUPPORTED_SCHEMA_VERSIONS = {1, 2}
 MAX_PROJECTS = 128
 MAX_VERSIONS = 200
 MAX_RECORD_BYTES = 1024 * 1024
@@ -46,6 +47,42 @@ def _bounded_string(value: Any, *, max_length: int = 512) -> bool:
 
 def _exact_keys(value: Any, keys: set[str]) -> bool:
     return isinstance(value, dict) and set(value) == keys
+
+
+def _validate_score_projection(score: dict) -> None:
+    keys = {"status", "value", "policyId", "policyVersion",
+            "highestSeverity", "deductionTotal", "severityCap",
+            "includedLayers", "evaluatedLayers", "confidenceGrade",
+            "confidencePolicyVersion"}
+    if not _exact_keys(score, keys):
+        raise HistoryError("invalid score projection")
+    if score["status"] not in {"available", "unavailable"}:
+        raise HistoryError("invalid score status")
+    if score["status"] == "available":
+        if (not isinstance(score["value"], int) or isinstance(score["value"], bool)
+                or not 0 <= score["value"] <= 100):
+            raise HistoryError("invalid score value")
+    elif score["value"] is not None:
+        raise HistoryError("unavailable score must have null value")
+    if (not all(_bounded_string(score[k], max_length=120) for k in
+                ("policyId", "policyVersion", "confidenceGrade",
+                 "confidencePolicyVersion"))
+            or score["confidenceGrade"] not in {"A", "B", "C", "D"}):
+        raise HistoryError("invalid score policy/confidence")
+    if score["highestSeverity"] not in {None, "low", "medium", "high", "critical"}:
+        raise HistoryError("invalid score highest severity")
+    for key in ("deductionTotal", "severityCap"):
+        if (score[key] is not None and
+                (not isinstance(score[key], int) or isinstance(score[key], bool)
+                 or score[key] < 0)):
+            raise HistoryError("invalid score arithmetic")
+    if (not isinstance(score["includedLayers"], list)
+            or not isinstance(score["evaluatedLayers"], list)
+            or not set(score["includedLayers"]) <= {"L0_static", "L1_semantic"}
+            or not set(score["evaluatedLayers"]) <= {"L0_static", "L1_semantic"}
+            or (score["status"] == "available"
+                and "L0_static" not in score["evaluatedLayers"])):
+        raise HistoryError("invalid score layers")
 
 
 def _validate_review_projection(obj: dict) -> None:
@@ -135,6 +172,8 @@ def _validate_review_projection(obj: dict) -> None:
         else "coverage_incomplete")
     if obj.get("reviewStatus") != expected_review_status:
         raise HistoryError("invalid review status")
+    if obj.get("schemaVersion") == 2:
+        _validate_score_projection(obj.get("score"))
 
 
 def _strict_load(path: Path) -> dict:
@@ -150,16 +189,18 @@ def _strict_load(path: Path) -> dict:
         obj = json.loads(raw.decode("utf-8"), object_pairs_hook=no_dupes)
     except HistoryError: raise
     except Exception as e: raise HistoryError("corrupt history record") from e
-    if not isinstance(obj, dict) or obj.get("schemaVersion") != SCHEMA_VERSION:
+    if (not isinstance(obj, dict)
+            or obj.get("schemaVersion") not in SUPPORTED_SCHEMA_VERSIONS):
         raise HistoryError("unsupported history schema")
     kind=obj.get("recordType")
     project_keys={"schemaVersion","recordType","artifactId","displayName","alias","createdAt","versionIds"}
     review_keys={"schemaVersion","recordType","artifactId","snapshotId","reviewId","createdAt","engine","profile","scopeId","contentDigest","coverage","plan","executions","findingCounts","findings","reviewStatus"}
+    review_keys_v2 = review_keys | {"score"}
     disposition_keys = {"schemaVersion", "recordType", "fingerprint", "events"}
     if kind == "skillProject":
         expected = project_keys
     elif kind == "skillReview":
-        expected = review_keys
+        expected = review_keys_v2 if obj.get("schemaVersion") == 2 else review_keys
     elif kind == "dispositionHistory":
         expected = disposition_keys
     else:
@@ -272,6 +313,10 @@ def _finding_scope(review, finding) -> list[str]:
 
 def project_review(review, *, profile: str) -> dict:
     """Allowlisted projection: intentionally no bytes/evidence/provider/path/tool details."""
+    from .report import review_to_dict
+    report = review_to_dict(review)
+    score = report["score"]
+    confidence = report["reviewConfidence"]
     counts = {s: 0 for s in ("low","medium","high","critical")}
     findings=[]
     for f in review.findings:
@@ -294,6 +339,17 @@ def project_review(review, *, profile: str) -> dict:
         "executions": [{"planItemId":e.planItemId,"status":e.status} for e in review.executions],
         "findingCounts": counts, "findings": findings,
         "reviewStatus": "complete" if review.coverage.status == "sufficient" else "coverage_incomplete",
+        "score": {
+            "status": score["status"], "value": score["value"],
+            "policyId": score["policyId"], "policyVersion": score["policyVersion"],
+            "highestSeverity": score["highestSeverity"],
+            "deductionTotal": score["deductionTotal"],
+            "severityCap": score["severityCap"],
+            "includedLayers": list(score["includedLayers"]),
+            "evaluatedLayers": list(score["evaluatedLayers"]),
+            "confidenceGrade": confidence["grade"],
+            "confidencePolicyVersion": confidence["policyVersion"],
+        },
     }
 
 
@@ -488,6 +544,39 @@ class HistoryStore:
                 raise HistoryError("version identity mismatch")
             out.append(record)
         return out
+    @staticmethod
+    def _score_comparison(previous: dict, current: dict) -> dict:
+        prev = previous.get("score")
+        cur = current.get("score")
+        if not prev or not cur:
+            return {"status": "not_comparable", "reasonCodes": [
+                "historical_score_unavailable"]}
+        if (previous["coverage"]["status"] != "sufficient"
+                or current["coverage"]["status"] != "sufficient"
+                or prev.get("status") != "available"
+                or cur.get("status") != "available"):
+            return {"status": "not_comparable", "reasonCodes": [
+                "coverage_or_score_unavailable"]}
+        if (prev.get("policyId") != cur.get("policyId")
+                or prev.get("policyVersion") != cur.get("policyVersion")):
+            return {"status": "not_comparable", "reasonCodes": [
+                "score_policy_changed"]}
+        if prev.get("evaluatedLayers") != cur.get("evaluatedLayers"):
+            return {"status": "not_comparable", "reasonCodes": [
+                "evaluated_layers_changed"]}
+        delta = cur["value"] - prev["value"]
+        return {
+            "status": "comparable", "reasonCodes": [],
+            "policyId": cur["policyId"],
+            "policyVersion": cur["policyVersion"],
+            "previous": prev["value"], "current": cur["value"],
+            "delta": delta,
+            "direction": ("improved" if delta > 0 else
+                          "declined" if delta < 0 else "unchanged"),
+            "note": ("Score change is secondary to finding-state diff and "
+                     "does not itself prove remediation."),
+        }
+
     def diff(self, ref, previous_review_id=None, current_review_id=None):
         p=self.resolve(ref); vs=self.versions(p["artifactId"])
         if len(vs)<2: raise HistoryError("two versions required")
@@ -560,5 +649,6 @@ class HistoryStore:
             "currentReviewId": cur["reviewId"],
             "counts": {s: sum(x.state == s for x in recs) for s in states},
             "notedCounts": noted_counts,
+            "scoreComparison": self._score_comparison(prev, cur),
             "changes": changes,
         }

@@ -10,7 +10,9 @@
 > default-OFF controlled semantic-review path** (Evidence →
 > SemanticCandidate → Validator → CandidateAssessment → semantic Finding)
 > with seven controlled semantic risk types, fixed contract replays, and an
-> optional bounded JSON-over-HTTPS Provider adapter.
+> optional bounded JSON-over-HTTPS Provider adapter, plus a deterministic
+> explainable safety score / separate review-confidence grade / controlled
+> remediation-and-re-review projection.
 > Read-only V1. **Not** a sandbox, **not** a runtime evaluator. Semantic
 > calls occur only after explicit opt-in and trusted caller configuration;
 > opting in without complete configuration honestly returns
@@ -50,6 +52,18 @@ standards/taxonomy → corpus/metrics → static breadth → semantic breadth
 → synthetic real-model quality protocol → explainable score/remediation
 → stop before Provider productization or V1.5 without a new decision
 ```
+
+### Score is not a safety guarantee
+
+A numeric 0–100 safety score is shown only when deterministic Coverage is
+sufficient. Critical/High/Medium/Low findings cap it at 39/59/79/99, and every
+deduction is traceable to a unified risk id and Finding. `100` means only “no
+deduction in checks that actually completed”, never “100% safe”. Missing or
+failed critical checks produce **no numeric score**. A separate A–D review
+confidence grade lists semantic/profile/breadth/runtime limitations; A is not
+currently reachable because V1.5/V2 and evaluated breadth are absent.
+Remediation is proposal-only and must pass a same-scope re-review. Advisory
+`accept_risk`/`false_positive` dispositions never rewrite severity or raw score.
 
 **V1 is strictly read-only.** It does NOT execute the skill under review,
 install its dependencies, start unknown services, call into review-target

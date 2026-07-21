@@ -496,6 +496,35 @@ def check_semantic_quality_protocol(rep: VerifyReport) -> None:
         f"{checked} synthetic eligible cases; splits={counts}; no model called")
 
 
+def check_scoring_policy(rep: VerifyReport) -> None:
+    """Smoke-test user-facing score invariants independently of UI tests."""
+    try:
+        sys.path.insert(0, str(REPO / "src"))
+        from verity.intake import intake_text
+        from verity.report import review_to_dict
+        from verity.review import ReviewInputs, run_review
+        from verity.scoring import POLICY_VERSION, compute_score
+        snap, data = intake_text("Summarize this text.")
+        safe = review_to_dict(run_review(ReviewInputs("prompt", snap, data)))
+        snap, data = intake_text(
+            'permissions: ["*"]', prompt_kind="system_prompt")
+        high = review_to_dict(run_review(ReviewInputs("prompt", snap, data)))
+        unavailable = compute_score({"coverage": {"status": "insufficient"},
+                                     "findings": [], "ruleMatches": []})
+        if (safe["score"]["value"] != 100
+                or safe["reviewConfidence"]["grade"] == "A"
+                or high["score"]["highestSeverity"] not in {"high", "critical"}
+                or high["score"]["value"] > 59
+                or unavailable["status"] != "unavailable"
+                or unavailable["value"] is not None):
+            raise ValueError("score invariant mismatch")
+    except Exception as exc:
+        rep.append_fail("scoring_policy", str(exc)[:500])
+        return
+    rep.append_ok("scoring_policy",
+                  f"policy={POLICY_VERSION}; safe=100; high<=59; gaps=unavailable")
+
+
 def check_working_tree_clean(rep: VerifyReport) -> None:
     proc = _git("status", "--porcelain")
     if proc.returncode != 0:
@@ -544,6 +573,7 @@ def run_all(*, require_clean: bool = False,
     check_detection_standards(rep)
     check_corpus_baselines(rep)
     check_semantic_quality_protocol(rep)
+    check_scoring_policy(rep)
     if require_clean:
         check_working_tree_clean(rep)
     if not skip_tests:

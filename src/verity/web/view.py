@@ -206,6 +206,9 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
             ],
         }
     capabilities = review_dict.get("capabilities") or {}
+    score = review_dict.get("score") or {"status": "unavailable", "value": None}
+    confidence = review_dict.get("reviewConfidence") or {}
+    remediations = review_dict.get("remediations") or []
     return {
         "reviewId": review_id,
         "engine": review_dict.get("engine"),
@@ -216,6 +219,37 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
             "reasonCodes": coverage_reason_codes,
         },
         "counts": counts,
+        "score": {
+            "status": score.get("status"), "value": score.get("value"),
+            "policyVersion": score.get("policyVersion"),
+            "highestSeverity": score.get("highestSeverity"),
+            "severityCap": score.get("severityCap"),
+            "reasonCodes": score.get("reasonCodes") or [],
+            "includedLayers": score.get("includedLayers") or [],
+            "evaluatedLayers": score.get("evaluatedLayers") or [],
+            "deductions": [
+                {"findingId": x.get("findingId"),
+                 "riskIds": x.get("riskIds") or [],
+                 "severity": x.get("severity"), "points": x.get("points"),
+                 "factorPercent": x.get("factorPercent")}
+                for x in (score.get("deductions") or [])
+            ],
+        },
+        "reviewConfidence": {
+            "grade": confidence.get("grade", "D"),
+            "policyVersion": confidence.get("policyVersion"),
+            "limitations": confidence.get("limitations") or [],
+            "note": confidence.get("note") or "",
+        },
+        "remediations": [
+            {"remediationId": x.get("remediationId"),
+             "findingId": x.get("findingId"), "severity": x.get("severity"),
+             "riskIds": x.get("riskIds") or [], "priority": x.get("priority"),
+             "title": x.get("title"), "actions": x.get("actions") or [],
+             "verificationChecks": x.get("verificationChecks") or [],
+             "applyMode": x.get("applyMode")}
+            for x in remediations
+        ],
         "nextSteps": next_steps,
         "findings": findings,
         "blocked": _blocked_view(review_dict),

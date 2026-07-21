@@ -1,40 +1,45 @@
-# No active implementation round — real-model result and maintainer decision required
+# Round 20 — V1 closure audit (no release claim yet)
 
-Round 18 implemented the synthetic real-model semantic quality protocol, but no
-trusted research credential was present. Therefore:
+## Status
 
-- no real external model was called;
-- no real `modelQualityMeasured=true` report exists;
-- sealed test protocol v1 has **not** been consumed;
-- fixed contract replay remains `modelQualityMeasured=false`.
+Approved under continuing-execution authorization, but implementation starts
+only after Round 19 is committed, pushed and green on CI.
 
-## Allowed next action without a code round
+## Goal
 
-The maintainer may intentionally provide a trusted API credential through a
-named environment variable and approve a local research run. Run calibration
-first, then selection. Freeze the role prompts, model ids, temperature, egress
-policy, repetition count and budgets before asking whether to consume sealed
-test. Real reports stay local under gitignored `.verity-data/model-evals/` and
-must be reviewed before any capability or release claim changes.
+Independently verify that the current V1 shipping story is coherent for a
+non-engineer across Web, CLI, JSON, HTML, SARIF, project history, score,
+confidence, remediation and failure states. Fix closure blockers only; do not
+add a new detection layer or call V1 “production complete” without evidence.
 
-## Proposed Round 19 — not approved, do not implement
+## In scope
 
-Explainable score and remediation/re-review loop:
+- end-to-end acceptance cases for Prompt and Skill: safe, findings, Coverage
+  failure, score unavailable, score cap, remediation, downloads and history;
+- schema-v1/v2 history compatibility and startup/migration failure messages;
+- report projection/schema/documentation consistency for Round-19 fields;
+- Web-first plain-language review, accessibility and no-JavaScript-injection
+  invariants;
+- CLI/Web exit/gate parity and explicit semantic-not-configured behavior;
+- packaging/install/start-local preflight and public-repo hygiene;
+- produce a V1 closure checklist with pass/fail/deferred facts and decide
+  honestly whether V1 can be labelled release candidate.
 
-- one severity-capped 0–100 safety score only for checks actually completed;
-- a separate review-confidence/coverage grade so missing checks never look safe;
-- every deduction traceable to risk id, root cause and unresolved disposition;
-- controlled remediation proposals (`append`, `insert_after`, `replace`,
-  `delete`) tied to Evidence and never auto-applied;
-- re-review proves resolved/new/persistent/unknown status and refuses score
-  comparison when profile, formula version or relevant coverage differs;
-- no Critical/High finding can be averaged away by many passing checks.
+## Out of scope
 
-This proposal borrows validation-gate and multidimensional-reporting principles
-from SkillOpt, GameWorld, VideoGameQA-Bench, DSGBench, TALES and related public
-benchmarks. Those projects are method references only, not dependencies or
-security evidence.
+- external real-model call without supplied credential;
+- sealed-test consumption;
+- Web Provider/OpenRouter settings;
+- new scanner/tool integration or detection breadth promotion;
+- automatic file modification;
+- V1.5 black-box or V2 sandbox.
 
-Do **not** start Round 19, Provider/OpenRouter Web productization, default
-semantic enablement, V1 closure, V1.5 Prompt black-box execution, or V2 Skill
-sandbox execution without a new maintainer-approved plan.
+## Acceptance
+
+- all closure checklist items are machine or test evidenced;
+- no capability wording contradicts runtime or standards breadth;
+- score/confidence/remediation parity holds across JSON/HTML/Web/history;
+- legacy history fails safe and remains readable;
+- pytest, clean verify_repo and GitHub CI pass;
+- closure result is one of `release_candidate` or `not_ready` with explicit
+  blockers; no ambiguous “mostly done”.

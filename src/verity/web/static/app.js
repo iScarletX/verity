@@ -39,11 +39,27 @@
   function loadProject() {
     api("/api/projects/"+encodeURIComponent(selectedProject)).then(function(data){
       $("project-page").hidden=false; $("project-title").textContent=data.project.displayName;
-      var h=$("project-history"); h.textContent=""; data.versions.forEach(function(v){ h.appendChild(mk("p",{text:v.createdAt+" · "+v.contentDigest.slice(0,12)+" · Coverage "+v.coverage.status+" · "+Object.values(v.findingCounts).reduce(function(a,b){return a+b;},0)+" 个问题"})); });
+      var h=$("project-history"); h.textContent=""; data.versions.forEach(function(v){
+        var scoreText=(v.score && v.score.status==="available")
+          ? " · 安全分 "+v.score.value+"（可信度 "+v.score.confidenceGrade+"）"
+          : " · 安全分不可用";
+        h.appendChild(mk("p",{text:v.createdAt+" · "+v.contentDigest.slice(0,12)
+          +" · Coverage "+v.coverage.status+scoreText+" · "
+          +Object.values(v.findingCounts).reduce(function(a,b){return a+b;},0)+" 个问题"}));
+      });
       var diffBox=$("project-diff"); diffBox.textContent="";
       if(data.versions.length>1) api("/api/projects/"+encodeURIComponent(selectedProject)+"/diff").then(function(x){
         var d=x.diff; diffBox.appendChild(mk("h4",{text:"与上一版本相比"}));
         diffBox.appendChild(mk("p",{text:"新增 "+d.counts.new+"，持续 "+d.counts.existing+"，变化 "+d.counts.changed+"，已解决 "+d.counts.resolved+"，因覆盖不足无法确认 "+d.counts.unknown_due_to_coverage}));
+        var sc=d.scoreComparison||{status:"not_comparable",reasonCodes:["missing"]};
+        if(sc.status==="comparable"){
+          var direction={improved:"提高",declined:"下降",unchanged:"不变"}[sc.direction]||sc.direction;
+          diffBox.appendChild(mk("p",{text:"安全分："+sc.previous+" → "+sc.current
+            +"（"+direction+" "+(sc.delta>0?"+":"")+sc.delta+"）。分数变化不能替代上方问题状态。"}));
+        } else {
+          diffBox.appendChild(mk("p",{className:"muted",text:
+            "安全分不可比较："+(sc.reasonCodes||[]).join(", ")}));
+        }
         if(d.notedCounts && Object.values(d.notedCounts).some(function(v){return v>0;})){
           var nc=d.notedCounts;
           diffBox.appendChild(mk("p",{className:"muted",text:"已标注：确认 "+nc.acknowledged+"，接受风险 "+nc.accept_risk+"，误报 "+nc.false_positive+"，不修复 "+nc.wont_fix}));
@@ -261,6 +277,62 @@
       });
       ns.appendChild(ol);
     }
+
+    // Explainable score and separate review confidence.
+    var score = view.score || {status:"unavailable",value:null};
+    $("safety-score").textContent = score.status === "available"
+      ? String(score.value) + " / 100"
+      : "暂不评分";
+    var confidence = view.reviewConfidence || {grade:"D",limitations:[]};
+    $("review-confidence").textContent = confidence.grade
+      + "（查看已知限制）";
+    var scoreDetail = $("score-detail"); scoreDetail.textContent = "";
+    scoreDetail.appendChild(mk("h3",{text:"评分依据"}));
+    if(score.status !== "available"){
+      scoreDetail.appendChild(mk("p",{className:"warn",text:
+        "关键检查未完整完成或评分映射不完整，因此本次不显示数字分。原因："
+        + ((score.reasonCodes||[]).join(", ")||"unknown")}));
+    } else {
+      scoreDetail.appendChild(mk("p",{text:
+        "评分政策 v"+(score.policyVersion||"")+"；实际评估层："
+        + ((score.evaluatedLayers||[]).join(", ")||"未知")
+        +"；产生扣分层："+((score.includedLayers||[]).join(", ")||"无")
+        + (score.highestSeverity ? "；最高严重度："+score.highestSeverity
+          +"；分数上限："+score.severityCap : "")}));
+      var deductions=(score.deductions||[]).filter(function(x){return x.points>0;});
+      if(deductions.length){
+        var ul=mk("ul"); deductions.forEach(function(x){
+          ul.appendChild(mk("li",{text:"扣 "+x.points+" 分 · "
+            +(x.riskIds||[]).join(", ")+" · "+x.severity
+            +(x.factorPercent<100?"（同类重复，按 "+x.factorPercent+"% 递减）":"")}));
+        }); scoreDetail.appendChild(ul);
+      } else scoreDetail.appendChild(mk("p",{className:"muted",text:
+        "本次已完成检查未产生扣分；不代表未实现或未启用的检查也安全。"}));
+    }
+    if(confidence.limitations && confidence.limitations.length){
+      var cd=mk("details"); cd.appendChild(mk("summary",{text:"审查可信度限制"}));
+      confidence.limitations.forEach(function(x){cd.appendChild(mk("div",{text:x}));});
+      scoreDetail.appendChild(cd);
+    }
+
+    // Controlled remediation plan; proposal only, never auto-applied.
+    var remEl=$("remediations"); remEl.textContent="";
+    var rems=view.remediations||[];
+    remEl.appendChild(mk("h3",{text:"整改与复查（"+rems.length+"）"}));
+    if(!rems.length) remEl.appendChild(mk("p",{className:"muted",text:
+      "当前没有受控整改项；仍需结合审查可信度判断。"}));
+    rems.forEach(function(rem){
+      var item=mk("details");
+      item.appendChild(mk("summary",{text:(rem.priority||"P1")+" · "+rem.title}));
+      var actions=mk("ol"); (rem.actions||[]).forEach(function(x){
+        actions.appendChild(mk("li",{text:x})); }); item.appendChild(actions);
+      item.appendChild(mk("strong",{text:"改完后这样验证："}));
+      var checks=mk("ul"); (rem.verificationChecks||[]).forEach(function(x){
+        checks.appendChild(mk("li",{text:x.label})); }); item.appendChild(checks);
+      item.appendChild(mk("p",{className:"muted",text:
+        "仅提供修改建议，不会自动改写文件。风险："+(rem.riskIds||[]).join(", ")}));
+      remEl.appendChild(item);
+    });
 
     // Coverage card
     var covText = view.coverage.status === "sufficient"

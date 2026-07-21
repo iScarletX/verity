@@ -101,10 +101,15 @@
     <div id="headline" class="headline"></div>
     <div id="next-steps" class="next-steps"></div>
     <div class="cards">
+      <div class="card"><h3>安全分</h3><p id="safety-score"></p></div>
+      <div class="card"><h3>审查可信度</h3><p id="review-confidence"></p></div>
       <div class="card"><h3>Coverage</h3><p id="coverage"></p></div>
       <div class="card"><h3>问题数量</h3><p id="counts"></p></div>
       <div class="card"><h3>Secret 扫描</h3><p id="secret-status"></p></div>
     </div>
+    <p class="muted">安全分只评价本次实际完成的检查；审查可信度单独说明未覆盖能力。二者都不是安全保证。</p>
+    <div id="score-detail" class="section"></div>
+    <div id="remediations" class="section"></div>
     <div id="findings" class="section"></div>
     <div id="blocked" class="section"></div>
     <div id="analyzers" class="section"></div>
