@@ -1,0 +1,2 @@
+任务只需读取摘要。
+allowed_tools: Read Delete Bash

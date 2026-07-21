@@ -1,16 +1,41 @@
 {
   "schemaVersion": 1,
-  "coverageScale": ["none", "signal", "partial", "substantial", "evaluated"],
+  "coverageScale": [
+    "none",
+    "signal",
+    "partial",
+    "substantial",
+    "evaluated"
+  ],
   "risks": [
     {
       "riskId": "VR-PROMPT-001",
       "title": "Instruction injection and priority override",
-      "scopes": ["prompt", "system_prompt"],
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
       "definition": "Untrusted or lower-priority text can be interpreted as instructions that override the intended instruction hierarchy.",
       "sourceRefs": [
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM01"]},
-        {"sourceId": "MITRE-ATLAS", "controlIds": ["LLM-PROMPT-INJECTION", "LLM-JAILBREAK"]},
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-GOAL-HIJACKING"]}
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM01"
+          ]
+        },
+        {
+          "sourceId": "MITRE-ATLAS",
+          "controlIds": [
+            "LLM-PROMPT-INJECTION",
+            "LLM-JAILBREAK"
+          ]
+        },
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-GOAL-HIJACKING"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May identify explicit override markers and obfuscating control characters; cannot prove model compliance.",
@@ -18,14 +43,26 @@
         "V1_5_blackbox": "May report observed bypass under a versioned attack set and model configuration.",
         "V2_sandbox": "Not generally applicable to prompt-only behavior."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No trust-boundary parser", "No indirect-injection corpus", "No behavioral attack runner"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No trust-boundary parser",
+        "No indirect-injection corpus",
+        "No behavioral attack runner"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-PROMPT-002",
       "title": "Incomplete or unresolved prompt template",
-      "scopes": ["prompt", "system_prompt"],
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
       "definition": "A prompt is empty or retains unresolved template placeholders, preventing the intended contract from being instantiated.",
       "sourceRefs": [],
       "verityOriginalRationale": "Prompt build-integrity risk needed for deterministic preflight; not represented as a security vulnerability by the selected external taxonomies.",
@@ -35,19 +72,47 @@
         "V1_5_blackbox": "May observe unusable or unstable outputs caused by missing context.",
         "V2_sandbox": "Not applicable."
       },
-      "currentCoverage": {"L0_static": "partial", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No prompt-template dialect registry", "No variable definition/use graph"],
+      "currentCoverage": {
+        "L0_static": "partial",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No prompt-template dialect registry",
+        "No variable definition/use graph"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-PROMPT-003",
       "title": "Sensitive information embedded in prompts",
-      "scopes": ["prompt", "system_prompt"],
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
       "definition": "Credentials, secrets, personal data, or other sensitive values are embedded in prompt material exposed to models or users.",
       "sourceRefs": [
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM02", "LLM07"]},
-        {"sourceId": "NIST-AI-600-1", "controlIds": ["DATA-PRIVACY", "INFORMATION-SECURITY"]},
-        {"sourceId": "MITRE-ATLAS", "controlIds": ["LLM-DATA-LEAKAGE"]}
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM02",
+            "LLM07"
+          ]
+        },
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "DATA-PRIVACY",
+            "INFORMATION-SECURITY"
+          ]
+        },
+        {
+          "sourceId": "MITRE-ATLAS",
+          "controlIds": [
+            "LLM-DATA-LEAKAGE"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May identify supported secret patterns and sensitive markers; cannot determine all contextual sensitivity.",
@@ -55,17 +120,35 @@
         "V1_5_blackbox": "May test whether supplied secrets can be extracted from a target model context.",
         "V2_sandbox": "Not applicable to prompt-only review."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Prompt path only recognizes a synthetic fixture token", "No PII taxonomy", "No extraction tests"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Prompt path only recognizes a synthetic fixture token",
+        "No PII taxonomy",
+        "No extraction tests"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-PROMPT-004",
       "title": "Contradictory instructions or assignments",
-      "scopes": ["prompt", "system_prompt"],
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
       "definition": "Instructions, constraints, examples, or assigned values cannot be satisfied together without violating part of the prompt.",
       "sourceRefs": [
-        {"sourceId": "NIST-AI-600-1", "controlIds": ["INFORMATION-INTEGRITY", "HUMAN-AI-CONFIGURATION"]}
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "INFORMATION-INTEGRITY",
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May prove narrowly structured conflicting assignments.",
@@ -73,18 +156,41 @@
         "V1_5_blackbox": "May measure unstable behavior caused by conflicts.",
         "V2_sandbox": "Not applicable."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "signal", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Semantic extractor compares only adjacent non-empty lines", "No cross-section constraint graph", "No corpus metrics"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Semantic extractor compares only adjacent non-empty lines",
+        "No cross-section constraint graph",
+        "No corpus metrics"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-PROMPT-005",
       "title": "Hidden or deceptive text encoding",
-      "scopes": ["prompt", "system_prompt", "skill"],
+      "scopes": [
+        "prompt",
+        "system_prompt",
+        "skill"
+      ],
       "definition": "Control characters, bidirectional overrides, invisible text, or encoding tricks obscure the effective instructions from reviewers.",
       "sourceRefs": [
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM01"]},
-        {"sourceId": "MITRE-ATLAS", "controlIds": ["LLM-PROMPT-INJECTION"]}
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM01"
+          ]
+        },
+        {
+          "sourceId": "MITRE-ATLAS",
+          "controlIds": [
+            "LLM-PROMPT-INJECTION"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May prove the presence of supported control and bidirectional characters.",
@@ -92,17 +198,35 @@
         "V1_5_blackbox": "May test whether encoded instructions alter behavior.",
         "V2_sandbox": "May observe decoded runtime artifacts for Skills."
       },
-      "currentCoverage": {"L0_static": "partial", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No homoglyph/confusable analysis", "No broad invisible Unicode classification", "No encoded payload recursion"],
+      "currentCoverage": {
+        "L0_static": "partial",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No homoglyph/confusable analysis",
+        "No broad invisible Unicode classification",
+        "No encoded payload recursion"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-PROMPT-006",
       "title": "Missing or ambiguous output contract",
-      "scopes": ["prompt", "system_prompt"],
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
       "definition": "A prompt requests structured or constrained output without defining sufficient fields, schema, validation, or failure behavior.",
       "sourceRefs": [
-        {"sourceId": "NIST-AI-600-1", "controlIds": ["INFORMATION-INTEGRITY", "HUMAN-AI-CONFIGURATION"]}
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "INFORMATION-INTEGRITY",
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May parse declared output schemas and prove structural inconsistencies when a supported contract exists.",
@@ -110,19 +234,48 @@
         "V1_5_blackbox": "May measure schema adherence and failure handling.",
         "V2_sandbox": "Not applicable."
       },
-      "currentCoverage": {"L0_static": "none", "L1_semantic": "signal", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Trigger-based extractor only", "No contract model implementation", "No schema-adherence evaluation"],
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Trigger-based extractor only",
+        "No contract model implementation",
+        "No schema-adherence evaluation"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-PROMPT-007",
       "title": "Excessive tool authorization",
-      "scopes": ["system_prompt", "skill", "agent_config"],
+      "scopes": [
+        "system_prompt",
+        "skill",
+        "agent_config"
+      ],
       "definition": "Tool or capability authorization is broader than the task requires or uses open-ended wildcard grants.",
       "sourceRefs": [
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM06"]},
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-TOOL-MISUSE", "THREAT-IDENTITY-PRIVILEGE-ABUSE"]},
-        {"sourceId": "MCP-SECURITY-2025-11-25", "controlIds": ["SCOPE-MINIMIZATION"]}
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM06"
+          ]
+        },
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-TOOL-MISUSE",
+            "THREAT-IDENTITY-PRIVILEGE-ABUSE"
+          ]
+        },
+        {
+          "sourceId": "MCP-SECURITY-2025-11-25",
+          "controlIds": [
+            "SCOPE-MINIMIZATION"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May prove supported wildcard grants and compare structured declarations.",
@@ -130,19 +283,50 @@
         "V1_5_blackbox": "May test whether a prompt induces unauthorized tool requests.",
         "V2_sandbox": "May observe actual attempted capability use under policy."
       },
-      "currentCoverage": {"L0_static": "partial", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Only strict wildcard forms", "No task-to-capability necessity model", "No MCP scope analysis"],
+      "currentCoverage": {
+        "L0_static": "partial",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Only strict wildcard forms",
+        "No task-to-capability necessity model",
+        "No MCP scope analysis",
+        "No real-model semantic corpus metrics"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-PROMPT-008",
       "title": "Untrusted content boundary is undefined",
-      "scopes": ["prompt", "system_prompt", "skill"],
+      "scopes": [
+        "prompt",
+        "system_prompt",
+        "skill"
+      ],
       "definition": "External, retrieved, tool-produced, or user-supplied data is not clearly separated from trusted instructions.",
       "sourceRefs": [
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM01"]},
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-GOAL-HIJACKING", "THREAT-MEMORY-CONTEXT-POISONING"]},
-        {"sourceId": "MITRE-ATLAS", "controlIds": ["AI-AGENT-CONTEXT-POISONING", "AI-AGENT-TOOL-POISONING"]}
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM01"
+          ]
+        },
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-GOAL-HIJACKING",
+            "THREAT-MEMORY-CONTEXT-POISONING"
+          ]
+        },
+        {
+          "sourceId": "MITRE-ATLAS",
+          "controlIds": [
+            "AI-AGENT-CONTEXT-POISONING",
+            "AI-AGENT-TOOL-POISONING"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May detect declared external sources and missing supported delimiters but cannot prove model interpretation.",
@@ -150,18 +334,42 @@
         "V1_5_blackbox": "May inject controlled content through each trust boundary and observe behavior.",
         "V2_sandbox": "May observe how a Skill propagates retrieved content into tools and prompts."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No trust-source model", "No delimiter or provenance graph", "No indirect-injection execution"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No trust-source model",
+        "No delimiter or provenance graph",
+        "No indirect-injection execution",
+        "No real-model semantic corpus metrics"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-PROMPT-009",
       "title": "Confabulation and unverifiable claims",
-      "scopes": ["prompt", "system_prompt"],
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
       "definition": "A prompt encourages factual or consequential claims without requiring sources, uncertainty, or verification appropriate to the use case.",
       "sourceRefs": [
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM09"]},
-        {"sourceId": "NIST-AI-600-1", "controlIds": ["CONFABULATION", "INFORMATION-INTEGRITY"]}
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM09"
+          ]
+        },
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "CONFABULATION",
+            "INFORMATION-INTEGRITY"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "Can identify only explicit absence/presence of supported verification clauses; absence alone is not proof of unsafe behavior.",
@@ -169,17 +377,37 @@
         "V1_5_blackbox": "May measure unsupported claims against a controlled factual set.",
         "V2_sandbox": "Not applicable."
       },
-      "currentCoverage": {"L0_static": "none", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No consequential-domain classification", "No grounding contract", "No factuality evaluation"],
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No consequential-domain classification",
+        "No grounding contract",
+        "No factuality evaluation"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-001",
       "title": "Skill package and manifest specification nonconformance",
-      "scopes": ["skill"],
+      "scopes": [
+        "skill"
+      ],
       "definition": "The Skill lacks required structure or its SKILL.md frontmatter violates the supported Agent Skills specification.",
       "sourceRefs": [
-        {"sourceId": "AGENT-SKILLS-SPEC", "controlIds": ["DIRECTORY-STRUCTURE", "SKILL-MD", "NAME", "DESCRIPTION", "VALIDATION"]}
+        {
+          "sourceId": "AGENT-SKILLS-SPEC",
+          "controlIds": [
+            "DIRECTORY-STRUCTURE",
+            "SKILL-MD",
+            "NAME",
+            "DESCRIPTION",
+            "VALIDATION"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May prove supported structural and schema violations against a named specification version.",
@@ -187,18 +415,41 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May observe compatibility failures but not redefine specification conformance."
       },
-      "currentCoverage": {"L0_static": "partial", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Current name syntax is looser than the official specification", "No parent-directory name match", "No license/compatibility/metadata validation", "No explicit supported spec version"],
+      "currentCoverage": {
+        "L0_static": "partial",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Current name syntax is looser than the official specification",
+        "No parent-directory name match",
+        "No license/compatibility/metadata validation",
+        "No explicit supported spec version"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-002",
       "title": "Unsafe or broken local resource references",
-      "scopes": ["skill"],
+      "scopes": [
+        "skill"
+      ],
       "definition": "A Skill references absent resources, escapes the package root, uses unsafe path forms, or creates ambiguous reference resolution.",
       "sourceRefs": [
-        {"sourceId": "AGENT-SKILLS-SPEC", "controlIds": ["FILE-REFERENCES", "DIRECTORY-STRUCTURE"]},
-        {"sourceId": "CWE-4.20", "controlIds": ["CWE-22"]}
+        {
+          "sourceId": "AGENT-SKILLS-SPEC",
+          "controlIds": [
+            "FILE-REFERENCES",
+            "DIRECTORY-STRUCTURE"
+          ]
+        },
+        {
+          "sourceId": "CWE-4.20",
+          "controlIds": [
+            "CWE-22"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May prove missing files and supported unsafe path forms within the immutable snapshot.",
@@ -206,21 +457,63 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May observe attempted path access under containment."
       },
-      "currentCoverage": {"L0_static": "partial", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No Markdown-body reference graph", "No deeply nested reference-chain policy", "No platform-specific path equivalence matrix"],
+      "currentCoverage": {
+        "L0_static": "partial",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No Markdown-body reference graph",
+        "No deeply nested reference-chain policy",
+        "No platform-specific path equivalence matrix"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-003",
       "title": "Dependency drift, known vulnerabilities, or unverifiable provenance",
-      "scopes": ["skill", "supply_chain"],
+      "scopes": [
+        "skill",
+        "supply_chain"
+      ],
       "definition": "Dependencies or packaged artifacts are floating, vulnerable, untrusted, or lack verifiable source/build provenance.",
       "sourceRefs": [
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM03"]},
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-AGENT-SUPPLY-CHAIN"]},
-        {"sourceId": "SLSA-1.2", "controlIds": ["BUILD-TRACK", "SOURCE-TRACK", "PROVENANCE"]},
-        {"sourceId": "OPENSSF-SCORECARD", "controlIds": ["VULNERABILITIES", "PINNED-DEPENDENCIES", "SIGNED-RELEASES"]},
-        {"sourceId": "OSV-SCANNER-DOCS", "controlIds": ["DEPENDENCY-VULNERABILITY-SCANNING", "OSV-DATABASE"]}
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM03"
+          ]
+        },
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-AGENT-SUPPLY-CHAIN"
+          ]
+        },
+        {
+          "sourceId": "SLSA-1.2",
+          "controlIds": [
+            "BUILD-TRACK",
+            "SOURCE-TRACK",
+            "PROVENANCE"
+          ]
+        },
+        {
+          "sourceId": "OPENSSF-SCORECARD",
+          "controlIds": [
+            "VULNERABILITIES",
+            "PINNED-DEPENDENCIES",
+            "SIGNED-RELEASES"
+          ]
+        },
+        {
+          "sourceId": "OSV-SCANNER-DOCS",
+          "controlIds": [
+            "DEPENDENCY-VULNERABILITY-SCANNING",
+            "OSV-DATABASE"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May prove declared versions are unpinned and inspect lock/provenance artifacts; known-vulnerability claims require a trusted database snapshot.",
@@ -228,19 +521,50 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May observe installation/runtime behavior but cannot prove supply-chain provenance alone."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No ecosystem-specific manifest/lock parser", "No OSV integration", "No provenance or signature verification", "No repository posture assessment"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No ecosystem-specific manifest/lock parser",
+        "No OSV integration",
+        "No provenance or signature verification",
+        "No repository posture assessment"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-004",
       "title": "Overbroad declared permissions or capabilities",
-      "scopes": ["skill", "agent_config", "mcp"],
+      "scopes": [
+        "skill",
+        "agent_config",
+        "mcp"
+      ],
       "definition": "Declared file, process, network, credential, or tool capabilities exceed the least privilege needed for stated behavior.",
       "sourceRefs": [
-        {"sourceId": "AGENT-SKILLS-SPEC", "controlIds": ["ALLOWED-TOOLS", "COMPATIBILITY"]},
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-TOOL-MISUSE", "THREAT-IDENTITY-PRIVILEGE-ABUSE"]},
-        {"sourceId": "MCP-SECURITY-2025-11-25", "controlIds": ["SCOPE-MINIMIZATION"]}
+        {
+          "sourceId": "AGENT-SKILLS-SPEC",
+          "controlIds": [
+            "ALLOWED-TOOLS",
+            "COMPATIBILITY"
+          ]
+        },
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-TOOL-MISUSE",
+            "THREAT-IDENTITY-PRIVILEGE-ABUSE"
+          ]
+        },
+        {
+          "sourceId": "MCP-SECURITY-2025-11-25",
+          "controlIds": [
+            "SCOPE-MINIMIZATION"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May prove wildcard grants and compare normalized declarations to observed static capability facts.",
@@ -248,20 +572,57 @@
         "V1_5_blackbox": "Not applicable to Skill execution.",
         "V2_sandbox": "May observe attempted capabilities and policy denials."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Only wildcard declarations", "No normalized capability vocabulary", "No declaration-to-code capability graph", "allowed-tools syntax not fully parsed"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Only wildcard declarations",
+        "No normalized capability vocabulary",
+        "No declaration-to-code capability graph",
+        "allowed-tools syntax not fully parsed",
+        "No real-model semantic corpus metrics"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-005",
       "title": "Untrusted external instructions or tool content",
-      "scopes": ["skill", "mcp", "agent_config"],
+      "scopes": [
+        "skill",
+        "mcp",
+        "agent_config"
+      ],
       "definition": "A Skill or agent fetches external content and treats it as trusted instructions without provenance, validation, or isolation.",
       "sourceRefs": [
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM01"]},
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-GOAL-HIJACKING", "THREAT-MEMORY-CONTEXT-POISONING"]},
-        {"sourceId": "MITRE-ATLAS", "controlIds": ["AI-AGENT-CONTEXT-POISONING", "AI-AGENT-TOOL-POISONING"]},
-        {"sourceId": "MCP-SECURITY-2025-11-25", "controlIds": ["SESSION-HIJACKING"]}
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM01"
+          ]
+        },
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-GOAL-HIJACKING",
+            "THREAT-MEMORY-CONTEXT-POISONING"
+          ]
+        },
+        {
+          "sourceId": "MITRE-ATLAS",
+          "controlIds": [
+            "AI-AGENT-CONTEXT-POISONING",
+            "AI-AGENT-TOOL-POISONING"
+          ]
+        },
+        {
+          "sourceId": "MCP-SECURITY-2025-11-25",
+          "controlIds": [
+            "SESSION-HIJACKING"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May identify explicit runtime-fetch declarations and supported untrusted data flows.",
@@ -269,20 +630,55 @@
         "V1_5_blackbox": "Not applicable to Skill execution.",
         "V2_sandbox": "May inject controlled external/tool content and observe propagation."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Only custom manifest modes are recognized", "No MCP tool-content analysis", "No provenance graph", "No indirect-injection sandbox"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Only custom manifest modes are recognized",
+        "No MCP tool-content analysis",
+        "No provenance graph",
+        "No indirect-injection sandbox",
+        "No real-model semantic corpus metrics"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-006",
       "title": "Dangerous command or dynamic code execution",
-      "scopes": ["skill"],
+      "scopes": [
+        "skill"
+      ],
       "definition": "Skill code constructs or invokes shell commands, interpreters, or dynamic code in a way that may permit unintended execution.",
       "sourceRefs": [
-        {"sourceId": "CWE-4.20", "controlIds": ["CWE-78", "CWE-94"]},
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-UNEXPECTED-CODE-EXECUTION"]},
-        {"sourceId": "MITRE-ATLAS", "controlIds": ["AI-AGENT-TOOL-INVOCATION", "ESCAPE-TO-HOST"]},
-        {"sourceId": "BANDIT-DOCS", "controlIds": ["PYTHON-AST-SECURITY"]}
+        {
+          "sourceId": "CWE-4.20",
+          "controlIds": [
+            "CWE-78",
+            "CWE-94"
+          ]
+        },
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-UNEXPECTED-CODE-EXECUTION"
+          ]
+        },
+        {
+          "sourceId": "MITRE-ATLAS",
+          "controlIds": [
+            "AI-AGENT-TOOL-INVOCATION",
+            "ESCAPE-TO-HOST"
+          ]
+        },
+        {
+          "sourceId": "BANDIT-DOCS",
+          "controlIds": [
+            "PYTHON-AST-SECURITY"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May prove dangerous call forms and, with data-flow analysis, supported attacker-controlled flows; pattern presence alone is not exploitability proof.",
@@ -290,18 +686,40 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May observe attempted process execution under isolation."
       },
-      "currentCoverage": {"L0_static": "partial", "L1_semantic": "signal", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Python-focused", "No taint analysis", "No JavaScript/TypeScript or robust Shell parser", "Legacy text rules are narrow"],
+      "currentCoverage": {
+        "L0_static": "partial",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Python-focused",
+        "No taint analysis",
+        "No JavaScript/TypeScript or robust Shell parser",
+        "Legacy text rules are narrow"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-007",
       "title": "Unsafe deserialization or parser configuration",
-      "scopes": ["skill"],
+      "scopes": [
+        "skill"
+      ],
       "definition": "Skill code deserializes untrusted data using mechanisms that can instantiate objects, execute code, or bypass intended parser safety.",
       "sourceRefs": [
-        {"sourceId": "CWE-4.20", "controlIds": ["CWE-502"]},
-        {"sourceId": "BANDIT-DOCS", "controlIds": ["PYTHON-AST-SECURITY"]}
+        {
+          "sourceId": "CWE-4.20",
+          "controlIds": [
+            "CWE-502"
+          ]
+        },
+        {
+          "sourceId": "BANDIT-DOCS",
+          "controlIds": [
+            "PYTHON-AST-SECURITY"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May identify known unsafe parser/deserializer APIs and supported data flows.",
@@ -309,18 +727,41 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May observe deserialization effects with controlled payloads."
       },
-      "currentCoverage": {"L0_static": "partial", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Only selected Python Bandit checks", "No source-to-sink data flow", "No other-language deserializers"],
+      "currentCoverage": {
+        "L0_static": "partial",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Only selected Python Bandit checks",
+        "No source-to-sink data flow",
+        "No other-language deserializers"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-008",
       "title": "Weak cryptography or transport protection",
-      "scopes": ["skill", "mcp"],
+      "scopes": [
+        "skill",
+        "mcp"
+      ],
       "definition": "Skill code uses obsolete cryptographic primitives or sends protected information over transport lacking required security.",
       "sourceRefs": [
-        {"sourceId": "CWE-4.20", "controlIds": ["CWE-295", "CWE-319"]},
-        {"sourceId": "BANDIT-DOCS", "controlIds": ["PYTHON-AST-SECURITY"]}
+        {
+          "sourceId": "CWE-4.20",
+          "controlIds": [
+            "CWE-295",
+            "CWE-319"
+          ]
+        },
+        {
+          "sourceId": "BANDIT-DOCS",
+          "controlIds": [
+            "PYTHON-AST-SECURITY"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May identify known weak APIs and insecure URL/verification configuration.",
@@ -328,19 +769,47 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May observe connections but cannot prove cryptographic design correctness alone."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Only one selected weak-hash Bandit check", "No TLS verification/transport matrix", "No non-Python coverage"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Only one selected weak-hash Bandit check",
+        "No TLS verification/transport matrix",
+        "No non-Python coverage"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-009",
       "title": "Untrusted network destination and SSRF",
-      "scopes": ["skill", "mcp", "agent_config"],
+      "scopes": [
+        "skill",
+        "mcp",
+        "agent_config"
+      ],
       "definition": "Untrusted input or configuration can cause requests to unintended, internal, local, metadata, or unsafe-scheme destinations.",
       "sourceRefs": [
-        {"sourceId": "CWE-4.20", "controlIds": ["CWE-918"]},
-        {"sourceId": "MCP-SECURITY-2025-11-25", "controlIds": ["SSRF"]},
-        {"sourceId": "BANDIT-DOCS", "controlIds": ["PYTHON-AST-SECURITY"]}
+        {
+          "sourceId": "CWE-4.20",
+          "controlIds": [
+            "CWE-918"
+          ]
+        },
+        {
+          "sourceId": "MCP-SECURITY-2025-11-25",
+          "controlIds": [
+            "SSRF"
+          ]
+        },
+        {
+          "sourceId": "BANDIT-DOCS",
+          "controlIds": [
+            "PYTHON-AST-SECURITY"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May identify risky URL APIs/schemes and supported source-to-request flows.",
@@ -348,19 +817,48 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May observe/deny controlled network attempts and DNS/redirect behavior."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "signal", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Only Bandit B310 signal", "No taint or private-range analysis", "No DNS/redirect model", "No network sandbox"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Only Bandit B310 signal",
+        "No taint or private-range analysis",
+        "No DNS/redirect model",
+        "No network sandbox"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-010",
       "title": "Unsafe output rendering or downstream handling",
-      "scopes": ["skill", "mcp", "agent_config"],
+      "scopes": [
+        "skill",
+        "mcp",
+        "agent_config"
+      ],
       "definition": "Generated, retrieved, or user-controlled output reaches templates, commands, browsers, or tools without context-appropriate validation or escaping.",
       "sourceRefs": [
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM05"]},
-        {"sourceId": "MITRE-ATLAS", "controlIds": ["AI-AGENT-TOOL-INVOCATION"]},
-        {"sourceId": "BANDIT-DOCS", "controlIds": ["PYTHON-AST-SECURITY"]}
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM05"
+          ]
+        },
+        {
+          "sourceId": "MITRE-ATLAS",
+          "controlIds": [
+            "AI-AGENT-TOOL-INVOCATION"
+          ]
+        },
+        {
+          "sourceId": "BANDIT-DOCS",
+          "controlIds": [
+            "PYTHON-AST-SECURITY"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May identify known unsafe sinks/configurations and supported source-to-sink flows.",
@@ -368,20 +866,56 @@
         "V1_5_blackbox": "May generate controlled outputs for downstream safety assertions.",
         "V2_sandbox": "May observe actual rendering/tool effects under isolation."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Only selected Jinja autoescape check", "No general source/sink graph", "No browser or tool-output evaluation"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Only selected Jinja autoescape check",
+        "No general source/sink graph",
+        "No browser or tool-output evaluation"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-011",
       "title": "Hardcoded or exposed credentials",
-      "scopes": ["skill", "agent_config", "mcp"],
+      "scopes": [
+        "skill",
+        "agent_config",
+        "mcp"
+      ],
       "definition": "Credentials, API keys, passwords, or tokens are embedded in or exposed by the Skill package or its configuration.",
       "sourceRefs": [
-        {"sourceId": "CWE-4.20", "controlIds": ["CWE-521", "CWE-798"]},
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM02", "LLM07"]},
-        {"sourceId": "GITLEAKS-DOCS", "controlIds": ["SECRET-DETECTION", "FEATURE-COMPLETE-MAINTENANCE"]},
-        {"sourceId": "MITRE-ATLAS", "controlIds": ["LLM-DATA-LEAKAGE"]}
+        {
+          "sourceId": "CWE-4.20",
+          "controlIds": [
+            "CWE-521",
+            "CWE-798"
+          ]
+        },
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM02",
+            "LLM07"
+          ]
+        },
+        {
+          "sourceId": "GITLEAKS-DOCS",
+          "controlIds": [
+            "SECRET-DETECTION",
+            "FEATURE-COMPLETE-MAINTENANCE"
+          ]
+        },
+        {
+          "sourceId": "MITRE-ATLAS",
+          "controlIds": [
+            "LLM-DATA-LEAKAGE"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May identify supported secret/password patterns with redaction; absence is not proof that no secret exists.",
@@ -389,19 +923,49 @@
         "V1_5_blackbox": "May test extraction only with fake credentials and explicit budget.",
         "V2_sandbox": "May observe access to fake credentials under isolation."
       },
-      "currentCoverage": {"L0_static": "partial", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Pattern-based detection has false positives/negatives", "No contextual credential-flow analysis", "Gitleaks upstream is feature-complete/security-fix maintenance", "No runtime fake-credential observation"],
+      "currentCoverage": {
+        "L0_static": "partial",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Pattern-based detection has false positives/negatives",
+        "No contextual credential-flow analysis",
+        "Gitleaks upstream is feature-complete/security-fix maintenance",
+        "No runtime fake-credential observation"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-012",
       "title": "Declared behavior differs from implementation",
-      "scopes": ["skill"],
+      "scopes": [
+        "skill"
+      ],
       "definition": "Manifest description, compatibility, permissions, or instructions materially understate, overstate, or conflict with statically observed implementation capabilities.",
       "sourceRefs": [
-        {"sourceId": "AGENT-SKILLS-SPEC", "controlIds": ["DESCRIPTION", "COMPATIBILITY", "ALLOWED-TOOLS"]},
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-TOOL-MISUSE", "THREAT-AGENT-SUPPLY-CHAIN"]},
-        {"sourceId": "NIST-AI-600-1", "controlIds": ["VALUE-CHAIN-COMPONENT-INTEGRATION"]}
+        {
+          "sourceId": "AGENT-SKILLS-SPEC",
+          "controlIds": [
+            "DESCRIPTION",
+            "COMPATIBILITY",
+            "ALLOWED-TOOLS"
+          ]
+        },
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-TOOL-MISUSE",
+            "THREAT-AGENT-SUPPLY-CHAIN"
+          ]
+        },
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "VALUE-CHAIN-COMPONENT-INTEGRATION"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May build normalized declaration and capability facts but cannot judge every semantic mismatch.",
@@ -409,19 +973,52 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May compare actual attempted behavior with declarations."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "signal", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Capability facts exist but no deterministic declaration-to-fact comparison", "Only Python AST and manifest facts", "Semantic extractor uses only first Python file and bounded excerpts", "Only three controlled mismatch kinds", "No model corpus metrics"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Capability facts exist but no deterministic declaration-to-fact comparison",
+        "Only Python AST and manifest facts",
+        "Semantic extractor uses only first Python file and bounded excerpts",
+        "Only three controlled mismatch kinds",
+        "No model corpus metrics"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-013",
       "title": "Cross-file or cross-language unsafe data flow",
-      "scopes": ["skill"],
+      "scopes": [
+        "skill"
+      ],
       "definition": "Untrusted data crosses files, modules, processes, or language boundaries and reaches a privileged sink without adequate validation.",
       "sourceRefs": [
-        {"sourceId": "CWE-4.20", "controlIds": ["CWE-20", "CWE-78", "CWE-94", "CWE-918"]},
-        {"sourceId": "SEMGREP-DOCS", "controlIds": ["SAST", "TAINT-TRACKING", "SUPPORTED-LANGUAGES"]},
-        {"sourceId": "SHELLCHECK-DOCS", "controlIds": ["SHELL-ANALYSIS"]}
+        {
+          "sourceId": "CWE-4.20",
+          "controlIds": [
+            "CWE-20",
+            "CWE-78",
+            "CWE-94",
+            "CWE-918"
+          ]
+        },
+        {
+          "sourceId": "SEMGREP-DOCS",
+          "controlIds": [
+            "SAST",
+            "TAINT-TRACKING",
+            "SUPPORTED-LANGUAGES"
+          ]
+        },
+        {
+          "sourceId": "SHELLCHECK-DOCS",
+          "controlIds": [
+            "SHELL-ANALYSIS"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "Requires language-aware call/data-flow analysis with explicit supported-language and source/sink matrices.",
@@ -429,18 +1026,42 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May observe flows/effects that static analysis cannot resolve."
       },
-      "currentCoverage": {"L0_static": "none", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No call graph", "No taint engine", "No JavaScript/TypeScript/Shell AST integration", "No cross-process model"],
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No call graph",
+        "No taint engine",
+        "No JavaScript/TypeScript/Shell AST integration",
+        "No cross-process model"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-SKILL-014",
       "title": "Weak runtime isolation and host escape",
-      "scopes": ["skill", "agent_config"],
+      "scopes": [
+        "skill",
+        "agent_config"
+      ],
       "definition": "A Skill can access host resources, credentials, processes, or networks beyond a one-shot least-privilege execution boundary.",
       "sourceRefs": [
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-UNEXPECTED-CODE-EXECUTION", "THREAT-IDENTITY-PRIVILEGE-ABUSE"]},
-        {"sourceId": "MITRE-ATLAS", "controlIds": ["ESCAPE-TO-HOST"]}
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-UNEXPECTED-CODE-EXECUTION",
+            "THREAT-IDENTITY-PRIVILEGE-ABUSE"
+          ]
+        },
+        {
+          "sourceId": "MITRE-ATLAS",
+          "controlIds": [
+            "ESCAPE-TO-HOST"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May identify capability requests and dangerous APIs but cannot prove runtime containment.",
@@ -448,18 +1069,45 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "Must enforce and test one-shot isolation, fake credentials, resource limits, network policy, and destruction."
       },
-      "currentCoverage": {"L0_static": "signal", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No Skill sandbox", "No runtime policy", "No escape tests"],
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No Skill sandbox",
+        "No runtime policy",
+        "No escape tests"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-MCP-001",
       "title": "MCP authorization and session boundary failure",
-      "scopes": ["mcp", "agent_config"],
+      "scopes": [
+        "mcp",
+        "agent_config"
+      ],
       "definition": "MCP authorization, tokens, redirects, consent, sessions, or proxy behavior violate audience, client, or user trust boundaries.",
       "sourceRefs": [
-        {"sourceId": "MCP-SECURITY-2025-11-25", "controlIds": ["CONFUSED-DEPUTY", "TOKEN-PASSTHROUGH", "SESSION-HIJACKING", "LOCAL-SERVER-COMPROMISE", "SCOPE-MINIMIZATION"]},
-        {"sourceId": "OWASP-AGENTIC-2025", "controlIds": ["THREAT-IDENTITY-PRIVILEGE-ABUSE", "THREAT-INSECURE-INTER-AGENT-COMMUNICATION"]}
+        {
+          "sourceId": "MCP-SECURITY-2025-11-25",
+          "controlIds": [
+            "CONFUSED-DEPUTY",
+            "TOKEN-PASSTHROUGH",
+            "SESSION-HIJACKING",
+            "LOCAL-SERVER-COMPROMISE",
+            "SCOPE-MINIMIZATION"
+          ]
+        },
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-IDENTITY-PRIVILEGE-ABUSE",
+            "THREAT-INSECURE-INTER-AGENT-COMMUNICATION"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "May validate structured MCP configuration and known insecure implementation patterns when MCP intake exists.",
@@ -467,19 +1115,51 @@
         "V1_5_blackbox": "Not applicable to Prompt black-box testing.",
         "V2_sandbox": "May exercise controlled MCP interactions only inside the approved runtime boundary."
       },
-      "currentCoverage": {"L0_static": "none", "L1_semantic": "none", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["No MCP intake", "No authorization/config parser", "No session or consent tests"],
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No MCP intake",
+        "No authorization/config parser",
+        "No session or consent tests"
+      ],
       "evaluationReference": null
     },
     {
       "riskId": "VR-GOV-001",
       "title": "Incomplete or misleading audit coverage",
-      "scopes": ["governance", "prompt", "skill", "mcp"],
+      "scopes": [
+        "governance",
+        "prompt",
+        "skill",
+        "mcp"
+      ],
       "definition": "A review or report implies safety when relevant checks did not run, failed, do not support the artifact, or cover only narrow subcases.",
       "sourceRefs": [
-        {"sourceId": "NIST-AI-RMF-1.0", "controlIds": ["GOVERN", "MAP", "MEASURE", "MANAGE"]},
-        {"sourceId": "OWASP-LLM-2025", "controlIds": ["LLM09"]},
-        {"sourceId": "OPENSSF-SCORECARD", "controlIds": ["SAST"]}
+        {
+          "sourceId": "NIST-AI-RMF-1.0",
+          "controlIds": [
+            "GOVERN",
+            "MAP",
+            "MEASURE",
+            "MANAGE"
+          ]
+        },
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM09"
+          ]
+        },
+        {
+          "sourceId": "OPENSSF-SCORECARD",
+          "controlIds": [
+            "SAST"
+          ]
+        }
       ],
       "layerBoundaries": {
         "L0_static": "Must expose plan/execution/coverage independently from findings and capability breadth.",
@@ -487,8 +1167,17 @@
         "V1_5_blackbox": "Must expose test-set/model/budget coverage and unexecuted cases.",
         "V2_sandbox": "Must expose runtime policy, blocked operations, teardown, and unobserved behavior."
       },
-      "currentCoverage": {"L0_static": "partial", "L1_semantic": "partial", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Execution status UI can still be mistaken for breadth", "No corpus-backed coverage metrics", "OWASP matrix needs taxonomy-derived replacement"],
+      "currentCoverage": {
+        "L0_static": "partial",
+        "L1_semantic": "partial",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Execution status UI can still be mistaken for breadth",
+        "No corpus-backed coverage metrics",
+        "OWASP matrix needs taxonomy-derived replacement"
+      ],
       "evaluationReference": null
     }
   ]

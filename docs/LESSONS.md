@@ -14,6 +14,33 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-21 — Semantic breadth must remain a closed catalog
+
+- **Symptom**: Expanding from three semantic examples creates pressure to ask
+  the model to “find anything suspicious”, which would let it invent category,
+  severity, identity and evidence.
+- **Root cause**: A free-form reviewer appears broad but has no falsifiable
+  per-risk contract or stable evaluation boundary.
+- **Fix**: Added only taxonomy-mapped Finding Types with fixed subject enums,
+  policy severity, deterministic bounded seeds, falsification questions and
+  confirmed/rejected replay pairs. L1 breadth remains mostly none/signal.
+- **Prevention**: No semantic catch-all. Every future type needs a risk mapping,
+  extractor, evidence sufficiency, safe counterexample and containment tests.
+- **Evidence**: Round 17 catalog and 14-case semantic contract report.
+
+### 2026-07-21 — Metadata-only review still needs controlled facts
+
+- **Symptom**: Capability-based semantic review received file locations but not
+  capability categories/operations under `metadata_only`, making meaningful
+  comparison impossible without sending source snippets.
+- **Root cause**: Egress allowed locations only and had no safe fact taxonomy.
+- **Fix**: Round-16 Capability Facts feed Evidence metadata; egress forwards
+  only `evidenceRole`, controlled category and operation, dropping every other
+  field. Raw values and arbitrary metadata remain local.
+- **Prevention**: Add semantic context through typed allowlisted facts, never by
+  forwarding an entire ArtifactModel or Evidence metadata dict.
+- **Evidence**: Round 17 egress whitelist/adversarial tests.
+
 ### 2026-07-21 — Official living specs need a dated snapshot boundary
 
 - **Symptom**: Verity accepted uppercase/space/underscore Skill names and a

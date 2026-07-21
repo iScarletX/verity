@@ -75,9 +75,10 @@
   deterministic Rules and semantic Finding Types to the taxonomy and fails on
   registry drift.
 - `verity.corpus` reads an independent risk-id answer key and measures the
-  current L0 pipeline twice per case. Fixed semantic Provider replays exercise
-  contracts only and explicitly do not measure model quality. Separate
-  reproducible reports contain no aggregate safety score.
+  current L0 pipeline twice per case. Fourteen fixed semantic Provider replays
+  cover confirmed/rejected pairs for seven controlled Finding Types; they
+  exercise contracts only and explicitly do not measure model quality.
+  Separate reproducible reports contain no aggregate safety score.
 
 ## Bright lines
 
@@ -96,7 +97,9 @@
 - **Provider payload**: passes through the egress gate
   (`verity/semantic/egress.py`) which drops sensitive Evidence, caps
   string lengths, and records only sizes + SHA-256 in the payload
-  audit.
+  audit. Capability evidence may expose only allowlisted category/operation
+  metadata; arbitrary metadata, raw values and model-authored severity do not
+  cross the boundary.
 - **Provider transport**: `verity/semantic/http_provider.py` binds one
   trusted config to one role, allows remote HTTPS or loopback HTTP only,
   disables redirects, resolves keys from environment-variable names at

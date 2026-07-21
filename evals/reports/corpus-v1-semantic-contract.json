@@ -1,6 +1,6 @@
 {
   "aggregateSafetyScore": null,
-  "caseCount": 6,
+  "caseCount": 14,
   "caseResults": [
     {
       "caseId": "semantic-instruction-conflict-positive",
@@ -103,16 +103,152 @@
       },
       "riskId": "VR-SKILL-012",
       "stable": true
+    },
+    {
+      "caseId": "semantic-trust-boundary-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.prompt.trust_boundary_ambiguity",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.prompt.trust_boundary_ambiguity"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-008",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-trust-boundary-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.prompt.trust_boundary_ambiguity",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-008",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-tool-scope-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.prompt.excessive_tool_scope",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.prompt.excessive_tool_scope"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-007",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-tool-scope-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.prompt.excessive_tool_scope",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-007",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-permission-capability-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.skill.permission_capability_mismatch",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.skill.permission_capability_mismatch"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-SKILL-004",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-permission-capability-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.skill.permission_capability_mismatch",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-SKILL-004",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-external-trust-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.skill.external_instruction_trust_gap",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.skill.external_instruction_trust_gap"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-SKILL-005",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-external-trust-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.skill.external_instruction_trust_gap",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-SKILL-005",
+      "stable": true
     }
   ],
-  "contractCorrectCases": 6,
+  "contractCorrectCases": 14,
   "disclaimer": "Fixed Provider replay validates semantic pipeline contracts only; it does not measure candidate generation or validator model quality.",
   "modelQualityMeasured": false,
   "replayClass": "semantic_contract_only",
   "schemaVersion": 1,
   "stability": {
     "rate": 1.0,
-    "stableCases": 6,
+    "stableCases": 14,
     "unstableCases": 0
   }
 }

@@ -122,6 +122,162 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-trust-boundary-positive",
+      "objectType": "prompt",
+      "language": "zh-en",
+      "path": "semantic-cases/trust-boundary-positive/prompt.txt",
+      "findingType": "semantic.prompt.trust_boundary_ambiguity",
+      "riskId": "VR-PROMPT-008",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "boundaryKind": "retrieved_content"
+      },
+      "claim": "检索内容与可信指令没有清晰边界。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review",
+      "promptKind": "user_prompt"
+    },
+    {
+      "caseId": "semantic-trust-boundary-safe",
+      "objectType": "prompt",
+      "language": "zh-en",
+      "path": "semantic-cases/trust-boundary-safe/prompt.txt",
+      "findingType": "semantic.prompt.trust_boundary_ambiguity",
+      "riskId": "VR-PROMPT-008",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "boundaryKind": "retrieved_content"
+      },
+      "claim": "检索内容与可信指令没有清晰边界。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review",
+      "promptKind": "user_prompt"
+    },
+    {
+      "caseId": "semantic-tool-scope-positive",
+      "objectType": "prompt",
+      "language": "zh-en",
+      "path": "semantic-cases/tool-scope-positive/prompt.txt",
+      "findingType": "semantic.prompt.excessive_tool_scope",
+      "riskId": "VR-PROMPT-007",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "scopeKind": "unnecessary_tool"
+      },
+      "claim": "工具权限超出只读摘要任务。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review",
+      "promptKind": "user_prompt"
+    },
+    {
+      "caseId": "semantic-tool-scope-safe",
+      "objectType": "prompt",
+      "language": "zh-en",
+      "path": "semantic-cases/tool-scope-safe/prompt.txt",
+      "findingType": "semantic.prompt.excessive_tool_scope",
+      "riskId": "VR-PROMPT-007",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "scopeKind": "unnecessary_tool"
+      },
+      "claim": "工具权限超出只读摘要任务。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review",
+      "promptKind": "user_prompt"
+    },
+    {
+      "caseId": "semantic-permission-capability-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/permission-capability-positive",
+      "findingType": "semantic.skill.permission_capability_mismatch",
+      "riskId": "VR-SKILL-004",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "mismatchKind": "undeclared_capability"
+      },
+      "claim": "代码启动进程但声明仅允许读取。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-permission-capability-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/permission-capability-safe",
+      "findingType": "semantic.skill.permission_capability_mismatch",
+      "riskId": "VR-SKILL-004",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "mismatchKind": "undeclared_capability"
+      },
+      "claim": "代码启动进程但声明仅允许读取。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-external-trust-positive",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "path": "semantic-cases/external-trust-positive",
+      "findingType": "semantic.skill.external_instruction_trust_gap",
+      "riskId": "VR-SKILL-005",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "trustGapKind": "unverified_source"
+      },
+      "claim": "外部指令来源没有完整性或数据边界。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-external-trust-safe",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "path": "semantic-cases/external-trust-safe",
+      "findingType": "semantic.skill.external_instruction_trust_gap",
+      "riskId": "VR-SKILL-005",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "trustGapKind": "unverified_source"
+      },
+      "claim": "外部指令来源没有完整性或数据边界。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
     }
   ]
 }

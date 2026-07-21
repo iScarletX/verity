@@ -473,7 +473,7 @@ def check_corpus_baselines(rep: VerifyReport) -> None:
         rep.append_fail("corpus_baselines", detail)
         return
     rep.append_ok("corpus_baselines",
-                  "26 L0 cases + 6 semantic contract replays reproducible")
+                  "26 L0 cases + 14 semantic contract replays reproducible")
 
 
 def check_working_tree_clean(rep: VerifyReport) -> None:

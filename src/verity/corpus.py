@@ -367,7 +367,7 @@ class _ReplayGenerator:
         from .semantic.provider import ProviderResponse
         self.calls += 1
         evidence = request.get("evidence") or []
-        if not evidence:
+        if self.calls > 1 or not evidence:
             return ProviderResponse(ok=True, payload={"candidates": []})
         ids = [x["evidenceId"] for x in evidence]
         return ProviderResponse(ok=True, payload={"candidates": [{

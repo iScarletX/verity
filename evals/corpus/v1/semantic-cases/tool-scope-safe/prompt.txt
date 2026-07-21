@@ -1,0 +1,3 @@
+任务只需读取摘要。
+allowed_tools: Read
+禁止写入或执行命令。

@@ -302,10 +302,55 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
             "会让使用方无法基于 Manifest 预估风险。该判断来自 LLM Validator，只作为参考。"
         ),
         whatToDo=[
-            "重新射 Manifest 中的 description 与具体 permission，与实现对齐。",
+            "重新核对 Manifest 中的 description 与具体 permission，与实现对齐。",
             "如果实现确实需要额外能力，先在 Manifest 里声明。",
         ],
         priority="P1",
+    ),
+    "semantic.prompt.trust_boundary_ambiguity": Guidance(
+        id="semantic.prompt.trust_boundary_ambiguity",
+        plainTitle="Prompt 可能没有分清不可信内容与指令",
+        whyItMatters=(
+            "用户输入、网页检索内容和工具输出如果与系统指令混在一起，模型可能把其中的文本当作新指令。"
+            "该结论必须由独立 Validator 根据引用证据确认。"
+        ),
+        whatToDo=[
+            "用明确分隔符和标签包住不可信内容，并写明只能把它当数据。",
+            "禁止遵循检索内容或工具输出中出现的指令。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.excessive_tool_scope": Guidance(
+        id="semantic.prompt.excessive_tool_scope",
+        plainTitle="Prompt 授予的工具范围可能超过任务需要",
+        whyItMatters=(
+            "任务只需要读取内容，却授予写入、删除或命令执行能力，会放大注入或误操作的影响。"
+        ),
+        whatToDo=[
+            "只保留完成任务必需的具体工具和最小参数范围。",
+            "高影响操作增加用户确认，并在下游系统重新校验权限。",
+        ], priority="P1",
+    ),
+    "semantic.skill.permission_capability_mismatch": Guidance(
+        id="semantic.skill.permission_capability_mismatch",
+        plainTitle="Skill 声明权限与静态能力事实可能不一致",
+        whyItMatters=(
+            "Manifest 与代码事实不一致时，使用者无法仅凭声明判断文件、进程、网络或凭据风险。"
+        ),
+        whatToDo=[
+            "逐项对照报告中的静态 Capability Facts 与 allowed-tools/permissions。",
+            "删除多余权限，或明确声明实现确实需要的能力。",
+        ], priority="P1",
+    ),
+    "semantic.skill.external_instruction_trust_gap": Guidance(
+        id="semantic.skill.external_instruction_trust_gap",
+        plainTitle="Skill 可能把未经验证的外部内容当作指令",
+        whyItMatters=(
+            "远端内容可被替换或注入；直接获取并执行会把内容发布者变成隐形控制者。"
+        ),
+        whatToDo=[
+            "固定可信来源和内容摘要，验证签名或 SHA-256。",
+            "把外部内容按数据解析，不允许其改变工具、权限或系统指令。",
+        ], priority="P0",
     ),
 }
 

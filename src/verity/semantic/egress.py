@@ -87,6 +87,20 @@ def _evidence_view(ev: Dict[str, Any], *, egress_policy: str,
         "locations": [_location_view(l) for l in (ev.get("locations") or [])
                       ][:MAX_LOCATIONS_PER_EV],
     }
+    # Only controlled extractor facts cross the boundary. Arbitrary Evidence
+    # metadata is never forwarded.
+    metadata = ev.get("metadata") or {}
+    safe_metadata = {}
+    if metadata.get("evidenceRole") in {
+            "manifest_declaration", "capability_fact"}:
+        safe_metadata["evidenceRole"] = metadata["evidenceRole"]
+    if safe_metadata.get("evidenceRole") == "capability_fact":
+        safe_metadata["capabilityCategory"] = _capped(
+            metadata.get("capabilityCategory", ""))
+        safe_metadata["capabilityOperation"] = _capped(
+            metadata.get("capabilityOperation", ""))
+    if safe_metadata:
+        view["metadata"] = safe_metadata
     if egress_policy == "redacted_evidence":
         # A short snippet (already scrubbed of NUL, capped).
         if snippet_bytes:

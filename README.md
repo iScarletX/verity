@@ -9,7 +9,8 @@
 > export + a local Web MVP for non-technical users + an **experimental,
 > default-OFF controlled semantic-review path** (Evidence →
 > SemanticCandidate → Validator → CandidateAssessment → semantic Finding)
-> with an optional bounded JSON-over-HTTPS Provider adapter.
+> with seven controlled semantic risk types, fixed contract replays, and an
+> optional bounded JSON-over-HTTPS Provider adapter.
 > Read-only V1. **Not** a sandbox, **not** a runtime evaluator. Semantic
 > calls occur only after explicit opt-in and trusted caller configuration;
 > opting in without complete configuration honestly returns
@@ -34,7 +35,9 @@ semantic coverage is complete.
 
 The machine-readable [`standards/`](standards/README.md) baseline separates
 these axes. It records 25 unified risks and rates current breadth only as
-`none`, `signal`, or `partial`. The versioned [`evals/`](evals/README.md)
+`none`, `signal`, or `partial`. Current L1 breadth is still only 15 none / 9
+signal / 1 partial: seven semantic Finding Types do not make semantic review
+complete. The versioned [`evals/`](evals/README.md)
 minimal paired corpus now reproduces per-risk L0 confusion matrices and fixed
 semantic pipeline contract replays, but its labels remain
 `provisional_single_review`; it is not a broad accuracy benchmark and does not

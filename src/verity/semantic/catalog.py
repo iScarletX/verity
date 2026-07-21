@@ -20,6 +20,7 @@ Each entry declares:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from itertools import combinations
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 
@@ -74,13 +75,14 @@ def _prompt_lines(review_dict: Dict[str, Any],
 
 
 def _make_evidence_records(locations, *, snapshot_id: str,
-                           producer_id: str, kind: str = "source_span"):
+                           producer_id: str, kind: str = "source_span",
+                           metadata_by_index: Optional[List[Dict[str, Any]]] = None):
     """Build the small in-memory Evidence dicts the orchestrator hands
     to Providers. These are NOT Verity Evidence objects — they are
     projection dicts sufficient for the semantic layer."""
     from ..canonical import occurrence_fingerprint, domain_tag, sha256_hex
     out = []
-    for loc in locations:
+    for index, loc in enumerate(locations):
         # Non-secret path: use minimal fingerprint (canonical location +
         # a synthetic raw digest based on the location itself so
         # extractor-produced evidence has a stable id).
@@ -98,6 +100,9 @@ def _make_evidence_records(locations, *, snapshot_id: str,
             "producer": {"componentId": producer_id,
                           "componentVersion": "1.0.0",
                           "executionId": "sem-static-extract"},
+            "metadata": ((metadata_by_index or [])[index]
+                         if metadata_by_index and index < len(metadata_by_index)
+                         else {}),
         })
     return out
 
@@ -119,11 +124,14 @@ def extract_instruction_conflict(review_dict, file_bytes):
     evs = _make_evidence_records(locs, snapshot_id=sid,
                                   producer_id="extractor.prompt.instruction_conflict")
     out = []
-    # Compare consecutive line pairs; the generator can decide to skip.
-    for i in range(len(evs) - 1):
-        a, b = evs[i], evs[i + 1]
+    # Compare bounded non-adjacent pairs too: semantic contradictions often
+    # span sections. Cap before combinations so a huge prompt cannot create
+    # unbounded O(n²) seeds; the orchestrator applies a second candidate cap.
+    bounded = evs[:16]
+    for i, j in combinations(range(len(bounded)), 2):
+        a, b = bounded[i], bounded[j]
         out.append((
-            {"lineAIndex": i, "lineBIndex": i + 1},
+            {"lineAIndex": i, "lineBIndex": j},
             [a["evidenceId"], b["evidenceId"]],
             [a, b],
         ))
@@ -162,54 +170,113 @@ def extract_missing_output_contract(review_dict, file_bytes):
              [evs[0]["evidenceId"]], evs)]
 
 
-def extract_declared_behavior_mismatch(review_dict, file_bytes):
-    """For skill engine: pair the manifest declaration with any Python
-    subprocess.* call in the skill. If both exist the Candidate
-    Generator can reason about whether the declared behavior matches
-    what the code actually does. Deterministic: no LLM decides here.
-    """
+def _whole_prompt_seed(review_dict, file_bytes, *, triggers, producer_id):
+    if review_dict.get("engine") != "prompt":
+        return []
+    snap = review_dict.get("snapshot") or {}
+    prompt_file = next((f for f in (snap.get("files") or [])
+                        if f.get("status") == "included"), None)
+    if prompt_file is None:
+        return []
+    data = file_bytes.get(prompt_file["fileId"], b"")
+    text = data.decode("utf-8", errors="replace").lower()
+    found = [t for t in triggers if t in text]
+    if not found:
+        return []
+    loc = {"fileId": prompt_file["fileId"],
+           "artifactPath": prompt_file["normalizedPath"],
+           "fileDigest": prompt_file.get("contentDigest") or "",
+           "sourceByteRange": {"start": 0, "end": len(data)},
+           "locationSchemaVersion": "1"}
+    ev = _make_evidence_records([loc], snapshot_id=snap.get("snapshotId", ""),
+                                producer_id=producer_id)[0]
+    return [({"triggerCount": len(found)}, [ev["evidenceId"]], [ev])]
+
+
+def extract_trust_boundary_ambiguity(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes,
+        triggers=("external content", "retrieved", "user input", "tool output",
+                  "网页内容", "检索内容", "用户输入", "工具输出"),
+        producer_id="extractor.prompt.trust_boundary")
+
+
+def extract_tool_necessity(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes,
+        triggers=("allowed_tools", "allowed-tools", "permissions:", "tools:",
+                  "工具权限", "允许工具"),
+        producer_id="extractor.prompt.tool_necessity")
+
+
+def _skill_manifest_and_capability_seed(review_dict, file_bytes, *,
+                                        producer_id, require_external=False):
     if review_dict.get("engine") != "skill":
         return []
     am = review_dict.get("artifactModel") or {}
     manifest_file = am.get("manifestFile")
     manifest = am.get("manifest") or {}
+    facts = ((am.get("capabilityFacts") or {}).get("facts") or [])
     if not manifest_file:
         return []
-    description = manifest.get("description") or ""
-    if not description.strip():
+    if require_external and not manifest.get("external_instruction_urls"):
         return []
-    # find at least one included .py file (declaration evidence)
+    if not require_external and not facts and not manifest.get("permissions"):
+        return []
     snap = review_dict.get("snapshot") or {}
-    files = snap.get("files") or []
-    py_file = next((f for f in files
-                    if f.get("status") == "included"
-                    and f.get("normalizedPath", "").lower().endswith(".py")),
-                   None)
-    if py_file is None:
-        return []
-    # declaration location
-    decl_loc = {
-        "fileId": manifest_file["fileId"],
-        "artifactPath": manifest_file["normalizedPath"],
-        "fileDigest": "",
-        "sourceByteRange": {"start": 0, "end": min(200, len(file_bytes.get(manifest_file["fileId"], b"")))},
-        "locationSchemaVersion": "1",
-    }
-    impl_loc = {
-        "fileId": py_file["fileId"],
-        "artifactPath": py_file["normalizedPath"],
-        "fileDigest": py_file.get("contentDigest") or "",
-        "sourceByteRange": {"start": 0,
-                             "end": min(600, len(file_bytes.get(py_file["fileId"], b"")))},
-        "locationSchemaVersion": "1",
-    }
-    evs = _make_evidence_records([decl_loc, impl_loc],
+    files = {f.get("normalizedPath"): f for f in (snap.get("files") or [])
+             if f.get("status") == "included"}
+    locations = [{"fileId": manifest_file["fileId"],
+                  "artifactPath": manifest_file["normalizedPath"],
+                  "fileDigest": "", "sourceByteRange": {"start": 0,
+                  "end": min(500, len(file_bytes.get(manifest_file["fileId"], b"")))},
+                  "locationSchemaVersion": "1"}]
+    metadata = [{"evidenceRole": "manifest_declaration"}]
+    for fact in facts[:7]:
+        f = files.get(fact.get("artifactPath"))
+        if f:
+            locations.append({"fileId": f["fileId"],
+                              "artifactPath": f["normalizedPath"],
+                              "fileDigest": f.get("contentDigest") or "",
+                              "sourceByteRange": {"start": 0,
+                                  "end": min(600, len(file_bytes.get(f["fileId"], b"")))},
+                              "locationSchemaVersion": "1"})
+            metadata.append({
+                "evidenceRole": "capability_fact",
+                "capabilityCategory": str(fact.get("category", ""))[:80],
+                "capabilityOperation": str(fact.get("operation", ""))[:160],
+            })
+    evs = _make_evidence_records(locations,
                                   snapshot_id=snap.get("snapshotId", ""),
-                                  producer_id="extractor.skill.declared_vs_observed")
-    return [({"declaredScript": py_file["normalizedPath"],
-              "manifestDescriptionPreview": description[:200]},
-             [evs[0]["evidenceId"], evs[1]["evidenceId"]],
-             evs)]
+                                  producer_id=producer_id,
+                                  metadata_by_index=metadata)
+    source = {"declaredPermissionCount": len(manifest.get("permissions") or []),
+              "observedCapabilityCount": len(facts)}
+    return [(source, [e["evidenceId"] for e in evs], evs)]
+
+
+def extract_permission_capability_mismatch(review_dict, file_bytes):
+    return _skill_manifest_and_capability_seed(
+        review_dict, file_bytes,
+        producer_id="extractor.skill.permission_capability")
+
+
+def extract_external_instruction_trust_gap(review_dict, file_bytes):
+    return _skill_manifest_and_capability_seed(
+        review_dict, file_bytes,
+        producer_id="extractor.skill.external_instruction_trust",
+        require_external=True)
+
+
+def extract_declared_behavior_mismatch(review_dict, file_bytes):
+    """Pair a Manifest declaration with bounded deterministic capability facts."""
+    am = review_dict.get("artifactModel") or {}
+    description = ((am.get("manifest") or {}).get("description") or "")
+    if not isinstance(description, str) or not description.strip():
+        return []
+    return _skill_manifest_and_capability_seed(
+        review_dict, file_bytes,
+        producer_id="extractor.skill.declared_vs_observed")
 
 
 # ------------------------------------------------------------------- #
@@ -278,14 +345,83 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
             ],
             subjectKeyFields=["mismatchKind"],
             falsificationQuestion=(
-                "Given the cited manifest declaration and the cited "
-                "implementation excerpt, do they describe compatible "
-                "runtime behaviour?"
+                "Given the cited manifest declaration and implementation "
+                "capability evidence, is the stated behaviour materially "
+                "incompatible with what is statically observed?"
             ),
             guidanceId="semantic.skill.declared_behavior_mismatch",
             owaspAst10=["OWASP-AST04"],
         ),
         extract_declared_behavior_mismatch,
+    ),
+
+    "semantic.prompt.trust_boundary_ambiguity": (
+        SemanticFindingType(
+            findingType="semantic.prompt.trust_boundary_ambiguity",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "boundaryKind", "enum",
+                enum=["user_input", "retrieved_content", "tool_output"])],
+            subjectKeyFields=["boundaryKind"],
+            falsificationQuestion=(
+                "Does the cited prompt fail to distinguish untrusted data "
+                "from trusted instructions, rather than already defining a "
+                "clear quoting, delimiting, or non-execution rule?"),
+            guidanceId="semantic.prompt.trust_boundary_ambiguity",
+        ), extract_trust_boundary_ambiguity,
+    ),
+
+    "semantic.prompt.excessive_tool_scope": (
+        SemanticFindingType(
+            findingType="semantic.prompt.excessive_tool_scope",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "scopeKind", "enum",
+                enum=["unnecessary_tool", "overbroad_permission",
+                      "missing_approval_boundary"])],
+            subjectKeyFields=["scopeKind"],
+            falsificationQuestion=(
+                "Are the cited tools or permissions materially broader than "
+                "the stated task requires, after considering explicit "
+                "least-privilege and human-approval constraints?"),
+            guidanceId="semantic.prompt.excessive_tool_scope",
+        ), extract_tool_necessity,
+    ),
+
+    "semantic.skill.permission_capability_mismatch": (
+        SemanticFindingType(
+            findingType="semantic.skill.permission_capability_mismatch",
+            engine="skill", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "mismatchKind", "enum",
+                enum=["undeclared_capability", "overbroad_permission",
+                      "declared_capability_absent"])],
+            subjectKeyFields=["mismatchKind"],
+            falsificationQuestion=(
+                "Do the cited declared permissions and deterministic static "
+                "capability facts materially disagree, rather than merely "
+                "using different names for the same narrow capability?"),
+            guidanceId="semantic.skill.permission_capability_mismatch",
+            owaspAst10=["OWASP-AST03"],
+        ), extract_permission_capability_mismatch,
+    ),
+
+    "semantic.skill.external_instruction_trust_gap": (
+        SemanticFindingType(
+            findingType="semantic.skill.external_instruction_trust_gap",
+            engine="skill", defaultSeverity="high",
+            subjectFields=[SemanticSubjectField(
+                "trustGapKind", "enum",
+                enum=["unverified_source", "instruction_data_confusion",
+                      "missing_integrity_boundary"])],
+            subjectKeyFields=["trustGapKind"],
+            falsificationQuestion=(
+                "Does the cited Skill treat external material as executable "
+                "instructions without a clear provenance, integrity, "
+                "validation, or data-only boundary?"),
+            guidanceId="semantic.skill.external_instruction_trust_gap",
+            owaspAst10=["OWASP-AST05"],
+        ), extract_external_instruction_trust_gap,
     ),
 }
 

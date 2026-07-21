@@ -41,6 +41,10 @@
 
     {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.instruction_conflict","riskIds":["VR-PROMPT-004"],"contribution":"signal"},
     {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.missing_output_contract","riskIds":["VR-PROMPT-006"],"contribution":"signal"},
-    {"detectorType":"semantic_finding_type","detectorId":"semantic.skill.declared_behavior_mismatch","riskIds":["VR-SKILL-012"],"contribution":"signal"}
+    {"detectorType":"semantic_finding_type","detectorId":"semantic.skill.declared_behavior_mismatch","riskIds":["VR-SKILL-012"],"contribution":"signal"},
+    {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.trust_boundary_ambiguity","riskIds":["VR-PROMPT-008"],"contribution":"signal"},
+    {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.excessive_tool_scope","riskIds":["VR-PROMPT-007"],"contribution":"signal"},
+    {"detectorType":"semantic_finding_type","detectorId":"semantic.skill.permission_capability_mismatch","riskIds":["VR-SKILL-004"],"contribution":"signal"},
+    {"detectorType":"semantic_finding_type","detectorId":"semantic.skill.external_instruction_trust_gap","riskIds":["VR-SKILL-005"],"contribution":"signal"}
   ]
 }

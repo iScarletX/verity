@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "f90b193b3142d7d167259482e599a367d89d5ee5"
-  tests_collected: 379
-  tests_passed: 379
+  commit: "17592678bbd13ff78950436caf27a5fb4e200b83"
+  tests_collected: 387
+  tests_passed: 387
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,11 +27,11 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 25 unified risks, 38 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 12 signal / 9 partial. Current L1 breadth: 19 none / 5 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
+**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 25 unified risks, 42 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 12 signal / 9 partial. Current L1 breadth: 15 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus now has 26 synthetic L0 cases across 10 risks and six fixed semantic contract replays. Agent Skills conformance has four positive/safe pairs; other measured risks retain one pair. Reports remain reproducible, per-risk and score-free; labels remain `provisional_single_review`. This is a measurement foundation, not a broad accuracy claim.
+**Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks and 14 fixed semantic contract replays (confirmed/rejected for seven types). Reports remain reproducible, per-risk and score-free; labels remain `provisional_single_review`; semantic replay explicitly sets `modelQualityMeasured=false`. This is a measurement foundation, not a broad accuracy claim.
 
-**Next step.** Round 17 expands the controlled semantic risk catalog and replay/corpus breadth using the taxonomy and capability facts. It does not connect a real Provider, change Web API-key/model settings, implement V1.5, or execute Skills.
+**Next step.** **Stop for maintainer decision.** The approved foundation sequence (Rounds 14–17) is complete. Do not start Provider/OpenRouter production work, UI API-key/model changes, V1.5 or V2 without a new approved round.
 
 **What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, and trusted Web-first Skill project identity/history with scope-aware five-state version diff.
 
@@ -43,7 +43,33 @@ ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
 
 ## Round history (append-only)
 
-## Round 16 (2026-07-21) → implementation commit pending
+## Round 17 (2026-07-21) → implementation commit pending
+
+- Expanded the semantic catalog from three to seven closed, taxonomy-mapped
+  Finding Types: Prompt trust-boundary ambiguity and excessive tool scope;
+  Skill permission-capability mismatch and external-instruction trust gap;
+  plus the original conflict, output-contract and declared-behavior types.
+- Every type retains Verity-owned severity, controlled Subject enums,
+  falsification question and bounded deterministic extractor. No model can
+  invent a type, severity, identity or Evidence.
+- Instruction-conflict seeds now include bounded non-adjacent line pairs (max
+  16 lines/120 pairs before orchestrator budgets), closing the adjacent-only
+  gap without unbounded O(n²) expansion. Chinese/mixed-language trigger cases
+  cover trust/tool boundaries.
+- Unified all Skill semantic declaration comparisons on Round-16 Capability
+  Facts instead of the first Python file. Metadata-only egress now exposes only
+  allowlisted evidence role/category/operation; adversarial raw metadata and
+  severity fields are dropped.
+- Expanded fixed semantic replay from 6 to 14 cases: confirmed/rejected pair for
+  all seven types. 14/14 contracts correct and repeat-stable, while retaining
+  `modelQualityMeasured=false` and no aggregate score. No real model was called.
+- L1 breadth moved from 19 none / 5 signal / 1 partial to 15 none / 9 signal /
+  1 partial. This is catalog/contract breadth only; no risk was promoted to
+  substantial/evaluated.
+- Full suite: 387 passed, 0 skipped; 42 mapped runtime components. No Provider
+  production, default enablement, API-key UI, V1.5 or V2 behavior added.
+
+## Round 16 (2026-07-21) → implementation commit `1759267`
 
 - Corrected deterministic Skill metadata validation to the official Agent
   Skills living-spec snapshot retrieved 2026-07-21: exact root `SKILL.md`,

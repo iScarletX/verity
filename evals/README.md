@@ -42,8 +42,8 @@ rejected to reduce test/corpus leakage. Initial labels are explicitly
 `provisional_single_review`; they require independent review before supporting
 any stronger release claim.
 
-`evals/corpus/v1/semantic_replay.json` contains six fixed Provider replay cases
-(confirmed/rejected pairs for all three semantic Finding Types). These measure
+`evals/corpus/v1/semantic_replay.json` contains 14 fixed Provider replay cases
+(confirmed/rejected pairs for all seven semantic Finding Types). These measure
 only Candidate → Validation → Assessment contract behavior. They explicitly
 set `modelQualityMeasured: false` and do not call any external model.
 
