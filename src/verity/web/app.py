@@ -427,6 +427,55 @@ async def project_diff(request: Request) -> Response:
         return _error_response("diff_error", str(e), 409)
 
 
+async def project_dispositions(request: Request) -> Response:
+    try:
+        ref = request.path_params["project_ref"]
+        disps = request.app.state.history.list_dispositions(ref)
+        return JSONResponse({"dispositions": disps})
+    except HistoryError as e:
+        return _error_response("project_error", str(e), 404)
+
+
+async def add_disposition(request: Request) -> Response:
+    try:
+        ref = request.path_params["project_ref"]
+        fingerprint = request.path_params["fingerprint"]
+        payload = await request.json()
+        
+        if not isinstance(payload, dict):
+            raise ValueError("invalid payload")
+        
+        status = payload.get("status")
+        if status not in {"acknowledged", "accept_risk", "false_positive",
+                          "wont_fix"}:
+            return _error_response(
+                "invalid_status", "Invalid disposition status", 400)
+        
+        expiry_days = payload.get("expiryDays", 30)
+        if not isinstance(expiry_days, int) or not 1 <= expiry_days <= 180:
+            return _error_response(
+                "invalid_expiry", "Expiry days must be 1-180", 400)
+        
+        note = payload.get("note")
+        if note is not None and (not isinstance(note, str)
+                                  or len(note) > 200):
+            return _error_response(
+                "invalid_note", "Note must be <= 200 characters", 400)
+        
+        from datetime import datetime, timedelta, timezone
+        expiry = datetime.now(timezone.utc) + timedelta(days=expiry_days)
+        
+        event = request.app.state.history.add_disposition(
+            ref, fingerprint, status, expiry, note, created_by="web")
+        
+        return JSONResponse({"disposition": event}, status_code=201)
+    
+    except (ValueError, json.JSONDecodeError):
+        return _error_response("bad_json", "Invalid request body", 400)
+    except HistoryError as e:
+        return _error_response("disposition_error", str(e), 409)
+
+
 async def project_version(request: Request) -> Response:
     """Trusted project URL supplies identity; multipart content cannot."""
     try:
@@ -534,6 +583,8 @@ def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600,
         Route("/api/projects/{project_ref}", project_detail, methods=["GET"]),
         Route("/api/projects/{project_ref}/versions", project_version, methods=["POST"]),
         Route("/api/projects/{project_ref}/diff", project_diff, methods=["GET"]),
+        Route("/api/projects/{project_ref}/dispositions", project_dispositions, methods=["GET"]),
+        Route("/api/projects/{project_ref}/dispositions/{fingerprint}", add_disposition, methods=["POST"]),
         Route("/api/report/{review_id}/report.{fmt}", download_report, methods=["GET"]),
         Mount("/static", app=StaticFiles(directory=str(STATIC_DIR)), name="static"),
     ]

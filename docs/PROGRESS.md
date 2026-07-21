@@ -10,8 +10,8 @@ verified_against:
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
   commit: "a00bb459f194dccb74ab4ea2e361d0cf56e3c7df"
-  tests_collected: 330
-  tests_passed: 330
+  tests_collected: 339
+  tests_passed: 339
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,7 +27,7 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Next step.** Round 12 is implemented and archived. `plans/ACTIVE.md` is an unapproved Round 13 proposal placeholder; no Disposition or Suppression implementation is authorized.
+**Next step.** Round 13 is implemented. Advisory dispositions annotate findings without changing severity/counts. Use `--respect-dispositions` CLI flag to opt into CI acceptance of disposed high/critical findings.
 
 **What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, and trusted Web-first Skill project identity/history with scope-aware five-state version diff.
 
@@ -38,6 +38,27 @@ ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
 ---
 
 ## Round history (append-only)
+
+## Round 13 (2026-07-21) → (commit pending)
+
+- **Objective**: Add user-controlled advisory annotations to finding
+  occurrences (fingerprints) within a project, without changing severity,
+  counts, or default exit codes.
+- **Design**: Dispositions are append-only metadata with mandatory expiry
+  (max 180 days). Four statuses: `acknowledged`, `accept_risk`,
+  `false_positive`, `wont_fix`. Default behavior unchanged; opt-in via
+  `--respect-dispositions` for CI integration.
+- **Implementation**:
+  * Extended `history.py` with disposition storage, validation, rate
+    limiting, and diff enrichment
+  * Added CLI commands: `project dispose`, `project dispositions`
+  * Added Web API: `POST/GET /api/projects/{ref}/dispositions`
+  * Web UI shows disposition badges and inline form on diff
+  * 9 new tests covering lifecycle, validation, gate behavior, and safety
+- **Safety**: Dispositions cannot affect resolved/unknown_due_to_coverage
+  findings. Symlinks, corruption, excessive events rejected. Notes sanitized.
+- Full suite: 339 passed. V1.5 Prompt black-box and V2 Skill sandbox remain
+  unimplemented.
 
 ## Round 12 (2026-07-20) → commits `ccfeafc`, `a00bb45` + owner-verification follow-up
 - Added a Verity-owned Skill project registry. Opaque artifact identity is minted locally and inherited only from an existing trusted Web/CLI project context; reviewed names, paths, digests and content cannot establish identity.

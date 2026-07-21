@@ -15,6 +15,14 @@ MAX_PROJECTS = 128
 MAX_VERSIONS = 200
 MAX_RECORD_BYTES = 1024 * 1024
 MAX_TOTAL_BYTES = 128 * 1024 * 1024
+MAX_DISPOSITIONS_PER_PROJECT = 256
+MAX_DISPOSITION_EVENTS_PER_FINGERPRINT = 32
+MAX_DISPOSITION_NOTE_LENGTH = 200
+MAX_DISPOSITION_EXPIRY_DAYS = 180
+
+DISPOSITION_STATUSES = {
+    "acknowledged", "accept_risk", "false_positive", "wont_fix"
+}
 
 class HistoryError(RuntimeError): pass
 
@@ -147,7 +155,15 @@ def _strict_load(path: Path) -> dict:
     kind=obj.get("recordType")
     project_keys={"schemaVersion","recordType","artifactId","displayName","alias","createdAt","versionIds"}
     review_keys={"schemaVersion","recordType","artifactId","snapshotId","reviewId","createdAt","engine","profile","scopeId","contentDigest","coverage","plan","executions","findingCounts","findings","reviewStatus"}
-    expected=project_keys if kind=="skillProject" else review_keys if kind=="skillReview" else None
+    disposition_keys = {"schemaVersion", "recordType", "fingerprint", "events"}
+    if kind == "skillProject":
+        expected = project_keys
+    elif kind == "skillReview":
+        expected = review_keys
+    elif kind == "dispositionHistory":
+        expected = disposition_keys
+    else:
+        expected = None
     if expected is None or set(obj)!=expected: raise HistoryError("history record violates strict schema")
     if kind == "skillProject":
         if not _valid_opaque_id(obj.get("artifactId"), "a-", 32):
@@ -180,6 +196,34 @@ def _strict_load(path: Path) -> dict:
                    for k in ("plan", "executions", "findings")):
             raise HistoryError("invalid review schema")
         _validate_review_projection(obj)
+    if kind == "dispositionHistory":
+        if not _valid_opaque_id(obj.get("fingerprint"), "", 64):
+            raise HistoryError("invalid disposition fingerprint")
+        if (not isinstance(obj.get("events"), list)
+                or len(obj["events"]) > MAX_DISPOSITION_EVENTS_PER_FINGERPRINT):
+            raise HistoryError("invalid disposition events")
+        disposition_event_keys = {"status", "expiryDate", "createdAt", "createdBy"}
+        for event in obj["events"]:
+            required_keys = disposition_event_keys.copy()
+            if "note" in event:
+                required_keys.add("note")
+            if not _exact_keys(event, required_keys):
+                raise HistoryError("invalid disposition event keys")
+            if (event["status"] not in DISPOSITION_STATUSES
+                    or not _bounded_string(event["expiryDate"], max_length=40)
+                    or not _bounded_string(event["createdAt"], max_length=40)
+                    or not _bounded_string(event["createdBy"], max_length=80)):
+                raise HistoryError("invalid disposition event values")
+            if "note" in event and (
+                    not _bounded_string(event["note"],
+                                        max_length=MAX_DISPOSITION_NOTE_LENGTH)
+                    or any(ord(c) < 32 for c in event["note"])):
+                raise HistoryError("invalid disposition note")
+            try:
+                datetime.fromisoformat(event["expiryDate"])
+                datetime.fromisoformat(event["createdAt"])
+            except ValueError:
+                raise HistoryError("invalid disposition dates")
     return obj
 
 
@@ -258,6 +302,7 @@ class HistoryStore:
         self.root = Path(root) if root else default_data_dir()
         self.projects = self.root / "projects"
         self._lock = threading.RLock()
+        self._disposition_rate_limit: dict[str, list[float]] = {}
         _mkdir(self.root)
         _mkdir(self.projects)
     def _project_path(self, aid): return self.projects/aid/"project.json"
@@ -323,6 +368,110 @@ class HistoryStore:
                 vp.unlink(missing_ok=True)
                 raise
             return rec
+    
+    def add_disposition(self, ref: str, fingerprint: str, status: str,
+                        expiry_date: datetime, note: str | None = None,
+                        created_by: str = "user") -> dict:
+        if status not in DISPOSITION_STATUSES:
+            raise HistoryError("invalid disposition status")
+        if not _valid_opaque_id(fingerprint, "", 64):
+            raise HistoryError("invalid fingerprint")
+        if note is not None and (
+                len(note) > MAX_DISPOSITION_NOTE_LENGTH
+                or any(ord(c) < 32 for c in note)):
+            raise HistoryError("invalid disposition note")
+        now = datetime.now(timezone.utc)
+        if expiry_date <= now:
+            raise HistoryError("expiry date must be in the future")
+        if (expiry_date - now).days > MAX_DISPOSITION_EXPIRY_DAYS:
+            raise HistoryError(
+                f"expiry date cannot exceed {MAX_DISPOSITION_EXPIRY_DAYS} days")
+        
+        with self._lock:
+            project = self.resolve(ref)
+            aid = project["artifactId"]
+            
+            # Rate limiting
+            key = f"disp:{aid}"
+            now_ts = now.timestamp()
+            events = self._disposition_rate_limit.get(key, [])
+            events = [t for t in events if now_ts - t < 60]
+            if len(events) >= 100:
+                raise HistoryError(
+                    "disposition rate limit exceeded (100 events/minute)")
+            
+            disp_dir = self.projects / aid / "dispositions"
+            if disp_dir.exists():
+                _check_safe(disp_dir, True)
+                existing = len(list(disp_dir.glob("*.json")))
+                if existing >= MAX_DISPOSITIONS_PER_PROJECT:
+                    raise HistoryError("project disposition limit exceeded")
+            
+            disp_file = disp_dir / f"{fingerprint}.json"
+            if disp_file.exists():
+                _check_safe(disp_file)
+                record = _strict_load(disp_file)
+            else:
+                record = {
+                    "schemaVersion": SCHEMA_VERSION,
+                    "recordType": "dispositionHistory",
+                    "fingerprint": fingerprint,
+                    "events": [],
+                }
+            
+            event = {
+                "status": status,
+                "expiryDate": expiry_date.isoformat(),
+                "createdAt": now.isoformat(),
+                "createdBy": created_by,
+            }
+            if note:
+                event["note"] = note.strip()
+            
+            record["events"].append(event)
+            _atomic_json(disp_file, record)
+            
+            events.append(now_ts)
+            self._disposition_rate_limit[key] = events
+            
+            return event
+    
+    def list_dispositions(self, ref: str) -> list[dict]:
+        project = self.resolve(ref)
+        result = []
+        for fp, disp in self._effective_dispositions(project["artifactId"]).items():
+            result.append({**disp, "fingerprint": fp})
+        return result
+    
+    def _effective_dispositions(self, aid: str) -> dict[str, dict]:
+        """Return {fingerprint: latest_active_disposition}."""
+        disp_dir = self.projects / aid / "dispositions"
+        if not disp_dir.exists():
+            return {}
+        _check_safe(disp_dir, True)
+        
+        now = datetime.now(timezone.utc)
+        result = {}
+        
+        for path in sorted(disp_dir.glob("*.json")):
+            _check_safe(path)
+            record = _strict_load(path)
+            if record["fingerprint"] != path.stem:
+                raise HistoryError("disposition filename mismatch")
+            
+            # Find latest non-expired event
+            latest = None
+            for event in record["events"]:
+                expiry = datetime.fromisoformat(event["expiryDate"])
+                if expiry > now and (latest is None
+                                     or event["createdAt"] > latest["createdAt"]):
+                    latest = event
+            
+            if latest:
+                result[record["fingerprint"]] = latest
+        
+        return result
+    
     def versions(self, ref):
         p = self.resolve(ref)
         out = []
@@ -377,9 +526,39 @@ class HistoryStore:
             changes.append(item)
         states = ("new", "existing", "changed", "resolved",
                   "unknown_due_to_coverage")
+        
+        # Enrich with dispositions
+        dispositions = self._effective_dispositions(p["artifactId"])
+        noted_counts = {s: 0 for s in DISPOSITION_STATUSES}
+        for change in changes:
+            state = change["state"]
+            if state in ("resolved", "unknown_due_to_coverage"):
+                continue
+            fp = None
+            if state in ("new", "existing", "changed") and change.get(
+                    "currentFindingIds"):
+                cur_fid = change["currentFindingIds"][0]
+                cur_finding = cur_findings.get(cur_fid)
+                if cur_finding:
+                    fp = cur_finding["fingerprint"]
+            elif state == "changed" and change.get("previousFindingIds"):
+                prev_fid = change["previousFindingIds"][0]
+                prev_finding = prev_findings.get(prev_fid)
+                if prev_finding:
+                    fp = prev_finding["fingerprint"]
+            if fp and fp in dispositions:
+                disp = dispositions[fp]
+                change["disposition"] = {
+                    "status": disp["status"],
+                    "note": disp.get("note"),
+                    "expiresAt": disp["expiryDate"],
+                }
+                noted_counts[disp["status"]] += 1
+        
         return {
             "previousReviewId": prev["reviewId"],
             "currentReviewId": cur["reviewId"],
             "counts": {s: sum(x.state == s for x in recs) for s in states},
+            "notedCounts": noted_counts,
             "changes": changes,
         }

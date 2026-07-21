@@ -44,12 +44,40 @@
       if(data.versions.length>1) api("/api/projects/"+encodeURIComponent(selectedProject)+"/diff").then(function(x){
         var d=x.diff; diffBox.appendChild(mk("h4",{text:"与上一版本相比"}));
         diffBox.appendChild(mk("p",{text:"新增 "+d.counts.new+"，持续 "+d.counts.existing+"，变化 "+d.counts.changed+"，已解决 "+d.counts.resolved+"，因覆盖不足无法确认 "+d.counts.unknown_due_to_coverage}));
+        if(d.notedCounts && Object.values(d.notedCounts).some(function(v){return v>0;})){
+          var nc=d.notedCounts;
+          diffBox.appendChild(mk("p",{className:"muted",text:"已标注：确认 "+nc.acknowledged+"，接受风险 "+nc.accept_risk+"，误报 "+nc.false_positive+"，不修复 "+nc.wont_fix}));
+        }
         var labels={new:"新增",existing:"仍然存在",changed:"发生变化",resolved:"已解决",unknown_due_to_coverage:"无法确认"};
         d.changes.forEach(function(change){
           var s=change.summary||{}; var item=mk("details");
-          item.appendChild(mk("summary",{text:(labels[change.state]||change.state)+" · "+(s.findingType||"unknown")+" · "+(s.severity||"")}));
+          var summary=mk("summary",{text:(labels[change.state]||change.state)+" · "+(s.findingType||"unknown")+" · "+(s.severity||"")}); 
+          if(change.disposition){
+            var disp=change.disposition;
+            var badge=mk("span",{className:"badge disp-"+disp.status,text:dispositionLabel(disp.status)});
+            summary.appendChild(document.createTextNode(" "));
+            summary.appendChild(badge);
+          }
+          item.appendChild(summary);
           item.appendChild(mk("p",{text:s.claim||""}));
           if(change.state==="unknown_due_to_coverage") item.appendChild(mk("p",{className:"warn",text:"本轮相关检查未完整完成，因此不能宣称已经修复。"}));
+          if(change.disposition && change.disposition.note){
+            item.appendChild(mk("p",{className:"muted",text:"备注："+change.disposition.note}));
+          }
+          if((change.state==="existing" || change.state==="changed") && data.versions.length>0){
+            var curVer=data.versions[data.versions.length-1];
+            var fp=null;
+            if(change.currentFindingIds && change.currentFindingIds.length>0){
+              var fid=change.currentFindingIds[0];
+              var finding=curVer.findings.find(function(f){return f.findingId===fid;});
+              if(finding) fp=finding.fingerprint;
+            }
+            if(fp){
+              var btn=mk("button",{text:"标注此问题",className:"small"});
+              btn.addEventListener("click",function(){showDispositionForm(fp,item);});
+              item.appendChild(btn);
+            }
+          }
           diffBox.appendChild(item);
         });
       });
@@ -460,5 +488,38 @@
 
   function sevLabel(sev) {
     return ({ low: "低", medium: "中", high: "高", critical: "严重" })[sev] || sev;
+  }
+
+  function dispositionLabel(status) {
+    return ({acknowledged:"已确认",accept_risk:"接受风险",false_positive:"误报",wont_fix:"不修复"})[status] || status;
+  }
+
+  function showDispositionForm(fp, container) {
+    if($("disp-form-"+fp)) return;
+    var form = mk("div", {className: "disposition-form", attrs: {id: "disp-form-"+fp}});
+    var sel = mk("select");
+    [{v:"acknowledged",t:"确认"},{v:"accept_risk",t:"接受风险"},{v:"false_positive",t:"误报"},{v:"wont_fix",t:"不修复"}].forEach(function(o){
+      var opt=mk("option",{text:o.t}); opt.value=o.v; sel.appendChild(opt);
+    });
+    var days = mk("input", {attrs:{type:"number",min:"1",max:"180",value:"30"}});
+    var note = mk("input", {attrs:{maxlength:"200",placeholder:"可选备注"}});
+    var save = mk("button", {text:"保存"});
+    var cancel = mk("button", {text:"取消"});
+    
+    save.addEventListener("click", function(){
+      var payload={status:sel.value,expiryDays:parseInt(days.value)||30};
+      if(note.value) payload.note=note.value;
+      api("/api/projects/"+encodeURIComponent(selectedProject)+"/dispositions/"+encodeURIComponent(fp),
+          {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+        .then(function(){form.remove();loadProject();})
+        .catch(showProjectError);
+    });
+    cancel.addEventListener("click", function(){form.remove();});
+    
+    form.appendChild(mk("label",{text:"状态："})); form.appendChild(sel);
+    form.appendChild(mk("label",{text:" 有效天数："})); form.appendChild(days);
+    form.appendChild(mk("label",{text:" 备注："})); form.appendChild(note);
+    form.appendChild(save); form.appendChild(cancel);
+    container.appendChild(form);
   }
 })();

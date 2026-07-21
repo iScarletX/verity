@@ -171,9 +171,26 @@ def _cmd_project(args: argparse.Namespace) -> int:
     try:
         store=HistoryStore(args.data_dir)
         if args.project_cmd=="create":
-            p=store.create_project(args.name,args.alias); print(f'created project {p["displayName"]} alias={p.get("alias") or "-"}')
+            p=store.create_project(args.name,args.alias); print(f'created project {p["displayName"]} alias={p.get("alias") or "-"}')  
         elif args.project_cmd=="list":
             for p in store.list_projects(): print(f'{p["displayName"]}\t{p.get("alias") or "-"}\t{len(p["versionIds"])} versions')
+        elif args.project_cmd == "dispose":
+            from datetime import datetime, timedelta, timezone
+            expiry = datetime.now(timezone.utc) + timedelta(days=args.expiry)
+            event = store.add_disposition(
+                args.project, args.fingerprint, args.status, expiry, args.note)
+            print(f'marked {args.fingerprint[:12]}... as {args.status} '
+                  f'until {event["expiryDate"]}')
+        elif args.project_cmd == "dispositions":
+            disps = store.list_dispositions(args.project)
+            if not disps:
+                print("no active dispositions")
+            else:
+                print(f"{len(disps)} active dispositions:")
+                for d in disps:
+                    fp = d.get("fingerprint", "?")
+                    print(f"  {fp[:12]}... {d['status']} '"
+                          f"'{d.get('note', '')}' expires {d['expiryDate']}")
         elif args.project_cmd == "review":
             p = store.resolve(args.project)
             snap, byts = intake_directory(
@@ -185,15 +202,33 @@ def _cmd_project(args: argparse.Namespace) -> int:
                 p["artifactId"], review, profile=args.profile)
             high = sum(1 for f in review.findings
                        if f.severity in ("high", "critical"))
-            if high:
+            
+            # Check dispositions if requested
+            if args.respect_dispositions:
+                dispositions = store._effective_dispositions(p["artifactId"])
+                accepted_high = 0
+                for f in review.findings:
+                    if (f.severity in ("high", "critical")
+                            and f.findingOccurrenceFingerprint in dispositions
+                            and dispositions[
+                                f.findingOccurrenceFingerprint]["status"] == "accept_risk"):
+                        accepted_high += 1
+                effective_high = high - accepted_high
+            else:
+                effective_high = high
+            
+            if effective_high:
                 gate, exit_code = "findings_block", 1
             elif review.coverage.status != "sufficient":
                 gate, exit_code = "coverage_block", 3
             else:
                 gate, exit_code = "pass", 0
-            print(f'recorded review={rec["reviewId"]} '
-                  f'coverage={rec["coverage"]["status"]} '
-                  f'high_or_critical={high} gate={gate}')
+            info = (f'recorded review={rec["reviewId"]} '
+                    f'coverage={rec["coverage"]["status"]} '
+                    f'high_or_critical={high}')
+            if args.respect_dispositions and high > effective_high:
+                info += f' (accepted_risk={high - effective_high})'
+            print(f'{info} gate={gate}')
             return exit_code
         elif args.project_cmd=="diff":
             print(json.dumps(store.diff(args.project,args.previous,args.current),ensure_ascii=False,indent=2))
@@ -263,8 +298,10 @@ def main(argv=None) -> int:
     psub=pp.add_subparsers(dest="project_cmd",required=True)
     pc=psub.add_parser("create"); pc.add_argument("--name",required=True); pc.add_argument("--alias")
     psub.add_parser("list")
-    prj=psub.add_parser("review"); prj.add_argument("--project",required=True); prj.add_argument("--input-dir",required=True); prj.add_argument("--profile",choices=["standard","minimal"],default="standard")
+    prj=psub.add_parser("review"); prj.add_argument("--project",required=True); prj.add_argument("--input-dir",required=True); prj.add_argument("--profile",choices=["standard","minimal"],default="standard"); prj.add_argument("--respect-dispositions",action="store_true",help="Accept-risk dispositions prevent gate failure")
     pd=psub.add_parser("diff"); pd.add_argument("--project",required=True); pd.add_argument("--previous"); pd.add_argument("--current")
+    pdisp=psub.add_parser("dispose"); pdisp.add_argument("--project",required=True); pdisp.add_argument("--fingerprint",required=True); pdisp.add_argument("--status",choices=["acknowledged","accept_risk","false_positive","wont_fix"],required=True); pdisp.add_argument("--expiry",type=int,default=30,help="Days until expiry (default 30, max 180)"); pdisp.add_argument("--note",help="Optional note (max 200 chars)")
+    psub.add_parser("dispositions").add_argument("--project",required=True)
     pp.set_defaults(func=_cmd_project)
 
     ps = sub.add_parser("export-schema", help="Export JSON Schema (Draft 2020-12)")
