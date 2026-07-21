@@ -200,7 +200,7 @@ def _post_skill(client, folder: Path, *, profile: str = "standard",
 
 class TestSkillEndpoint:
     def test_clean_skill_standard(self, client):
-        r = _post_skill(client, FIXTURES / "clean_skill", profile="standard")
+        r = _post_skill(client, FIXTURES / "clean-skill", profile="standard")
         assert r.status_code == 200, r.text
         view = r.json()
         assert view["engine"] == "skill"
@@ -208,7 +208,7 @@ class TestSkillEndpoint:
         assert view["counts"]["high"] == 0
 
     def test_clean_skill_minimal_shows_secret_scan_off(self, client):
-        r = _post_skill(client, FIXTURES / "clean_skill", profile="minimal")
+        r = _post_skill(client, FIXTURES / "clean-skill", profile="minimal")
         assert r.status_code == 200
         view = r.json()
         assert view["secretScan"]["ok"] is False
@@ -288,7 +288,7 @@ class TestSkillTempCleanup:
     def test_no_leaked_tmpdir(self, client):
         import tempfile as _tf, pathlib as _pl, glob as _glob
         before = set(_glob.glob(str(_pl.Path(_tf.gettempdir()) / "verity-web-skill-*")))
-        _post_skill(client, FIXTURES / "clean_skill", profile="minimal")
+        _post_skill(client, FIXTURES / "clean-skill", profile="minimal")
         after = set(_glob.glob(str(_pl.Path(_tf.gettempdir()) / "verity-web-skill-*")))
         assert after == before, sorted(after - before)
 

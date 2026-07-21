@@ -1,5 +1,5 @@
 ---
-name: dependency-positive
+name: skill-dependency-positive
 description: A synthetic package with a floating dependency.
 dependencies:
   sample-package: ">=1.0"

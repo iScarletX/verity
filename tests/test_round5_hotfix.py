@@ -40,14 +40,14 @@ class TestExitCodes:
         """standard + gitleaks missing + clean skill: MUST be exit 3
         (coverage_block). Coverage-insufficient never returns 0."""
         p = _run_cli(["review", "--engine", "skill", "--profile", "standard",
-                      "--input-dir", str(FIXTURES / "clean_skill"),
+                      "--input-dir", str(FIXTURES / "clean-skill"),
                       "--out", str(tmp_path)])
         assert p.returncode == 3, (p.returncode, p.stdout, p.stderr)
         assert "gate=coverage_block" in p.stdout
 
     def test_minimal_clean_skill_is_pass(self, tmp_path):
         p = _run_cli(["review", "--engine", "skill", "--profile", "minimal",
-                      "--input-dir", str(FIXTURES / "clean_skill"),
+                      "--input-dir", str(FIXTURES / "clean-skill"),
                       "--out", str(tmp_path)])
         assert p.returncode == 0
         assert "gate=pass" in p.stdout
@@ -109,7 +109,7 @@ class TestSarifFlatProperties:
 
     def test_run_properties_uses_flat_verity_keys(self, tmp_path):
         p = _run_cli(["review", "--engine", "skill", "--profile", "minimal",
-                      "--input-dir", str(FIXTURES / "clean_skill"),
+                      "--input-dir", str(FIXTURES / "clean-skill"),
                       "--out", str(tmp_path)])
         assert p.returncode == 0, p.stderr
         sarif = json.loads((tmp_path / "report.sarif").read_text())
@@ -127,7 +127,7 @@ class TestSarifFlatProperties:
 
     def test_coverage_key_reflects_insufficient(self, tmp_path):
         p = _run_cli(["review", "--engine", "skill", "--profile", "standard",
-                      "--input-dir", str(FIXTURES / "clean_skill"),
+                      "--input-dir", str(FIXTURES / "clean-skill"),
                       "--out", str(tmp_path)])
         # standard + gitleaks missing = coverage_block; exit 3.
         assert p.returncode == 3

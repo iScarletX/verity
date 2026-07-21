@@ -141,9 +141,12 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         subjectFields=[
             SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
             SubjectField("fieldName", "literal_enum",
-                         allowedValues=["name", "description"]),
+                         allowedValues=["name", "description", "compatibility",
+                                        "metadata", "allowed-tools"]),
             SubjectField("fieldIssue", "literal_enum",
-                         allowedValues=["missing", "blank", "invalid_syntax"]),
+                         allowedValues=["missing", "blank", "invalid_syntax",
+                                        "too_long", "directory_mismatch",
+                                        "invalid_type", "invalid_value"]),
         ],
         subjectKeyFields=["artifactPath", "fieldName", "fieldIssue"],
         defaultSeverity="medium",
@@ -416,10 +419,11 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
     # S3 name
     rr.register(RuleDefinition(
         ruleId="skill.manifest_name_issue",
-        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        ruleVersion="2.0.0",
+        supersedes=["skill.manifest_name_issue@1.0.0"], engine="skill",
         title="Manifest `name` is missing, blank, or has invalid syntax.",
         findingType="skill.manifest_field_issue",
-        implementationId="impl.skill.manifest_name_issue.v1",
+        implementationId="impl.skill.manifest_name_issue.v2",
         applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
         defaultSeverity="medium", controlIds=["OWASP-AST04"],
         owaspAst10=["OWASP-AST04"], requiresManifest=True,
@@ -427,12 +431,25 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
     # S4 description
     rr.register(RuleDefinition(
         ruleId="skill.manifest_description_missing",
-        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        ruleVersion="2.0.0",
+        supersedes=["skill.manifest_description_missing@1.0.0"], engine="skill",
         title="Manifest `description` is missing or blank.",
         findingType="skill.manifest_field_issue",
-        implementationId="impl.skill.manifest_description_missing.v1",
+        implementationId="impl.skill.manifest_description_missing.v2",
         applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
         defaultSeverity="medium", controlIds=["OWASP-AST04"],
+        owaspAst10=["OWASP-AST04"], requiresManifest=True,
+    ))
+    # S4b optional official Agent Skills fields
+    rr.register(RuleDefinition(
+        ruleId="skill.manifest_optional_field_issue",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("An optional Agent Skills frontmatter field violates the "
+               "official type or length constraint."),
+        findingType="skill.manifest_field_issue",
+        implementationId="impl.skill.manifest_optional_field_issue.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["AGENT-SKILLS-SPEC"],
         owaspAst10=["OWASP-AST04"], requiresManifest=True,
     ))
     # S5 missing reference

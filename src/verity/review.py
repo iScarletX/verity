@@ -150,6 +150,10 @@ def run_review(ri: ReviewInputs, *, bandit_runner=None,
     evidences, events, findings, plan_items, executions, artifact_model = engine.run(
         ri.snapshot, ri.file_bytes
     )
+    if ri.engine == "skill":
+        from .capabilities import extract_capability_facts
+        artifact_model["capabilityFacts"] = extract_capability_facts(
+            ri.snapshot, ri.file_bytes, artifact_model.get("manifest"))
     review_id = f"r-{uuid.uuid4().hex[:12]}"
     plan_id = f"rp-{uuid.uuid4().hex[:12]}"
     plan = ReviewPlan(

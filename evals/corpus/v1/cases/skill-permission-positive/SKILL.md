@@ -1,5 +1,5 @@
 ---
-name: permission-positive
+name: skill-permission-positive
 description: A synthetic package with an open-ended permission grant.
 permissions:
   - "*"

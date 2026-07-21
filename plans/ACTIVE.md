@@ -1,84 +1,74 @@
-# Round 16 — Standards-driven static detection breadth
+# Round 17 — Taxonomy-driven semantic detection breadth
 
 ## Status
 
 - Product scope approved: **yes**
-- Implementation: not started; begins only after Round-15 CI is green
+- Implementation: not started; begins only after Round-16 CI is green
 - Owner: main maintainer agent
+- Stop condition: after Round 17, do not start Provider production work;
+  return to maintainer for a new decision.
 
 ## Objective
 
-Improve L0 static breadth from the Round-14 gap matrix using Round-15 paired
-corpus measurement. Do not chase rule count. Prioritize authoritative,
-deterministic, high-value coverage and mature maintained detectors where their
-license/containment/output boundaries are acceptable.
+Expand the controlled L1 semantic catalog from three pipeline examples into a
+standards/taxonomy-driven set of reviewable semantic risks. Use deterministic
+seed evidence and Round-16 capability facts. Do not let a model invent risk
+classes, severity, identity, evidence, or assessment policy.
 
-## Ordered workstreams
+## Priority semantic families
 
-### 1. Agent Skills specification conformance
+1. Prompt instruction consistency beyond adjacent-line pairs.
+2. Prompt output/error/verification contract adequacy.
+3. Prompt trusted-instruction vs untrusted-content boundary clarity.
+4. Prompt task-to-tool necessity and excessive agency.
+5. Skill declared behavior vs deterministic capability facts.
+6. Skill permission/capability mismatch and undeclared network/process/
+   credential/file access.
+7. External instruction/tool-content trust and provenance gaps.
 
-Correct and version Skill metadata validation against the official Agent Skills
-specification, including at minimum:
+A risk remains L0/V1.5/V2-only if reading static evidence cannot support a
+falsifiable semantic conclusion.
 
-- exact `name` syntax/length/consecutive-hyphen and parent-directory matching;
-- `description` required/length boundaries;
-- `compatibility`, `metadata`, `allowed-tools` type/length constraints;
-- supported spec version in report/plan metadata;
-- body/reference limits that can be proved statically.
+## Required catalog contract per semantic Finding Type
 
-Existing historical Rule identity must be migrated deliberately (`supersedes`)
-or preserved when only control metadata changes. Every change gets paired
-Corpus cases, including legacy values that the old implementation accepted.
+- stable FindingType and Round-14 risk mapping;
+- object scope and policy severity;
+- controlled Subject schema and identity fields;
+- deterministic extractor with bounded, allowlisted Evidence;
+- falsification question written to disprove the claim;
+- required evidence kinds and minimum evidence sufficiency;
+- confirmed/rejected fixed Provider replay pair;
+- English and Chinese/mixed-language coverage where meaningful;
+- explicit known blind spots and no model-authored category/severity.
 
-### 2. Capability fact model
+## Evaluation boundary
 
-Build deterministic normalized facts for file, process, network, credential,
-configuration, installation and tool capabilities. Facts are not Findings.
-They become evidence for least-privilege comparisons and Round-17 semantic
-review. Unsupported languages remain explicit.
+- Expand fixed replay/contract corpus first.
+- Add adversarial responses: missing evidence, injected category/severity,
+  forged ids, refusal, invalid JSON, unstable output.
+- Fixed replays measure only pipeline contracts and keep
+  `modelQualityMeasured=false`.
+- No taxonomy risk may become `substantial`/`evaluated` from replay results.
+- Real model precision/recall remains unavailable until a future explicitly
+  approved Provider evaluation round.
 
-### 3. Mature detector candidate decisions
+## Acceptance
 
-Evaluate, then accept or reject with evidence:
-
-- OSV-Scanner for dependency vulnerabilities;
-- ShellCheck for shell analysis (GPL/distribution boundary must be resolved);
-- Semgrep open-source engine for cross-language/taint breadth (separate from
-  hosted platform features and terms);
-- a JavaScript/TypeScript path if Semgrep is not acceptable.
-
-For every accepted external tool: pin version/hash, scan only staged snapshot
-copies, no shell invocation, strict structured output, budgets/timeouts,
-redaction, Coverage failure semantics, Finding dedup and positive/safe corpus.
-No automatic installation outside the repository.
-
-### 4. Prompt deterministic contract expansion
-
-Only standards/corpus-backed deterministic checks: structured contracts,
-variable definition/use, trust-boundary markers, declared tool names and
-machine-parseable conflicts. Contextual judgment remains L1; absence of an
-optional best practice is not automatically a vulnerability.
-
-## Acceptance and measurement
-
-- Every new/changed detector maps to Round-14 risk ids and causes no registry
-  drift.
-- Every detector has independent positive/safe Corpus cases, boundary cases,
-  language/object declaration and visible unsupported scope.
-- Per-risk baseline changes are reviewed; High/Critical FN cannot be hidden by
-  averages. No aggregate safety score.
-- Agent Skills spec mismatch identified in Round 14 is closed or documented
-  with an explicit compatibility reason.
-- No risk is promoted to `substantial`/`evaluated` while labels remain
-  `provisional_single_review` or corpus breadth is inadequate.
+- Every new semantic type maps to an existing risk and passes standards drift.
+- Deterministic Findings remain byte-for-byte/identity invariant under every
+  semantic case.
+- Evidence payloads contain no secrets, absolute paths, raw full artifacts or
+  Provider credentials.
+- Candidate and Validator roles remain physically separate.
+- Unsupported risks remain unsupported; no semantic catch-all.
 - Full pytest, corpus reproduction, `verify_repo.py --require-clean`, push and
   green CI.
 
 ## Explicit non-goals
 
-- Expanding semantic Finding Types (Round 17).
-- Real Provider/OpenRouter/model calls or Web API-key/model UI.
+- Real Provider/OpenRouter/API-key/model calls or Web configuration.
+- Default semantic enablement or egress-policy changes.
+- Additional static tools beyond Round-16 decisions.
 - V1.5 Prompt black-box execution.
 - V2 Skill execution/sandbox.
-- ZIP/GitHub URL intake.
-- Automatically applying fixes or installing reviewed Skill dependencies.
+- Round 18 or any later work without a new maintainer decision.

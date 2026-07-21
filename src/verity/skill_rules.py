@@ -174,10 +174,12 @@ def skill_manifest_invalid(ctx: RuleContext) -> List[RuleHit]:
 # S3 / S4.  name / description missing or blank                         #
 # --------------------------------------------------------------------- #
 
-# Minimal name syntax: 1..64 chars of [A-Za-z0-9._-], not starting/ending
-# with a separator. Anything else is "unclear", but we don't try to be
-# clever — just flag missing/blank/obviously-invalid.
-_NAME_OK = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9._\- ]{0,62}[A-Za-z0-9]\Z")
+# Agent Skills specification: 1..64 lowercase ASCII letters, digits and
+# hyphens; no leading/trailing/consecutive hyphen; must match root directory.
+_NAME_OK = re.compile(r"\A[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+MAX_SKILL_NAME_CHARS = 64
+MAX_SKILL_DESCRIPTION_CHARS = 1024
+MAX_SKILL_COMPATIBILITY_CHARS = 500
 
 
 def _mkfield_hit(ctx: RuleContext, field: str, category: str) -> RuleHit:
@@ -216,10 +218,17 @@ def skill_manifest_name_issue(ctx: RuleContext) -> List[RuleHit]:
     name = m.get("name")
     if name is None:
         return [_mkfield_hit(ctx, "name", "missing")]
-    if not isinstance(name, str) or not name.strip():
+    if not isinstance(name, str):
+        return [_mkfield_hit(ctx, "name", "invalid_type")]
+    if not name.strip():
         return [_mkfield_hit(ctx, "name", "blank")]
-    if not _NAME_OK.match(name):
+    if len(name) > MAX_SKILL_NAME_CHARS:
+        return [_mkfield_hit(ctx, "name", "too_long")]
+    if not _NAME_OK.fullmatch(name):
         return [_mkfield_hit(ctx, "name", "invalid_syntax")]
+    root_name = ctx.snapshot.artifactRootName
+    if root_name is not None and name != root_name:
+        return [_mkfield_hit(ctx, "name", "directory_mismatch")]
     return []
 
 
@@ -230,9 +239,42 @@ def skill_manifest_description_missing(ctx: RuleContext) -> List[RuleHit]:
     desc = m.get("description")
     if desc is None:
         return [_mkfield_hit(ctx, "description", "missing")]
-    if not isinstance(desc, str) or not desc.strip():
+    if not isinstance(desc, str):
+        return [_mkfield_hit(ctx, "description", "invalid_type")]
+    if not desc.strip():
         return [_mkfield_hit(ctx, "description", "blank")]
+    if len(desc) > MAX_SKILL_DESCRIPTION_CHARS:
+        return [_mkfield_hit(ctx, "description", "too_long")]
     return []
+
+
+def skill_manifest_optional_field_issue(ctx: RuleContext) -> List[RuleHit]:
+    m = (ctx.artifact_model or {}).get("manifest")
+    if m is None:
+        return []
+    hits: List[RuleHit] = []
+    compatibility = m.get("compatibility")
+    if compatibility is not None:
+        if not isinstance(compatibility, str):
+            hits.append(_mkfield_hit(ctx, "compatibility", "invalid_type"))
+        elif not compatibility.strip():
+            hits.append(_mkfield_hit(ctx, "compatibility", "blank"))
+        elif len(compatibility) > MAX_SKILL_COMPATIBILITY_CHARS:
+            hits.append(_mkfield_hit(ctx, "compatibility", "too_long"))
+    metadata = m.get("metadata")
+    if metadata is not None:
+        if not isinstance(metadata, dict):
+            hits.append(_mkfield_hit(ctx, "metadata", "invalid_type"))
+        elif not all(isinstance(k, str) and isinstance(v, str)
+                     for k, v in metadata.items()):
+            hits.append(_mkfield_hit(ctx, "metadata", "invalid_value"))
+    allowed_tools = m.get("allowed-tools")
+    if allowed_tools is not None:
+        if not isinstance(allowed_tools, str):
+            hits.append(_mkfield_hit(ctx, "allowed-tools", "invalid_type"))
+        elif not allowed_tools.strip():
+            hits.append(_mkfield_hit(ctx, "allowed-tools", "blank"))
+    return hits
 
 
 # --------------------------------------------------------------------- #

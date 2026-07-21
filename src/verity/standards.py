@@ -19,6 +19,10 @@ SCOPES = {
     "prompt", "system_prompt", "skill", "agent_config", "mcp",
     "supply_chain", "governance",
 }
+CANDIDATE_DECISIONS = {
+    "adopt_next", "defer_license_review", "defer_boundary_review",
+    "keep_pinned_reassess",
+}
 SOURCE_KINDS = {
     "threat_taxonomy", "threat_model", "risk_framework", "risk_profile",
     "adversary_knowledge_base", "weakness_catalog", "attack_pattern_catalog",
@@ -26,7 +30,9 @@ SOURCE_KINDS = {
     "artifact_specification", "protocol_security_guidance",
     "detector_documentation", "detector_candidate_documentation",
 }
-DETECTOR_TYPES = {"deterministic_rule", "semantic_finding_type"}
+DETECTOR_TYPES = {
+    "deterministic_rule", "semantic_finding_type", "capability_extractor"
+}
 
 
 class StandardsError(ValueError):
@@ -160,6 +166,48 @@ def load_risks(sources: Dict[str, Dict[str, Any]] | None = None
     return result
 
 
+def load_detector_candidates(
+        sources: Dict[str, Dict[str, Any]] | None = None,
+        risks: Dict[str, Dict[str, Any]] | None = None
+        ) -> Dict[str, Dict[str, Any]]:
+    sources = sources or load_sources()
+    risks = risks or load_risks(sources)
+    value = _load("detector_candidates.json")
+    if not isinstance(value.get("evaluatedAt"), str):
+        raise StandardsError("candidate evaluation date missing")
+    candidates = value.get("candidates")
+    if not isinstance(candidates, list):
+        raise StandardsError("detector candidates must be a list")
+    exact = {"candidateId", "sourceId", "decision", "license",
+             "maintenance", "structuredOutput", "targetRiskIds",
+             "requiredControls", "rationale"}
+    result = {}
+    for item in candidates:
+        if not isinstance(item, dict) or set(item) != exact:
+            raise StandardsError("detector candidate violates strict schema")
+        cid = item.get("candidateId")
+        if not isinstance(cid, str) or not cid or cid in result:
+            raise StandardsError("invalid or duplicate detector candidate")
+        if item.get("sourceId") not in sources:
+            raise StandardsError(f"candidate {cid} has unknown source")
+        if item.get("decision") not in CANDIDATE_DECISIONS:
+            raise StandardsError(f"candidate {cid} has invalid decision")
+        if (not isinstance(item.get("targetRiskIds"), list)
+                or not item["targetRiskIds"]
+                or not set(item["targetRiskIds"]) <= set(risks)):
+            raise StandardsError(f"candidate {cid} has invalid target risks")
+        for key in ("license", "maintenance", "rationale"):
+            if not isinstance(item.get(key), str) or not item[key].strip():
+                raise StandardsError(f"candidate {cid} has invalid {key}")
+        for key in ("structuredOutput", "requiredControls"):
+            if (not isinstance(item.get(key), list) or not item[key]
+                    or not all(isinstance(x, str) and x.strip()
+                               for x in item[key])):
+                raise StandardsError(f"candidate {cid} has invalid {key}")
+        result[cid] = item
+    return result
+
+
 def load_detector_mappings(
         risks: Dict[str, Dict[str, Any]] | None = None
         ) -> Dict[tuple[str, str], Dict[str, Any]]:
@@ -186,8 +234,8 @@ def load_detector_mappings(
             raise StandardsError(f"detector {did} has unknown risks")
         if detector["contribution"] not in {"signal", "partial"}:
             raise StandardsError(f"detector {did} has invalid contribution")
-        layer = ("L0_static" if dtype == "deterministic_rule"
-                 else "L1_semantic")
+        layer = ("L1_semantic" if dtype == "semantic_finding_type"
+                 else "L0_static")
         contradictory = [
             rid for rid in risk_ids
             if risks[rid]["currentCoverage"][layer] == "none"
@@ -221,6 +269,10 @@ def validate_runtime_detector_coverage() -> None:
     mapped_semantic = {
         did for dtype, did in mappings if dtype == "semantic_finding_type"
     }
+    capability_ids = {"skill.capability_facts.v1"}
+    mapped_capabilities = {
+        did for dtype, did in mappings if dtype == "capability_extractor"
+    }
     if rule_ids != mapped_rules:
         missing = sorted(rule_ids - mapped_rules)
         stale = sorted(mapped_rules - rule_ids)
@@ -231,6 +283,11 @@ def validate_runtime_detector_coverage() -> None:
         stale = sorted(mapped_semantic - semantic_ids)
         raise StandardsError(
             f"semantic mapping drift: missing={missing} stale={stale}")
+    if capability_ids != mapped_capabilities:
+        missing = sorted(capability_ids - mapped_capabilities)
+        stale = sorted(mapped_capabilities - capability_ids)
+        raise StandardsError(
+            f"capability mapping drift: missing={missing} stale={stale}")
 
 
 def summarize_coverage() -> Dict[str, Any]:

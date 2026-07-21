@@ -36,7 +36,7 @@ def test_prompt_flagged():
 
 
 def test_skill_ok():
-    snap, b = intake_directory(FIXTURES / "skill_ok")
+    snap, b = intake_directory(FIXTURES / "skill-ok")
     r = run_review(ReviewInputs(engine="skill", snapshot=snap, file_bytes=b))
     assert r.findings == []
 

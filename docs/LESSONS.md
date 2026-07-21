@@ -14,6 +14,39 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-21 — Official living specs need a dated snapshot boundary
+
+- **Symptom**: Verity accepted uppercase/space/underscore Skill names and a
+  case-insensitive or nested `Skill.md`, while the current Agent Skills spec
+  requires exact root `SKILL.md`, a narrow lowercase-hyphen name grammar and
+  directory-name equality.
+- **Root cause**: Early rules used a locally invented permissive grammar and
+  did not record which living specification snapshot they implemented.
+- **Fix**: Parser/report declare `agentskills.io/specification` at
+  `retrieved-2026-07-21`; required/optional fields and root-name intake were
+  tightened. Rule versions explicitly supersede v1 and safe fixtures were
+  migrated rather than weakening the official boundary.
+- **Prevention**: Every living specification integration needs a source id,
+  retrieval snapshot, migration declaration, positive/safe corpus cases and
+  Web/CLI parity.
+- **Evidence**: Round 16 Agent Skills tests and expanded Corpus.
+
+### 2026-07-21 — Mature tools still need deny-by-construction wrappers
+
+- **Symptom**: Semgrep appears to solve cross-language gaps, but its convenient
+  defaults can fetch registry config/send metrics, and an explicit local-build
+  option can execute reviewed project code. ShellCheck has GPLv3 distribution
+  obligations; OSV results depend on mutable network advisory data.
+- **Root cause**: Tool reputation was being considered before license,
+  reproducibility and hostile-input containment.
+- **Fix**: Added machine-readable adopt/defer decisions and mandatory controls.
+  OSV is next only after an offline database-snapshot design; ShellCheck and
+  Semgrep remain deferred pending license/boundary review.
+- **Prevention**: Never integrate a scanner via its quick-start/default command.
+  Pin local rules/data, disable network/metrics/build/autofix, scan staged
+  copies, parse strict output and expose failures as Coverage gaps.
+- **Evidence**: `standards/detector_candidates.json`.
+
 ### 2026-07-21 — A tiny passing corpus is not 100% detection accuracy
 
 - **Symptom**: The initial paired corpus produced perfect TP/TN results for ten

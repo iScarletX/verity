@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "2831270c7403d35e26c284741e5187ee6dd63c3e"
-  tests_collected: 361
-  tests_passed: 361
+  commit: "f90b193b3142d7d167259482e599a367d89d5ee5"
+  tests_collected: 379
+  tests_passed: 379
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,11 +27,11 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The Round-14 machine-readable taxonomy records 17 official/candidate sources, 25 unified risks and exact mappings for all 36 runtime detectors. Current L0 breadth: 5 none / 11 signal / 9 partial. Current L1 breadth: 19 none / 5 signal / 1 partial. No risk is substantial/evaluated before Round-15 corpus measurement; V1.5 and V2 remain entirely none/not implemented.
+**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 25 unified risks, 38 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 12 signal / 9 partial. Current L1 breadth: 19 none / 5 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** Round 15 adds 20 synthetic paired L0 cases across 10 risks and six fixed semantic contract replays. Reports are reproducible, per-risk and score-free; High/Critical misses are separate, unsupported/unmeasured risks remain visible, semantic replay sets `modelQualityMeasured: false`, and all labels remain `provisional_single_review`. This is a measurement foundation, not a 100% accuracy claim.
+**Corpus baseline.** The Corpus now has 26 synthetic L0 cases across 10 risks and six fixed semantic contract replays. Agent Skills conformance has four positive/safe pairs; other measured risks retain one pair. Reports remain reproducible, per-risk and score-free; labels remain `provisional_single_review`. This is a measurement foundation, not a broad accuracy claim.
 
-**Next step.** Round 16 uses the standards gaps and corpus to prioritize static breadth: official Agent Skills conformance first, then capability facts/cross-language mature detector candidates. No real Provider, V1.5, or V2 work is authorized.
+**Next step.** Round 17 expands the controlled semantic risk catalog and replay/corpus breadth using the taxonomy and capability facts. It does not connect a real Provider, change Web API-key/model settings, implement V1.5, or execute Skills.
 
 **What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, and trusted Web-first Skill project identity/history with scope-aware five-state version diff.
 
@@ -43,7 +43,38 @@ ZIP or GitHub-URL intake. No PatchSet apply (proposals only).
 
 ## Round history (append-only)
 
-## Round 15 (2026-07-21) → implementation commit pending
+## Round 16 (2026-07-21) → implementation commit pending
+
+- Corrected deterministic Skill metadata validation to the official Agent
+  Skills living-spec snapshot retrieved 2026-07-21: exact root `SKILL.md`,
+  1–64 lowercase/digit/hyphen name grammar, no edge/consecutive hyphens,
+  exact package-directory match, description length/type, compatibility,
+  string→string metadata and space-separated `allowed-tools` shapes.
+- Preserved host-path privacy: Snapshot retains only a bounded final
+  directory/browser-upload root component. It does not enter content digests,
+  project identity or persisted history. Web rejects mixed upload roots and
+  does not compare against a temp-directory name.
+- Versioned name/description Rules to 2.0.0 with explicit v1 supersedes and
+  added one controlled optional-field Rule. Safe legacy fixtures were migrated
+  to spec-conformant directory names rather than weakening the rule.
+- Added non-Finding Skill Capability Facts for narrow Manifest/Python-AST
+  observations of file, process, network, credential, configuration,
+  installation and tool capability. Facts never change severity/Coverage/gate,
+  retain only relative paths and declare no-dataflow/no-runtime limitations.
+- Expanded L0 Corpus from 20 to 26 cases. `VR-SKILL-001` now has four
+  positive/four safe provisional cases with 4 TP/4 TN, 0 FP/FN; no breadth
+  level was promoted. High/Critical positive baseline remains 5/5 detected.
+- Evaluated mature tools without installing them: OSV-Scanner `adopt_next`
+  only after offline advisory snapshot design; ShellCheck deferred for GPLv3
+  distribution review; Semgrep OSS deferred pending a deny-by-construction
+  local-rules/metrics-off/no-build wrapper and LGPL boundary; pinned Gitleaks
+  retained but marked feature-complete/security-fix maintenance.
+- L0 taxonomy moved from 5 none / 11 signal / 9 partial to 4 none / 12 signal /
+  9 partial due only to capability facts. No Provider/V1.5/V2 behavior added.
+- Full suite: 379 passed, 0 skipped; 38 mapped runtime components and four
+  machine-validated detector candidate decisions.
+
+## Round 15 (2026-07-21) → implementation commit `f90b193`
 
 - Added a strict versioned Corpus manifest with 20 synthetic L0 cases: one
   risk-positive and one safe counterexample for each of ten currently

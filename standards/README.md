@@ -22,8 +22,11 @@ coverage remains only `signal` or `partial`.
   Verity. Requirements are paraphrased; no large standards text is copied.
 - `risks.json`: stable Verity risk ids, source crosswalks, layer boundaries,
   current breadth, and known gaps.
-- `detector_mappings.json`: exact mapping of all runtime deterministic rules
-  and semantic Finding Types to the taxonomy.
+- `detector_mappings.json`: exact mapping of all runtime Rules, capability
+  extractors and semantic Finding Types to the taxonomy.
+- `detector_candidates.json`: evidence-based adopt/defer/reassess decisions and
+  mandatory safety controls for mature external detector candidates. A
+  candidate entry does not mean the tool is installed or integrated.
 
 `verity.standards` validates all three. Round-14 tests fail on unknown sources,
 unknown controls, unmapped runtime detectors, layer/schema drift, or unsupported
@@ -31,8 +34,9 @@ pre-corpus coverage claims.
 
 ## Round-14 baseline
 
-The first baseline contains 25 unified risks and 36 mapped detectors (33
-deterministic rules and three semantic Finding Types):
+The first baseline contained 25 unified risks and 36 mapped detectors. Round
+16 added one official Agent Skills field Rule and one non-Finding capability
+fact extractor; the exact current count is enforced from runtime registries.
 
 | Layer | none | signal | partial | substantial | evaluated |
 |---|---:|---:|---:|---:|---:|

@@ -22,7 +22,8 @@
        │  verity/engine.py    │             │  verity/semantic/       │
        │  verity/skill_rules  │             │  DEFAULT OFF            │
        │  verity/parser.py    │             │  Provider protocols +   │
-       │  verity/gitleaks_*   │             │  bounded HTTPS JSON     │
+       │  verity/capabilities │             │  bounded HTTPS JSON     │
+       │  verity/gitleaks_*   │             │                         │
        │  verity/bandit_*     │             └─────────┬───────────────┘
        │                      │                       │
        │  Rules → Evidence    │            Extractor  │
@@ -86,6 +87,8 @@
 - **Semantic → Deterministic**: never writes. It reads a
   projection dict.
 - **Reviewed artifact → project identity/history**: forbidden. Opaque artifact identity is minted by the trusted registry; only an existing Web project page or CLI alias/registered ID can add a version. No name/path/digest/similarity linking.
+- **Skill root name**: intake retains only one bounded final directory/browser-root component for official Agent Skills name matching. It is not a host path, does not select project identity, is not part of content digests, and is not persisted in history.
+- **Capability facts**: deterministic Manifest/Python-AST observations only. They are not Findings, never change gates, expose limitations, and provide evidence for later least-privilege/semantic work.
 - **History safety**: allowlisted projection only; strict schema/version, budgets, symlink/owner/mode checks and atomic writes. No raw content/evidence, Secret, Provider wire data, credentials, RedactionMap, or host/temp/tool paths.
 - **Diff resolution**: exact occurrence and controlled stable subject remain distinct. A disappearance is `resolved` only when its relevant current parser/analyzer/rule plan items succeeded; otherwise `unknown_due_to_coverage`.
 - **Reviewed artifact → Provider config**: forbidden. Provider config

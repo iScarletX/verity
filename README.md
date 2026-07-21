@@ -270,8 +270,9 @@ silently absent.
 |---|---|---|---|
 | `skill.missing_skill_md` | high | AST04 | Anchors the finding at an existing file (or a synthetic root location if the artifact is empty). |
 | `skill.manifest_parse_failure` | high | AST04 | Emits one Finding per parser diagnostic: `frontmatter_not_closed`, `yaml_parse_error`, `yaml_root_not_mapping`, `yaml_too_deep`, `yaml_too_many_keys`, `frontmatter_over_budget`, `frontmatter_too_many_lines`, `frontmatter_alias_bomb_suspected`. |
-| `skill.manifest_name_issue` | medium | AST04 | `missing` / `blank` / `invalid_syntax`. Syntax is `[A-Za-z0-9][A-Za-z0-9._\- ]{0,62}[A-Za-z0-9]`. |
-| `skill.manifest_description_missing` | medium | AST04 | `missing` / `blank`. No subjective "quality" judgement. |
+| `skill.manifest_name_issue` | medium | AST04 | Agent Skills spec snapshot `retrieved-2026-07-21`: required string, 1–64 lowercase ASCII letters/digits/hyphens, no leading/trailing/consecutive hyphen, exact package-directory match. |
+| `skill.manifest_description_missing` | medium | AST04 | Required non-empty string, maximum 1024 characters. No subjective "quality" judgement. |
+| `skill.manifest_optional_field_issue` | medium | AST04 | Validates official optional `compatibility` (non-empty string ≤500), `metadata` (string→string mapping), and `allowed-tools` (non-empty space-separated string) field shapes. |
 | `skill.manifest_missing_reference` | medium | AST04 | Local script/file referenced in `scripts`/`files`/`refs`/`entrypoints` does not exist. Suppressed when the suffix-mismatch rule already covers the case. |
 | `skill.manifest_unsafe_reference_path` | high | AST04 | Reference is an absolute path, contains `..`, or uses back-slash separators. |
 | `skill.manifest_unpinned_dependency` | medium | AST02 + AST07 | Only pinned versions like `1.2.3` or `==1.2.3` are accepted; ranges, `latest`, `*`, missing versions are flagged. |
@@ -291,7 +292,7 @@ Honest OWASP AST10 status (shown in every skill report as a matrix):
 | AST01 malicious code / dangerous runtime | partial | Text patterns + selected Bandit Python AST checks. No taint/cross-language analysis or sandbox. |
 | AST02 supply chain | partial | Unpinned dependency checks + pinned gitleaks secret detection. No vulnerability/provenance verification. |
 | AST03 excessive authorisation | partial | Permission wildcard only. |
-| AST04 insecure metadata | partial | Missing/blank fields, unsafe reference paths, suffix mismatch, parse failure. |
+| AST04 insecure metadata | partial | Versioned Agent Skills field/shape validation, unsafe reference paths, suffix mismatch and parse failure. Broader body/reference semantics remain partial. |
 | AST05 untrusted external instructions | partial | Strict-mode `fetch_and_follow` URLs only. |
 | AST06 weak isolation | none | Requires V2 sandbox. |
 | AST07 update drift / integrity | partial | Unpinned dep also maps here (versioning drift). |
@@ -372,11 +373,11 @@ Every skill review also writes `report.sarif` (SARIF 2.1.0) next to
 ```bash
 # standard (default): gitleaks required for secret coverage
 python3 -m verity.cli review --engine skill --profile standard \
-  --input-dir tests/fixtures/clean_skill --out /tmp/verity_out/std
+  --input-dir tests/fixtures/clean-skill --out /tmp/verity_out/std
 
 # minimal: explicit opt-out; report says "not_requested_by_profile"
 python3 -m verity.cli review --engine skill --profile minimal \
-  --input-dir tests/fixtures/clean_skill --out /tmp/verity_out/min
+  --input-dir tests/fixtures/clean-skill --out /tmp/verity_out/min
 ```
 
 ### CLI exit codes and gate marker
@@ -396,17 +397,17 @@ Recorded exit codes with gitleaks 8.28.0 installed via
 
 | Fixture | profile | gitleaks status | coverage | gate | exit |
 |---|---|---|---|---|---:|
-| `clean_skill` | standard | completed (0 leaks) | sufficient | `pass` | 0 |
+| `clean-skill` | standard | completed (0 leaks) | sufficient | `pass` | 0 |
 | synthetic leaky skill (`ghp_...`, `xoxb-...`) | standard | completed (3 leaks) | sufficient | `findings_block` | 1 |
-| `clean_skill` | standard, `VERITY_GITLEAKS_PATH=/nonexistent` | not_installed | insufficient | `coverage_block` | 3 |
-| `clean_skill` | minimal | not_requested_by_profile | sufficient | `pass` | 0 |
+| `clean-skill` | standard, `VERITY_GITLEAKS_PATH=/nonexistent` | not_installed | insufficient | `coverage_block` | 3 |
+| `clean-skill` | minimal | not_requested_by_profile | sufficient | `pass` | 0 |
 | `python_shell_true_skill` | standard | completed | sufficient | `findings_block` (Bandit high wins) | 1 |
 
 
 ```bash
 # clean skill: 0 findings, coverage sufficient, exit 0
 python3 -m verity.cli review --engine skill \
-  --input-dir tests/fixtures/clean_skill --out /tmp/verity_out/clean_skill
+  --input-dir tests/fixtures/clean-skill --out /tmp/verity_out/clean-skill
 
 # malformed manifest: file-level rules still run; manifest-dependent
 # rules are blocked_by_upstream_failure; coverage insufficient;
@@ -445,7 +446,7 @@ findings gate, but a `findings_block` always wins in the exit code):
 
 | Fixture | findings | high/critical |
 |---|---:|---:|
-| `clean_skill` | 0 | 0 |
+| `clean-skill` | 0 | 0 |
 | `malformed_manifest_skill` | 2 | 2 |
 | `missing_refs_skill` | 3 | 2 |
 | `risky_permissions_skill` | 4 | 2 |

@@ -13,6 +13,7 @@
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_parse_failure","riskIds":["VR-SKILL-001"],"contribution":"partial"},
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_name_issue","riskIds":["VR-SKILL-001"],"contribution":"signal"},
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_description_missing","riskIds":["VR-SKILL-001"],"contribution":"signal"},
+    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_optional_field_issue","riskIds":["VR-SKILL-001"],"contribution":"signal"},
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_missing_reference","riskIds":["VR-SKILL-002"],"contribution":"partial"},
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_unsafe_reference_path","riskIds":["VR-SKILL-002"],"contribution":"partial"},
     {"detectorType":"deterministic_rule","detectorId":"skill.manifest_unpinned_dependency","riskIds":["VR-SKILL-003"],"contribution":"signal"},
@@ -35,6 +36,8 @@
     {"detectorType":"deterministic_rule","detectorId":"skill.gitleaks_finding","riskIds":["VR-SKILL-011"],"contribution":"partial"},
     {"detectorType":"deterministic_rule","detectorId":"skill.fake_secret_fixture","riskIds":["VR-SKILL-011"],"contribution":"signal"},
     {"detectorType":"deterministic_rule","detectorId":"skill.dangerous_shell_pattern","riskIds":["VR-SKILL-006"],"contribution":"signal"},
+
+    {"detectorType":"capability_extractor","detectorId":"skill.capability_facts.v1","riskIds":["VR-SKILL-004","VR-SKILL-006","VR-SKILL-009","VR-SKILL-011","VR-SKILL-012","VR-SKILL-014"],"contribution":"signal"},
 
     {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.instruction_conflict","riskIds":["VR-PROMPT-004"],"contribution":"signal"},
     {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.missing_output_contract","riskIds":["VR-PROMPT-006"],"contribution":"signal"},

@@ -74,6 +74,8 @@ CORE_SCHEMA: dict = {
                         {"enum": ["user_prompt", "system_prompt"]}
                     ]
                 },
+                "artifactRootName": {"type": ["string", "null"],
+                                     "minLength": 1, "maxLength": 255},
             },
             "additionalProperties": False,
         },

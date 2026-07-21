@@ -1,4 +1,4 @@
 ---
-name: command-safe
+name: skill-command-safe
 description: A synthetic package using an argument-vector process call.
 ---

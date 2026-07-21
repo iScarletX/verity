@@ -40,6 +40,8 @@ MAX_MANIFEST_LINES = 2000
 MAX_YAML_DEPTH = 12                 # rough nesting cap
 MAX_YAML_ANCHOR_TOKENS = 32         # &anchor / *alias appearances (alias-bomb guard)
 MAX_YAML_MAPPING_KEYS = 500         # total number of keys across the tree
+AGENT_SKILLS_SPEC_ID = "agentskills.io/specification"
+AGENT_SKILLS_SPEC_SNAPSHOT = "retrieved-2026-07-21"
 
 
 @dataclass
@@ -163,6 +165,9 @@ def _normalize_manifest(raw: Any) -> Dict[str, Any]:
     m["name"] = raw.get("name")
     m["description"] = raw.get("description")
     m["version"] = raw.get("version")
+    m["compatibility"] = raw.get("compatibility")
+    m["metadata"] = raw.get("metadata")
+    m["allowed-tools"] = raw.get("allowed-tools")
 
     # references: unify multiple common field names into one list
     refs: List[str] = []
@@ -199,8 +204,13 @@ def _normalize_manifest(raw: Any) -> Dict[str, Any]:
                                  "version": None if ver is None else str(ver)})
     m["dependencies"] = deps
 
-    # permissions / allowed_tools / tools -> normalized list
+    # Official `allowed-tools` is a space-separated string. Historical
+    # extension keys remain accepted as capability signals, but are not
+    # treated as official schema fields.
     perms: List[str] = []
+    official_tools = raw.get("allowed-tools")
+    if isinstance(official_tools, str):
+        perms.extend(official_tools.split())
     for key in ("permissions", "allowed_tools", "tools"):
         v = raw.get(key)
         if isinstance(v, list):
@@ -241,22 +251,21 @@ def parse_skill(snapshot, file_bytes: Dict[str, bytes]) -> Tuple[Dict[str, Any],
                     snapshotId=snapshot.snapshotId)
     model: Dict[str, Any] = {
         "hasSkillMd": False,
+        "agentSkillsSpec": {
+            "specId": AGENT_SKILLS_SPEC_ID,
+            "snapshot": AGENT_SKILLS_SPEC_SNAPSHOT,
+        },
         "manifestFile": None,
         "manifest": None,
         "manifestRaw": None,
         "manifestByteRange": None,
     }
 
-    # find SKILL.md (case-insensitive, exact filename only)
-    skill_md = None
-    for f in snapshot.files:
-        if f.status != "included":
-            continue
-        parts = f.normalizedPath.rsplit("/", 1)
-        name = parts[-1]
-        if name.lower() == "skill.md":
-            skill_md = f
-            break
+    # The Agent Skills specification requires exactly one root SKILL.md.
+    # Lowercase/case variants and nested files are not substitutes.
+    skill_md = next((f for f in snapshot.files
+                     if f.status == "included"
+                     and f.normalizedPath == "SKILL.md"), None)
     if skill_md is None:
         run.status = "failed"
         run.diagnostics.append(ParserDiagnostic("skill_md_missing", "no SKILL.md found in artifact"))

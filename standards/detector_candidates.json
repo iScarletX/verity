@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "evaluatedAt": "2026-07-21",
+  "candidates": [
+    {
+      "candidateId": "osv-scanner",
+      "sourceId": "OSV-SCANNER-DOCS",
+      "decision": "adopt_next",
+      "license": "Apache-2.0",
+      "maintenance": "active",
+      "structuredOutput": ["json", "sarif", "spdx", "cyclonedx"],
+      "targetRiskIds": ["VR-SKILL-003"],
+      "requiredControls": [
+        "pinned version and binary hash",
+        "scan staged snapshot only",
+        "strict JSON schema and exit-code parsing",
+        "offline versioned OSV database snapshot for reproducible CI",
+        "network-disabled evaluation mode",
+        "timeouts and result budgets",
+        "no package build or dependency installation"
+      ],
+      "rationale": "Official OSV frontend with permissive license and structured output; adoption waits for a reproducible offline advisory snapshot design."
+    },
+    {
+      "candidateId": "shellcheck",
+      "sourceId": "SHELLCHECK-DOCS",
+      "decision": "defer_license_review",
+      "license": "GPL-3.0",
+      "maintenance": "active",
+      "structuredOutput": ["json", "json1", "sarif"],
+      "targetRiskIds": ["VR-SKILL-006", "VR-SKILL-013"],
+      "requiredControls": [
+        "distribution and source-offer license review",
+        "external process separation",
+        "pinned version and binary hash",
+        "scan staged snapshot only",
+        "strict structured output parser",
+        "timeouts and result budgets"
+      ],
+      "rationale": "Mature Shell analysis is valuable, but GPLv3 distribution obligations require an explicit product decision before bundling or installing."
+    },
+    {
+      "candidateId": "semgrep-oss",
+      "sourceId": "SEMGREP-DOCS",
+      "decision": "defer_boundary_review",
+      "license": "LGPL-2.1",
+      "maintenance": "active",
+      "structuredOutput": ["json", "sarif"],
+      "targetRiskIds": ["VR-SKILL-006", "VR-SKILL-007", "VR-SKILL-008", "VR-SKILL-009", "VR-SKILL-010", "VR-SKILL-013"],
+      "requiredControls": [
+        "OSS engine only",
+        "repository-owned pinned local rules only",
+        "metrics off and version check disabled",
+        "no auto/URL/remote registry config",
+        "no login, cloud, Pro, MCP, autofix or untrusted validators",
+        "no local builds or reviewed dependency execution",
+        "scan staged snapshot only",
+        "strict JSON parser, memory/file/time/result budgets",
+        "LGPL distribution and subprocess boundary review"
+      ],
+      "rationale": "Cross-language parsing and taint rules could close major gaps, but default network/metrics and execution-capable flags conflict with Verity unless a deny-by-construction wrapper and license boundary are proven."
+    },
+    {
+      "candidateId": "gitleaks",
+      "sourceId": "GITLEAKS-DOCS",
+      "decision": "keep_pinned_reassess",
+      "license": "MIT",
+      "maintenance": "feature-complete_security-fixes",
+      "structuredOutput": ["json", "sarif"],
+      "targetRiskIds": ["VR-SKILL-011"],
+      "requiredControls": [
+        "retain pinned hash-verified existing integration",
+        "track security-fix releases",
+        "evaluate successor or complementary detector before claiming broader secret coverage",
+        "keep raw secrets redacted before Verity adapters"
+      ],
+      "rationale": "Existing integration remains useful and controlled, but upstream says feature development has ended; future breadth must not depend on it alone."
+    }
+  ]
+}

@@ -168,6 +168,9 @@ class ArtifactSnapshot:
     canonicalizationVersion: str = "1"
     # Prompt-engine only; None for skill engine.
     promptKind: Optional[PromptKind] = None
+    # Skill-engine only. Safe final path component (or browser upload root),
+    # never an absolute host path and not part of content identity.
+    artifactRootName: Optional[str] = None
 
 
 # --- Plan / Coverage ----------------------------------------------------

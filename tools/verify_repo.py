@@ -158,6 +158,7 @@ REQUIRED_FILES = [
     "standards/sources.json",
     "standards/risks.json",
     "standards/detector_mappings.json",
+    "standards/detector_candidates.json",
     # Versioned offline detection corpus and reproducible baselines
     "evals/corpus/v1/manifest.json",
     "evals/corpus/v1/semantic_replay.json",
@@ -444,17 +445,20 @@ def check_detection_standards(rep: VerifyReport) -> None:
     """Validate authoritative-source taxonomy and exact runtime mapping."""
     try:
         sys.path.insert(0, str(REPO / "src"))
-        from verity.standards import (load_risks, load_sources,
+        from verity.standards import (load_detector_candidates, load_risks,
+                                      load_sources,
                                       validate_runtime_detector_coverage)
         sources = load_sources()
         risks = load_risks(sources)
+        candidates = load_detector_candidates(sources, risks)
         validate_runtime_detector_coverage()
     except Exception as exc:
         rep.append_fail("detection_standards", str(exc)[:500])
         return
     rep.append_ok(
         "detection_standards",
-        f"{len(sources)} primary sources; {len(risks)} risks; runtime mapped")
+        f"{len(sources)} sources; {len(risks)} risks; "
+        f"{len(candidates)} candidates; runtime mapped")
 
 
 def check_corpus_baselines(rep: VerifyReport) -> None:
@@ -469,7 +473,7 @@ def check_corpus_baselines(rep: VerifyReport) -> None:
         rep.append_fail("corpus_baselines", detail)
         return
     rep.append_ok("corpus_baselines",
-                  "20 L0 paired cases + 6 semantic contract replays reproducible")
+                  "26 L0 cases + 6 semantic contract replays reproducible")
 
 
 def check_working_tree_clean(rep: VerifyReport) -> None:

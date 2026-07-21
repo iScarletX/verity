@@ -328,11 +328,19 @@ async def review_skill(request: Request) -> Response:
         total = 0
         seen_upload_paths: set[str] = set()
         seen_upload_paths_lower: set[str] = set()
+        upload_root_name: Optional[str] = None
         for uf in files:
+            raw_name = uf.filename or ""
             try:
-                rel = _sanitize_upload_path(uf.filename or "")
+                rel = _sanitize_upload_path(raw_name)
             except MultipartPathError as e:
                 return _error_response("bad_path", str(e), 400)
+            root_name = raw_name.split("/", 1)[0]
+            if upload_root_name is None:
+                upload_root_name = root_name
+            elif upload_root_name != root_name:
+                return _error_response(
+                    "bad_path", "all files must share one upload root", 400)
             if rel in seen_upload_paths or rel.lower() in seen_upload_paths_lower:
                 return _error_response(
                     "bad_path", "duplicate or case-colliding upload path", 400)
@@ -359,11 +367,13 @@ async def review_skill(request: Request) -> Response:
 
         # Now run the SAME safe intake path as the CLI.
         try:
-            snap, byts = intake_directory(tmpdir, budget=IntakeBudget(
-                max_files=MAX_SKILL_FILES,
-                max_file_size=MAX_SKILL_FILE_BYTES,
-                max_total_size=MAX_SKILL_TOTAL_BYTES,
-            ))
+            snap, byts = intake_directory(
+                tmpdir, artifact_root_name=upload_root_name,
+                budget=IntakeBudget(
+                    max_files=MAX_SKILL_FILES,
+                    max_file_size=MAX_SKILL_FILE_BYTES,
+                    max_total_size=MAX_SKILL_TOTAL_BYTES,
+                ))
         except IntakeError as e:
             return _error_response("intake_error", str(e), 400)
         sem_cfg_or_err = _maybe_semantic_config(
@@ -495,11 +505,19 @@ async def project_version(request: Request) -> Response:
         total = 0
         seen_upload_paths: set[str] = set()
         seen_upload_paths_lower: set[str] = set()
+        upload_root_name: Optional[str] = None
         for uf in files:
+            raw_name = uf.filename or ""
             try:
-                rel = _sanitize_upload_path(uf.filename or "")
+                rel = _sanitize_upload_path(raw_name)
             except MultipartPathError as e:
                 return _error_response("bad_path", str(e), 400)
+            root_name = raw_name.split("/", 1)[0]
+            if upload_root_name is None:
+                upload_root_name = root_name
+            elif upload_root_name != root_name:
+                return _error_response(
+                    "bad_path", "all files must share one upload root", 400)
             if rel in seen_upload_paths or rel.lower() in seen_upload_paths_lower:
                 return _error_response(
                     "bad_path", "duplicate or case-colliding upload path", 400)
@@ -519,7 +537,13 @@ async def project_version(request: Request) -> Response:
                     "bad_path", "path escapes upload directory", 400)
             dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(data)
-        snap,byts=intake_directory(tmpdir,artifact_id=project["artifactId"],budget=IntakeBudget(max_files=MAX_SKILL_FILES,max_file_size=MAX_SKILL_FILE_BYTES,max_total_size=MAX_SKILL_TOTAL_BYTES))
+        snap, byts = intake_directory(
+            tmpdir, artifact_id=project["artifactId"],
+            artifact_root_name=upload_root_name,
+            budget=IntakeBudget(
+                max_files=MAX_SKILL_FILES,
+                max_file_size=MAX_SKILL_FILE_BYTES,
+                max_total_size=MAX_SKILL_TOTAL_BYTES))
         review=run_review(ReviewInputs("skill",snap,byts,profile=profile))
         rec=request.app.state.history.add_review(project["artifactId"],review,profile=profile)
         stored=_make_report(review,"skill"); rid=request.app.state.store.put(stored)

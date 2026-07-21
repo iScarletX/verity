@@ -409,8 +409,8 @@
         "V1_5_blackbox": "Not applicable.",
         "V2_sandbox": "May compare actual attempted behavior with declarations."
       },
-      "currentCoverage": {"L0_static": "none", "L1_semantic": "signal", "V1_5_blackbox": "none", "V2_sandbox": "none"},
-      "knownGaps": ["Only first Python file and bounded excerpts", "No capability graph", "Only three controlled mismatch kinds", "No corpus metrics"],
+      "currentCoverage": {"L0_static": "signal", "L1_semantic": "signal", "V1_5_blackbox": "none", "V2_sandbox": "none"},
+      "knownGaps": ["Capability facts exist but no deterministic declaration-to-fact comparison", "Only Python AST and manifest facts", "Semantic extractor uses only first Python file and bounded excerpts", "Only three controlled mismatch kinds", "No model corpus metrics"],
       "evaluationReference": null
     },
     {

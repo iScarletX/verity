@@ -1,5 +1,5 @@
 ---
-name: ok-skill
+name: skill-ok
 description: Computes a checksum. Does not execute untrusted shell.
 version: 1.0.0
 ---

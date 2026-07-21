@@ -65,7 +65,7 @@ def _write_skill(tmp_path, files: dict[str, str]) -> Path:
 
 class TestFixturesEndToEnd:
     def test_clean_skill_no_findings(self):
-        r = _run(str(FIXTURES / "clean_skill"))
+        r = _run(str(FIXTURES / "clean-skill"))
         assert r.findings == []
         assert r.coverage.status == "sufficient"
 
@@ -156,12 +156,19 @@ class TestMissingSkillMd:
                    if e.status == "blocked_by_upstream_failure"]
         assert blocked
 
-    def test_case_insensitive_skill_md_accepted(self, tmp_path):
+    def test_wrong_case_skill_md_is_not_accepted(self, tmp_path):
         root = _write_skill(tmp_path, {
-            "Skill.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n"
+            "Skill.md": "---\nname: s\ndescription: synthetic\n---\n"
         })
         r = _run(str(root))
-        assert "skill.manifest_issue" not in _types(r)
+        assert "skill.manifest_issue" in _types(r)
+
+    def test_nested_skill_md_is_not_root_manifest(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "nested/SKILL.md": "---\nname: s\ndescription: synthetic\n---\n"
+        })
+        r = _run(str(root))
+        assert "skill.manifest_issue" in _types(r)
 
 
 class TestManifestParseFailure:
@@ -365,7 +372,7 @@ class TestCoverageAccounting:
         assert any("parser-manifest" in g for g in r.coverage.criticalGapPlanItemIds)
 
     def test_parser_success_yields_sufficient_when_all_rules_run(self):
-        r = _run(str(FIXTURES / "clean_skill"))
+        r = _run(str(FIXTURES / "clean-skill"))
         assert r.coverage.status == "sufficient"
 
 
@@ -375,14 +382,14 @@ class TestCoverageAccounting:
 
 class TestReportRendering:
     def test_owasp_matrix_present(self):
-        r = _run(str(FIXTURES / "clean_skill"))
+        r = _run(str(FIXTURES / "clean-skill"))
         d = json.loads(to_json(r))
         assert "owaspCoverage" in d
         for code in OWASP_AST10:
             assert code in d["owaspCoverage"]
 
     def test_owasp_never_full(self):
-        r = _run(str(FIXTURES / "clean_skill"))
+        r = _run(str(FIXTURES / "clean-skill"))
         d = json.loads(to_json(r))
         for info in d["owaspCoverage"].values():
             assert info["status"] in ("partial", "none")
@@ -432,7 +439,7 @@ class TestCliSkillDemo:
         # not what this smoke test is trying to assert.
         proc = self._cli(["review", "--engine", "skill",
                           "--profile", "minimal",
-                          "--input-dir", str(FIXTURES / "clean_skill"),
+                          "--input-dir", str(FIXTURES / "clean-skill"),
                           "--out", str(tmp_path)])
         assert proc.returncode == 0, proc.stderr
         d = json.loads((tmp_path / "report.json").read_text())

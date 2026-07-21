@@ -38,8 +38,10 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
         gr = am.get("gitleaksRun") or {}
         d["artifactModel"] = {
             "hasSkillMd": am.get("hasSkillMd"),
+            "agentSkillsSpec": am.get("agentSkillsSpec"),
             "manifestFile": am.get("manifestFile"),
             "manifest": am.get("manifest"),
+            "capabilityFacts": am.get("capabilityFacts"),
             "parserDiagnostics": am.get("parserDiagnostics") or [],
             "banditRun": {
                 "status": br.get("status"),

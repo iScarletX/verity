@@ -355,6 +355,108 @@
       "license": "Apache-2.0",
       "expectedSeverity": null,
       "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-name-syntax-positive",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedSeverity": "medium",
+      "path": "cases/skill-name-syntax-positive",
+      "rationale": "Uses uppercase and underscore characters forbidden by the official Agent Skills name grammar.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-name-syntax-safe",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "path": "cases/skill-name-syntax-safe",
+      "rationale": "Uses lowercase letters and hyphens and matches the package directory.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-directory-mismatch-positive",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedSeverity": "medium",
+      "path": "cases/skill-directory-mismatch-positive",
+      "rationale": "Manifest name does not match the package directory name.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-directory-mismatch-safe",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "path": "cases/skill-directory-mismatch-safe",
+      "rationale": "Manifest name exactly matches the package directory name.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-optional-fields-positive",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedSeverity": "medium",
+      "path": "cases/skill-optional-fields-positive",
+      "rationale": "Optional compatibility, metadata and allowed-tools fields use invalid official types.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-optional-fields-safe",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-001"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "path": "cases/skill-optional-fields-safe",
+      "rationale": "Optional fields use bounded strings and string-to-string metadata.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
     }
   ]
 }

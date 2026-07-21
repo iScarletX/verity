@@ -8,6 +8,7 @@ import pytest
 from verity.standards import (
     COVERAGE_LEVELS,
     StandardsError,
+    load_detector_candidates,
     load_detector_mappings,
     load_risks,
     load_sources,
@@ -53,10 +54,22 @@ def test_no_pre_corpus_claim_exceeds_partial():
     )
 
 
+def test_detector_candidate_decisions_are_traceable_and_controlled():
+    candidates = load_detector_candidates()
+    assert set(candidates) == {"osv-scanner", "shellcheck", "semgrep-oss",
+                               "gitleaks"}
+    assert candidates["osv-scanner"]["decision"] == "adopt_next"
+    assert candidates["shellcheck"]["decision"] == "defer_license_review"
+    assert any("metrics off" in control
+               for control in candidates["semgrep-oss"]["requiredControls"])
+    assert candidates["gitleaks"]["maintenance"] == (
+        "feature-complete_security-fixes")
+
+
 def test_every_runtime_detector_is_mapped_exactly_once():
     validate_runtime_detector_coverage()
     mappings = load_detector_mappings()
-    assert len(mappings) == 36  # 33 deterministic + 3 semantic
+    assert len(mappings) == 38  # 34 rules + 1 fact extractor + 3 semantic
 
 
 def test_taxonomy_exposes_known_high_value_gaps():

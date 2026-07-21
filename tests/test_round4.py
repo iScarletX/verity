@@ -345,7 +345,7 @@ class TestCliRound4:
         # not depend on the machine having gitleaks installed.
         p = self._cli(["review", "--engine", "skill",
                        "--profile", "minimal",
-                       "--input-dir", str(FIXTURES / "clean_skill"),
+                       "--input-dir", str(FIXTURES / "clean-skill"),
                        "--out", str(tmp_path)])
         assert p.returncode == 0, p.stderr
         sarif_path = tmp_path / "report.sarif"

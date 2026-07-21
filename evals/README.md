@@ -32,9 +32,10 @@ addition to describing how Verity's test suite acts as a pipeline gate.
 
 ## Versioned corpus baseline
 
-`evals/corpus/v1/manifest.json` contains 20 independently labelled synthetic
-L0 cases: one positive and one safe counterexample for each of 10 current
-risk classes. Every case records provenance, license, object/language, assessed
+`evals/corpus/v1/manifest.json` contains 26 independently labelled synthetic
+L0 cases across 10 current risk classes. Nine risks retain one positive/safe
+pair; Agent Skills specification conformance has four pairs after Round 16.
+Every case records provenance, license, object/language, assessed
 risks, expected risks/severity, and rationale. Answer keys contain risk ids,
 not Rule ids. Exact-byte duplicates of existing developer fixtures are
 rejected to reduce test/corpus leakage. Initial labels are explicitly

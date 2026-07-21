@@ -139,7 +139,9 @@ def _manifest_entry(af: ArtifactFile) -> dict:
 
 def intake_directory(root_path: str | os.PathLike, *,
                      budget: IntakeBudget | None = None,
-                     artifact_id: Optional[str] = None) -> tuple[ArtifactSnapshot, dict[str, bytes]]:
+                     artifact_id: Optional[str] = None,
+                     artifact_root_name: Optional[str] = None
+                     ) -> tuple[ArtifactSnapshot, dict[str, bytes]]:
     """Read a directory into an immutable Snapshot. Returns (snapshot, file_bytes_by_id).
 
     file_bytes_by_id is kept in-memory (bounded by budget) so that downstream
@@ -149,6 +151,12 @@ def intake_directory(root_path: str | os.PathLike, *,
     root = Path(root_path).resolve(strict=True)
     if not root.is_dir():
         raise IntakeError(f"not a directory: {root}")
+    root_name = artifact_root_name if artifact_root_name is not None else root.name
+    if (not isinstance(root_name, str) or not 1 <= len(root_name) <= 255
+            or root_name in (".", "..") or "/" in root_name
+            or "\\" in root_name or "\x00" in root_name
+            or any(ord(c) < 32 for c in root_name)):
+        raise IntakeError("invalid artifact root name")
 
     entries: List[ArtifactFile] = []
     byte_store: dict[str, bytes] = {}
@@ -254,5 +262,6 @@ def intake_directory(root_path: str | os.PathLike, *,
         snapshotManifestDigest=smd,
         contentRootDigest=crd,
         files=entries,
+        artifactRootName=root_name,
     )
     return snap, byte_store
