@@ -10,6 +10,17 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 43 (done) — close the audit campaign
+
+Audited the remaining surfaces (9 Prompt rules, 7 semantic extractors,
+semantic contract coverage, OWASP matrix, CLI exit codes): all clean.
+Campaign summary (Rounds 39-43): instrumented 63 total claimed capabilities
+across the whole repo; found exactly 2 real gaps (B303 dead since Round 4;
+two untested-but-correct paths). Remaining unmeasured/unsupported risks
+genuinely need new architecture (MCP intake, dataflow analysis), not more
+corpus work -- already honestly documented. No product/rule/corpus change.
+510 tests. decision stays release_candidate.
+
 ## Round 42 (done) — audit extended to capability facts
 
 Instrumented capabilities.py's 7 fact categories across the full suite:

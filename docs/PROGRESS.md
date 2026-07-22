@@ -9,7 +9,7 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "1a0ea34861b534462c2d21d2e4ca5977f8e66b01"
+  commit: "c657d988fa595733795a6cdc1bdf44e51d9617da"
   tests_collected: 510
   tests_passed: 510
   tests_skipped: 0
@@ -40,6 +40,47 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 43 (2026-07-22) → close the "does every claimed capability actually fire" audit campaign
+
+- Extended the Round 39–42 instrumentation technique to the two remaining
+  untouched surfaces: the 9 Prompt engine rules and a re-confirmation pass
+  on the 7 semantic extractors (`semantic/catalog.py`) and the semantic
+  contract fixture coverage (all 7 FindingTypes have both `confirmed` and
+  `rejected` fixed-replay coverage). Result: all clean, every rule/
+  extractor fires at least once across the suite; no further dead
+  mappings or untested capabilities found.
+- Also spot-checked the OWASP AST10 coverage matrix (matches the honest
+  README table exactly: AST01/02/03/04/05/06/07 = `partial`,
+  AST08/09/10 = `none`, zero drift) and a live CLI exit-code demo
+  (`python3 -m verity.cli review --engine skill --profile minimal
+  --input-dir tests/fixtures/python_shell_true_skill`: exit 1,
+  `gate=findings_block`, `findings=4`, matching Round 36's corrected
+  table).
+- **Closing summary of the Round 39–43 audit campaign**: systematically
+  instrumented every detection surface in the repository (15 Bandit ids,
+  25 non-Bandit Skill rules, 7 capability-fact categories, 7 semantic
+  extractors, 9 Prompt rules — 63 total claimed capabilities) and proved
+  each one actually produces output on a real trigger, not just that it is
+  registered. Found and fixed exactly two real gaps: `B303` was
+  completely dead configuration since Round 4 (Round 39, the session's
+  single most consequential fix), and the Bandit-B602 fallback's own
+  failure path plus the capability-facts `configuration` category had
+  never been exercised by any test (Rounds 41–42). Everything else was
+  already correct — the campaign's value was proving that, not finding
+  more problems to fix.
+- No further remaining gaps are addressable by more corpus/detector work
+  without new architecture: `VR-MCP-001` needs real MCP intake (not yet
+  built), `VR-GOV-001` is about the review pipeline's own reporting
+  honesty (not artifact content, so a corpus pair cannot measure it), and
+  `VR-PROMPT-006`/`VR-PROMPT-009`/`VR-SKILL-012`/`VR-SKILL-013` genuinely
+  require semantic-layer or dataflow analysis Verity does not have at L0
+  — all already honestly documented as `unsupported`/`unmeasured` rather
+  than force-fit with low-quality heuristics.
+- No product/rule/corpus change this round; pure verification. Full
+  suite still 510 passed, 0 skipped. `decision` remains
+  `release_candidate`. Round 42 landed as commit `c657d98` with GitHub CI
+  #39 successful.
 
 ## Round 42 (2026-07-22) → audit extended to capability facts; finds an untested category
 
