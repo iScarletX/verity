@@ -73,7 +73,12 @@ button.primary:disabled { background: #999; cursor: default; }
 #loading { padding: 1rem; background: #f6f8fa; border-radius: 8px; margin: 1rem 0; }
 .experimental { background: #fbf7e6; border: 1px dashed #dcaf3e; padding: .8rem 1rem; border-radius: 8px; margin: 1rem 0; }
 .experimental summary { cursor: pointer; font-weight: 500; }
-.experimental label { margin-top: .4rem; }
+.experimental label { margin-top: .4rem; display: block; }
+.experimental input[type=text], .experimental input[type=password], .experimental select { width: 100%; box-sizing: border-box; padding: .35rem .5rem; margin-top: .2rem; }
+.warn-box { background: #fdecea; border: 1px solid #f5b5ae; color: #7a1f16; padding: .6rem .8rem; border-radius: 6px; font-size: .9rem; }
+.provider-config { margin-top: .6rem; padding-top: .4rem; border-top: 1px solid #ecdca8; }
+#fetch-models-btn { margin-top: .5rem; padding: .35rem .8rem; cursor: pointer; }
+#models-status { margin-left: .5rem; }
 button:focus-visible, a:focus-visible, textarea:focus-visible, select:focus-visible, input[type=file]:focus-visible {
   outline: 3px solid #1668dc; outline-offset: 2px;
 }

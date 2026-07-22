@@ -200,6 +200,12 @@ def _maybe_semantic_config(payload: Dict[str, Any]):
     """Parse an optional semantic opt-in from a Prompt (JSON) or Skill
     (form) payload. Returns either ``None``, a ``SemanticConfig``, or a
     ready-to-return ``JSONResponse`` describing the config error.
+
+    Backwards compatible: without provider fields this yields an
+    honest ``provider_not_configured`` semantic axis (as before). This
+    variant returns a config only; it does NOT build real providers or
+    hold a key. Use :func:`_maybe_semantic_run` for the real-provider
+    path with an ephemeral key.
     """
     enabled = payload.get("semantic_enabled")
     if enabled in (None, False, "", "false", "off", 0, "0"):
@@ -214,6 +220,83 @@ def _maybe_semantic_config(payload: Dict[str, Any]):
         return SemanticConfig(enabled=True, egress_policy=str(policy))
     except ValueError as exc:
         return _error_response("bad_semantic", str(exc), 400)
+
+
+def _semantic_enabled_flag(payload: Dict[str, Any]) -> bool:
+    v = payload.get("semantic_enabled")
+    return v in (True, "true", "on", 1, "1")
+
+
+def _has_provider_fields(payload: Dict[str, Any]) -> bool:
+    return bool(payload.get("provider_base_url") or payload.get("provider_api_key")
+                or payload.get("generator_model") or payload.get("validator_model"))
+
+
+def _maybe_semantic_run(payload: Dict[str, Any]):
+    """Resolve the semantic execution plan for a review request.
+
+    Returns one of:
+      * ``None`` — semantic not requested;
+      * ``(sem_cfg, generator, validator, env_name)`` — real provider run
+        using an EPHEMERAL key env var the caller MUST clear afterwards;
+      * ``(sem_cfg, None, None, None)`` — opt-in without provider config
+        (honest ``provider_not_configured`` axis);
+      * a ``JSONResponse`` error.
+    """
+    if not _semantic_enabled_flag(payload):
+        return None
+    policy = str(payload.get("egress_policy") or "metadata_only")
+    if not _has_provider_fields(payload):
+        # Legacy honest path: enabled but not configured.
+        from ..semantic import SemanticConfig
+        try:
+            return (SemanticConfig(enabled=True, egress_policy=policy),
+                    None, None, None)
+        except ValueError as exc:
+            return _error_response("bad_semantic", str(exc), 400)
+    from .provider_web import (ProviderWebError,
+                               build_semantic_config_with_ephemeral_key)
+    try:
+        sem_cfg, gen, val, env_name = build_semantic_config_with_ephemeral_key(
+            base_url=str(payload.get("provider_base_url") or ""),
+            api_key=str(payload.get("provider_api_key") or ""),
+            generator_model=str(payload.get("generator_model") or ""),
+            validator_model=str(payload.get("validator_model") or ""),
+            egress_policy=policy)
+    except ProviderWebError as exc:
+        return _error_response(exc.code, exc.message, 400)
+    return (sem_cfg, gen, val, env_name)
+
+
+async def list_models(request: Request) -> Response:
+    """Proxy an OpenAI-compatible /models listing using a user-supplied key.
+
+    The key is used only for this outbound request and is never stored or
+    echoed back. Loopback-only, like every endpoint.
+    """
+    ct = request.headers.get("content-type", "")
+    if not ct.startswith("application/json"):
+        return _error_response("bad_content_type",
+                               "expects application/json", 415)
+    try:
+        raw = await request.body()
+    except Exception:
+        return _error_response("read_error", "could not read request body", 400)
+    if len(raw) > 64 * 1024:
+        return _error_response("request_too_large", "request too large", 413)
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return _error_response("bad_json", "invalid JSON body", 400)
+    if not isinstance(payload, dict):
+        return _error_response("bad_shape", "expected an object", 400)
+    from .provider_web import ProviderWebError, list_models as _list
+    try:
+        models = _list(str(payload.get("provider_base_url") or ""),
+                       str(payload.get("provider_api_key") or ""))
+    except ProviderWebError as exc:
+        return _error_response(exc.code, exc.message, 400)
+    return JSONResponse({"models": models, "count": len(models)})
 
 
 async def index(request: Request) -> Response:
@@ -286,12 +369,21 @@ async def review_prompt(request: Request) -> Response:
     except IntakeError as e:
         return _error_response("intake_error", str(e), 400)
 
-    sem_cfg = _maybe_semantic_config(payload)
-    if isinstance(sem_cfg, JSONResponse):
-        return sem_cfg
-    review = run_review(ReviewInputs(engine="prompt", snapshot=snap,
-                                      file_bytes=byts,
-                                      semantic_config=sem_cfg))
+    plan = _maybe_semantic_run(payload)
+    if isinstance(plan, JSONResponse):
+        return plan
+    sem_cfg = generator = validator = env_name = None
+    if plan is not None:
+        sem_cfg, generator, validator, env_name = plan
+    try:
+        review = run_review(ReviewInputs(engine="prompt", snapshot=snap,
+                                          file_bytes=byts,
+                                          semantic_config=sem_cfg),
+                            candidate_generator=generator, validator=validator)
+    finally:
+        if env_name:
+            from .provider_web import clear_ephemeral_key
+            clear_ephemeral_key(env_name)
     stored = _make_report(review, "prompt")
     rid = request.app.state.store.put(stored)
     view = _view_for(review, "prompt", rid)
@@ -376,19 +468,31 @@ async def review_skill(request: Request) -> Response:
                 ))
         except IntakeError as e:
             return _error_response("intake_error", str(e), 400)
-        sem_cfg_or_err = _maybe_semantic_config(
-            {"semantic_enabled": form.get("semantic_enabled"),
-             "egress_policy": form.get("egress_policy")}
-        )
-        if isinstance(sem_cfg_or_err, JSONResponse):
-            return sem_cfg_or_err
+        plan = _maybe_semantic_run({
+            "semantic_enabled": form.get("semantic_enabled"),
+            "egress_policy": form.get("egress_policy"),
+            "provider_base_url": form.get("provider_base_url"),
+            "provider_api_key": form.get("provider_api_key"),
+            "generator_model": form.get("generator_model"),
+            "validator_model": form.get("validator_model"),
+        })
+        if isinstance(plan, JSONResponse):
+            return plan
+        sem_cfg = generator = validator = env_name = None
+        if plan is not None:
+            sem_cfg, generator, validator, env_name = plan
         try:
             review = run_review(ReviewInputs(engine="skill", snapshot=snap,
                                              file_bytes=byts, profile=profile,
-                                             semantic_config=sem_cfg_or_err))
+                                             semantic_config=sem_cfg),
+                                candidate_generator=generator, validator=validator)
         except ValueError as e:
             # e.g. unknown profile (already guarded, but be safe)
             return _error_response("review_error", str(e), 400)
+        finally:
+            if env_name:
+                from .provider_web import clear_ephemeral_key
+                clear_ephemeral_key(env_name)
 
         stored = _make_report(review, "skill")
         rid = request.app.state.store.put(stored)
@@ -602,6 +706,7 @@ def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600,
         Route("/api/health", health, methods=["GET"]),
         Route("/api/review/prompt", review_prompt, methods=["POST"]),
         Route("/api/review/skill", review_skill, methods=["POST"]),
+        Route("/api/models", list_models, methods=["POST"]),
         Route("/api/projects", list_projects, methods=["GET"]),
         Route("/api/projects", create_project, methods=["POST"]),
         Route("/api/projects/{project_ref}", project_detail, methods=["GET"]),

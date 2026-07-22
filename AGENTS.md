@@ -96,14 +96,18 @@ dependencies, or contact an external LLM Provider on this path.
 
 **Controlled semantic (V1 experimental).** Verity may call an
 external LLM Provider **only** when: the user explicitly enables it
-(`--semantic`; the Web UI has no trusted Provider-config surface yet),
-the Provider config comes from a trusted source (never from the
-reviewed artifact), a non-`off` egress policy is chosen, the JSON
+(`--semantic` on the CLI, or the loopback-only Web Provider-config
+surface where the user pastes a trusted base URL + key and picks
+models), the Provider config comes from a trusted source (never from
+the reviewed artifact), a non-`off` egress policy is chosen, the JSON
 schemas + payload audit + budget gates are enforced, and the
 deterministic pipeline path is unaffected. A bounded JSON-over-HTTPS
-Provider adapter is available through explicit trusted CLI config;
-remote redirects are refused and credentials are resolved only from
-named environment variables. Opting in without complete config returns
+Provider adapter is available through explicit trusted CLI config; the
+Web path uses an OpenAI-compatible adapter with the user's API key held
+only in a transient env var and cleared after the review. Remote
+redirects are refused and credentials are resolved only from named
+environment variables. Semantic results are experimental and advisory.
+Opting in without complete config returns
 `provider_not_configured` and cannot exit as a successful full review.
 
 **V1.5 Prompt black-box (planned, NOT implemented).** May run a paste

@@ -10,6 +10,16 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 27 (done) — Web Provider-config surface (experimental semantic)
+
+Owner-approved. Added a loopback-only Web surface to paste an OpenAI-compatible
+base URL + key, list models, pick generator/validator models, and run an
+EXPERIMENTAL semantic review. Key held in a transient env var, cleared after
+use, never serialized/logged/echoed. Prominent UI warning that results are
+advisory and below the frozen quality gate. Deterministic pipeline/gate/score
+and the release decision are unchanged. +19 tests (472 total). Verified end to
+end against real OpenRouter (gpt-5.6-sol).
+
 ## Round 26 (done) — v0.1.0 release prep + Web walkthrough
 
 Added `CHANGELOG.md`, prepared tag `v0.1.0` (deterministic static auditor
@@ -93,4 +103,9 @@ blockers below, which still require a human decision.
 - re-running protocol-v2 Selection to "retry" for a better score;
 - exposing or consuming sealed Test before a new approval;
 - calling AI blind review “human expert review”;
-- Provider Web productization, V1.5, V2 sandbox or automatic remediation.
+- V1.5, V2 sandbox or automatic remediation.
+
+(Note: the loopback-only Web Provider-config surface for the EXPERIMENTAL
+semantic path was owner-approved and shipped in Round 27. It is advisory only,
+below its frozen quality gate, and does not change the deterministic pipeline,
+coverage, gate or score, nor the release decision.)

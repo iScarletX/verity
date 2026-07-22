@@ -45,16 +45,32 @@
 
   <details class="experimental" id="semantic-panel">
     <summary>实验性：语义审查（默认关闭）</summary>
-    <p class="muted">启用后 Verity 会将<strong>受控、脱敏后</strong>的 evidence 发给可信 LLM Provider 进行语义审查。<br>
-      Web 页面暂不接收 Provider 地址或密钥；仅勾选此项会诚实返回 <code>provider_not_configured</code>。真实 Provider 当前须由可信 CLI 配置启用。</p>
-    <label><input type="checkbox" id="semantic-enabled"> 启用语义审查（需额外 Provider 配置）</label>
-    <label>数据出境策略
-      <select id="egress-policy">
-        <option value="metadata_only">metadata_only（只发送位置/元信息）</option>
-        <option value="redacted_evidence">redacted_evidence（发送小段非敏感 evidence 文本）</option>
-      </select>
-    </label>
-    <p class="muted">不会发送：完整原文、密钥、绝对路径、API key、RedactionMap。</p>
+    <p class="warn-box"><strong>⚠️ 实验性功能。</strong>语义审查由 LLM 判断，<strong>尚未通过 Verity 自己的质量门槛</strong>（最近一次评测误报率约 0.43，会漏报也会误报）。结果<strong>仅供参考，不是可信判定</strong>，请勿据此单独决策。确定性静态检查才是可靠结论。</p>
+    <label><input type="checkbox" id="semantic-enabled"> 启用语义审查（需配置下方 Provider）</label>
+
+    <div id="provider-config" class="provider-config">
+      <label>Provider 地址（OpenAI 兼容，如 OpenRouter）
+        <input type="text" id="provider-base-url" autocomplete="off">
+      </label>
+      <label>API Key（只用于本机直连 Provider，<strong>不保存、不上传、不写日志</strong>）
+        <input type="password" id="provider-api-key" autocomplete="off" spellcheck="false">
+      </label>
+      <button type="button" id="fetch-models-btn">拉取模型列表</button>
+      <span id="models-status" class="muted"></span>
+      <label>生成器模型
+        <select id="generator-model"><option value="">（先拉取模型）</option></select>
+      </label>
+      <label>校验器模型
+        <select id="validator-model"><option value="">（先拉取模型）</option></select>
+      </label>
+      <label>数据出境策略
+        <select id="egress-policy">
+          <option value="metadata_only">metadata_only（只发送位置/元信息）</option>
+          <option value="redacted_evidence">redacted_evidence（发送小段非敏感 evidence 文本）</option>
+        </select>
+      </label>
+    </div>
+    <p class="muted">不会发送：完整原文、绝对路径、RedactionMap。API key 仅用于本机向 Provider 直连，用完即从内存清除。不填 Provider 时诚实返回 <code>provider_not_configured</code>。</p>
   </details>
 
   <section id="tab-prompt" class="tab-panel" role="tabpanel">

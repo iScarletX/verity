@@ -613,18 +613,26 @@ and raw full-artifact egress are not supported. Request/response sizes
 and timeouts are bounded. Provider error bodies are discarded rather
 than copied into reports.
 
-The local Web UI still has no trusted Provider configuration surface in
-this round: checking its semantic option without process-level wiring
-returns `provider_not_configured`. The deterministic outcome is unchanged.
+The local Web UI now has a loopback-only Provider configuration surface for
+the **experimental** semantic path: paste an OpenAI-compatible base URL
+(default OpenRouter) + API key, list models, and pick generator/validator
+models. The key is held only in a random, transient environment variable and
+cleared after the review; it never enters config serialization, reports,
+SARIF, the payload audit, logs, or responses. Enabling semantic without
+Provider fields still returns `provider_not_configured`. Semantic results are
+advisory and EXPERIMENTAL (they have not passed the frozen protocol quality
+gate); the deterministic outcome, coverage, gate and score are unchanged.
 
 ## Known limitations
 
 - No ZIP / GitHub URL intake yet.
 - Only Python has an AST-level scanner (Bandit + one hand-picked rule);
   other languages (Shell/JS/TS/Ruby/Go) are still text-level only.
-- The first real semantic adapter uses Verity's explicit JSON contract;
-  it is not a claim of universal vendor-SDK compatibility. The Web UI
-  does not yet configure it.
+- The Web UI configures the experimental semantic path via an OpenAI-
+  compatible adapter (e.g. OpenRouter `/chat/completions`); the bounded
+  JSON-over-HTTPS `JsonHttpProvider` uses Verity's explicit contract and is
+  not a claim of universal vendor-SDK compatibility. Semantic quality is
+  experimental and below its frozen Selection gate.
 - No PatchSet apply — proposal shape only.
 - Semgrep / YARA are not integrated. Real secret scanning is provided by
   pinned gitleaks under the `standard` Skill profile; the synthetic-token

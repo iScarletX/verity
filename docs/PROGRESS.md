@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "88455b3915c978959127e1cb36e01d0a67f48b67"
-  tests_collected: 453
-  tests_passed: 453
+  commit: "534f1040db3ab7d5415018f0c6cee04f7571cbd8"
+  tests_collected: 472
+  tests_passed: 472
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -37,11 +37,43 @@ Strings below MUST match the runtime literals.
 
 **What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates. Confirmed Findings from completed stages now use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
-**Deliberately absent.** No accepted frozen Selection/Test quality result, automatic remediation/PatchSet apply, or Web Provider-config surface. Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
+**Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
 
 ## Round history (append-only)
+
+## Round 27 (2026-07-22) → Web Provider-config surface for experimental semantic review
+
+- Owner-approved productization of the Web semantic path (previously deferred).
+  Added a local, loopback-only Provider configuration surface so a user can
+  paste an OpenAI-compatible base URL (default OpenRouter) + API key, list the
+  available models, pick generator/validator models, and run an EXPERIMENTAL
+  semantic review from the browser.
+- New `verity/web/provider_web.py`: a bounded `/models` proxy (https-or-loopback
+  validation, size/shape caps, no redirect, provider error bodies reduced to a
+  code) and an ephemeral-key builder. The user's API key is placed in a random,
+  transient `VERITY_WEB_KEY_*` environment variable so the existing audited
+  "credentials = env-var NAME, resolved at call time" path is reused unchanged;
+  the key is cleared in a `finally` and never enters SemanticConfig/
+  ProviderConfig fields, reports, SARIF, the payload audit, logs or responses.
+- New `POST /api/models` route; `/api/review/prompt` and `/api/review/skill`
+  now accept `provider_base_url` / `provider_api_key` / `generator_model` /
+  `validator_model` and run real providers via the OpenAI-compatible adapter
+  (OpenRouter speaks `/chat/completions`), clearing the ephemeral key afterward.
+- UI: index.html gains a Provider config block with a prominent red warning that
+  semantic review is experimental, has NOT passed its own quality gate (last
+  measured safe FP ~0.43), and is advisory only, not a trusted verdict. Default
+  base URL is assigned from app.js (no external URL literal in the page source),
+  keeping the strict no-external-asset test valid; still no `innerHTML`.
+- Added `tests/test_web_provider_config.py` (19 tests): base-url validation,
+  ephemeral-key lifecycle + clearing, key never in config repr, distinct role
+  objects, and `/api/models` error envelopes. Verified end to end against real
+  OpenRouter with gpt-5.6-sol: model list (342), completed semantic review, and
+  instruction-conflict findings detected; no residual web process left.
+- Deterministic pipeline, coverage, gate and score are unchanged; semantic
+  remains default-OFF and experimental. Full suite: 472 passed, 0 skipped.
+  Round 26 landed as commit `534f104` and tag `v0.1.0` with GitHub CI #23.
 
 ## Round 26 (2026-07-22) → v0.1.0 release prep + real-user Web walkthrough
 

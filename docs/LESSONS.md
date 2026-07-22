@@ -14,6 +14,41 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — A Web API-key surface must reuse the audited env-var path, not hold raw keys
+
+- **Symptom**: Exposing a Provider API-key field in the Web UI risks the key
+  leaking into SemanticConfig serialization, reports, SARIF, the payload audit,
+  logs, or an echoed response.
+- **Root cause**: The provider stack was designed so credentials are referenced
+  by env-var NAME and resolved at call time; a naive Web feature would instead
+  carry the raw key value through config objects.
+- **Fix**: The Web layer places the user's key in a random, transient
+  `VERITY_WEB_KEY_*` env var, puts only that NAME on ProviderCredentials, and
+  clears the var in a `finally`. Config objects never hold the value; tests
+  assert the key is absent from config repr and that the env var is cleared
+  (including on error paths). The default provider URL is assigned from JS so
+  the page source keeps no external URL literal.
+- **Prevention**: Never thread a raw secret through config/report objects. Reuse
+  the env-var-name indirection, scope the secret to one call, and prove cleanup
+  with tests — including the failure branch.
+- **Evidence**: Round 27 `web/provider_web.py`, `test_web_provider_config.py`.
+
+### 2026-07-22 — An OpenAI-compatible endpoint is not Verity's custom JSON contract
+
+- **Symptom**: Wiring the Web semantic path to `JsonHttpProvider` produced
+  `semantic: failed` against OpenRouter, because that provider POSTs to
+  Verity-custom `/v1/verity/candidate-generator`, which OpenRouter does not
+  serve.
+- **Root cause**: Two provider adapters exist — the custom-contract
+  `JsonHttpProvider` and the OpenAI-compatible `OpenAICompatibleEvalProvider`
+  (`/chat/completions`). Only the latter matches OpenRouter and was the one
+  used by the working protocol-v2 eval.
+- **Fix**: The Web surface builds `OpenAICompatibleEvalProvider` objects; a real
+  end-to-end review then completed and returned findings.
+- **Prevention**: Match the adapter to the target's wire contract; smoke-test a
+  real call before shipping a provider integration.
+- **Evidence**: Round 27 web semantic E2E against gpt-5.6-sol.
+
 ### 2026-07-22 — Don't gate a solid deterministic release on an experimental, AI-unreachable blocker
 
 - **Symptom**: V1 was stuck `not_ready` indefinitely. The deterministic static
