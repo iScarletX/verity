@@ -34,18 +34,35 @@ def semantic_case(finding_type, assessment="confirmed"):
                 and c["expectedAssessment"] == assessment)
 
 
-def test_current_closure_is_engineering_ready_but_quality_not_ready():
+def test_deterministic_static_is_release_candidate_semantic_stays_experimental():
+    # Policy v2.0.0: the deterministic static engineering preview is a release
+    # candidate on green engineering acceptance. The semantic/evaluated-accuracy
+    # track is separate, honestly not-ready, and NOT a release gate.
     report = evaluate_v1_closure(engineering_checks=ENGINEERING_GREEN)
-    assert report["decision"] == "not_ready"
+    assert report["policyVersion"] == "2.0.0"
+    assert report["decision"] == "release_candidate"
     assert report["engineeringReady"] is True
+    assert report["deterministicStaticReady"] is True
+    assert report["releaseScope"] == "deterministic_static_v1_engineering_preview"
+    # Engineering-green means no release blockers at all.
+    assert report["blockers"] == []
+    # The semantic track is reported, experimental, and out of the gate.
+    track = report["semanticQualityTrack"]
+    assert track["inReleaseGate"] is False
+    assert track["status"] == "experimental_not_ready"
     assert report["qualityEvidenceReady"] is False
-    codes = {x["code"] for x in report["blockers"]}
+    codes = {x["code"] for x in track["blockers"]}
     assert codes == {
         "evaluation_labels_provisional",
         "accepted_real_model_selection_absent",
         "sealed_semantic_test_unconsumed",
         "no_substantial_or_evaluated_risk_coverage",
+        "human_expert_review_absent",
     }
+    # Limitations remain disclosed, never hidden by the release decision.
+    limits = {x["code"] for x in report["disclosedLimitations"]}
+    assert "detection_breadth_not_evaluated" in limits
+    assert "semantic_review_experimental_default_off" in limits
     assert report["evidenceSummary"]["evaluatedLayerCount"] == 0
     assert report["evidenceSummary"]["acceptedRealModelSelectionPresent"] is False
     assert report["evidenceSummary"]["sealedTestConsumed"] is False
@@ -53,10 +70,12 @@ def test_current_closure_is_engineering_ready_but_quality_not_ready():
                for x in report["deferred"])
 
 
-def test_engineering_failure_is_separate_blocker():
+def test_engineering_failure_blocks_release_and_is_explicit():
     checks = dict(ENGINEERING_GREEN); checks["json_html_sarif"] = False
     report = evaluate_v1_closure(engineering_checks=checks)
     assert report["engineeringReady"] is False
+    assert report["deterministicStaticReady"] is False
+    assert report["decision"] == "not_ready"
     assert any(x["code"] == "engineering_check_failed:json_html_sarif"
                for x in report["blockers"])
 

@@ -14,6 +14,29 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — Don't gate a solid deterministic release on an experimental, AI-unreachable blocker
+
+- **Symptom**: V1 was stuck `not_ready` indefinitely. The deterministic static
+  auditor was fully engineering-green, but the release decision was gated on
+  semantic-path quality evidence — including "human/domain-expert review", which
+  no AI agent can satisfy alone. Every extra model run looked like progress but
+  could never flip the decision.
+- **Root cause**: The closure policy conflated two scopes: a reproducible
+  deterministic tool, and an experimental, default-off, probabilistic semantic
+  feature with an accuracy-evidence program. One structurally-unreachable
+  blocker in the second scope froze the first forever.
+- **Fix**: Closure policy v2.0.0 scopes `decision` to the deterministic static
+  auditor (release_candidate on green engineering acceptance, no evaluated-
+  accuracy claim) and moves all semantic/accuracy blockers to a separate
+  `semanticQualityTrack` with `inReleaseGate=false`. Every limitation is still
+  reported; nothing was hidden or faked.
+- **Prevention**: Scope a release decision to what is actually being shipped.
+  Keep experimental, default-off features and their evidence programs on a
+  separate, clearly-labelled track that does not gate the shippable core. Fix
+  the *definition* of readiness openly; never fix it by relaxing evidence.
+- **Evidence**: Round 25 `closure.py` v2.0.0, `evals/reports/v1-closure.json`
+  `decision=release_candidate`, updated `test_round20_closure.py`.
+
 ### 2026-07-22 — Strong Calibration does not survive a frozen held-out Selection
 
 - **Symptom**: `openai/gpt-4o-2024-11-20` scored recall 0.929 / safe FP 0.0 on

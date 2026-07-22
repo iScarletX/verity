@@ -92,10 +92,13 @@
   OpenAI-compatible adapter through the same SemanticOrchestrator. Its mutable
   scrubbed reports are local research records, not deterministic CI baselines.
   Neither path contains an aggregate safety score.
-- `verity.closure` separately computes a binary V1 release decision. Its
-  committed offline baseline may say `not_ready` while engineering acceptance
-  is green, because missing independent labels/model-quality/sealed-test/
-  substantial-coverage evidence cannot be averaged away by passing tests.
+- `verity.closure` (policy v2.0.0) computes a scoped V1 release decision. The
+  `decision` covers only the deterministic static auditor and is
+  `release_candidate` on green engineering acceptance, with no evaluated-
+  accuracy claim (breadth limits stay in `disclosedLimitations`). The
+  controlled semantic / evaluated-accuracy work is a separate
+  `semanticQualityTrack` (`inReleaseGate=false`) whose open blockers cannot be
+  averaged away by passing tests but do not gate the deterministic release.
 
 ## Bright lines
 

@@ -1,12 +1,23 @@
-# No active implementation round — protocol-v2 evidence decision required
+# No active implementation round — deterministic V1 is a release candidate
 
 ## Status
 
-Stopped after Round 24 (first frozen protocol-v2 Selection). Independent dual-AI
-review still covers every non-sealed L0 and semantic-quality label, but it is
-explicitly not human expert review. Historical protocol-v1 Selection is
-invalidated. Protocol v2 has now had one frozen Selection run against a dated
-immutable model revision and returned `not_eligible`. V1 remains `not_ready`.
+Stopped after Round 25 (closure policy v2.0.0). The **deterministic static
+auditor** is now `release_candidate` (engineering preview, no evaluated-accuracy
+claim). The **controlled semantic / evaluated-accuracy track** is separate,
+experimental, default-off, `experimental_not_ready`, and NOT in the release
+gate. Independent dual-AI review covers every non-sealed label but is not human
+expert review. Protocol-v1 Selection is invalidated; the first frozen
+protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
+
+## Round 25 (done) — scope the release decision
+
+Rewrote `verity/closure.py` to policy v2.0.0 so the release decision covers only
+the deterministic static auditor and turns `release_candidate` on green
+engineering acceptance. Semantic/accuracy blockers moved to a separate
+`semanticQualityTrack` (`inReleaseGate=false`) and are still fully disclosed.
+Regenerated the closure report, updated tests/README/PROGRESS. No product code
+path, rule, corpus or security boundary changed.
 
 ## Round 24 (done) — protocol-v2 first frozen Selection
 

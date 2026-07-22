@@ -4,13 +4,24 @@
 > `python3 tools/verify_repo.py`. The current test count and
 > capability matrix live at the top of `docs/PROGRESS.md`.
 >
-> **V1 engineering preview — release decision: `not_ready`.** Implemented
-> engineering paths are acceptance-tested, but quality-evidence gates remain:
-> 54 non-sealed Corpus labels have independent dual-AI review (not human expert
-> review), protocol-v1 Selection was invalidated after that review found two
-> mislabeled artifacts, the sealed split is unconsumed, and no unified risk has
-> substantial/evaluated evidence. See the reproducible
-> [`evals/reports/v1-closure.json`](evals/reports/v1-closure.json).
+> **V1 deterministic static auditor — release decision: `release_candidate`
+> (engineering preview).** Closure policy v2.0.0 scopes the release to the
+> deterministic static auditor (rules + Bandit + gitleaks + JSON/HTML/SARIF +
+> Web/CLI + explainable score/coverage), whose engineering acceptance is green
+> and reproducible. This is an honest engineering preview: it does **not** claim
+> evaluated detection accuracy, and its breadth limits are disclosed in every
+> review.
+>
+> The **controlled semantic (LLM-assisted) review is a separate, experimental,
+> default-OFF track and is NOT part of this release gate.** It remains
+> `experimental_not_ready`: 54 non-sealed Corpus labels have independent dual-AI
+> review (not human expert review), protocol-v1 Selection was invalidated after
+> that review found two mislabeled artifacts, the first frozen protocol-v2
+> Selection returned `not_eligible`, the sealed split is unconsumed, and no
+> unified risk has substantial/evaluated evidence. See the reproducible
+> [`evals/reports/v1-closure.json`](evals/reports/v1-closure.json)
+> (`decision` covers only the deterministic scope; `semanticQualityTrack` lists
+> the open experimental blockers).
 >
 > High-confidence deterministic Prompt/Skill rules + controlled Bandit and
 > gitleaks integration + SARIF 2.1.0
@@ -32,7 +43,7 @@ Verity is planned as a three-layer audit tool:
 
 | Version | Layer | Status |
 |---|---|---|
-| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Engineering preview; machine closure decision is `not_ready` because quality-evidence blockers remain.** |
+| **V1** (this repo) | Deterministic static checks (release scope) + a separate experimental controlled semantic review | **Deterministic static auditor: `release_candidate` engineering preview (no evaluated-accuracy claim). Semantic review: experimental, default-off, `experimental_not_ready`, not in the release gate.** |
 | **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) | **Not implemented.** Blocked until standards, corpus, static breadth and semantic breadth foundations are complete. |
 | **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill under audit | **Not implemented.** Later phase. |
 

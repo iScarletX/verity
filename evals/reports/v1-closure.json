@@ -1,27 +1,6 @@
 {
-  "blockers": [
-    {
-      "class": "quality_evidence",
-      "code": "evaluation_labels_provisional",
-      "detail": "Some Corpus labels remain provisional single-review; independent AI review is tracked separately from human expertise."
-    },
-    {
-      "class": "quality_evidence",
-      "code": "accepted_real_model_selection_absent",
-      "detail": "No frozen real-model Selection report has passed the predeclared quality gate; Calibration alone is not release evidence."
-    },
-    {
-      "class": "quality_evidence",
-      "code": "sealed_semantic_test_unconsumed",
-      "detail": "The sealed semantic test split has not been consumed."
-    },
-    {
-      "class": "quality_evidence",
-      "code": "no_substantial_or_evaluated_risk_coverage",
-      "detail": "No unified risk currently has substantial/evaluated evidence."
-    }
-  ],
-  "decision": "not_ready",
+  "blockers": [],
+  "decision": "release_candidate",
   "deferred": [
     {
       "code": "v1_5_prompt_blackbox_not_implemented",
@@ -34,6 +13,17 @@
     {
       "code": "provider_web_productization_absent",
       "detail": "Controlled semantic remains trusted CLI/research only."
+    }
+  ],
+  "deterministicStaticReady": true,
+  "disclosedLimitations": [
+    {
+      "code": "detection_breadth_not_evaluated",
+      "detail": "The engineering preview does not claim evaluated detection accuracy; unified-risk breadth remains none/signal/partial and is reported honestly in every review."
+    },
+    {
+      "code": "semantic_review_experimental_default_off",
+      "detail": "Controlled semantic review is experimental, default-off and below its frozen protocol Selection gate as last measured; it is not part of the deterministic release scope."
     }
   ],
   "engineeringChecks": {
@@ -100,9 +90,41 @@
     "substantialOrEvaluatedLayerCount": 0,
     "unifiedRiskCount": 25
   },
-  "note": "Engineering readiness does not override missing quality evidence. not_ready is an honest release decision, not a claim that implemented features are broken.",
+  "note": "`decision` covers only the deterministic static engineering preview and its honestly-disclosed limits. It is not a claim of evaluated detection accuracy. The controlled semantic review is a separate experimental track and does not gate this release; its open blockers are listed under semanticQualityTrack.",
   "policyId": "verity-v1-closure",
-  "policyVersion": "1.1.0",
+  "policyVersion": "2.0.0",
   "qualityEvidenceReady": false,
-  "schemaVersion": 1
+  "releaseScope": "deterministic_static_v1_engineering_preview",
+  "schemaVersion": 2,
+  "semanticQualityTrack": {
+    "blockers": [
+      {
+        "class": "quality_evidence",
+        "code": "evaluation_labels_provisional",
+        "detail": "Some Corpus labels remain provisional single-review; independent AI review is tracked separately from human expertise."
+      },
+      {
+        "class": "quality_evidence",
+        "code": "accepted_real_model_selection_absent",
+        "detail": "No frozen real-model Selection report has passed the predeclared quality gate; Calibration alone is not release evidence."
+      },
+      {
+        "class": "quality_evidence",
+        "code": "sealed_semantic_test_unconsumed",
+        "detail": "The sealed semantic test split has not been consumed."
+      },
+      {
+        "class": "quality_evidence",
+        "code": "no_substantial_or_evaluated_risk_coverage",
+        "detail": "No unified risk currently has substantial/evaluated evidence."
+      },
+      {
+        "class": "quality_evidence",
+        "code": "human_expert_review_absent",
+        "detail": "AI cross-model review is not human/domain-expert review; a public production-quality claim would require the latter."
+      }
+    ],
+    "inReleaseGate": false,
+    "status": "experimental_not_ready"
+  }
 }

@@ -148,14 +148,18 @@ consumed. Scrubbed reports live only in gitignored `.verity-data/model-evals/`.
 ## Binary V1 closure report
 
 `tools/run_v1_closure.py --check` recomputes
-`evals/reports/v1-closure.json` entirely offline. It separates tested
-engineering delivery from quality evidence and permits only two decisions:
-`release_candidate` or `not_ready`. The current decision is `not_ready` even
-though the local engineering checks pass, because labels remain single-review,
-the preliminary Selection result is not yet accepted release evidence, the
-sealed split is unconsumed, and no unified risk has `substantial`/`evaluated`
-evidence. This is not an
-aggregate accuracy score and does not call or configure a Provider.
+`evals/reports/v1-closure.json` entirely offline under closure policy v2.0.0.
+The `decision` (`release_candidate` or `not_ready`) is scoped to the
+**deterministic static auditor** and turns `release_candidate` on green
+engineering acceptance; it makes no evaluated-accuracy claim and keeps breadth
+limits in `disclosedLimitations`. The current decision is `release_candidate`.
+The controlled semantic / evaluated-accuracy work is a separate
+`semanticQualityTrack` with `inReleaseGate=false`, currently
+`experimental_not_ready`: labels remain single-review, the first frozen
+protocol-v2 Selection returned `not_eligible`, the sealed split is unconsumed,
+no unified risk has `substantial`/`evaluated` evidence, and human/domain-expert
+review has not been obtained. This is not an aggregate accuracy score and does
+not call or configure a Provider.
 
 Method references such as SkillOpt, GameWorld, VideoGameQA-Bench, DSGBench,
 TALES, TextWorld, VideoGameBench, Orak, BALROG, Jericho and ViStoryBench informed

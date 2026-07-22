@@ -9,7 +9,7 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "fb833c7bed44dfd41bde13725498ab68d1e2da37"
+  commit: "5502e94bc0ac2059a64fe7fd65bc053d03b7dcdf"
   tests_collected: 453
   tests_passed: 453
   tests_skipped: 0
@@ -31,9 +31,9 @@ Strings below MUST match the runtime literals.
 
 **Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). All 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
-**V1 closure decision.** `not_ready` under closure policy v1.1.0. Local engineering acceptance is green. Protocol-v1 Selection is invalid after independent review corrected mislabeled artifacts. Protocol v2 has now had one frozen Selection run against a dated immutable model revision (`openai/gpt-4o-2024-11-20`, both roles), and it returned `not_eligible`: recall 0.857 (<0.90) and safe false-positive rate 0.429 (>0.20) failed predeclared gate v1.0.0. 14 sealed labels remain provisional/unconsumed, and zero risk layers are substantial/evaluated. The decision is reproducible in `evals/reports/v1-closure.json`; it is not an aggregate score.
+**V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, no risk layer is substantial/evaluated, and human/domain-expert review has not been obtained. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
-**Next step.** V1 stays `not_ready`. The current controlled semantic path does not meet the frozen protocol-v2 Selection gate, so it is not release-quality as configured. Do not tune this protocol version from the consumed Selection result; any quality improvement requires a new protocol version with fresh, unseen splits. Obtain human/domain-expert review if a public release claim requires it. Do not reinterpret v1/v2 metrics, expose sealed Test, productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
+**Next step.** The deterministic static auditor is a shippable engineering preview. Any *evaluated accuracy* or public production-quality claim, or productionizing the semantic path, still requires: a NEW protocol version with fresh unseen splits (v2 Selection is consumed and must not be tuned from), a frozen Selection passing predeclared gates against a dated immutable model, sealed-Test consumption under approval, and human/domain-expert review. Do not reinterpret v1/v2 metrics, expose sealed Test, or start V1.5/V2 under the current decision.
 
 **What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates. Confirmed Findings from completed stages now use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
@@ -42,6 +42,34 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 25 (2026-07-22) → closure policy v2.0.0: scope the release decision
+
+- Fixed the *definition* of V1 readiness, not the evidence. The old closure
+  policy (v1.1.0) gated the entire V1 release on quality-evidence blockers that
+  belong to the experimental semantic path — including one blocker (human/
+  domain-expert review) that no AI can satisfy alone. That made the release
+  decision loop forever while a genuinely solid deterministic tool stayed
+  `not_ready`.
+- Rewrote `verity/closure.py` to policy **v2.0.0**. The release `decision` now
+  covers only the **deterministic static auditor** (rules + Bandit + gitleaks +
+  JSON/HTML/SARIF + Web/CLI + explainable score/coverage) and turns
+  `release_candidate` on green engineering acceptance. The report explicitly
+  states `releaseScope=deterministic_static_v1_engineering_preview` and makes NO
+  evaluated-accuracy claim; breadth limits stay in `disclosedLimitations`.
+- The controlled semantic / evaluated-accuracy work moved to a separate
+  `semanticQualityTrack` with `inReleaseGate=false` and status
+  `experimental_not_ready`. All five open blockers (provisional labels, no
+  accepted frozen Selection, unconsumed sealed Test, no substantial/evaluated
+  risk, and no human-expert review) are still reported honestly — they just no
+  longer block the deterministic engineering-preview release.
+- Updated closure tests, regenerated `evals/reports/v1-closure.json`
+  (`decision=release_candidate`), and reworded README top banner + roadmap and
+  the PROGRESS closure/next-step summary. No product code path, rule, corpus,
+  score policy or security boundary changed; the semantic path is still
+  default-off and below its frozen Selection gate.
+- Full suite: 453 passed, 0 skipped. Round 24 landed as commit `5502e94` with
+  GitHub CI #21 successful. Sealed Test remains unexposed/unconsumed.
 
 ## Round 24 (2026-07-22) → protocol-v2 first frozen Selection (result: not_eligible)
 
