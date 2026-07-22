@@ -14,6 +14,23 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — Strong Calibration does not survive a frozen held-out Selection
+
+- **Symptom**: `openai/gpt-4o-2024-11-20` scored recall 0.929 / safe FP 0.0 on
+  protocol-v2 Calibration, but the frozen Selection returned `not_eligible`:
+  recall 0.857 and safe false-positive rate 0.429 (tp=12/fn=2/tn=8/fp=6).
+- **Root cause**: Calibration is the split you are allowed to look at, so it
+  flatters a configuration. Only an unseen, gate-frozen Selection measures
+  generalization; the two are different facts.
+- **Fix**: Recorded the honest `not_eligible` result, kept V1 `not_ready`, and
+  did NOT tune the model/prompt against the consumed Selection. Any quality
+  improvement now requires a brand-new protocol version with fresh splits.
+- **Prevention**: Freeze the gate before looking at Selection; treat one
+  Selection run as one-shot and non-repeatable; never "retry for a better
+  score"; never promote Calibration numbers as accuracy evidence.
+- **Evidence**: Round 24 scrubbed selection report; `selectionGate.status=
+  not_eligible`, policy v1.0.0.
+
 ### 2026-07-22 — Best-effort tmpdir cleanup can silently leak and flake the gate
 
 - **Symptom**: On a fresh session the full suite failed once at

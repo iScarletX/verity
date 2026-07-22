@@ -9,7 +9,7 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "3e854ec573bc43e5ddb4e4a929de9b73fae198a1"
+  commit: "fb833c7bed44dfd41bde13725498ab68d1e2da37"
   tests_collected: 453
   tests_passed: 453
   tests_skipped: 0
@@ -31,9 +31,9 @@ Strings below MUST match the runtime literals.
 
 **Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). All 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
-**V1 closure decision.** `not_ready` under closure policy v1.1.0. Local engineering acceptance is green, but protocol-v1 Selection is invalid after independent review found and corrected mislabeled artifacts. Protocol v2 has no accepted model run; 14 sealed labels remain provisional/unconsumed, the Provider model id was a mutable alias, and zero risk layers are substantial/evaluated. The decision is reproducible in `evals/reports/v1-closure.json`; it is not an aggregate score.
+**V1 closure decision.** `not_ready` under closure policy v1.1.0. Local engineering acceptance is green. Protocol-v1 Selection is invalid after independent review corrected mislabeled artifacts. Protocol v2 has now had one frozen Selection run against a dated immutable model revision (`openai/gpt-4o-2024-11-20`, both roles), and it returned `not_eligible`: recall 0.857 (<0.90) and safe false-positive rate 0.429 (>0.20) failed predeclared gate v1.0.0. 14 sealed labels remain provisional/unconsumed, and zero risk layers are substantial/evaluated. The decision is reproducible in `evals/reports/v1-closure.json`; it is not an aggregate score.
 
-**Next step.** Obtain human/domain-expert review if a public release claim requires it, and approve an immutable model revision before running protocol-v2 Calibration/Selection. Do not reinterpret v1 metrics, expose sealed Test, productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
+**Next step.** V1 stays `not_ready`. The current controlled semantic path does not meet the frozen protocol-v2 Selection gate, so it is not release-quality as configured. Do not tune this protocol version from the consumed Selection result; any quality improvement requires a new protocol version with fresh, unseen splits. Obtain human/domain-expert review if a public release claim requires it. Do not reinterpret v1/v2 metrics, expose sealed Test, productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
 
 **What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates. Confirmed Findings from completed stages now use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
@@ -42,6 +42,35 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 24 (2026-07-22) → protocol-v2 first frozen Selection (result: not_eligible)
+
+- Ran the first real protocol-v2 semantic-quality evaluation using a fresh
+  bounded OpenRouter research key held only in an environment variable and
+  never committed. Selected a dated immutable model revision,
+  `openai/gpt-4o-2024-11-20`, for both generator and validator roles
+  (no mutable alias this time), temperature 0, role Prompt v2.0.0,
+  `redacted_evidence` egress, 2 repetitions.
+- Calibration (14 cases, 28 calls) looked strong: recall 0.929, precision 1.0,
+  safe false-positive rate 0.0, stability 0.929, zero errors/inconclusives. No
+  prompt tuning was performed before freezing.
+- The configuration was then frozen and one Selection run was executed against
+  predeclared gate v1.0.0 (recall >=0.90, safe FP <=0.20, stability >=0.80,
+  error <=0.05, inconclusive <=0.10). Selection returned **`not_eligible`**:
+  confusion tp=12 / fn=2 / tn=8 / fp=6, recall 0.857 (FAIL), safe false-positive
+  rate 0.429 (FAIL), precision 0.667, stability 1.0, zero errors/inconclusives.
+  The strong Calibration numbers did not generalize to the unseen split.
+- This is honest, reproducible evidence, not a regression: it moves the semantic
+  path from "unmeasured" to "measured and below the frozen gate as configured."
+  Per protocol rules the consumed Selection result must NOT be used to tune this
+  protocol version; any quality improvement requires a new protocol version with
+  fresh unseen splits.
+- Sealed Test was not exposed or consumed (`sealedTestConsumed=false`). Reports
+  are scrubbed and remain in gitignored `.verity-data/model-evals/` (model id,
+  fingerprints and metrics only; no key, endpoint, case text or host path).
+  No product surface, rule, corpus or code changed. Full suite still 453 passed,
+  0 skipped. V1 remains `not_ready`. Round 23 landed as commit `fb833c7` with
+  GitHub CI #20 successful.
 
 ## Round 23 (2026-07-22) → implementation commit pending
 

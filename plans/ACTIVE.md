@@ -2,11 +2,21 @@
 
 ## Status
 
-Stopped after Round 23 (a self-contained gate-reliability maintenance round; no
-detection/evidence change). Independent dual-AI review still covers every
-non-sealed L0 and semantic-quality label, but it is explicitly not human expert
-review. Historical protocol-v1 Selection is invalidated; protocol v2 has not
-called a model. V1 remains `not_ready`.
+Stopped after Round 24 (first frozen protocol-v2 Selection). Independent dual-AI
+review still covers every non-sealed L0 and semantic-quality label, but it is
+explicitly not human expert review. Historical protocol-v1 Selection is
+invalidated. Protocol v2 has now had one frozen Selection run against a dated
+immutable model revision and returned `not_eligible`. V1 remains `not_ready`.
+
+## Round 24 (done) — protocol-v2 first frozen Selection
+
+Ran real protocol-v2 evaluation with `openai/gpt-4o-2024-11-20` (both roles,
+temp 0, role Prompt v2.0.0, redacted_evidence, 2 reps). Calibration passed
+strongly (recall 0.929, safe FP 0.0) but the frozen Selection returned
+`not_eligible` against predeclared gate v1.0.0: recall 0.857 (<0.90) and safe
+false-positive rate 0.429 (>0.20). tp=12/fn=2/tn=8/fp=6. Sealed Test untouched.
+The consumed Selection result must not be used to tune protocol v2; improving
+quality requires a NEW protocol version with fresh unseen splits.
 
 ## Round 23 (done) — gate determinism fix
 
@@ -34,30 +44,34 @@ blockers below, which still require a human decision.
 
 ## Remaining release blockers
 
+- the controlled semantic path FAILED its frozen protocol-v2 Selection gate as
+  configured (recall 0.857, safe FP 0.429); it is not release-quality now;
 - AI cross-model review is not a substitute for human/domain-expert review if a
   public production-quality claim requires one;
-- protocol v2 has no Calibration/Selection result;
-- the prior OpenRouter model id was a mutable alias rather than an immutable
-  revision;
+- protocol v2 Selection is now consumed and cannot be re-scored or tuned;
 - sealed Test remains provisional/unconsumed;
 - no unified risk layer has approved substantial/evaluated breadth.
 
 ## Next authorized decision sequence
 
-1. decide whether public release requires human/domain-expert review of the 54
+1. decide whether to invest in semantic-path quality at all; if yes, design a
+   NEW protocol version (v3) with fresh, unseen Calibration/Selection splits —
+   do NOT reuse or tune from the consumed v2 Selection cases;
+2. decide whether public release requires human/domain-expert review of the 54
    non-sealed labels and arrange it independently if required;
-2. choose an immutable Provider model revision and a fresh bounded research Key;
-3. run protocol-v2 Calibration, freeze role Prompt/model/budget, then run one
-   Selection against predeclared gates;
-4. only after accepted labels and frozen v2 Selection, separately approve sealed
-   Test consumption for final reporting;
+3. for any new protocol version, run Calibration, freeze role Prompt/model/
+   budget against a dated immutable revision, then run one Selection against
+   predeclared gates;
+4. only after an accepted frozen Selection, separately approve sealed Test
+   consumption for final reporting;
 5. promote risk breadth only under approved per-risk thresholds, then recompute
    V1 closure.
 
 ## Not authorized
 
 - reviving or reinterpreting protocol-v1 Selection metrics;
-- tuning protocol v1/v2 from the invalidated Selection cases;
+- tuning protocol v1/v2 from the invalidated or consumed Selection cases;
+- re-running protocol-v2 Selection to "retry" for a better score;
 - exposing or consuming sealed Test before a new approval;
 - calling AI blind review “human expert review”;
 - Provider Web productization, V1.5, V2 sandbox or automatic remediation.

@@ -132,7 +132,18 @@ were corrected to `fetch_as_data` and independently re-reviewed. Therefore the
 historical v1 Selection is explicitly
 `invalidated_by_label_adjudication`; it must not be re-scored after the fact.
 Protocol v2 includes the selected Corpus payload digest in the configuration
-fingerprint. No v2 model run or sealed-Test consumption has occurred.
+fingerprint.
+
+Round 24 ran the first real protocol-v2 evaluation against a dated immutable
+revision, `openai/gpt-4o-2024-11-20` (both roles, temperature 0, role Prompt
+v2.0.0, `redacted_evidence`, 2 repetitions). Calibration passed strongly
+(recall 0.929, precision 1.0, safe false-positive rate 0.0, stability 0.929),
+but the frozen Selection returned `not_eligible` under predeclared gate v1.0.0:
+recall 0.857 (<0.90) and safe false-positive rate 0.429 (>0.20), with
+tp=12/fn=2/tn=8/fp=6. The consumed protocol-v2 Selection must not be re-scored
+or used to tune this protocol version; a quality improvement requires a new
+protocol version with fresh, unseen splits. Sealed Test was not exposed or
+consumed. Scrubbed reports live only in gitignored `.verity-data/model-evals/`.
 
 ## Binary V1 closure report
 
