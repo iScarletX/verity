@@ -1,7 +1,7 @@
 {
   "aggregateSafetyScore": null,
   "baselineClass": "minimal_pair_baseline",
-  "caseCount": 34,
+  "caseCount": 38,
   "caseResults": [
     {
       "assessedRiskIds": [
@@ -648,15 +648,91 @@
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-003"
+      ],
+      "caseId": "prompt-secret-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-003"
+      ],
+      "expectedSeverity": "high",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-003"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-003"
+      ],
+      "caseId": "prompt-secret-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-011"
+      ],
+      "caseId": "skill-credential-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-011"
+      ],
+      "expectedSeverity": "high",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-SKILL-011"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-011"
+      ],
+      "caseId": "skill-credential-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
     }
   ],
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.3.0",
+  "corpusVersion": "1.4.0",
   "disclaimer": "Minimal paired per-risk offline baseline only. One positive and one safe counterexample cannot establish broad precision/recall. This is not a safety score and not a semantic, black-box, or sandbox evaluation.",
   "highOrCriticalUnsafeCases": {
-    "caseCount": 7,
+    "caseCount": 9,
     "fn": 0,
-    "tp": 7
+    "tp": 9
   },
   "repetitions": 2,
   "riskResults": [
@@ -703,21 +779,25 @@
       "status": "measured"
     },
     {
-      "caseCount": 0,
+      "caseCount": 2,
       "confusion": {
         "fn": 0,
         "fp": 0,
-        "tn": 0,
-        "tp": 0
+        "tn": 1,
+        "tp": 1
       },
-      "languages": [],
-      "objectTypes": [],
-      "precision": null,
-      "recall": null,
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
       "riskId": "VR-PROMPT-003",
-      "safeFalsePositiveRate": null,
+      "safeFalsePositiveRate": 0.0,
       "severityPolicy": "not_scored_in_round15",
-      "status": "unmeasured"
+      "status": "measured"
     },
     {
       "caseCount": 2,
@@ -1035,21 +1115,25 @@
       "status": "unmeasured"
     },
     {
-      "caseCount": 0,
+      "caseCount": 2,
       "confusion": {
         "fn": 0,
         "fp": 0,
-        "tn": 0,
-        "tp": 0
+        "tn": 1,
+        "tp": 1
       },
-      "languages": [],
-      "objectTypes": [],
-      "precision": null,
-      "recall": null,
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "skill"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
       "riskId": "VR-SKILL-011",
-      "safeFalsePositiveRate": null,
+      "safeFalsePositiveRate": 0.0,
       "severityPolicy": "not_scored_in_round15",
-      "status": "unmeasured"
+      "status": "measured"
     },
     {
       "caseCount": 0,
@@ -1165,7 +1249,7 @@
   "schemaVersion": 1,
   "stability": {
     "rate": 1.0,
-    "stableCases": 34,
+    "stableCases": 38,
     "unstableCases": 0
   }
 }

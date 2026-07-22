@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.3.0",
+  "corpusVersion": "1.4.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -593,6 +593,76 @@
       "expectedRiskIds": [],
       "path": "cases/skill-tls-verification-safe",
       "rationale": "HTTPS client uses requests.get(url) with default certificate verification enabled.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-secret-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-003"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-003"
+      ],
+      "path": "cases/prompt-secret-positive/prompt.txt",
+      "rationale": "System prompt hardcodes a synthetic fixture secret token directly in the instruction text.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-secret-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-003"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-secret-safe/prompt.txt",
+      "rationale": "System prompt instructs reading the token from an environment variable at runtime; no secret literal is present.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-credential-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-011"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-011"
+      ],
+      "path": "cases/skill-credential-positive",
+      "rationale": "Skill source hardcodes a synthetic fixture credential-like token as a Python string literal.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-credential-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-011"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-credential-safe",
+      "rationale": "Skill source reads its API key from an environment variable; no credential literal is present.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

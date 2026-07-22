@@ -186,7 +186,11 @@ def test_committed_attestation_binds_exactly_54_nonsealed_current_payloads():
                               "prompt-dangling-reference-positive",
                               "prompt-dangling-reference-safe",
                               "skill-tls-verification-positive",
-                              "skill-tls-verification-safe"}
+                              "skill-tls-verification-safe",
+                              "prompt-secret-positive",
+                              "prompt-secret-safe",
+                              "skill-credential-positive",
+                              "skill-credential-safe"}
     assert {c["labelStatus"] for c in semantic["cases"]
             if c["split"] != "test"} == {"independent_ai_review"}
     assert {c["labelStatus"] for c in semantic["cases"]

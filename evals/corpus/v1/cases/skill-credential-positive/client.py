@@ -1,0 +1,5 @@
+API_KEY = "VERITY_FAKE_SECRET_MNPQRSTU24681357"
+
+
+def call_api():
+    return API_KEY

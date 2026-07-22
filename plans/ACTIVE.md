@@ -10,6 +10,14 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 34 (done) — corpus evidence for two existing secret rules
+
+Added corpus pairs for prompt.system_hardcoded_secret (VR-PROMPT-003) and
+skill.fake_secret_fixture (VR-SKILL-011), both previously unmeasured despite
+having detectors. Both now measured (precision/recall 1.0), no rule changes
+needed. Corpus at 38 cases (19/19), corpusVersion 1.4.0. decision stays
+release_candidate. 501 tests total (no new test functions this round).
+
 ## Round 33 (done) — close the TLS-verification known gap (Bandit B501)
 
 VR-SKILL-008's own declared knownGaps said "No TLS verification/transport
