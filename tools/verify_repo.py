@@ -479,7 +479,7 @@ def check_corpus_baselines(rep: VerifyReport) -> None:
         rep.append_fail("corpus_baselines", detail)
         return
     rep.append_ok("corpus_baselines",
-                  "26 L0 cases + 14 semantic contract replays reproducible")
+                  "28 L0 cases + 14 semantic contract replays reproducible")
 
 
 def check_v1_closure_baseline(rep: VerifyReport) -> None:
@@ -522,9 +522,16 @@ def check_independent_review_evidence(rep: VerifyReport) -> None:
         semantic = load_semantic_quality_manifest()
         invalidation = json.loads(_read_text(
             REPO / "evals/reviews/semantic-selection-v1-invalidation.json"))
+        l0_reviewed = sum(c["labelStatus"] == "independent_ai_review"
+                         for c in l0["cases"])
+        l0_provisional = sum(c["labelStatus"] == "provisional_single_review"
+                             for c in l0["cases"])
         if (len(attestation) != 54
-                or {c["labelStatus"] for c in l0["cases"]}
-                    != {"independent_ai_review"}
+                # The frozen attestation must cover exactly the reviewed L0
+                # cases; new provisional L0 cases (e.g. Round 31) are
+                # correctly excluded until a future review round covers them.
+                or l0_reviewed != 26
+                or l0_reviewed + l0_provisional != len(l0["cases"])
                 or sum(c["labelStatus"] == "independent_ai_review"
                        for c in semantic["cases"]) != 28
                 or sum(c["labelStatus"] == "provisional_single_review"
@@ -539,7 +546,9 @@ def check_independent_review_evidence(rep: VerifyReport) -> None:
         return
     rep.append_ok(
         "independent_review_evidence",
-        "54 AI-reviewed current payloads; 14 sealed labels provisional; v1 Selection invalidated")
+        f"54 AI-reviewed current payloads; {l0_provisional} new L0 case(s) "
+        "provisional pending review; 14 sealed labels provisional; "
+        "v1 Selection invalidated")
 
 
 def check_semantic_quality_protocol(rep: VerifyReport) -> None:

@@ -80,7 +80,8 @@
     "acceptedRealModelSelectionPresent": false,
     "evaluatedLayerCount": 0,
     "l0LabelStatuses": {
-      "independent_ai_review": 26
+      "independent_ai_review": 26,
+      "provisional_single_review": 2
     },
     "sealedTestConsumed": false,
     "semanticLabelStatuses": {

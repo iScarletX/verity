@@ -884,6 +884,9 @@ def prompt_open_ended_tool_wildcard(ctx: RuleContext) -> List[RuleHit]:
 _INPUT_ACCEPTANCE_MARKERS = (
     rb"user input", rb"user-supplied", rb"user provided", rb"external content",
     rb"retrieved content", rb"tool output", rb"uploaded file", rb"attachment",
+    rb"attached document", rb"customer's message", rb"customer message",
+    rb"from the customer", rb"from the user", rb"messages from the user",
+    rb"messages from the customer", rb"documents from the user",
     "用户输入".encode("utf-8"), "用户提供".encode("utf-8"),
     "用户上传".encode("utf-8"), "附件".encode("utf-8"),
     "参考文件".encode("utf-8"), "用户提交".encode("utf-8"),
@@ -895,11 +898,12 @@ _INPUT_ACCEPTANCE_MARKERS = (
 # fire — the mitigation is considered declared. Deliberately literal, not
 # a semantic judgement of quality.
 _TRUST_BOUNDARY_MARKERS = (
-    rb"treat.{0,20}as data", rb"not as instructions", rb"never follow",
-    rb"ignore.{0,20}instructions", rb"do not follow.{0,20}embedded",
+    rb"treat.{0,80}as data", rb"not as instructions", rb"never follow",
+    rb"ignore.{0,80}instructions", rb"do not follow.{0,40}embedded",
     rb"untrusted", rb"prompt injection", rb"injection attack",
+    rb"as data.{0,20}not as instructions", rb"never as instructions",
     "视为数据".encode("utf-8"), "不视为指令".encode("utf-8"),
-    "越权指令".encode("utf-8"), "忽略.{0,20}指令".encode("utf-8"),
+    "越权指令".encode("utf-8"), "忽略.{0,40}指令".encode("utf-8"),
     "注入".encode("utf-8"), "不可信".encode("utf-8"),
     "拒绝执行".encode("utf-8"), "角色切换指令".encode("utf-8"),
 )

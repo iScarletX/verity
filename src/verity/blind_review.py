@@ -113,9 +113,21 @@ def _risk_projection(risk: Dict[str, Any], *, semantic_type: str = "") -> Dict[s
 
 
 def _source_items() -> List[Dict[str, Any]]:
+    """Return the fixed, already-reviewed 54-item non-sealed evidence set.
+
+    Only cases whose ``labelStatus`` is already ``independent_ai_review``
+    are included here. Newer L0/semantic cases added with
+    ``provisional_single_review`` (e.g. Round 31's VR-PROMPT-008 pair) are
+    intentionally excluded: this packet builder reproduces the frozen,
+    already-completed independent-review round, not a moving target. A new
+    review round for newly-added provisional cases is a separate, future
+    decision -- not something this function may silently expand into.
+    """
     risks = load_risks()
     items = []
     for case in load_manifest()["cases"]:
+        if case["labelStatus"] != "independent_ai_review":
+            continue
         risk_id = case["assessedRiskIds"][0]
         items.append({
             "canonicalId": "l0:" + case["caseId"],

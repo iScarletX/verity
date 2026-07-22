@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.0.0",
+  "corpusVersion": "1.1.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -457,6 +457,42 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "labelStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-untrusted-input-boundary-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-008"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-008"
+      ],
+      "path": "cases/prompt-untrusted-input-boundary-positive/prompt.txt",
+      "rationale": "Declares acceptance of customer messages/attachments as external input but states no trust-boundary or anti-injection-override rule anywhere in the document.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-untrusted-input-boundary-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-008"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-untrusted-input-boundary-safe/prompt.txt",
+      "rationale": "Declares acceptance of customer messages/attachments but explicitly states the data-not-instructions trust boundary and an anti-injection-override rule.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
     }
   ]
 }

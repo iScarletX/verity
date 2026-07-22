@@ -164,20 +164,32 @@ def test_comparison_never_auto_upgrades_disagreement_or_uncertain():
 
 
 def test_committed_attestation_binds_exactly_54_nonsealed_current_payloads():
+    """The frozen Round-22 attestation covers exactly the 54 cases that were
+    actually reviewed (26 L0 + 28 non-Test semantic). Round 31 added two new
+    L0 cases (VR-PROMPT-008) as ``provisional_single_review`` -- they are
+    correctly NOT part of this frozen attestation; a future review round
+    would need to explicitly cover them, which must not happen silently.
+    """
     attestation = load_independent_ai_attestation()
     l0 = load_manifest()
     semantic = load_semantic_quality_manifest()
     assert len(attestation) == 54
-    assert {c["labelStatus"] for c in l0["cases"]} == {
-        "independent_ai_review"}
+    l0_reviewed = {c["caseId"] for c in l0["cases"]
+                  if c["labelStatus"] == "independent_ai_review"}
+    l0_provisional = {c["caseId"] for c in l0["cases"]
+                      if c["labelStatus"] == "provisional_single_review"}
+    assert len(l0_reviewed) == 26
+    assert l0_provisional == {"prompt-untrusted-input-boundary-positive",
+                              "prompt-untrusted-input-boundary-safe"}
     assert {c["labelStatus"] for c in semantic["cases"]
             if c["split"] != "test"} == {"independent_ai_review"}
     assert {c["labelStatus"] for c in semantic["cases"]
             if c["split"] == "test"} == {"provisional_single_review"}
-    expected_ids = {c["caseId"] for c in l0["cases"]}
+    expected_ids = set(l0_reviewed)
     expected_ids |= {c["caseId"] for c in semantic["cases"]
                      if c["split"] != "test"}
     assert set(attestation) == expected_ids
+    assert not (l0_provisional & set(attestation))
     assert not ({c["caseId"] for c in semantic["cases"]
                  if c["split"] == "test"} & set(attestation))
 

@@ -33,15 +33,18 @@ addition to describing how Verity's test suite acts as a pipeline gate.
 
 ## Versioned corpus baseline
 
-`evals/corpus/v1/manifest.json` contains 26 independently labelled synthetic
-L0 cases across 10 current risk classes. Nine risks retain one positive/safe
+`evals/corpus/v1/manifest.json` contains 28 independently labelled synthetic
+L0 cases across 11 current risk classes. Most risks retain one positive/safe
 pair; Agent Skills specification conformance has four pairs after Round 16.
 Every case records provenance, license, object/language, assessed
 risks, expected risks/severity, and rationale. Answer keys contain risk ids,
 not Rule ids. Exact-byte duplicates of existing developer fixtures are
-rejected to reduce test/corpus leakage. All 26 L0 labels now carry `independent_ai_review`, bound to current payload
+rejected to reduce test/corpus leakage. 26 L0 labels carry `independent_ai_review`, bound to current payload
 digests by `evals/reviews/corpus-v1-independent-ai-review.json`. This is a
-cross-model blind AI second opinion, not human expert review.
+cross-model blind AI second opinion, not human expert review. Round 31 added
+a new pair (VR-PROMPT-008, untrusted-input trust-boundary) as
+`provisional_single_review`; it is intentionally excluded from the frozen
+attestation until a future review round covers it.
 
 `evals/corpus/v1/semantic_replay.json` contains 14 fixed Provider replay cases
 (confirmed/rejected pairs for all seven semantic Finding Types). These measure

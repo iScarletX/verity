@@ -14,6 +14,49 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — A corpus case is a stronger test than a hand-picked unit test
+
+- **Symptom**: A new deterministic rule (Round 29's untrusted-input-boundary
+  check) passed all its hand-written unit tests, but writing a realistic
+  corpus positive/safe pair immediately found it silently missed a realistic
+  positive case and silently false-positived on the realistic safe case.
+- **Root cause**: Hand-written unit tests unconsciously use phrasing the
+  author already knows the regex matches. An independently-written "realistic
+  scenario" fixture is not biased that way and exposes marker-list/regex-gap
+  precision bugs a same-author unit test cannot catch.
+- **Fix**: Widened the input-acceptance marker list and the trust-boundary
+  regex gap (20 -> 80 chars) to match realistic sentence structure; re-
+  verified all existing unit tests stayed green (widening only reduces false
+  positives of the rule, it cannot introduce new true positives elsewhere).
+- **Prevention**: Any new deterministic rule should get a real corpus
+  positive/safe pair (not only unit tests) before being called "measured" --
+  writing the corpus case is itself a design-quality check on the rule.
+- **Evidence**: Round 31 `prompt-untrusted-input-boundary-{positive,safe}`,
+  VR-PROMPT-008 moved `unmeasured` -> `measured` (precision/recall 1.0).
+
+### 2026-07-22 — Adding a corpus case must not silently break a frozen review-evidence assumption
+
+- **Symptom**: Adding two new L0 corpus cases broke three call sites that had
+  hard-coded "every L0 case is `independent_ai_review`" (the blind-review
+  packet builder, the `verify_repo.py` evidence gate, and two tests).
+- **Root cause**: The Round-22 independent-review attestation is a frozen,
+  already-completed record over a fixed 54-item set. Nothing in the codebase
+  distinguished "the reviewed set" from "the current corpus", so adding a
+  case silently tried to widen the frozen set instead of being correctly
+  excluded from it.
+- **Fix**: `blind_review._source_items()` now explicitly filters L0 cases to
+  `labelStatus == "independent_ai_review"`; the verify_repo gate asserts an
+  explicit reviewed-count + provisional-count split instead of a blanket
+  status; the new case is honestly `provisional_single_review`, never
+  fabricated as reviewed.
+- **Prevention**: When a corpus/evidence set is described as "frozen" or
+  "attested", any code that iterates it must filter by review status, not
+  assume every current member has already been reviewed. Growing a corpus
+  must never silently expand a sealed evidence claim.
+- **Evidence**: Round 31 `blind_review.py` docstring + filter,
+  `verify_repo.py::check_independent_review_evidence`,
+  `test_committed_attestation_binds_exactly_54_nonsealed_current_payloads`.
+
 ### 2026-07-22 — A candidate-line cap silently blinds an extractor on long real documents
 
 - **Symptom**: A ~250-line real system prompt produced zero deterministic or

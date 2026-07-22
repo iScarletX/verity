@@ -10,6 +10,16 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 31 (done) — real corpus evidence for VR-PROMPT-008
+
+Added a genuine positive/safe corpus pair for Round 29's new rule; writing it
+honestly found and fixed two precision bugs in the rule (marker phrasing,
+regex gap too tight). VR-PROMPT-008 now `measured` (precision/recall 1.0).
+Fixed three call sites that assumed "every L0 case is independent_ai_review"
+(blind_review packet builder, verify_repo gate, 2 tests) so the new
+provisional case is honestly excluded from the frozen 54-item attestation.
+decision stays `release_candidate`. No test-count change (499 total).
+
 ## Round 30 (done) — close a Skill-side coverage gap
 
 Added `skill.sensitive_path_access` (maps VR-SKILL-014), closing a gap shared

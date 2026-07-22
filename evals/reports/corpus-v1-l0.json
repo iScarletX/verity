@@ -1,7 +1,7 @@
 {
   "aggregateSafetyScore": null,
   "baselineClass": "minimal_pair_baseline",
-  "caseCount": 26,
+  "caseCount": 28,
   "caseResults": [
     {
       "assessedRiskIds": [
@@ -496,10 +496,48 @@
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-008"
+      ],
+      "caseId": "prompt-untrusted-input-boundary-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-008"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-008"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-008"
+      ],
+      "caseId": "prompt-untrusted-input-boundary-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
     }
   ],
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.0.0",
+  "corpusVersion": "1.1.0",
   "disclaimer": "Minimal paired per-risk offline baseline only. One positive and one safe counterexample cannot establish broad precision/recall. This is not a safety score and not a semantic, black-box, or sandbox evaluation.",
   "highOrCriticalUnsafeCases": {
     "caseCount": 5,
@@ -649,21 +687,25 @@
       "status": "measured"
     },
     {
-      "caseCount": 0,
+      "caseCount": 2,
       "confusion": {
         "fn": 0,
         "fp": 0,
-        "tn": 0,
-        "tp": 0
+        "tn": 1,
+        "tp": 1
       },
-      "languages": [],
-      "objectTypes": [],
-      "precision": null,
-      "recall": null,
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
       "riskId": "VR-PROMPT-008",
-      "safeFalsePositiveRate": null,
+      "safeFalsePositiveRate": 0.0,
       "severityPolicy": "not_scored_in_round15",
-      "status": "unmeasured"
+      "status": "measured"
     },
     {
       "caseCount": 0,
@@ -997,7 +1039,7 @@
   "schemaVersion": 1,
   "stability": {
     "rate": 1.0,
-    "stableCases": 26,
+    "stableCases": 28,
     "unstableCases": 0
   }
 }
