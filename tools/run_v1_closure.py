@@ -46,7 +46,7 @@ def _report() -> dict:
         engineering_checks={name: True for name in ENGINEERING_EVIDENCE},
         # Deliberately false until an approved, locally retained real-model
         # report is reviewed. Closure must not infer either fact from a Key.
-        real_model_report_present=False,
+        accepted_real_model_selection_present=False,
         sealed_test_consumed=False,
     )
     report["engineeringEvidence"] = dict(sorted(ENGINEERING_EVIDENCE.items()))

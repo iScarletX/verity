@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "bbc93dd63d4f101e51da6eb57783d8087f25115f"
-  tests_collected: 435
-  tests_passed: 435
+  commit: "5e5bcf0042a8c41fa45443de070fa05bdc86c5f7"
+  tests_collected: 440
+  tests_passed: 440
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -29,21 +29,43 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 25 unified risks, 42 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 12 signal / 9 partial. Current L1 breadth: 15 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and a separate 42-case semantic model-quality protocol (14 calibration / 14 selection / 14 sealed test; every split has confirmed/rejected pairs for seven types). Fixed reports remain reproducible and score-free. All labels remain `provisional_single_review`. Contract replay still sets `modelQualityMeasured=false`; no real-model report exists and sealed test v1 has not been consumed.
+**Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and a separate 42-case semantic model-quality protocol (14 calibration / 14 selection / 14 sealed test; every split has confirmed/rejected pairs for seven types). Fixed reports remain reproducible and score-free. All labels remain `provisional_single_review`. Contract replay still sets `modelQualityMeasured=false`. Real OpenRouter Calibration reports now exist only in gitignored local storage; no frozen Selection or Test report has been accepted as V1 release evidence, and sealed test v1 has not been consumed.
 
 **V1 closure decision.** `not_ready` under closure policy v1.0.0. Local engineering acceptance is green, including offline package install and cross-format confirmed-semantic parity, but release quality evidence is blocked by provisional single-review labels, no trusted real-model quality report, an unconsumed sealed split, and zero substantial/evaluated risk layers. The decision is reproducible in `evals/reports/v1-closure.json`; it is not an aggregate score.
 
-**Next step.** Resolve quality-evidence blockers, beginning with independent Corpus label review and an approved real-model Calibration/Selection run. Only then decide whether to consume the sealed split and promote risk coverage using approved thresholds. Do not productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
+**Next step.** Round 21 has frozen GPT-4.1-mini, temperature 0, two repetitions and eval role Prompt v2.0 after Calibration improved to recall 1.0, safe false-positive rate 0.142857, stability 0.857143 and zero errors. Land the validator-coherence/fingerprint/selection-gate changes, then run Selection exactly once against predeclared thresholds. Independent Corpus label review remains required; do not consume Test, productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
 
 **What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates. Confirmed Findings from completed stages now use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
-**Deliberately absent.** No real-model quality result, automatic remediation/PatchSet apply, or Web Provider-config surface. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
+**Deliberately absent.** No accepted frozen Selection/Test quality result, automatic remediation/PatchSet apply, or Web Provider-config surface. Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
 
 ## Round history (append-only)
 
-## Round 20 (2026-07-22) → implementation commit pending
+## Round 21 (2026-07-22) → pre-Selection implementation checkpoint pending
+
+- Ran real OpenRouter Calibration only; no Selection/Test case result was
+  inspected. Claude Sonnet 4.5 failed strict JSON on 28/28 generator calls;
+  GPT-4.1-mini Prompt v1 measured recall 1.0, safe false-positive rate
+  0.285714 and stability 0.785714; GPT-4.1 was worse at 0.5 and 0.642857.
+- Calibration exposed a contract flaw: a model could emit `confirmed` with
+  `evidence_contradicts_claim`. Validator JSON Schema now binds each decision
+  to coherent, non-empty, unique controlled reason codes.
+- Eval role Prompt v2.0 adds falsification/materiality boundaries without
+  changing product Findings, labels or severity. GPT-4.1-mini Calibration
+  improved to recall 1.0, precision 0.875, safe false-positive rate 0.142857,
+  stability 0.857143, zero errors and zero inconclusives. A v2.1 experiment
+  regressed and was rejected; tuning stopped before Selection.
+- Role Prompt version now enters the scrubbed report and configuration
+  fingerprint. Selection policy v1.0.0 was frozen before seeing Selection:
+  recall >=0.90, safe FP <=0.20, stability >=0.80, errors <=0.05 and
+  inconclusive <=0.10. Selection will be run exactly once after CI is green.
+- Local real-model reports remain gitignored and contain no Provider traffic,
+  case text, endpoint, credential metadata or host paths. Sealed Test remains
+  unconsumed. Full pre-Selection suite: 440 passed, 0 skipped.
+
+## Round 20 (2026-07-22) → implementation commit `5e5bcf0`
 
 - Performed a binary V1 closure audit rather than adding a detection layer.
   The reproducible closure policy separates engineering readiness from quality

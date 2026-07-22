@@ -112,12 +112,17 @@ matrices, inconclusive/error rates and decision stability. It has no aggregate
 safety score and stores no case text, source snippets, claims, subjects, raw
 Provider traffic, endpoint, credential name/value, account metadata or host
 path. Real model outputs are mutable research records and are not required CI
-baselines.
+baselines. The report includes an eval role-Prompt version in its frozen
+configuration fingerprint. Selection gate v1.0.0 is declared before Selection:
+recall >=0.90, safe false-positive rate <=0.20, stability >=0.80, error rate
+<=0.05 and inconclusive rate <=0.10.
 
-No real Provider report existed at Round-18 implementation close because no
-credential was present. The sealed test split was not consumed. This is an
-implemented evaluation protocol, not a model-quality result and not a Web
-Provider integration.
+Round 21 produced local OpenRouter Calibration research records. The best
+Calibration configuration was GPT-4.1-mini for both roles, temperature 0, two
+repetitions and role Prompt v2.0: recall 1.0, precision 0.875, safe false-
+positive rate 0.142857, stability 0.857143, zero errors/inconclusives. These
+provisional single-review results are not a frozen Selection/Test result and
+not a product Provider integration. The sealed test split remains unconsumed.
 
 ## Binary V1 closure report
 

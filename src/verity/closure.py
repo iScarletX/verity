@@ -16,11 +16,11 @@ from .standards import load_risks
 
 
 CLOSURE_POLICY_ID = "verity-v1-closure"
-CLOSURE_POLICY_VERSION = "1.0.0"
+CLOSURE_POLICY_VERSION = "1.1.0"
 
 
 def evaluate_v1_closure(*, engineering_checks: Dict[str, bool],
-                        real_model_report_present: bool = False,
+                        accepted_real_model_selection_present: bool = False,
                         sealed_test_consumed: bool = False) -> Dict[str, Any]:
     required_engineering = {
         "prompt_web_cli", "skill_web_cli", "json_html_sarif",
@@ -57,11 +57,12 @@ def evaluate_v1_closure(*, engineering_checks: Dict[str, bool],
         blockers.append({
             "code": "evaluation_labels_provisional", "class": "quality_evidence",
             "detail": "Corpus labels remain provisional single-review labels."})
-    if not real_model_report_present:
+    if not accepted_real_model_selection_present:
         blockers.append({
-            "code": "real_semantic_model_quality_unmeasured",
+            "code": "accepted_real_model_selection_absent",
             "class": "quality_evidence",
-            "detail": "No trusted real-model calibration/selection report exists."})
+            "detail": ("No frozen real-model Selection report has passed the "
+                       "predeclared quality gate; Calibration alone is not release evidence.")})
     if not sealed_test_consumed:
         blockers.append({
             "code": "sealed_semantic_test_unconsumed",
@@ -99,7 +100,7 @@ def evaluate_v1_closure(*, engineering_checks: Dict[str, bool],
             "evaluatedLayerCount": evaluated_count,
             "l0LabelStatuses": dict(sorted(l0_labels.items())),
             "semanticLabelStatuses": dict(sorted(semantic_labels.items())),
-            "realModelReportPresent": real_model_report_present,
+            "acceptedRealModelSelectionPresent": accepted_real_model_selection_present,
             "sealedTestConsumed": sealed_test_consumed,
         },
         "note": ("Engineering readiness does not override missing quality "

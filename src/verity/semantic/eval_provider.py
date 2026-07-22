@@ -21,6 +21,9 @@ from .config import ProviderConfig
 from .provider import ProviderCall, ProviderResponse
 
 
+EVAL_ROLE_PROMPT_VERSION = "2.0.0"
+
+
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -76,10 +79,20 @@ def _system_prompt(role: str) -> str:
             + _schema_summary(role)
         )
     return common + (
-        "Act only as an independent falsifying validator. Test the candidate against "
-        "the evidence and input.falsificationQuestion. Reject when contradicted; use "
-        "insufficient_evidence when the supplied evidence cannot decide. Never change "
-        "the candidate, severity, evidence, or identity. Required shape: "
+        "Act only as an independent falsifying validator. First apply "
+        "input.falsificationQuestion to the exact candidate and cited evidence. "
+        "Confirm only when the evidence materially supports the exact risk after that "
+        "test; do not confirm from keyword overlap, capability presence, count "
+        "differences, or precaution alone. Reject a tool-scope claim when the cited "
+        "scope is task-necessary and bounded by explicit least privilege or human "
+        "approval. Reject a permission-capability mismatch when declaration and "
+        "observed fact describe the same narrow capability under different names. "
+        "Decision and reasonCodes must agree: confirmed uses "
+        "evidence_supports_claim; rejected uses evidence_contradicts_claim, "
+        "candidate_out_of_scope, candidate_shape_invalid, or "
+        "biased_evidence_selection; insufficient_evidence uses not_enough_evidence, "
+        "candidate_claim_unclear, or insufficient_context. Never change the "
+        "candidate, severity, evidence, or identity. Required shape: "
         + _schema_summary(role)
     )
 

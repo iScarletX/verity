@@ -19,7 +19,8 @@ if str(SRC) not in sys.path:
 
 from verity.corpus import CorpusError, canonical_report_json
 from verity.semantic.config import ProviderConfig, ProviderCredentials
-from verity.semantic.eval_provider import OpenAICompatibleEvalProvider
+from verity.semantic.eval_provider import (EVAL_ROLE_PROMPT_VERSION,
+                                           OpenAICompatibleEvalProvider)
 from verity.semantic_quality import evaluate_semantic_model_quality
 
 
@@ -85,6 +86,7 @@ def main(argv=None) -> int:
             temperature=args.temperature,
             max_output_tokens=args.max_output_tokens,
             max_total_calls=args.max_total_calls,
+            role_prompt_version=EVAL_ROLE_PROMPT_VERSION,
             acknowledge_sealed_test=args.acknowledge_sealed_test)
         output = _output_path(args.output, args.split)
         output.parent.mkdir(parents=True, exist_ok=True)

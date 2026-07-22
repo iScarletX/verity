@@ -177,9 +177,48 @@ def _ratio(n: int, d: int) -> Optional[float]:
     return None if not d else round(n / d, 6)
 
 
+SELECTION_GATE_POLICY_VERSION = "1.0.0"
+SELECTION_THRESHOLDS = {
+    "minimumRecall": 0.90,
+    "maximumSafeFalsePositiveRate": 0.20,
+    "minimumStabilityRate": 0.80,
+    "maximumErrorRate": 0.05,
+    "maximumInconclusiveRate": 0.10,
+}
+
+
+def _selection_gate(split: str, metrics: Dict[str, Any],
+                    stability: Dict[str, Any]) -> Dict[str, Any]:
+    base = {"policyVersion": SELECTION_GATE_POLICY_VERSION,
+            "thresholds": dict(SELECTION_THRESHOLDS)}
+    if split != "selection":
+        return {**base, "status": "not_applicable", "failedMetrics": []}
+    checks = {
+        "recall": (metrics.get("recall") is not None
+                   and metrics["recall"] >= SELECTION_THRESHOLDS["minimumRecall"]),
+        "safeFalsePositiveRate": (
+            metrics.get("safeFalsePositiveRate") is not None
+            and metrics["safeFalsePositiveRate"]
+            <= SELECTION_THRESHOLDS["maximumSafeFalsePositiveRate"]),
+        "stabilityRate": (stability.get("rate") is not None
+                          and stability["rate"]
+                          >= SELECTION_THRESHOLDS["minimumStabilityRate"]),
+        "errorRate": (metrics.get("errorRate") is not None
+                      and metrics["errorRate"]
+                      <= SELECTION_THRESHOLDS["maximumErrorRate"]),
+        "inconclusiveRate": (
+            metrics.get("inconclusiveRate") is not None
+            and metrics["inconclusiveRate"]
+            <= SELECTION_THRESHOLDS["maximumInconclusiveRate"]),
+    }
+    failed = sorted(name for name, passed in checks.items() if not passed)
+    return {**base, "status": "eligible" if not failed else "not_eligible",
+            "failedMetrics": failed}
+
+
 def _config_fingerprint(generator: ProviderConfig, validator: ProviderConfig,
                         *, temperature: float, max_output_tokens: int,
-                        repetitions: int) -> str:
+                        repetitions: int, role_prompt_version: str) -> str:
     # Endpoint and credential environment names intentionally do not enter the
     # public report. Their presence/values are deployment metadata, not model
     # quality dimensions.
@@ -194,6 +233,7 @@ def _config_fingerprint(generator: ProviderConfig, validator: ProviderConfig,
                           validator.base_url.encode()).hexdigest()},
         "temperature": temperature, "maxOutputTokens": max_output_tokens,
         "repetitions": repetitions, "egressPolicy": "redacted_evidence",
+        "rolePromptVersion": role_prompt_version,
         "catalog": sorted(CATALOG), "protocolVersion": "1.0.0",
     }
     raw = json.dumps(safe, ensure_ascii=False, sort_keys=True,
@@ -301,6 +341,7 @@ def evaluate_semantic_model_quality(*, split: str, repetitions: int,
                                     temperature: float = 0.0,
                                     max_output_tokens: int = 800,
                                     max_total_calls: int = 60,
+                                    role_prompt_version: str = "unspecified",
                                     acknowledge_sealed_test: bool = False,
                                     manifest_path: Path = QUALITY_MANIFEST_PATH,
                                     ) -> Dict[str, Any]:
@@ -310,6 +351,10 @@ def evaluate_semantic_model_quality(*, split: str, repetitions: int,
         raise CorpusError("sealed test requires explicit acknowledgement")
     if not isinstance(repetitions, int) or not 2 <= repetitions <= 10:
         raise CorpusError("semantic quality repetitions must be 2..10")
+    if (not isinstance(role_prompt_version, str)
+            or not role_prompt_version.strip()
+            or len(role_prompt_version) > 32):
+        raise CorpusError("semantic quality role prompt version invalid")
     if generator_config.role != "candidate_generator" or validator_config.role != "validator":
         raise CorpusError("semantic quality Provider roles invalid")
     if not generator_config.credentials.resolve() or not validator_config.credentials.resolve():
@@ -360,6 +405,10 @@ def evaluate_semantic_model_quality(*, split: str, repetitions: int,
                     "observedAssessment": observed})
         dimensions[dimension] = {key: _metric(rows)
                                  for key, rows in sorted(grouped.items())}
+    metrics = _metric(all_runs)
+    stability = {"stableCases": stable_cases,
+                 "unstableCases": len(case_results) - stable_cases,
+                 "rate": _ratio(stable_cases, len(case_results))}
     return {
         "schemaVersion": 1,
         "protocolId": manifest["protocolId"],
@@ -378,14 +427,15 @@ def evaluate_semantic_model_quality(*, split: str, repetitions: int,
             "validatorModelId": validator_config.model_id,
             "temperature": temperature, "maxOutputTokens": max_output_tokens,
             "egressPolicy": "redacted_evidence",
+            "rolePromptVersion": role_prompt_version,
             "configurationFingerprint": _config_fingerprint(
                 generator_config, validator_config, temperature=temperature,
-                max_output_tokens=max_output_tokens, repetitions=repetitions),
+                max_output_tokens=max_output_tokens, repetitions=repetitions,
+                role_prompt_version=role_prompt_version),
         },
-        "metrics": _metric(all_runs),
-        "stability": {"stableCases": stable_cases,
-                      "unstableCases": len(case_results) - stable_cases,
-                      "rate": _ratio(stable_cases, len(case_results))},
+        "metrics": metrics,
+        "stability": stability,
+        "selectionGate": _selection_gate(split, metrics, stability),
         "callBudget": {"configuredMax": max_total_calls,
                        "requiredMaximum": required_call_budget},
         "callCounts": calls,

@@ -65,11 +65,47 @@ VALIDATION_RESULT_SCHEMA: Dict[str, Any] = {
                     "insufficient_context",
                 ],
             },
+            "minItems": 1,
             "maxItems": 8,
+            "uniqueItems": True,
         },
         "rationale": {"type": "string", "maxLength": 400},
         "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
     },
+    "allOf": [
+        {
+            "if": {"properties": {"decision": {"const": "confirmed"}}},
+            "then": {"properties": {"reasonCodes": {
+                "contains": {"const": "evidence_supports_claim"},
+                "not": {"contains": {"enum": [
+                    "evidence_contradicts_claim", "candidate_out_of_scope",
+                    "not_enough_evidence", "candidate_shape_invalid",
+                    "insufficient_context",
+                ]}},
+            }}},
+        },
+        {
+            "if": {"properties": {"decision": {"const": "rejected"}}},
+            "then": {"properties": {"reasonCodes": {
+                "contains": {"enum": [
+                    "evidence_contradicts_claim", "candidate_out_of_scope",
+                    "candidate_shape_invalid", "biased_evidence_selection",
+                ]},
+                "not": {"contains": {"const": "evidence_supports_claim"}},
+            }}},
+        },
+        {
+            "if": {"properties": {"decision": {
+                "const": "insufficient_evidence"}}},
+            "then": {"properties": {"reasonCodes": {
+                "contains": {"enum": [
+                    "not_enough_evidence", "candidate_claim_unclear",
+                    "insufficient_context",
+                ]},
+                "not": {"contains": {"const": "evidence_supports_claim"}},
+            }}},
+        },
+    ],
 }
 
 

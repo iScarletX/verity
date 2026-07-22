@@ -42,12 +42,12 @@ def test_current_closure_is_engineering_ready_but_quality_not_ready():
     codes = {x["code"] for x in report["blockers"]}
     assert codes == {
         "evaluation_labels_provisional",
-        "real_semantic_model_quality_unmeasured",
+        "accepted_real_model_selection_absent",
         "sealed_semantic_test_unconsumed",
         "no_substantial_or_evaluated_risk_coverage",
     }
     assert report["evidenceSummary"]["evaluatedLayerCount"] == 0
-    assert report["evidenceSummary"]["realModelReportPresent"] is False
+    assert report["evidenceSummary"]["acceptedRealModelSelectionPresent"] is False
     assert report["evidenceSummary"]["sealedTestConsumed"] is False
     assert all(x["code"].startswith(("v1_5", "v2_", "provider_"))
                for x in report["deferred"])

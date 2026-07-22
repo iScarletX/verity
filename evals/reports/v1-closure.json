@@ -7,8 +7,8 @@
     },
     {
       "class": "quality_evidence",
-      "code": "real_semantic_model_quality_unmeasured",
-      "detail": "No trusted real-model calibration/selection report exists."
+      "code": "accepted_real_model_selection_absent",
+      "detail": "No frozen real-model Selection report has passed the predeclared quality gate; Calibration alone is not release evidence."
     },
     {
       "class": "quality_evidence",
@@ -87,11 +87,11 @@
   },
   "engineeringReady": true,
   "evidenceSummary": {
+    "acceptedRealModelSelectionPresent": false,
     "evaluatedLayerCount": 0,
     "l0LabelStatuses": {
       "provisional_single_review": 26
     },
-    "realModelReportPresent": false,
     "sealedTestConsumed": false,
     "semanticLabelStatuses": {
       "provisional_single_review": 42
@@ -101,7 +101,7 @@
   },
   "note": "Engineering readiness does not override missing quality evidence. not_ready is an honest release decision, not a claim that implemented features are broken.",
   "policyId": "verity-v1-closure",
-  "policyVersion": "1.0.0",
+  "policyVersion": "1.1.0",
   "qualityEvidenceReady": false,
   "schemaVersion": 1
 }
