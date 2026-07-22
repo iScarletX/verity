@@ -190,15 +190,22 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
     semantic_view = None
     sem = review_dict.get("semantic") or None
     if sem is not None:
+        sem_status = sem.get("status") or "unknown"
+        sem_findings = [_semantic_finding_view(f)
+                        for f in sem.get("findings") or []]
         semantic_view = {
-            "status": sem.get("status") or "unknown",
+            "status": sem_status,
             "reasonCode": sem.get("reasonCode"),
             "egressPolicy": sem.get("egressPolicy") or "off",
             "callCounts": sem.get("callCounts") or {},
             "candidateCount": len(sem.get("candidates") or []),
             "assessmentCounts": _assessment_counts(sem.get("assessments") or []),
-            "findings": [_semantic_finding_view(f)
-                          for f in sem.get("findings") or []],
+            "findings": sem_findings,
+            # True when the run did not fully complete but still confirmed
+            # some candidates. Those findings are advisory + possibly
+            # incomplete; the UI must label them clearly and they are NOT
+            # merged into the main completed-findings list or the score.
+            "partial": bool(sem_status != "completed" and sem_findings),
             "planItems": [
                 {"planItemId": p.get("planItemId"),
                  "status": p.get("status"),

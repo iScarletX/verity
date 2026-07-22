@@ -605,6 +605,40 @@
         "确认 " + confirmed + "，拒绝 " + ((s.assessmentCounts || {}).rejected || 0)
         + "，证据不足 " + ((s.assessmentCounts || {}).insufficient_evidence || 0)
         + "，验证失败 " + failed }));
+
+      // Partial-run warning: the run did not fully complete (e.g. a network
+      // error) but some candidates were confirmed. Those results are shown
+      // for reference only and may be incomplete.
+      if (s.partial) {
+        var warn = mk("div", { attrs: { class: "warn-box" } });
+        warn.appendChild(mk("strong", { text: "⚠️ 本次语义审查中途未完成" }));
+        warn.appendChild(mk("span", { text:
+          "（" + (s.reasonCode || s.status) + "）。以下为已确认的部分结果，"
+          + "可能不完整，仅供参考；建议检查网络后重试一次。" }));
+        semEl.appendChild(warn);
+      }
+
+      // Render the confirmed semantic findings (advisory / experimental).
+      var semFindings = s.findings || [];
+      if (semFindings.length) {
+        semEl.appendChild(mk("div", { attrs: { class: "muted" },
+          text: "语义发现（实验性，仅供参考，非可信判定）：" }));
+        var list = mk("ul");
+        for (var i = 0; i < semFindings.length; i++) {
+          var sf = semFindings[i];
+          var li = mk("li");
+          li.appendChild(mk("strong", { text: "[" + (sf.severity || "?") + "] " }));
+          li.appendChild(mk("span", { text: sf.type || "" }));
+          if (sf.claim) {
+            li.appendChild(mk("div", { attrs: { class: "muted" }, text: sf.claim }));
+          }
+          list.appendChild(li);
+        }
+        semEl.appendChild(list);
+      } else if (s.status === "completed") {
+        semEl.appendChild(mk("div", { attrs: { class: "muted" },
+          text: "本次语义审查未确认任何问题（不代表安全）。" }));
+      }
     }
 
     // Downloads

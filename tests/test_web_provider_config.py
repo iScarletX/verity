@@ -110,6 +110,137 @@ class TestEphemeralKey:
         pw.clear_ephemeral_key("VERITY_WEB_KEY_NONEXISTENT")
 
 
+class TestPartialSemanticView:
+    """When a semantic run fails midway but confirmed some candidates, the
+    view must surface those advisory findings with a ``partial`` flag, without
+    merging them into the main completed-findings list or the score.
+    """
+
+    def _base_report(self, semantic):
+        return {
+            "engine": "prompt",
+            "findings": [],
+            "evidences": [],
+            "analyzerModel": {},
+            "coverage": {"status": "sufficient", "reasonCodes": []},
+            "capabilities": {},
+            "score": {"status": "available", "value": 100},
+            "reviewConfidence": {"grade": "C"},
+            "remediations": [],
+            "semantic": semantic,
+        }
+
+    def test_failed_run_with_confirmed_findings_is_partial(self):
+        from verity.web.view import build_view_model
+        sem = {
+            "status": "failed", "reasonCode": "network_error",
+            "egressPolicy": "redacted_evidence",
+            "callCounts": {"generator": 2, "validator": 2},
+            "candidates": [{}, {}],
+            "assessments": [{"state": "confirmed"}, {"state": "confirmed"}],
+            "findings": [
+                {"findingId": "F-1", "findingType": "semantic.prompt.instruction_conflict",
+                 "severity": "medium", "claim": "conflict", "origin": {"kind": "semantic_validation"}},
+            ],
+            "planItems": [],
+        }
+        view = build_view_model(self._base_report(sem), "rid")
+        assert view["semantic"]["status"] == "failed"
+        assert view["semantic"]["partial"] is True
+        assert len(view["semantic"]["findings"]) == 1
+        # The partial semantic finding must NOT leak into the main list/score.
+        assert view["findings"] == []
+        assert view["counts"]["medium"] == 0
+
+    def test_completed_run_is_not_partial(self):
+        from verity.web.view import build_view_model
+        sem = {
+            "status": "completed", "reasonCode": None,
+            "egressPolicy": "metadata_only",
+            "callCounts": {"generator": 1, "validator": 1},
+            "candidates": [{}],
+            "assessments": [{"state": "confirmed"}],
+            "findings": [
+                {"findingId": "F-1", "findingType": "semantic.prompt.instruction_conflict",
+                 "severity": "medium", "claim": "c", "origin": {"kind": "semantic_validation"}},
+            ],
+            "planItems": [],
+        }
+        view = build_view_model(self._base_report(sem), "rid")
+        assert view["semantic"]["partial"] is False
+
+    def test_failed_run_without_findings_is_not_partial(self):
+        from verity.web.view import build_view_model
+        sem = {"status": "failed", "reasonCode": "network_error",
+               "egressPolicy": "off", "callCounts": {}, "candidates": [],
+               "assessments": [], "findings": [], "planItems": []}
+        view = build_view_model(self._base_report(sem), "rid")
+        assert view["semantic"]["partial"] is False
+
+
+class TestEvalProviderRetry:
+    def test_transient_network_error_is_retried_then_succeeds(self):
+        from verity.semantic.eval_provider import OpenAICompatibleEvalProvider
+        from verity.semantic.provider import ProviderCall, ProviderResponse
+        from verity.semantic.config import ProviderConfig, ProviderCredentials
+        import os
+        os.environ["VERITY_TEST_KEY_RETRY"] = "k"
+        try:
+            cfg = ProviderConfig(
+                role="validator", provider_id="p", model_id="m",
+                base_url="https://x.example/v1",
+                credentials=ProviderCredentials(api_key_env="VERITY_TEST_KEY_RETRY"))
+            prov = OpenAICompatibleEvalProvider(config=cfg,
+                                                retry_backoff_seconds=0.0)
+            calls = {"n": 0}
+
+            def fake_once(*, call, request):
+                calls["n"] += 1
+                if calls["n"] < 2:
+                    return ProviderResponse(ok=False, reason_code="network_error")
+                return ProviderResponse(ok=True, payload={"ok": True})
+
+            prov._call_once = fake_once
+            call = ProviderCall(review_id="r", egress_policy="metadata_only",
+                                call_role="validator", call_id="c",
+                                request_bytes=1, request_digest_sha256="x")
+            resp = prov._call(call=call, request={})
+            assert resp.ok is True
+            assert calls["n"] == 2
+        finally:
+            os.environ.pop("VERITY_TEST_KEY_RETRY", None)
+
+    def test_logical_error_is_not_retried(self):
+        from verity.semantic.eval_provider import OpenAICompatibleEvalProvider
+        from verity.semantic.provider import ProviderCall, ProviderResponse
+        from verity.semantic.config import ProviderConfig, ProviderCredentials
+        import os
+        os.environ["VERITY_TEST_KEY_RETRY2"] = "k"
+        try:
+            cfg = ProviderConfig(
+                role="validator", provider_id="p", model_id="m",
+                base_url="https://x.example/v1",
+                credentials=ProviderCredentials(api_key_env="VERITY_TEST_KEY_RETRY2"))
+            prov = OpenAICompatibleEvalProvider(config=cfg,
+                                                retry_backoff_seconds=0.0)
+            calls = {"n": 0}
+
+            def fake_once(*, call, request):
+                calls["n"] += 1
+                return ProviderResponse(ok=False, reason_code="invalid_json")
+
+            prov._call_once = fake_once
+            call = ProviderCall(review_id="r", egress_policy="metadata_only",
+                                call_role="validator", call_id="c",
+                                request_bytes=1, request_digest_sha256="x")
+            resp = prov._call(call=call, request={})
+            assert resp.ok is False
+            assert resp.reason_code == "invalid_json"
+            assert calls["n"] == 1  # not retried
+        finally:
+            os.environ.pop("VERITY_TEST_KEY_RETRY2", None)
+
+
 class TestModelsEndpoint:
     def _client(self):
         from starlette.testclient import TestClient

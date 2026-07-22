@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "534f1040db3ab7d5415018f0c6cee04f7571cbd8"
-  tests_collected: 472
-  tests_passed: 472
+  commit: "d7e2ea439c4eb1e35f3ccefd677cbdab6d0e856a"
+  tests_collected: 477
+  tests_passed: 477
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -42,6 +42,30 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 28 (2026-07-22) → semantic UX: show partial findings + retry transient errors
+
+- Fixed a confusing (but by-design) UX: when a Web semantic run confirmed some
+  candidates but a later model call hit a `network_error`, the whole stage went
+  `failed`, so those confirmed findings were withheld from the completed-
+  findings list — the report showed “确认 2” yet “问题 0” and looked like nothing
+  ran. Root cause: one transient network failure flips the run to failed.
+- A (visibility): the view now exposes the confirmed semantic findings and a
+  `partial` flag when the run did not complete but has findings. The Web UI
+  renders them under a clear “⚠️ 本次语义审查中途未完成…仅供参考” banner. These
+  advisory findings are NOT merged into the main completed-findings list, the
+  counts, or the score (deterministic/completed isolation preserved).
+- B (stability): the OpenAI-compatible eval provider now retries transient
+  transport failures (`network_error`, `provider_timeout`, `http_error`) up to
+  3 attempts with backoff. Logical failures (schema/credential/role/too-large)
+  are never retried. This reduces spurious whole-run failures from a single
+  network hiccup.
+- Added 5 tests (partial-view logic incl. no score/count leakage; retry on
+  transient then success; no-retry on logical error). Verified end to end vs
+  real OpenRouter: a completed run now lists its confirmed semantic findings
+  with claims. Deterministic pipeline/gate/score and release decision
+  unchanged; semantic stays experimental/advisory. Suite: 477 passed.
+  Round 27 landed as commit `d7e2ea4` with GitHub CI #24 successful.
 
 ## Round 27 (2026-07-22) → Web Provider-config surface for experimental semantic review
 

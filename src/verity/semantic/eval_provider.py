@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import socket
 import ssl
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -97,6 +98,11 @@ def _system_prompt(role: str) -> str:
     )
 
 
+# Reason codes worth retrying: transient transport hiccups, not logical
+# errors like schema/credential/role problems.
+_RETRYABLE_REASONS = frozenset({"network_error", "provider_timeout", "http_error"})
+
+
 @dataclass
 class OpenAICompatibleEvalProvider:
     """One-role, one-call adapter used only by the research eval command."""
@@ -105,6 +111,8 @@ class OpenAICompatibleEvalProvider:
     opener: Optional[Any] = None
     temperature: float = 0.0
     max_output_tokens: int = 800
+    max_attempts: int = 3
+    retry_backoff_seconds: float = 0.6
 
     def __post_init__(self) -> None:
         if not self.config.base_url:
@@ -114,6 +122,8 @@ class OpenAICompatibleEvalProvider:
         if not isinstance(self.max_output_tokens, int) or not (
                 64 <= self.max_output_tokens <= 4096):
             raise ValueError("max_output_tokens must be 64..4096")
+        if not isinstance(self.max_attempts, int) or not (1 <= self.max_attempts <= 5):
+            raise ValueError("max_attempts must be 1..5")
         if self.opener is None:
             self.opener = urllib.request.build_opener(
                 _NoRedirect(),
@@ -122,6 +132,27 @@ class OpenAICompatibleEvalProvider:
 
     def _call(self, *, call: ProviderCall,
               request: Dict[str, Any]) -> ProviderResponse:
+        """Bounded-retry wrapper around one transport attempt.
+
+        Transient transport failures (network/timeout/5xx-style http_error)
+        are retried up to ``max_attempts`` with a short backoff, so a single
+        network hiccup does not flip a whole semantic run to ``failed``.
+        Logical failures (schema, credential, role, request_too_large) are
+        never retried.
+        """
+        last = None
+        for attempt in range(self.max_attempts):
+            resp = self._call_once(call=call, request=request)
+            if resp.ok or resp.reason_code not in _RETRYABLE_REASONS:
+                return resp
+            last = resp
+            if attempt < self.max_attempts - 1:
+                time.sleep(self.retry_backoff_seconds * (attempt + 1))
+        return last if last is not None else ProviderResponse(
+            ok=False, reason_code="network_error")
+
+    def _call_once(self, *, call: ProviderCall,
+                   request: Dict[str, Any]) -> ProviderResponse:
         if call.call_role != self.config.role:
             return ProviderResponse(ok=False, reason_code="provider_role_mismatch")
         key = self.config.credentials.resolve()

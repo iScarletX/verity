@@ -10,6 +10,14 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 28 (done) — semantic UX: partial findings + transient retry
+
+Web view now shows confirmed semantic findings + a `partial` flag when a run
+fails midway (e.g. network_error), under a clear advisory banner; they never
+leak into the main findings/score. Eval provider retries transient transport
+errors (network/timeout/http) up to 3x, never logical errors. +5 tests
+(477 total). Deterministic pipeline and release decision unchanged.
+
 ## Round 27 (done) — Web Provider-config surface (experimental semantic)
 
 Owner-approved. Added a loopback-only Web surface to paste an OpenAI-compatible
