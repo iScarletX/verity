@@ -29,6 +29,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -37,6 +38,32 @@ from typing import Dict, List, Optional, Tuple
 REQUIRED_BANDIT_VERSION = "1.7.10"
 DEFAULT_TIMEOUT_SECONDS = 30
 MAX_OUTPUT_BYTES = 4 * 1024 * 1024   # 4 MiB combined stdout+stderr
+
+# The staging tmpdir must never outlive the run. ``shutil.rmtree`` can
+# transiently fail on some platforms (e.g. macOS under load, a file that
+# is momentarily still held), and ``ignore_errors=True`` would silently
+# leave a leaked ``verity-bandit-*`` directory behind. We retry a few
+# times before giving up so cleanup is reliable rather than best-effort.
+_TMPDIR_REMOVE_ATTEMPTS = 5
+_TMPDIR_REMOVE_BACKOFF_SECONDS = 0.05
+
+
+def _remove_tmpdir_with_retry(tmpdir: str) -> None:
+    """Remove ``tmpdir`` reliably. Retries transient rmtree failures and
+    never raises, so it is safe inside a ``finally`` block."""
+    for attempt in range(_TMPDIR_REMOVE_ATTEMPTS):
+        try:
+            shutil.rmtree(tmpdir)
+            return
+        except FileNotFoundError:
+            return
+        except OSError:
+            if attempt == _TMPDIR_REMOVE_ATTEMPTS - 1:
+                # Last resort: swallow the error so cleanup failure does
+                # not mask the primary result, matching prior semantics.
+                shutil.rmtree(tmpdir, ignore_errors=True)
+                return
+            time.sleep(_TMPDIR_REMOVE_BACKOFF_SECONDS)
 
 
 @dataclass
@@ -226,4 +253,4 @@ class BanditRunner:
                 results=validated,
             )
         finally:
-            shutil.rmtree(tmpdir, ignore_errors=True)
+            _remove_tmpdir_with_retry(tmpdir)

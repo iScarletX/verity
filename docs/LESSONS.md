@@ -14,6 +14,24 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — Best-effort tmpdir cleanup can silently leak and flake the gate
+
+- **Symptom**: On a fresh session the full suite failed once at
+  `test_bandit_tmpdir_is_removed_after_run`, then passed in isolation and on
+  reruns. `verify_repo.py`'s bundled pytest step went red intermittently.
+- **Root cause**: `bandit_runner.py` removed its staging tmpdir with a single
+  `shutil.rmtree(tmpdir, ignore_errors=True)`. A transient rmtree failure was
+  swallowed and leaked a `verity-bandit-*` dir; the test then correctly saw a
+  newly-leaked directory. The assertion also diffed the whole shared temp root,
+  so unrelated leftovers could pollute it.
+- **Fix**: Added `_remove_tmpdir_with_retry` (retry transient `OSError` with
+  backoff, treat missing dir as success, swallow only as a last resort) and
+  changed the test to check only dirs created by the current run.
+- **Prevention**: In a `finally` cleanup, do not use `ignore_errors=True` as the
+  first line of defense for a resource that a test/gate asserts is gone. Retry
+  transient failures, and scope leak assertions to what the run itself created.
+- **Evidence**: Round 23 `_remove_tmpdir_with_retry` + two retry unit tests.
+
 ### 2026-07-22 — Label review can invalidate a green model Selection
 
 - **Symptom**: A frozen Selection passed every predeclared metric, but later

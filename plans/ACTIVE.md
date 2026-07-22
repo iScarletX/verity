@@ -2,10 +2,20 @@
 
 ## Status
 
-Stopped after Round 22. Independent dual-AI review now covers every non-sealed
-L0 and semantic-quality label, but it is explicitly not human expert review.
-Historical protocol-v1 Selection is invalidated; protocol v2 has not called a
-model. V1 remains `not_ready`.
+Stopped after Round 23 (a self-contained gate-reliability maintenance round; no
+detection/evidence change). Independent dual-AI review still covers every
+non-sealed L0 and semantic-quality label, but it is explicitly not human expert
+review. Historical protocol-v1 Selection is invalidated; protocol v2 has not
+called a model. V1 remains `not_ready`.
+
+## Round 23 (done) — gate determinism fix
+
+Fixed a non-deterministic pytest failure that made `verify_repo.py` flake:
+`bandit_runner.py` now removes its staging tmpdir with a retrying helper instead
+of a single `shutil.rmtree(..., ignore_errors=True)`, and
+`test_bandit_tmpdir_is_removed_after_run` scopes its leak check to dirs created
+by the current run. Suite 451 → 453 passed. This did not touch the evidence
+blockers below, which still require a human decision.
 
 ## Evidence now available
 

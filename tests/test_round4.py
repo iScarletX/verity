@@ -117,6 +117,33 @@ class TestMalformedManifestConservative:
 # ====================================================================== #
 
 class TestBanditStubs:
+    def test_remove_tmpdir_retry_succeeds_after_transient_error(self, tmp_path,
+                                                                monkeypatch):
+        # First rmtree call fails transiently, the retry succeeds. The
+        # directory must actually be gone and no exception must escape.
+        import verity.bandit_runner as br
+        d = tmp_path / "verity-bandit-xyz"
+        d.mkdir()
+        real_rmtree = br.shutil.rmtree
+        calls = {"n": 0}
+
+        def flaky_rmtree(path, ignore_errors=False):
+            calls["n"] += 1
+            if calls["n"] == 1 and not ignore_errors:
+                raise OSError("transient")
+            return real_rmtree(path, ignore_errors=ignore_errors)
+
+        monkeypatch.setattr(br.shutil, "rmtree", flaky_rmtree)
+        monkeypatch.setattr(br.time, "sleep", lambda _s: None)
+        br._remove_tmpdir_with_retry(str(d))
+        assert not d.exists()
+        assert calls["n"] >= 2
+
+    def test_remove_tmpdir_missing_dir_is_noop(self, tmp_path):
+        import verity.bandit_runner as br
+        # Never raises even if the directory is already gone.
+        br._remove_tmpdir_with_retry(str(tmp_path / "does-not-exist"))
+
     def _snap(self, tmp_path):
         (tmp_path / "SKILL.md").write_text(
             "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
@@ -198,12 +225,18 @@ class TestBanditReal:
         assert br["toolVersion"] == "1.7.10"
 
     def test_bandit_tmpdir_is_removed_after_run(self, tmp_path):
-        # Snapshot the tmpdir root before/after to assert nothing lingers.
-        before = set(Path(tempfile_tmpdir()).glob("verity-bandit-*"))
+        # Assert the tmpdir(s) created *by this run* are gone, rather than
+        # diffing the shared temp root globally (which is polluted by
+        # concurrent tests, stale leftovers, and cleanup races and made
+        # this assertion flaky). We snapshot the existing dirs, run the
+        # skill, and require that every newly-created verity-bandit-* dir
+        # was removed.
+        root = Path(tempfile_tmpdir())
+        before = set(root.glob("verity-bandit-*"))
         _run_skill(FIXTURES / "python_shell_true_skill")
-        after = set(Path(tempfile_tmpdir()).glob("verity-bandit-*"))
-        # No new bandit tmpdirs leaked.
-        assert after == before
+        after = set(root.glob("verity-bandit-*"))
+        leaked = after - before
+        assert not leaked, f"bandit tmpdir(s) leaked by this run: {leaked}"
 
     def test_bandit_syntax_error_does_not_crash(self, tmp_path):
         root = tmp_path / "s"

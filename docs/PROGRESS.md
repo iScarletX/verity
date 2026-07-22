@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "5629cae7b01b47fba847be1b5e2322239a642ed7"
-  tests_collected: 451
-  tests_passed: 451
+  commit: "3e854ec573bc43e5ddb4e4a929de9b73fae198a1"
+  tests_collected: 453
+  tests_passed: 453
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -42,6 +42,31 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 23 (2026-07-22) → implementation commit pending
+
+- Fixed a real, non-deterministic gate flake, not a detection change. On the
+  first clean session the full suite failed at
+  `tests/test_round4.py::TestBanditReal::test_bandit_tmpdir_is_removed_after_run`:
+  a `verity-bandit-*` staging tmpdir created during the run was occasionally
+  left behind, so `verify_repo.py`'s bundled pytest step went red even though
+  the same test passed in isolation and on subsequent runs.
+- Root cause: `bandit_runner.py` cleaned its staging dir with a single
+  `shutil.rmtree(tmpdir, ignore_errors=True)`; a transient rmtree failure
+  (macOS under load) was silently swallowed and leaked the directory. Replaced
+  it with `_remove_tmpdir_with_retry`, which retries transient `OSError`s with a
+  short backoff, treats a missing dir as success, and only as a last resort
+  falls back to the previous swallow-error behavior so cleanup failure never
+  masks the primary result.
+- Hardened the assertion so it checks that the tmpdir(s) created *by this run*
+  are gone (newly-created set difference) instead of diffing the shared temp
+  root globally, which was polluted by concurrent tests and stale leftovers.
+  Added two focused unit tests for the retry helper (transient failure then
+  success; missing dir is a no-op).
+- No product surface, rule, Provider, evidence, corpus, closure or breadth
+  change. V1 remains `not_ready`; sealed Test remains unexposed/unconsumed; no
+  model was called. Full suite: 453 passed, 0 skipped (was 451). Round 22
+  landed as commit `3e854ec` with GitHub CI #19 successful.
 
 ## Round 22 (2026-07-22) → implementation commit pending
 
