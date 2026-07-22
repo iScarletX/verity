@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from ..findings_view import completed_findings, source_layer
 from ..guidance import lookup as _lookup_guidance, next_steps_summary
 
 
@@ -70,9 +71,9 @@ def headline_for(review_dict: Dict[str, Any]) -> Dict[str, str]:
         return _HEADLINES["coverage_block"]
     subject = verdict.get("subject") or {}
     outcome = subject.get("outcome") or ""
+    all_findings, _ = completed_findings(review_dict)
     has_high = any(
-        f["severity"] in ("high", "critical")
-        for f in review_dict.get("findings") or []
+        f["severity"] in ("high", "critical") for f in all_findings
     )
     if engine == "skill":
         if has_high or outcome == "do_not_install":
@@ -116,6 +117,7 @@ def _finding_view(f: Dict[str, Any], ev_by_id: Dict[str, Dict[str, Any]]) -> Dic
         "severity": f["severity"],
         "claim": f.get("claim", ""),
         "originKind": origin.get("kind", ""),
+        "sourceLayer": source_layer(f),
         "artifactPath": subject.get("artifactPath", ""),
         "controls": f.get("controls") or [],
         "evidences": evidences_view,
@@ -162,9 +164,8 @@ def _blocked_view(review_dict: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, Any]:
-    ev_by_id = {e["evidenceId"]: e for e in review_dict.get("evidences") or []}
-    findings = [_finding_view(f, ev_by_id)
-                for f in review_dict.get("findings") or []]
+    all_findings, ev_by_id = completed_findings(review_dict)
+    findings = [_finding_view(f, ev_by_id) for f in all_findings]
     counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     for f in findings:
         counts[f["severity"]] = counts.get(f["severity"], 0) + 1

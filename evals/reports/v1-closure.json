@@ -1,0 +1,107 @@
+{
+  "blockers": [
+    {
+      "class": "quality_evidence",
+      "code": "evaluation_labels_provisional",
+      "detail": "Corpus labels remain provisional single-review labels."
+    },
+    {
+      "class": "quality_evidence",
+      "code": "real_semantic_model_quality_unmeasured",
+      "detail": "No trusted real-model calibration/selection report exists."
+    },
+    {
+      "class": "quality_evidence",
+      "code": "sealed_semantic_test_unconsumed",
+      "detail": "The sealed semantic test split has not been consumed."
+    },
+    {
+      "class": "quality_evidence",
+      "code": "no_substantial_or_evaluated_risk_coverage",
+      "detail": "No unified risk currently has substantial/evaluated evidence."
+    }
+  ],
+  "decision": "not_ready",
+  "deferred": [
+    {
+      "code": "v1_5_prompt_blackbox_not_implemented",
+      "detail": "Planned after V1; not counted as a V1 engineering failure."
+    },
+    {
+      "code": "v2_skill_sandbox_not_implemented",
+      "detail": "Planned after V1.5; not counted as a V1 engineering failure."
+    },
+    {
+      "code": "provider_web_productization_absent",
+      "detail": "Controlled semantic remains trusted CLI/research only."
+    }
+  ],
+  "engineeringChecks": {
+    "coverage_failure": true,
+    "history_v1_v2_diff": true,
+    "install_start_preflight": true,
+    "json_html_sarif": true,
+    "prompt_web_cli": true,
+    "score_confidence_remediation": true,
+    "security_boundaries": true,
+    "skill_web_cli": true,
+    "tests_and_ci": true
+  },
+  "engineeringEvidence": {
+    "coverage_failure": [
+      "tests/test_acceptance_19.py",
+      "tests/test_round5_hotfix.py"
+    ],
+    "history_v1_v2_diff": [
+      "tests/test_round19_history_score.py",
+      "tests/test_round12.py"
+    ],
+    "install_start_preflight": [
+      "tests/test_web_mvp.py",
+      "tests/test_verify_repo.py"
+    ],
+    "json_html_sarif": [
+      "tests/test_acceptance_19.py",
+      "tests/test_round20_closure.py"
+    ],
+    "prompt_web_cli": [
+      "tests/test_acceptance_19.py",
+      "tests/test_web_mvp.py"
+    ],
+    "score_confidence_remediation": [
+      "tests/test_round19_scoring.py",
+      "tests/test_round19_web_score.py"
+    ],
+    "security_boundaries": [
+      "tests/test_semantic.py",
+      "tests/test_web_mvp.py"
+    ],
+    "skill_web_cli": [
+      "tests/test_round12.py",
+      "tests/test_web_mvp.py"
+    ],
+    "tests_and_ci": [
+      "tools/verify_repo.py",
+      ".github/workflows/ci.yml"
+    ]
+  },
+  "engineeringReady": true,
+  "evidenceSummary": {
+    "evaluatedLayerCount": 0,
+    "l0LabelStatuses": {
+      "provisional_single_review": 26
+    },
+    "realModelReportPresent": false,
+    "sealedTestConsumed": false,
+    "semanticLabelStatuses": {
+      "provisional_single_review": 42
+    },
+    "substantialOrEvaluatedLayerCount": 0,
+    "unifiedRiskCount": 25
+  },
+  "note": "Engineering readiness does not override missing quality evidence. not_ready is an honest release decision, not a claim that implemented features are broken.",
+  "policyId": "verity-v1-closure",
+  "policyVersion": "1.0.0",
+  "qualityEvidenceReady": false,
+  "schemaVersion": 1
+}

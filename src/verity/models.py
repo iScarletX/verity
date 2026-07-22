@@ -1,4 +1,4 @@
-"""Core Phase 0 data models.
+"""Core Verity review data models.
 
 Explicit separation between:
 - Evidence (facts)             §5

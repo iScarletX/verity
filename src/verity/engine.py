@@ -446,10 +446,9 @@ _DANGEROUS_SHELL = re.compile(
 def skill_secret_like_fixture(ctx: RuleContext) -> List[RuleHit]:
     """Skill-engine deterministic rule — flags fake-secret placeholders.
 
-    We intentionally do NOT ship a real gitleaks ruleset here (out of scope
-    for the walking skeleton, spec constraint). The rule matches a fixture
-    token that is safe to include in tests, and demonstrates the secret
-    evidence code path (redactedPreview only, no raw persistence).
+    This built-in demonstration rule is separate from the controlled external
+    gitleaks adapter. It matches a visibly synthetic fixture token and proves
+    the secret Evidence path (redactedPreview only, no raw persistence).
     """
     out: List[RuleHit] = []
     prod = Producer(componentId=ctx.rule.ruleId,

@@ -149,6 +149,7 @@ REQUIRED_FILES = [
     "THIRD_PARTY_LICENSES.md",
     "LICENSE",
     "pyproject.toml",
+    "setup.py",
     # Tooling scripts already in the repo
     "tools/install_gitleaks.py",
     "tools/gitleaks_release.json",
@@ -165,7 +166,9 @@ REQUIRED_FILES = [
     "evals/corpus/v1/semantic_quality.json",
     "evals/reports/corpus-v1-l0.json",
     "evals/reports/corpus-v1-semantic-contract.json",
+    "evals/reports/v1-closure.json",
     "tools/run_corpus.py",
+    "tools/run_v1_closure.py",
 ]
 
 
@@ -477,6 +480,33 @@ def check_corpus_baselines(rep: VerifyReport) -> None:
                   "26 L0 cases + 14 semantic contract replays reproducible")
 
 
+def check_v1_closure_baseline(rep: VerifyReport) -> None:
+    """Recompute the binary V1 release decision without network/model calls."""
+    proc = subprocess.run(
+        [sys.executable, "tools/run_v1_closure.py", "--check"], cwd=REPO,
+        env={**os.environ, "PYTHONPATH": str(REPO / "src")},
+        capture_output=True, text=True, check=False,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stderr.strip() or proc.stdout.strip())[-500:]
+        rep.append_fail("v1_closure_baseline", detail)
+        return
+    try:
+        import json
+        closure = json.loads(_read_text(REPO / "evals/reports/v1-closure.json"))
+        if closure.get("decision") not in {"release_candidate", "not_ready"}:
+            raise ValueError("decision is not binary")
+        if closure.get("decision") == "not_ready" and not closure.get("blockers"):
+            raise ValueError("not_ready has no explicit blockers")
+    except Exception as exc:
+        rep.append_fail("v1_closure_baseline", str(exc)[:500])
+        return
+    rep.append_ok(
+        "v1_closure_baseline",
+        f"reproducible; decision={closure['decision']}; "
+        f"engineeringReady={closure.get('engineeringReady')}")
+
+
 def check_semantic_quality_protocol(rep: VerifyReport) -> None:
     """Validate split isolation and deterministic seed eligibility offline."""
     try:
@@ -572,6 +602,7 @@ def run_all(*, require_clean: bool = False,
     check_ci_workflow_shape(rep)
     check_detection_standards(rep)
     check_corpus_baselines(rep)
+    check_v1_closure_baseline(rep)
     check_semantic_quality_protocol(rep)
     check_scoring_policy(rep)
     if require_clean:

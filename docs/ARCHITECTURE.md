@@ -36,8 +36,8 @@
                   │                                   │
                   ▼                                   ▼
        ┌────────────────────────────────────────────────────┐
-       │  Report projection (verity/report.py)              │
-       │  JSON  +  single-file HTML (CSP)  +  SARIF 2.1.0   │
+       │  Completed-Finding consumer projection             │
+       │  verdict / gate / score / Web / JSON / HTML / SARIF│
        │                                                    │
        │  capabilities:                                     │
        │    static:         completed / failed              │
@@ -74,6 +74,10 @@
 - `verity.standards.validate_runtime_detector_coverage()` binds all runtime
   deterministic Rules and semantic Finding Types to the taxonomy and fails on
   registry drift.
+- `verity.findings_view.completed_findings` is the read-only consumer boundary:
+  deterministic Findings are always present, while semantic Findings enter
+  verdict/gate/score/Web/HTML/SARIF only after the semantic stage completed.
+  This does not let semantic code write to or filter the deterministic engine.
 - `verity.scoring` is a pure policy projection after report capabilities are
   known. It maps Findings through the standards detector map, applies bounded
   diminishing deductions and severity caps, and refuses a numeric score on
@@ -88,6 +92,10 @@
   OpenAI-compatible adapter through the same SemanticOrchestrator. Its mutable
   scrubbed reports are local research records, not deterministic CI baselines.
   Neither path contains an aggregate safety score.
+- `verity.closure` separately computes a binary V1 release decision. Its
+  committed offline baseline may say `not_ready` while engineering acceptance
+  is green, because missing independent labels/model-quality/sealed-test/
+  substantial-coverage evidence cannot be averaged away by passing tests.
 
 ## Bright lines
 

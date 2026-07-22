@@ -5,13 +5,13 @@
 <!-- verify_repo.py: begin verified_against block -->
 ```yaml
 verified_against:
-  date: "2026-07-21"
+  date: "2026-07-22"
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "6cacd83c8b54f172b49c340978d381ab5646e4c9"
-  tests_collected: 427
-  tests_passed: 427
+  commit: "bbc93dd63d4f101e51da6eb57783d8087f25115f"
+  tests_collected: 435
+  tests_passed: 435
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -31,15 +31,45 @@ Strings below MUST match the runtime literals.
 
 **Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and a separate 42-case semantic model-quality protocol (14 calibration / 14 selection / 14 sealed test; every split has confirmed/rejected pairs for seven types). Fixed reports remain reproducible and score-free. All labels remain `provisional_single_review`. Contract replay still sets `modelQualityMeasured=false`; no real-model report exists and sealed test v1 has not been consumed.
 
-**Next step.** V1 closure audit only: verify the shipping Web/CLI/report/history story, migration and score semantics end-to-end before any release claim. A trusted research credential is still required for Round-18 calibration/selection; sealed test remains unconsumed. Do not productize Provider/OpenRouter or start V1.5/V2 as part of closure.
+**V1 closure decision.** `not_ready` under closure policy v1.0.0. Local engineering acceptance is green, including offline package install and cross-format confirmed-semantic parity, but release quality evidence is blocked by provisional single-review labels, no trusted real-model quality report, an unconsumed sealed split, and zero substantial/evaluated risk layers. The decision is reproducible in `evals/reports/v1-closure.json`; it is not an aggregate score.
 
-**What ships right now.** Read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates.
+**Next step.** Resolve quality-evidence blockers, beginning with independent Corpus label review and an approved real-model Calibration/Selection run. Only then decide whether to consume the sealed split and promote risk coverage using approved thresholds. Do not productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
+
+**What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates. Confirmed Findings from completed stages now use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
 **Deliberately absent.** No real-model quality result, automatic remediation/PatchSet apply, or Web Provider-config surface. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
 
 ## Round history (append-only)
+
+## Round 20 (2026-07-22) → implementation commit pending
+
+- Performed a binary V1 closure audit rather than adding a detection layer.
+  The reproducible closure policy separates engineering readiness from quality
+  evidence and decides `not_ready`: all local engineering checks pass, while
+  provisional labels, absent real-model results, the unconsumed sealed split
+  and zero substantial/evaluated risk layers remain explicit release blockers.
+- Found and fixed a cross-format blocker: confirmed semantic Findings affected
+  score/remediation but were omitted from JSON verdict, CLI gate, Web headline,
+  static HTML and SARIF. A read-only completed-Finding consumer projection now
+  keeps those surfaces aligned while preserving deterministic/semantic engine
+  isolation. Rejected/inconclusive/failed candidates remain excluded. Verdict
+  policy v2 records the changed semantics.
+- Added score/confidence policy properties to SARIF and acceptance coverage for
+  a confirmed semantic High plus a rejected safe counterexample across JSON,
+  gate, Web, HTML and SARIF.
+- Found a real packaging failure hidden behind a zero pip exit: old macOS
+  setuptools built an empty `UNKNOWN-0.0.0` wheel. Added a minimal legacy
+  packaging fallback and isolated no-network install acceptance that imports
+  Verity and verifies its CLI and Web static assets. Current package version is
+  0.1.0 engineering preview, not a 1.0 release.
+- Removed current user-facing “Phase 0 walking skeleton” wording without
+  rewriting historical records. The README and package metadata explicitly
+  link to the `not_ready` closure report and retain all V1.5/V2 limitations.
+- Full suite: 435 passed, 0 skipped. Round 19 landed as commit `bbc93dd` with
+  GitHub CI #15 successful. No Provider/model was called and the sealed test
+  remains unconsumed.
 
 ## Round 19 (2026-07-21) → implementation commit pending
 

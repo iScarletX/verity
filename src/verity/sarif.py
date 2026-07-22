@@ -72,7 +72,7 @@ def _rule_descriptors(review_dict: Dict[str, Any]) -> List[Dict[str, Any]]:
             "defaultConfiguration": {"level": _LEVEL_MAP.get(f["severity"], "warning")},
             "properties": {
                 "security-severity": _security_severity(f["severity"]),
-                "tags": [f"engine:{('prompt' if rid.startswith('prompt.') else 'skill')}"],
+                "tags": [f"engine:{review_dict.get('engine', 'unknown')}"],
             },
         }
     return list(seen.values())
@@ -115,6 +115,7 @@ def _sarif_location(ev_locations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def _finding_to_result(f: Dict[str, Any],
                        ev_by_id: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    from .findings_view import source_layer
     from .guidance import lookup as _guidance_lookup
     ev_ids = f.get("evidenceIds", [])
     all_locations: List[Dict[str, Any]] = []
@@ -142,6 +143,7 @@ def _finding_to_result(f: Dict[str, Any],
             "verity.subjectKey": f["subjectKey"],
             "verity.subject": f.get("subject"),
             "verity.severity": f["severity"],
+            "verity.sourceLayer": source_layer(f),
             "verity.guidance.id": g.get("id"),
             "verity.guidance.priority": g.get("priority"),
             # Full text kept out of identity by design; it's only
@@ -156,13 +158,16 @@ def _finding_to_result(f: Dict[str, Any],
 
 def review_to_sarif(review_dict: Dict[str, Any]) -> Dict[str, Any]:
     """Convert the JSON view produced by ``report.review_to_dict``."""
-    ev_by_id = {e["evidenceId"]: e for e in review_dict.get("evidences", [])}
+    from .findings_view import completed_findings
+    all_findings, ev_by_id = completed_findings(review_dict)
+    sarif_review = dict(review_dict)
+    sarif_review["findings"] = all_findings
 
     tool_driver = {
         "name": "verity",
         "version": _VERITY_VERSION,
         "informationUri": "https://verity.dev/",
-        "rules": _rule_descriptors(review_dict),
+        "rules": _rule_descriptors(sarif_review),
     }
 
     # Adjunct tools (parsers / analyzers) go under ``run.tool.extensions``
@@ -188,7 +193,7 @@ def review_to_sarif(review_dict: Dict[str, Any]) -> Dict[str, Any]:
     verdict = review_dict.get("verdict", {})
     subject = verdict.get("subject")  # may be None on insufficient coverage
 
-    results = [_finding_to_result(f, ev_by_id) for f in review_dict["findings"]]
+    results = [_finding_to_result(f, ev_by_id) for f in all_findings]
 
     run = {
         "tool": {"driver": tool_driver},
@@ -202,6 +207,11 @@ def review_to_sarif(review_dict: Dict[str, Any]) -> Dict[str, Any]:
             "verity.verdict.subject": subject,
             "verity.verdict.reasonCodes": verdict.get("reasonCodes", []),
             "verity.owaspCoverage": review_dict.get("owaspCoverage"),
+            "verity.score.status": (review_dict.get("score") or {}).get("status"),
+            "verity.score.value": (review_dict.get("score") or {}).get("value"),
+            "verity.score.policyVersion": (review_dict.get("score") or {}).get("policyVersion"),
+            "verity.reviewConfidence.grade": (review_dict.get("reviewConfidence") or {}).get("grade"),
+            "verity.reviewConfidence.policyVersion": (review_dict.get("reviewConfidence") or {}).get("policyVersion"),
         },
     }
     if extensions:

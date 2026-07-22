@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "verity"
-version = "0.0.1"
-description = "Verity — Prompt & Skill Auditor (Phase 0 + Walking Skeleton, read-only V1)"
+version = "0.1.0"
+description = "Verity — local read-only Prompt & Skill auditor (V1 engineering preview)"
 readme = "README.md"
 requires-python = ">=3.9,<3.14"
 license = { text = "Apache-2.0" }
@@ -35,6 +35,9 @@ verity = "verity.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"verity.web" = ["static/*.css", "static/*.html", "static/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

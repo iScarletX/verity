@@ -1,8 +1,8 @@
-"""Built-in FindingType and Rule definitions.
+"""Built-in deterministic FindingType and Rule definitions.
 
-Kept small on purpose — this is the walking skeleton. Later phases (see
-README) will add more rules (bandit / semgrep / gitleaks integration per
-the reuse decision table).
+This registry is intentionally bounded and taxonomy-mapped. Detection breadth
+remains signal/partial; adding rules or scanner adapters requires standards,
+Corpus and containment evidence rather than an implied completeness claim.
 """
 
 from __future__ import annotations

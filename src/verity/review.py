@@ -1,8 +1,8 @@
 """Review orchestration — Snapshot → Plan → Execute → Coverage → Findings.
 
-Deterministic-only in the walking skeleton. Semantic candidate/validator
-paths are declared in models but intentionally NOT executed in V1
-(spec §17, §21 Phase 4 gate not yet passed).
+The deterministic path always runs independently. Controlled semantic review
+is an optional, default-OFF post-stage with trusted configuration, egress,
+schema and budget gates; it never filters or rewrites deterministic Findings.
 """
 
 from __future__ import annotations

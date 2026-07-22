@@ -1,45 +1,36 @@
-# Round 20 — V1 closure audit (no release claim yet)
+# No active implementation round — V1 quality evidence required
 
 ## Status
 
-Approved under continuing-execution authorization, but implementation starts
-only after Round 19 is committed, pushed and green on CI.
+Stopped after Round 20. The machine closure decision is `not_ready` even
+though local engineering acceptance is green.
 
-## Goal
+## Release blockers
 
-Independently verify that the current V1 shipping story is coherent for a
-non-engineer across Web, CLI, JSON, HTML, SARIF, project history, score,
-confidence, remediation and failure states. Fix closure blockers only; do not
-add a new detection layer or call V1 “production complete” without evidence.
+- all L0 and semantic-quality Corpus labels remain
+  `provisional_single_review`; an independent reviewer must adjudicate them;
+- no approved trusted real-model Calibration/Selection report exists;
+- semantic sealed test v1 remains unconsumed and must not be opened for tuning;
+- no unified risk layer has approved `substantial` or `evaluated` evidence.
 
-## In scope
+## Next approved decision sequence
 
-- end-to-end acceptance cases for Prompt and Skill: safe, findings, Coverage
-  failure, score unavailable, score cap, remediation, downloads and history;
-- schema-v1/v2 history compatibility and startup/migration failure messages;
-- report projection/schema/documentation consistency for Round-19 fields;
-- Web-first plain-language review, accessibility and no-JavaScript-injection
-  invariants;
-- CLI/Web exit/gate parity and explicit semantic-not-configured behavior;
-- packaging/install/start-local preflight and public-repo hygiene;
-- produce a V1 closure checklist with pass/fail/deferred facts and decide
-  honestly whether V1 can be labelled release candidate.
+1. obtain independent label review without exposing secrets or user data;
+2. approve one trusted real-model Calibration/Selection configuration and run
+   it only against the public synthetic Corpus with a local environment Key;
+3. review per-type/language/object precision, recall, safe false-positive,
+   inconclusive/error and stability metrics;
+4. freeze the chosen protocol, then separately decide whether to consume the
+   sealed test;
+5. approve any breadth promotion using explicit thresholds, recompute V1
+   closure, and proceed only if its binary decision changes to
+   `release_candidate`.
 
-## Out of scope
+## Not authorized
 
-- external real-model call without supplied credential;
-- sealed-test consumption;
-- Web Provider/OpenRouter settings;
-- new scanner/tool integration or detection breadth promotion;
-- automatic file modification;
-- V1.5 black-box or V2 sandbox.
-
-## Acceptance
-
-- all closure checklist items are machine or test evidenced;
-- no capability wording contradicts runtime or standards breadth;
-- score/confidence/remediation parity holds across JSON/HTML/Web/history;
-- legacy history fails safe and remains readable;
-- pytest, clean verify_repo and GitHub CI pass;
-- closure result is one of `release_candidate` or `not_ready` with explicit
-  blockers; no ambiguous “mostly done”.
+- changing provisional labels by the same project author and calling that
+  independent review;
+- fabricating or committing real-model outputs;
+- using sealed-test results for tuning protocol v1;
+- Provider/OpenRouter Web productization, V1.5 Prompt black-box work, V2 Skill
+  execution/sandbox, or automatic remediation while V1 is `not_ready`.

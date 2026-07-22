@@ -14,6 +14,35 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — Successful pip exit does not prove an installable package
+
+- **Symptom**: Offline `pip install --target` returned zero but produced only an
+  empty `UNKNOWN-0.0.0` distribution; `import verity` failed.
+- **Root cause**: macOS system Python's old setuptools ignored modern PEP 621
+  `[project]` metadata under `--no-build-isolation` without treating it as an
+  error.
+- **Fix**: Added a minimal legacy `setup.py` fallback aligned with
+  `pyproject.toml`; an isolated offline test now imports the installed package,
+  checks version/CLI and confirms Web static assets are packaged.
+- **Prevention**: Installation acceptance must verify installed behavior and
+  assets, not only the package manager's exit code; keep duplicate compatibility
+  metadata locked by tests.
+- **Evidence**: Round 20 offline package-install preflight.
+
+### 2026-07-22 — Every completed Finding consumer needs one projection
+
+- **Symptom**: Confirmed semantic High Findings affected score/remediation but
+  were absent from CLI gate, Web headline, HTML table, SARIF and JSON verdict.
+- **Root cause**: Each consumer independently read the deterministic
+  `findings` list while semantic Findings remained in a separate report field.
+- **Fix**: Added a read-only completed-Finding projection and routed all
+  consumer surfaces through it; JSON verdict policy v2 includes semantic
+  Findings only when the controlled semantic stage completed.
+- **Prevention**: Keep engine isolation, but test one confirmed and one rejected
+  semantic case across verdict/gate/score/Web/HTML/SARIF whenever a new report
+  consumer is added.
+- **Evidence**: Round 20 cross-format semantic parity acceptance test.
+
 ### 2026-07-21 — A safety score needs a separate confidence axis and hard severity caps
 
 - **Symptom**: A single 0–100 number can make missing checks look safe, average

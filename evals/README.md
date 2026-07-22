@@ -18,6 +18,7 @@ addition to describing how Verity's test suite acts as a pipeline gate.
 |   provider mocks, deterministic invariant) |                                                   |
 | 19-item Phase-0 acceptance matrix          | `tests/test_acceptance_19.py`                     |
 | Standards/taxonomy provenance + detector mapping | `tests/test_round14_standards.py`, `standards/` |
+| V1 cross-format closure + offline package install | `tests/test_round20_closure.py`                |
 
 ## What these tests are NOT
 
@@ -117,6 +118,17 @@ No real Provider report existed at Round-18 implementation close because no
 credential was present. The sealed test split was not consumed. This is an
 implemented evaluation protocol, not a model-quality result and not a Web
 Provider integration.
+
+## Binary V1 closure report
+
+`tools/run_v1_closure.py --check` recomputes
+`evals/reports/v1-closure.json` entirely offline. It separates tested
+engineering delivery from quality evidence and permits only two decisions:
+`release_candidate` or `not_ready`. The current decision is `not_ready` even
+though the local engineering checks pass, because labels remain single-review,
+no trusted real-model quality report exists, the sealed split is unconsumed,
+and no unified risk has `substantial`/`evaluated` evidence. This is not an
+aggregate accuracy score and does not call or configure a Provider.
 
 Method references such as SkillOpt, GameWorld, VideoGameQA-Bench, DSGBench,
 TALES, TextWorld, VideoGameBench, Orak, BALROG, Jericho and ViStoryBench informed

@@ -4,8 +4,15 @@
 > `python3 tools/verify_repo.py`. The current test count and
 > capability matrix live at the top of `docs/PROGRESS.md`.
 >
-> Phase 0 core contracts + high-confidence deterministic Prompt/Skill
-> rules + controlled Bandit and gitleaks integration + SARIF 2.1.0
+> **V1 engineering preview — release decision: `not_ready`.** Implemented
+> engineering paths are acceptance-tested, but quality-evidence gates remain:
+> Corpus labels need independent review, real semantic-model quality is
+> unmeasured, the sealed split is unconsumed, and no unified risk has
+> substantial/evaluated evidence. See the reproducible
+> [`evals/reports/v1-closure.json`](evals/reports/v1-closure.json).
+>
+> High-confidence deterministic Prompt/Skill rules + controlled Bandit and
+> gitleaks integration + SARIF 2.1.0
 > export + a local Web MVP for non-technical users + an **experimental,
 > default-OFF controlled semantic-review path** (Evidence →
 > SemanticCandidate → Validator → CandidateAssessment → semantic Finding)
@@ -24,7 +31,7 @@ Verity is planned as a three-layer audit tool:
 
 | Version | Layer | Status |
 |---|---|---|
-| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Core execution/safety architecture implemented; detection breadth remains signal/partial and must be measured before V1 closure.** |
+| **V1** (this repo) | Static checks + controlled semantic review of Prompts and Skills | **Engineering preview; machine closure decision is `not_ready` because quality-evidence blockers remain.** |
 | **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) | **Not implemented.** Blocked until standards, corpus, static breadth and semantic breadth foundations are complete. |
 | **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill under audit | **Not implemented.** Later phase. |
 
@@ -98,7 +105,7 @@ report infrastructure but have separate rule registries. See
 `src/verity/`:
 
 - `canonical.py` — canonical serialization + fingerprints (§2.2, §4.2, §5.1)
-- `models.py` — Phase 0 data types (Artifact, Snapshot, Evidence, RuleMatch, Candidate, Assessment, Finding, Plan, Coverage, PatchSet). Snapshot has a controlled `promptKind` enum for Prompt engine.
+- `models.py` — Core data types (Artifact, Snapshot, Evidence, RuleMatch, Candidate, Assessment, Finding, Plan, Coverage, PatchSet). Snapshot has a controlled `promptKind` enum for Prompt engine.
 - `registry.py` — FindingType + Rule registries (§6 supersedes, §8 subject_key, §18.1 supply-chain). Rules declare `applicablePromptKinds` for prompt-kind gating.
 - `engine.py` — Rule execution + deterministic Finding pipeline (§7.4). Rules return `RuleHit(evidences=[...], subject=...)`; multi-evidence findings (e.g. duplicate assignment) are first-class.
 - `validation_policy.py` — Validator containment contract (§7.2, §7.3)

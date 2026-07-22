@@ -413,7 +413,8 @@
       var d = mk("details");
       d.appendChild(mk("summary", { text: "技术详情 (Rule ID / OWASP / 证据)" }));
       d.appendChild(mk("div", { className: "muted",
-        text: "Rule: " + f.type + "  origin: " + f.originKind }));
+        text: "Rule: " + f.type + "  layer: " + (f.sourceLayer || "unknown")
+          + "  origin: " + f.originKind }));
       // evidence list
       (f.evidences || []).forEach(function (ev) {
         var line = mk("div", { className: "evidence" });

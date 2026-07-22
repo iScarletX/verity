@@ -44,6 +44,23 @@ from .sarif import to_sarif_json
 from .schema import export_schema
 
 
+def _gate_from_report(report: dict, *, semantic_requested: bool) -> tuple[str, int, int, int]:
+    """Return gate, exit code, finding count and High/Critical count."""
+    from .findings_view import completed_findings
+    findings, _ = completed_findings(report)
+    high = sum(1 for f in findings
+               if f.get("severity") in ("high", "critical"))
+    coverage_ok = (report.get("coverage") or {}).get("status") == "sufficient"
+    semantic_status = ((report.get("semantic") or {}).get("status")
+                       if semantic_requested else "not_enabled")
+    semantic_ok = not semantic_requested or semantic_status == "completed"
+    if high:
+        return "findings_block", 1, len(findings), high
+    if not coverage_ok or not semantic_ok:
+        return "coverage_block", 3, len(findings), high
+    return "pass", 0, len(findings), high
+
+
 def _cmd_review(args: argparse.Namespace) -> int:
     if args.engine == "prompt":
         if args.input_dir:
@@ -139,25 +156,10 @@ def _cmd_review(args: argparse.Namespace) -> int:
     (out_dir / "report.html").write_text(to_html(review), encoding="utf-8")
     (out_dir / "report.sarif").write_text(to_sarif_json(d), encoding="utf-8")
 
-    n_findings = len(review.findings)
-    n_high = sum(1 for f in review.findings if f.severity in ("high", "critical"))
-    coverage_ok = review.coverage.status == "sufficient"
+    gate, exit_code, n_findings, n_high = _gate_from_report(
+        d, semantic_requested=args.semantic)
     semantic_status = ((review.semantic or {}).get("status")
                        if args.semantic else "not_enabled")
-    semantic_ok = not args.semantic or semantic_status == "completed"
-
-    # Findings gate wins over coverage/semantic gates. An explicitly
-    # requested semantic review that fails must never silently return a
-    # static-only pass.
-    if n_high:
-        gate = "findings_block"
-        exit_code = 1
-    elif not coverage_ok or not semantic_ok:
-        gate = "coverage_block"
-        exit_code = 3
-    else:
-        gate = "pass"
-        exit_code = 0
 
     print(f"engine={args.engine} snapshot={snap.snapshotId} "
           f"findings={n_findings} high_or_critical={n_high} "
@@ -252,7 +254,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="verity")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    pr = sub.add_parser("review", help="Run a Phase 0 read-only review")
+    pr = sub.add_parser("review", help="Run a local read-only V1 preview review")
     pr.add_argument("--engine", choices=["prompt", "skill"], required=True)
     pr.add_argument("--prompt-kind", choices=["user_prompt", "system_prompt"],
                     default="user_prompt",

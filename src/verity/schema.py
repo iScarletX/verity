@@ -1,8 +1,7 @@
-"""JSON Schema (Draft 2020-12) export for Phase 0 core objects.
+"""JSON Schema (Draft 2020-12) export for core Verity objects.
 
-Kept concise — one file per top-level object would be easier to consume,
-but for the walking skeleton a single combined schema with $defs is enough
-and gets checked in the tests.
+Kept as one versioned combined schema with ``$defs`` for current consumers;
+its shape and serialization are acceptance-tested.
 """
 
 from __future__ import annotations
@@ -10,7 +9,7 @@ from __future__ import annotations
 CORE_SCHEMA: dict = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://verity.dev/schemas/core.v1.json",
-    "title": "Verity Phase 0 core schema",
+    "title": "Verity core review schema",
     "type": "object",
     "$defs": {
         "severity": {"enum": ["low", "medium", "high", "critical"]},

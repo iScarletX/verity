@@ -1,16 +1,17 @@
-"""Verity — Prompt & Skill Auditor.
+"""Verity — local, read-only Prompt & Skill Auditor.
 
-Phase 0 core contracts + minimal vertical walking skeleton (V1, read-only).
+V1 engineering preview. Implemented engineering paths are acceptance-tested,
+but the V1 release decision remains ``not_ready`` until the quality-evidence
+blockers in ``evals/reports/v1-closure.json`` are resolved.
 
 Explicit scope (see README):
-- V1 is static, read-only. Does NOT execute skills, install dependencies, or
-  start unknown services.
-- V1.5 (prompt black-box eval) and V2 (isolated skill sandbox with fake
-  files / fake credentials / controlled network) are deliberately NOT
-  implemented in this phase.
+- V1 does NOT execute skills, install their dependencies, or start unknown
+  services. Controlled semantic review is default-OFF and explicit opt-in.
+- V1.5 Prompt black-box evaluation and V2 isolated Skill sandbox are not
+  implemented.
 """
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 CANONICAL_FINGERPRINT_SPEC_VERSION = "1"
 LOCATION_SCHEMA_VERSION = "1"
 CANONICALIZATION_VERSION = "1"
