@@ -358,6 +358,14 @@
         "VR-PROMPT-010"
       ],
       "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.sensitive_path_access",
+      "riskIds": [
+        "VR-SKILL-014"
+      ],
+      "contribution": "signal"
     }
   ]
 }

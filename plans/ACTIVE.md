@@ -10,6 +10,13 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 30 (done) — close a Skill-side coverage gap
+
+Added `skill.sensitive_path_access` (maps VR-SKILL-014), closing a gap shared
+with AgentLinter's `sensitive-paths` check that Verity had no equivalent for.
+Corrected a stale README claim (AST06 was `none`, now honestly `partial`).
++6 tests (499 total). decision stays `release_candidate`.
+
 ## Round 29 (done) — close a real deterministic coverage gap
 
 User reported Verity found zero issues on a real production system prompt

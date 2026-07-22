@@ -326,6 +326,7 @@ silently absent.
 | `skill.gitleaks_finding` | high | AST02 | Secret detected by gitleaks 8.28.0 (external subprocess). The raw secret is redacted BEFORE the adapter sees it; identity = `(artifactPath, gitleaksRuleId, lineNumber)`. Only rendered when gitleaks completed; when gitleaks failed, Coverage is insufficient and the report says so. |
 | `skill.fake_secret_fixture` (limited fallback) | high | AST02 | Detects only the synthetic `VERITY_FAKE_SECRET_*` fixture token used by Verity's own tests. **This is NOT a substitute for real secret scanning** — gitleaks provides that under `--profile standard`. |
 | `skill.dangerous_shell_pattern` (legacy) | high | AST01 | Text-level pattern only; the shell is NOT executed. |
+| `skill.sensitive_path_access` | high | AST06 | Text-level literal-path match only (SSH keys/AWS credentials/GnuPG/`.netrc`/Docker+Kube config/`/etc/passwd`+`/etc/shadow`/shell history/`.env`). Proves the path string is present, not that it is actually read/exfiltrated. |
 
 Honest OWASP AST10 status (shown in every skill report as a matrix):
 
@@ -336,7 +337,7 @@ Honest OWASP AST10 status (shown in every skill report as a matrix):
 | AST03 excessive authorisation | partial | Permission wildcard only. |
 | AST04 insecure metadata | partial | Versioned Agent Skills field/shape validation, unsafe reference paths, suffix mismatch and parse failure. Broader body/reference semantics remain partial. |
 | AST05 untrusted external instructions | partial | Strict-mode `fetch_and_follow` URLs only. |
-| AST06 weak isolation | none | Requires V2 sandbox. |
+| AST06 weak isolation | partial | Text-level detection of literal references to well-known sensitive host paths (SSH keys, cloud credentials, shell history, system password files). Cannot prove actual runtime access/exfiltration — that requires V2 sandbox observation, not yet implemented. |
 | AST07 update drift / integrity | partial | Unpinned dep also maps here (versioning drift). |
 | AST08 insufficient scanning | none | Meta-observation, requires product runtime not present in V1. |
 | AST09 lack of governance | partial | Trusted history, coverage-aware diff and expiring dispositions exist; corpus-backed measurements and broader governance controls remain absent. |

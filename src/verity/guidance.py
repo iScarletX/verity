@@ -291,6 +291,20 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P0",
     ),
+    "skill.sensitive_path_access": Guidance(
+        id="skill.sensitive_path_access",
+        plainTitle="Skill 文本中出现敏感主机路径（SSH 密钥/云凭据等）",
+        whyItMatters=(
+            "Skill 理应以最小权限一次性运行，不该触及宿主用户的 SSH 私钥、云服务凭据、"
+            "shell 历史或系统密码文件。文本中出现这些路径是明显的越界信号。"
+            "Verity 只做文本级检测，不代表该路径一定被读取或外泄，也不执行 Skill。"
+        ),
+        whatToDo=[
+            "检查这段代码是否真的需要访问该路径；多数场景下不需要。",
+            "如确需读取凭据，改为从受控的环境变量或密钥管理服务获取，而不是硬编码路径直读。",
+        ],
+        priority="P0",
+    ),
 
     # Aggregation entries (dispatched below) --------------------------
     # skill.bandit_finding is per-testId; handled dynamically.

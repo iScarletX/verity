@@ -443,6 +443,75 @@ _DANGEROUS_SHELL = re.compile(
     rb"|:\(\)\{\s*:\|:&\s*\};:"
 )
 
+# --- Sensitive host-path access pattern -------------------------------
+
+# Well-known credential/identity/host-config paths whose access from within
+# a reviewed Skill is a strong risk signal regardless of language, since a
+# Skill is meant to run with least privilege, not to reach into the host
+# user's SSH keys, cloud credentials, shell history, or system password
+# database. Text-level only (V1 never executes anything); a real access
+# would need V2 sandbox observation to confirm actual effect.
+_SENSITIVE_PATH_PATTERNS = [
+    re.compile(rb"~?/\.ssh/(?:id_rsa|id_ed25519|id_ecdsa|authorized_keys|known_hosts)\b"),
+    re.compile(rb"~?/\.aws/credentials\b"),
+    re.compile(rb"~?/\.aws/config\b"),
+    re.compile(rb"~?/\.gnupg/"),
+    re.compile(rb"~?/\.netrc\b"),
+    re.compile(rb"~?/\.docker/config\.json\b"),
+    re.compile(rb"~?/\.kube/config\b"),
+    re.compile(rb"/etc/passwd\b"),
+    re.compile(rb"/etc/shadow\b"),
+    re.compile(rb"~?/\.bash_history\b"),
+    re.compile(rb"~?/\.zsh_history\b"),
+    re.compile(rb"~?/\.env\b"),
+]
+
+
+def skill_sensitive_path_access(ctx: RuleContext) -> List[RuleHit]:
+    """Skill-engine deterministic rule — flags a literal reference to a
+    well-known sensitive host path (SSH keys, cloud credentials, shell
+    history, system password files, etc.) anywhere in Skill text.
+
+    IMPORTANT: this is text-level pattern detection only; it proves the
+    *literal path string is present*, not that the Skill actually reads or
+    exfiltrates it (that would require V2 sandbox observation, not yet
+    implemented). It does NOT execute the skill.
+
+    Boundaries:
+    - Deliberately narrow, well-known credential/identity paths only — not
+      a general "any dotfile" or "any /etc path" matcher, to keep false
+      positives low.
+    - Fenced/inline code is NOT excluded here (unlike Prompt rules): a
+      Skill's own source/config files are the artifact under review, and a
+      Markdown code block inside SKILL.md showing this path is exactly as
+      actionable as a bare reference.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        for pat in _SENSITIVE_PATH_PATTERNS:
+            for m in pat.finditer(data):
+                ev = make_source_span_evidence(
+                    snapshot_id=ctx.snapshot.snapshotId,
+                    file_id=f.fileId, artifact_path=f.normalizedPath,
+                    file_digest=f.contentDigest or "",
+                    byte_range=(m.start(), m.end()),
+                    raw_bytes=m.group(0),
+                    producer=prod,
+                )
+                subject = {
+                    "artifactPath": f.normalizedPath,
+                    "sensitivePathCategory": "sensitive_host_path",
+                }
+                out.append(RuleHit(evidences=[ev], subject=subject))
+    return out
+
+
 def skill_secret_like_fixture(ctx: RuleContext) -> List[RuleHit]:
     """Skill-engine deterministic rule — flags fake-secret placeholders.
 
@@ -1041,6 +1110,7 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.dangling_section_reference.v1": prompt_dangling_section_reference,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
+    "impl.skill.sensitive_path_access.v1": skill_sensitive_path_access,
     "impl.skill.missing_skill_md.v1": _sr.skill_missing_skill_md,
     "impl.skill.manifest_parse_failure.v1": _sr.skill_manifest_invalid,
     "impl.skill.manifest_name_issue.v2": _sr.skill_manifest_name_issue,

@@ -323,6 +323,59 @@ class TestExternalInstructions:
         assert "https://a.example/x" in urls and "https://b.example/x" not in urls
 
 
+class TestSensitivePathAccess:
+    """Round 30: text-level detection of well-known sensitive host paths
+    referenced anywhere in Skill text (SSH keys, cloud credentials, shell
+    history, system password files). Maps to VR-SKILL-014.
+    """
+    ft = "skill.sensitive_path_access"
+
+    def test_positive_ssh_private_key(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "runner.py": "import os\n"
+                        "open(os.path.expanduser('~/.ssh/id_rsa')).read()\n",
+        })
+        r = _run(str(root))
+        hits = [f for f in r.findings if f.findingType == self.ft]
+        assert hits and hits[0].severity == "high"
+
+    def test_positive_aws_credentials(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "runner.py": "path = '~/.aws/credentials'\n",
+        })
+        r = _run(str(root))
+        assert self.ft in _types(r)
+
+    def test_positive_etc_shadow(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "runner.sh": "cat /etc/shadow\n",
+        })
+        r = _run(str(root))
+        assert self.ft in _types(r)
+
+    def test_negative_unrelated_dotfile(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "runner.py": "path = '~/.config/myapp/settings.json'\n",
+        })
+        r = _run(str(root))
+        assert self.ft not in _types(r)
+
+    def test_negative_clean_skill_has_no_hit(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "runner.py": "print('hello world')\n",
+        })
+        r = _run(str(root))
+        assert self.ft not in _types(r)
+
+    def test_owasp_ast06_mapped(self):
+        assert OWASP_AST10["OWASP-AST06"]
+
+
 class TestPythonShellTrueBoundary:
     def test_shell_false_not_flagged(self, tmp_path):
         root = _write_skill(tmp_path, {

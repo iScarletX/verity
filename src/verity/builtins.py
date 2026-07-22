@@ -290,6 +290,18 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         requiredEvidenceKinds=["source_span"],
     ))
     ftr.register(FindingTypeDefinition(
+        findingType="skill.sensitive_path_access",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("sensitivePathCategory", "literal_enum",
+                         allowedValues=["sensitive_host_path"]),
+        ],
+        subjectKeyFields=["artifactPath", "sensitivePathCategory"],
+        defaultSeverity="high",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
         findingType="skill.dangerous_shell_pattern",
         engine="skill",
         subjectFields=[
@@ -687,5 +699,21 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         defaultSeverity="high",
         controlIds=["OWASP-AST01"],
         owaspAst10=["OWASP-AST01"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="skill.sensitive_path_access",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="skill",
+        title=("Skill text literally references a well-known sensitive host "
+               "path (SSH keys, cloud credentials, shell history, system "
+               "password files)."),
+        findingType="skill.sensitive_path_access",
+        implementationId="impl.skill.sensitive_path_access.v1",
+        applicableKinds=["skill"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="high",
+        controlIds=["OWASP-AST06"],
+        owaspAst10=["OWASP-AST06"],
     ))
     return rr

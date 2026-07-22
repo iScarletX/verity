@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "133f767b209b25ea223b07f334c5f2ce7b865ea0"
-  tests_collected: 493
-  tests_passed: 493
+  commit: "9fa467b2e79ecd7f91b94f372fb8ad52d5752a1f"
+  tests_collected: 499
+  tests_passed: 499
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -42,6 +42,33 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 30 (2026-07-22) → close a Skill-side gap: sensitive host-path access rule
+
+- Continuing the user-directed detection-breadth push (session-long, no
+  active plan gate needed per explicit owner authorization to improve
+  accuracy/breadth anywhere in the repo). Surveyed AgentLinter's
+  `skill-safety` category (from prior local Butler research,
+  `docs/工具/Butler/WS1-评测档案/01-*.md`) for ideas, not code: its
+  `sensitive-paths` check (flagging `~/.ssh` etc.) had no Verity equivalent
+  at all — Bandit does not have a dedicated test id for this either.
+- Added `skill.sensitive_path_access` (high, any Skill file, text-level
+  literal-path match): SSH private keys, AWS/cloud credential files,
+  GnuPG, `.netrc`, Docker/Kube config, `/etc/passwd`+`/etc/shadow`, shell
+  history, `.env`. Deliberately narrow well-known-path list, not a general
+  dotfile/etc-path matcher, to keep false positives low. Maps to
+  `VR-SKILL-014` ("Weak runtime isolation and host escape"), whose L0
+  coverage was `signal` with no dedicated detector — now has one.
+- Corrected a stale claim in the README OWASP AST10 matrix: AST06 ("weak
+  isolation") was listed `none` ("Requires V2 sandbox"); it is now honestly
+  `partial` given the new text-level detector, with the V2-sandbox
+  limitation (cannot prove actual runtime access) stated explicitly.
+- Added 6 tests (positive: SSH key / AWS credentials / /etc/shadow;
+  negative: unrelated dotfile, clean skill; OWASP mapping sanity). Added a
+  guidance-catalog entry. Regenerated corpus/closure reports (detector
+  count 44 -> 45); `decision` remains `release_candidate`.
+- Full suite: 493 -> 499 passed, 0 skipped. Round 29 landed as commit
+  `9fa467b` with GitHub CI #26 successful.
 
 ## Round 29 (2026-07-22) → close a real detection gap: two new deterministic Prompt rules + long-document semantic fix
 
