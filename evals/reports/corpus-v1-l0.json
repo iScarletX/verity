@@ -1,7 +1,7 @@
 {
   "aggregateSafetyScore": null,
   "baselineClass": "minimal_pair_baseline",
-  "caseCount": 28,
+  "caseCount": 32,
   "caseResults": [
     {
       "assessedRiskIds": [
@@ -534,15 +534,91 @@
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-014"
+      ],
+      "caseId": "skill-sensitive-path-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-014"
+      ],
+      "expectedSeverity": "high",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-SKILL-014"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-SKILL-014"
+      ],
+      "caseId": "skill-sensitive-path-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "caseId": "prompt-dangling-reference-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "caseId": "prompt-dangling-reference-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
     }
   ],
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.1.0",
+  "corpusVersion": "1.2.0",
   "disclaimer": "Minimal paired per-risk offline baseline only. One positive and one safe counterexample cannot establish broad precision/recall. This is not a safety score and not a semantic, black-box, or sandbox evaluation.",
   "highOrCriticalUnsafeCases": {
-    "caseCount": 5,
+    "caseCount": 6,
     "fn": 0,
-    "tp": 5
+    "tp": 6
   },
   "repetitions": 2,
   "riskResults": [
@@ -968,21 +1044,25 @@
       "status": "unsupported"
     },
     {
-      "caseCount": 0,
+      "caseCount": 2,
       "confusion": {
         "fn": 0,
         "fp": 0,
-        "tn": 0,
-        "tp": 0
+        "tn": 1,
+        "tp": 1
       },
-      "languages": [],
-      "objectTypes": [],
-      "precision": null,
-      "recall": null,
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "skill"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
       "riskId": "VR-SKILL-014",
-      "safeFalsePositiveRate": null,
+      "safeFalsePositiveRate": 0.0,
       "severityPolicy": "not_scored_in_round15",
-      "status": "unmeasured"
+      "status": "measured"
     },
     {
       "caseCount": 0,
@@ -1019,27 +1099,31 @@
       "status": "unmeasured"
     },
     {
-      "caseCount": 0,
+      "caseCount": 2,
       "confusion": {
         "fn": 0,
         "fp": 0,
-        "tn": 0,
-        "tp": 0
+        "tn": 1,
+        "tp": 1
       },
-      "languages": [],
-      "objectTypes": [],
-      "precision": null,
-      "recall": null,
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
       "riskId": "VR-PROMPT-010",
-      "safeFalsePositiveRate": null,
+      "safeFalsePositiveRate": 0.0,
       "severityPolicy": "not_scored_in_round15",
-      "status": "unmeasured"
+      "status": "measured"
     }
   ],
   "schemaVersion": 1,
   "stability": {
     "rate": 1.0,
-    "stableCases": 28,
+    "stableCases": 32,
     "unstableCases": 0
   }
 }

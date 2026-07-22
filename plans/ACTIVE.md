@@ -10,6 +10,14 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 32 (done) — close remaining evidence gaps (VR-SKILL-014, VR-PROMPT-010)
+
+Added corpus positive/safe pairs for Round 30's sensitive-path rule and
+Round 29's dangling-reference rule; both now `measured` (precision/recall
+1.0), no rule-code changes needed. Corpus at 32 cases (16/16), corpusVersion
+1.2.0. decision stays `release_candidate`. This closes the evidence-gap
+follow-up started in Round 31 for all three rules added this session.
+
 ## Round 31 (done) — real corpus evidence for VR-PROMPT-008
 
 Added a genuine positive/safe corpus pair for Round 29's new rule; writing it

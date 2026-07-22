@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.1.0",
+  "corpusVersion": "1.2.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -489,6 +489,76 @@
       "expectedRiskIds": [],
       "path": "cases/prompt-untrusted-input-boundary-safe/prompt.txt",
       "rationale": "Declares acceptance of customer messages/attachments but explicitly states the data-not-instructions trust boundary and an anti-injection-override rule.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-sensitive-path-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-014"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-014"
+      ],
+      "path": "cases/skill-sensitive-path-positive",
+      "rationale": "Script reads the host user's SSH private key (~/.ssh/id_rsa), a well-known sensitive host path outside a least-privilege one-shot execution boundary.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-sensitive-path-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-014"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-sensitive-path-safe",
+      "rationale": "Script only reads its own bundled config file next to the script, never a host-sensitive path.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-dangling-reference-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "path": "cases/prompt-dangling-reference-positive/prompt.txt",
+      "rationale": "References 'section 8' but the document only defines sections 1 and 2; the referenced escalation procedure cannot be located.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-dangling-reference-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-dangling-reference-safe/prompt.txt",
+      "rationale": "References 'section 3' and the document defines a matching Section 3 heading with the escalation procedure.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

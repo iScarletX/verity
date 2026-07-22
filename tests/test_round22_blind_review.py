@@ -180,7 +180,11 @@ def test_committed_attestation_binds_exactly_54_nonsealed_current_payloads():
                       if c["labelStatus"] == "provisional_single_review"}
     assert len(l0_reviewed) == 26
     assert l0_provisional == {"prompt-untrusted-input-boundary-positive",
-                              "prompt-untrusted-input-boundary-safe"}
+                              "prompt-untrusted-input-boundary-safe",
+                              "skill-sensitive-path-positive",
+                              "skill-sensitive-path-safe",
+                              "prompt-dangling-reference-positive",
+                              "prompt-dangling-reference-safe"}
     assert {c["labelStatus"] for c in semantic["cases"]
             if c["split"] != "test"} == {"independent_ai_review"}
     assert {c["labelStatus"] for c in semantic["cases"]
