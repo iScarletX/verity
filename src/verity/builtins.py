@@ -643,6 +643,10 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         ("B608", "medium",
          "SQL query built via string formatting/concatenation instead of "
          "parameterized binding; CWE-89.", ["OWASP-AST01"]),
+        ("B314", "medium",
+         "xml.etree.ElementTree used to parse untrusted XML (XXE/entity-"
+         "expansion risk); CWE-20. Not the same as B405 (import-level).",
+         ["OWASP-AST01"]),
     ]
     for test_id, sev, title, owasp in _BANDIT_RULES:
         rr.register(RuleDefinition(

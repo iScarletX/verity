@@ -10,6 +10,15 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 38 (done) — regression sweep clean + Bandit B314 (unsafe XML parser)
+
+Swept every session-added rule against every checked-in fixture (incl. 3 not
+previously checked): clean, only the already-documented missing_refs_skill
+hit. Added B314 (VR-SKILL-007's parser-config sub-pattern, distinct from
+pickle/yaml) with detector mapping, guidance, tests, and a 2nd corpus pair.
+15 curated Bandit ids, 48 mapped components. 506 tests. decision stays
+release_candidate.
+
 ## Round 37 (done) — new risk VR-SKILL-015 (SQL injection via string-built queries)
 
 No existing risk fit Bandit B608 (CWE-89) precisely, so registered a new

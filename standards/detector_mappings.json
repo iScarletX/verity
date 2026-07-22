@@ -382,6 +382,14 @@
         "VR-SKILL-015"
       ],
       "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B314",
+      "riskIds": [
+        "VR-SKILL-007"
+      ],
+      "contribution": "signal"
     }
   ]
 }

@@ -54,6 +54,7 @@ BANDIT_OWASP_MAP: Dict[str, List[str]] = {
     "B301": ["OWASP-AST01"],   # pickle
     "B501": ["OWASP-AST02"],   # request_with_no_cert_validation
     "B608": ["OWASP-AST01"],   # hardcoded_sql_expressions
+    "B314": ["OWASP-AST01"],   # xml_bad_elementtree
 }
 
 

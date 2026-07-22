@@ -281,6 +281,41 @@ class TestBanditReal:
                    if f.findingType == "skill.bandit_finding"
                    and f.subject.get("testId") == "B608"]
 
+    def test_b314_xml_etree_fromstring_is_medium_no_double_report(self, tmp_path):
+        """Round 38: closes a VR-SKILL-007 gap for unsafe XML *parser
+        configuration* (distinct from unsafe deserialization already
+        covered by B301/B506). Only the call-level B314 is curated, not
+        the import-level B405, to avoid double-reporting the same line."""
+        (tmp_path / "SKILL.md").write_text(
+            "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
+        (tmp_path / "parser.py").write_text(
+            "import xml.etree.ElementTree as ET\n\n"
+            "def parse(data):\n"
+            "    return ET.fromstring(data)\n")
+        r = _run_skill(tmp_path)
+        hits = [f for f in r.findings
+               if f.findingType == "skill.bandit_finding"
+               and f.subject.get("testId") == "B314"]
+        assert len(hits) == 1
+        assert hits[0].severity == "medium"
+        assert hits[0].subject.get("cwe") == "CWE-20"
+        # B405 (import-level) is deliberately NOT curated; must not appear.
+        assert not [f for f in r.findings
+                   if f.findingType == "skill.bandit_finding"
+                   and f.subject.get("testId") == "B405"]
+
+    def test_b314_absent_for_json_parsing(self, tmp_path):
+        (tmp_path / "SKILL.md").write_text(
+            "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
+        (tmp_path / "parser.py").write_text(
+            "import json\n\n"
+            "def parse(data):\n"
+            "    return json.loads(data)\n")
+        r = _run_skill(tmp_path)
+        assert not [f for f in r.findings
+                   if f.findingType == "skill.bandit_finding"
+                   and f.subject.get("testId") == "B314"]
+
     def test_bandit_tmpdir_is_removed_after_run(self, tmp_path):
         # Assert the tmpdir(s) created *by this run* are gone, rather than
         # diffing the shared temp root globally (which is polluted by

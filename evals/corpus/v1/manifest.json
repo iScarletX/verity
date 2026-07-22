@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.6.0",
+  "corpusVersion": "1.7.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -833,6 +833,40 @@
       "expectedRiskIds": [],
       "path": "cases/skill-sql-injection-safe",
       "rationale": "Uses a parameterized query placeholder with a bound parameter tuple; no string-built SQL is used.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-xml-parser-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-007"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-007"
+      ],
+      "path": "cases/skill-xml-parser-positive",
+      "rationale": "Parses untrusted XML with xml.etree.ElementTree.fromstring, a parser configuration known to be vulnerable to XXE/entity-expansion attacks, detected by Bandit B314.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-xml-parser-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-007"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-xml-parser-safe",
+      "rationale": "Parses data as JSON instead of XML; no vulnerable XML parser call is used.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

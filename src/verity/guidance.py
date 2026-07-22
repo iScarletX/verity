@@ -474,7 +474,21 @@ _BANDIT_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P1",
     ),
+    "B314": Guidance(
+        id="skill.bandit.B314",
+        plainTitle="用 xml.etree.ElementTree 解析不可信 XML（XXE 风险）",
+        whyItMatters=(
+            "标准库 xml.etree.ElementTree 默认不禁用外部实体展开，解析不可信 XML "
+            "可能触发 XXE（读取本地文件/内网请求）或实体膨胀拒绝服务。"
+        ),
+        whatToDo=[
+            "改用 defusedxml 等价函数替换 xml.etree.ElementTree 的解析调用。",
+            "若必须用标准库，先调用 defusedxml.defuse_stdlib() 全局加固。",
+        ],
+        priority="P1",
+    ),
     "B501": Guidance(
+
 
         id="skill.bandit.B501",
         plainTitle="HTTPS 请求关闭了证书验证（verify=False）",
