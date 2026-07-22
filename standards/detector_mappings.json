@@ -172,7 +172,7 @@
     },
     {
       "detectorType": "deterministic_rule",
-      "detectorId": "skill.bandit.B303",
+      "detectorId": "skill.bandit.B324",
       "riskIds": [
         "VR-SKILL-008"
       ],

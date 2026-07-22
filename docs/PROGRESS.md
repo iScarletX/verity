@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "08cc1a1cebce3b4b0c37669b7564c661c8d4ec1b"
-  tests_collected: 506
-  tests_passed: 506
+  commit: "c062dde80307efab11ccbf9db9d4554b999df23b"
+  tests_collected: 508
+  tests_passed: 508
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -41,7 +41,42 @@ Strings below MUST match the runtime literals.
 
 ---
 
-## Round history (append-only)
+## Round 39 (2026-07-22) → CORRECTNESS FIX: skill.bandit.B303 was dead configuration since Round 4
+
+- While researching a new Bandit test id, empirically discovered that
+  `skill.bandit.B303` ("weak MD5/SHA-1 hash", curated since Round 4) has
+  **never actually fired on any input** on this repo's supported Python
+  range. `hashlib.md5(...)` produces Bandit test id `B324`, not `B303`, on
+  Python 3.9+: Bandit's `hashlib_insecure_functions` plugin's own docstring
+  states "For Python versions prior to 3.9, this check is similar to B303
+  blacklist" — meaning B303's blacklist-based implementation is retired
+  for 3.9+. No fixture or test ever exercised a real `hashlib.md5()` call
+  through the real Bandit subprocess in 35 rounds, so this went completely
+  unnoticed: the rule was correctly *registered* but silently never
+  *fired*.
+- Replaced `B303` with `B324` everywhere: `builtins.py` curated-rule table,
+  `bandit_adapter.py` OWASP map, `guidance.py` catalog entry,
+  `test_round7_guidance.py` required-id set, `standards/
+  detector_mappings.json`. Added a real-subprocess regression test that
+  hashes with MD5 and asserts the resulting testId is `B324` (and that
+  `B303` never appears), plus a negative test for SHA-256.
+- Added a positive (`hashlib.md5`) / safe (`hashlib.sha256`) corpus pair for
+  `VR-SKILL-008`, giving the weak-hash sub-pattern independent evidence
+  distinct from the Round-33 TLS-verification sub-pattern (`VR-SKILL-008`
+  now has 4 cases / 2 pairs, matching the `VR-SKILL-001`/`VR-SKILL-007`
+  precedent). `VR-SKILL-008` stays `measured`: precision=1.0, recall=1.0
+  across both pairs.
+- Corpus manifest bumped to `corpusVersion 1.8.0` (52 cases, 26/26
+  balance, 26 provisional-label cases total across Rounds 31–39, still
+  correctly excluded from the frozen 54-item attestation). Regenerated
+  `corpus-v1-l0.json` / `v1-closure.json`; `decision` remains
+  `release_candidate`. Corrected README's Bandit test_id list entry (B303
+  -> B324) and stale corpus-count text (50 -> 52).
+- This is the single most consequential finding of the session: a
+  registered detector silently doing nothing is worse than not having it,
+  because reports could imply weak-hash coverage that was never actually
+  exercised. Full suite: 506 -> 508 passed, 0 skipped. Round 38 landed as
+  commit `c062dde` with GitHub CI #35 successful.
 
 ## Round 38 (2026-07-22) → systematic regression sweep clean + Bandit B314 (unsafe XML parser)
 

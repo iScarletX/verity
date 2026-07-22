@@ -202,7 +202,9 @@ def test_committed_attestation_binds_exactly_54_nonsealed_current_payloads():
                               "skill-sql-injection-positive",
                               "skill-sql-injection-safe",
                               "skill-xml-parser-positive",
-                              "skill-xml-parser-safe"}
+                              "skill-xml-parser-safe",
+                              "skill-weak-hash-positive",
+                              "skill-weak-hash-safe"}
     assert {c["labelStatus"] for c in semantic["cases"]
             if c["split"] != "test"} == {"independent_ai_review"}
     assert {c["labelStatus"] for c in semantic["cases"]

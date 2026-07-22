@@ -10,6 +10,17 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 39 (done) — CORRECTNESS FIX: B303 was dead configuration since Round 4
+
+Most consequential fix of the session. skill.bandit.B303 (weak-hash rule,
+since Round 4) never actually fired on any Python 3.9+ input -- Bandit's
+real test id for hashlib.md5() is B324, not B303. No test ever exercised a
+real hashlib call through real Bandit in 35 rounds. Replaced B303 -> B324
+everywhere (registry/adapter/guidance/tests/mappings), added a real-
+subprocess regression test + corpus pair. VR-SKILL-008 stays measured
+(precision/recall 1.0, now 2 pairs). 508 tests. decision stays
+release_candidate.
+
 ## Round 38 (done) — regression sweep clean + Bandit B314 (unsafe XML parser)
 
 Swept every session-added rule against every checked-in fixture (incl. 3 not

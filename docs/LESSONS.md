@@ -14,6 +14,36 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — A curated mature-tool test id can be dead configuration for years if never exercised end-to-end
+
+- **Symptom**: While adding a new Bandit-based rule, discovered that
+  `skill.bandit.B303` ("weak MD5/SHA-1 hash", curated since Round 4) had
+  **never actually fired on any input** on this repo's Python version.
+  `hashlib.md5(...)` empirically produces Bandit test id `B324`, not
+  `B303`, on Python 3.9+ — confirmed by reading
+  `bandit.plugins.hashlib_insecure_functions`'s own docstring: "For Python
+  versions prior to 3.9, this check is similar to B303 blacklist". B303's
+  blacklist-based implementation is effectively retired for the Python
+  range this project supports (3.9–13).
+- **Root cause**: The rule was registered by reading Bandit's documentation
+  and choosing a plausible test id, but no fixture or test ever ran a real
+  `hashlib.md5()`/`hashlib.new('md5', ...)` call through the real Bandit
+  subprocess to confirm the mapping. It shipped, passed every test for 35
+  rounds, and simply never produced a Finding on real weak-hash code.
+- **Fix**: Replaced `B303` with `B324` everywhere (registry, adapter map,
+  guidance, required-set test). Added a real-subprocess regression test
+  that hashes with MD5 and asserts the resulting testId is `B324`, plus an
+  explicit assertion that `B303` never appears. Added a versioned corpus
+  pair so the mapping has independent evidence, not only a unit test.
+- **Prevention**: Any curated "mature external tool test id" mapping must be
+  proven with at least one real-subprocess test that actually triggers that
+  exact id on the target artifact — reading the tool's docs or changelog is
+  not sufficient, because blacklist-vs-AST-based check migrations (as
+  happened here between Bandit versions/Python versions) can silently swap
+  which id fires for the same source pattern.
+- **Evidence**: Round 39 `test_b324_weak_hashlib_md5_is_medium`,
+  `skill-weak-hash-{positive,safe}` corpus pair.
+
 ### 2026-07-22 — A documented exact-count table with no asserting test will silently drift
 
 - **Symptom**: README's "Recorded findings on the checked-in fixtures" table

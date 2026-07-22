@@ -615,8 +615,12 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         ("B301", "high",
          "pickle load from untrusted source (arbitrary code execution).",
          ["OWASP-AST01"]),
-        ("B303", "medium",
-         "Use of insecure MD/SHA1 hash function.", ["OWASP-AST01"]),
+        ("B324", "medium",
+         "Use of insecure MD4/MD5/SHA1 hash (hashlib or crypt); CWE-327. "
+         "(Bandit's blacklist-based B303 was superseded by this AST-based "
+         "check for Python 3.9+ and never actually fires on this Python "
+         "version -- verified empirically, see Round 39.)",
+         ["OWASP-AST01"]),
         ("B310", "medium",
          "urllib_urlopen with untrusted scheme (file://, ftp://).",
          ["OWASP-AST05"]),

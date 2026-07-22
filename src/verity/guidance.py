@@ -451,13 +451,13 @@ _BANDIT_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P0",
     ),
-    "B303": Guidance(
-        id="skill.bandit.B303",
-        plainTitle="使用了 MD5/SHA-1 等已过时的哈希算法",
-        whyItMatters="MD5 / SHA-1 已被公认为可碰撞，不适合安全场景。",
+    "B324": Guidance(
+        id="skill.bandit.B324",
+        plainTitle="使用了 MD4/MD5/SHA-1 等已过时的哈希算法",
+        whyItMatters="MD4/MD5/SHA-1 已被公认为可碰撞，不适合安全场景（密码存储、签名等）。",
         whatToDo=[
             "改用 SHA-256 / SHA-3。",
-            "若只是做文件去重非安全用途，明确注释“非密码学场景”。",
+            "若只是做文件去重非安全用途，可传入 usedforsecurity=False 明确声明非密码学场景。",
         ],
         priority="P1",
     ),

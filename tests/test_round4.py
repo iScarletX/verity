@@ -304,6 +304,48 @@ class TestBanditReal:
                    if f.findingType == "skill.bandit_finding"
                    and f.subject.get("testId") == "B405"]
 
+    def test_b324_weak_hashlib_md5_is_medium(self, tmp_path):
+        """Round 39: CRITICAL correctness fix. Bandit's blacklist-based
+        B303 was superseded by the AST-based B324 check for Python 3.9+ (see
+        bandit.plugins.hashlib_insecure_functions docstring: 'For Python
+        versions prior to 3.9, this check is similar to B303 blacklist').
+        On this repo's supported Python range (3.9-3.13), hashlib.md5()
+        empirically fires ONLY B324, never B303 -- meaning the weak-hash
+        rule silently never fired on any real input since it was added in
+        Round 4, with no test ever exercising a real hashlib call to catch
+        it. This test proves the fix with a real Bandit subprocess call.
+        """
+        (tmp_path / "SKILL.md").write_text(
+            "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
+        (tmp_path / "hasher.py").write_text(
+            "import hashlib\n\n"
+            "def h(data):\n"
+            "    return hashlib.md5(data).hexdigest()\n")
+        r = _run_skill(tmp_path)
+        hits = [f for f in r.findings
+               if f.findingType == "skill.bandit_finding"
+               and f.subject.get("testId") == "B324"]
+        assert len(hits) == 1
+        assert hits[0].severity == "medium"  # Verity policy value
+        assert hits[0].subject.get("cwe") == "CWE-327"
+        # B303 must never appear: it is not a real Bandit test id on this
+        # Python version and must not be silently "present" via some other
+        # code path.
+        assert not [f for f in r.findings
+                   if f.subject.get("testId") == "B303"]
+
+    def test_b324_absent_for_sha256(self, tmp_path):
+        (tmp_path / "SKILL.md").write_text(
+            "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
+        (tmp_path / "hasher.py").write_text(
+            "import hashlib\n\n"
+            "def h(data):\n"
+            "    return hashlib.sha256(data).hexdigest()\n")
+        r = _run_skill(tmp_path)
+        assert not [f for f in r.findings
+                   if f.findingType == "skill.bandit_finding"
+                   and f.subject.get("testId") == "B324"]
+
     def test_b314_absent_for_json_parsing(self, tmp_path):
         (tmp_path / "SKILL.md").write_text(
             "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")

@@ -19,12 +19,12 @@ REPO = Path(__file__).parent.parent
 
 def test_manifest_is_balanced_traceable_and_independent_of_rule_ids():
     manifest = load_manifest()
-    assert manifest["corpusVersion"] == "1.7.0"
-    assert len(manifest["cases"]) == 50
+    assert manifest["corpusVersion"] == "1.8.0"
+    assert len(manifest["cases"]) == 52
     positives = [c for c in manifest["cases"] if c["label"] == "unsafe"]
     safe = [c for c in manifest["cases"]
             if c["label"] == "safe_counterexample"]
-    assert len(positives) == len(safe) == 25
+    assert len(positives) == len(safe) == 26
     text = (REPO / "evals/corpus/v1/manifest.json").read_text()
     # Answer keys use stable risks only, never detector/rule names.
     mappings = load_detector_mappings()
@@ -64,16 +64,18 @@ def test_manifest_is_balanced_traceable_and_independent_of_rule_ids():
                            "skill-sql-injection-positive",
                            "skill-sql-injection-safe",
                            "skill-xml-parser-positive",
-                           "skill-xml-parser-safe"}
+                           "skill-xml-parser-safe",
+                           "skill-weak-hash-positive",
+                           "skill-weak-hash-safe"}
 
 
 def test_l0_metrics_are_per_risk_and_never_a_safety_score():
     report = evaluate()
     assert report["baselineClass"] == "minimal_pair_baseline"
     assert report["aggregateSafetyScore"] is None
-    assert report["caseCount"] == 50
+    assert report["caseCount"] == 52
     assert report["stability"] == {
-        "stableCases": 50, "unstableCases": 0, "rate": 1.0}
+        "stableCases": 52, "unstableCases": 0, "rate": 1.0}
     assert report["highOrCriticalUnsafeCases"] == {
         "caseCount": 11, "tp": 11, "fn": 0}  # Round 37 added skill-sql-injection-positive (medium, not high/critical)
     measured = [r for r in report["riskResults"]
@@ -81,8 +83,11 @@ def test_l0_metrics_are_per_risk_and_never_a_safety_score():
     assert len(measured) == 21  # Round 31: VR-PROMPT-008; Round 32: VR-SKILL-014, VR-PROMPT-010; Round 33: VR-SKILL-008; Round 34: VR-PROMPT-003, VR-SKILL-011; Round 35: VR-SKILL-005, VR-SKILL-007, VR-SKILL-009, VR-SKILL-010; Round 37: VR-SKILL-015
     # Round 38 added a second pair to VR-SKILL-007 (parser-configuration
     # sub-pattern B314, distinct from the deserialization sub-pattern
-    # B301/B506 already covered), so it now has 4 cases like VR-SKILL-001.
-    two_pair_exceptions = {"VR-SKILL-001", "VR-SKILL-007"}
+    # B301/B506 already covered); Round 39 added a second pair to
+    # VR-SKILL-008 (weak-hash B324, distinct from the TLS-verification
+    # sub-pattern B501 already covered). Both now have 4 cases like
+    # VR-SKILL-001.
+    two_pair_exceptions = {"VR-SKILL-001", "VR-SKILL-007", "VR-SKILL-008"}
     assert all(r["caseCount"] == (8 if r["riskId"] == "VR-SKILL-001"
                                   else 4 if r["riskId"] in two_pair_exceptions
                                   else 2)

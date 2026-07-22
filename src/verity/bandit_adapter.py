@@ -50,7 +50,7 @@ BANDIT_OWASP_MAP: Dict[str, List[str]] = {
     "B107": ["OWASP-AST02"],
     "B105": ["OWASP-AST02"],
     "B310": ["OWASP-AST05"],   # urllib_urlopen
-    "B303": ["OWASP-AST01"],   # md5 / weak hash
+    "B324": ["OWASP-AST01"],   # hashlib_insecure_functions (md4/md5/sha1)
     "B301": ["OWASP-AST01"],   # pickle
     "B501": ["OWASP-AST02"],   # request_with_no_cert_validation
     "B608": ["OWASP-AST01"],   # hardcoded_sql_expressions

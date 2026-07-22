@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.7.0",
+  "corpusVersion": "1.8.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -867,6 +867,40 @@
       "expectedRiskIds": [],
       "path": "cases/skill-xml-parser-safe",
       "rationale": "Parses data as JSON instead of XML; no vulnerable XML parser call is used.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-weak-hash-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-008"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-008"
+      ],
+      "path": "cases/skill-weak-hash-positive",
+      "rationale": "Hashes a password with hashlib.md5, a cryptographically broken hash unsuitable for security use, detected by Bandit B324 (CWE-327).",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-weak-hash-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-008"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-weak-hash-safe",
+      "rationale": "Hashes a password with hashlib.sha256; no weak hash algorithm is used.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
