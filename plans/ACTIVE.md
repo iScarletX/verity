@@ -10,6 +10,15 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 35 (done) — corpus evidence for four more existing Skill rules
+
+Added corpus pairs for VR-SKILL-005 (external instructions), VR-SKILL-007
+(pickle/yaml), VR-SKILL-009 (urllib), VR-SKILL-010 (jinja2 autoescape) --
+all previously unmeasured despite real detectors. All four now measured
+(precision/recall 1.0 each), no rule changes needed. Corpus at 46 cases
+(23/23), corpusVersion 1.5.0. decision stays release_candidate. 501 tests
+total (no new test functions this round).
+
 ## Round 34 (done) — corpus evidence for two existing secret rules
 
 Added corpus pairs for prompt.system_hardcoded_secret (VR-PROMPT-003) and

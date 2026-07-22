@@ -81,7 +81,7 @@
     "evaluatedLayerCount": 0,
     "l0LabelStatuses": {
       "independent_ai_review": 26,
-      "provisional_single_review": 12
+      "provisional_single_review": 20
     },
     "sealedTestConsumed": false,
     "semanticLabelStatuses": {

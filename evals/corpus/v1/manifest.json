@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.4.0",
+  "corpusVersion": "1.5.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -663,6 +663,142 @@
       "expectedRiskIds": [],
       "path": "cases/skill-credential-safe",
       "rationale": "Skill source reads its API key from an environment variable; no credential literal is present.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-external-instructions-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-005"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-005"
+      ],
+      "path": "cases/skill-external-instructions-positive",
+      "rationale": "Manifest declares external_instructions with mode fetch_and_follow, fetching and following runtime instructions from an external URL.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-external-instructions-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-005"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-external-instructions-safe",
+      "rationale": "Manifest declares external_instructions with mode reference_only; the URL is documentation, not fetched or followed.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-deserialization-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-007"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-007"
+      ],
+      "path": "cases/skill-deserialization-positive",
+      "rationale": "Loads pickle data from an untrusted byte source (pickle.loads), permitting arbitrary code execution, detected by Bandit B301.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-deserialization-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-007"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-deserialization-safe",
+      "rationale": "Parses state as JSON (json.loads) instead of pickle; no unsafe deserialization primitive is used.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-network-destination-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-009"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-009"
+      ],
+      "path": "cases/skill-network-destination-positive",
+      "rationale": "Opens a URL via urllib.request.urlopen without scheme restriction, permitting file:// or other unexpected schemes, detected by Bandit B310.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-network-destination-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-009"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-network-destination-safe",
+      "rationale": "Fetches via the requests library over HTTPS; no urllib blacklisted call is used.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-output-rendering-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-010"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-010"
+      ],
+      "path": "cases/skill-output-rendering-positive",
+      "rationale": "Constructs a Jinja2 Environment with autoescape=False, permitting unescaped output rendering (XSS-class risk), detected by Bandit B701.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-output-rendering-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-010"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-output-rendering-safe",
+      "rationale": "Constructs a Jinja2 Environment with autoescape=True; output rendering is escaped by default.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

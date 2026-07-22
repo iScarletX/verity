@@ -9,7 +9,7 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "afb93f70d9fa62f547d6928156fed836ce27f690"
+  commit: "9227fa7c83c61ed7e87d6a40cd284ccb53287fbc"
   tests_collected: 501
   tests_passed: 501
   tests_skipped: 0
@@ -29,7 +29,7 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 26 unified risks, 44 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 13 signal / 9 partial. Current L1 breadth: 16 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 38 synthetic L0 cases across 16 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–34 added 12 new L0 cases (VR-PROMPT-008, VR-SKILL-014, VR-PROMPT-010, VR-SKILL-008, VR-PROMPT-003, VR-SKILL-011) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 46 synthetic L0 cases across 20 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–35 added 20 new L0 cases (VR-PROMPT-008, VR-SKILL-014, VR-PROMPT-010, VR-SKILL-008, VR-PROMPT-003, VR-SKILL-011, VR-SKILL-005, VR-SKILL-007, VR-SKILL-009, VR-SKILL-010) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, no risk layer is substantial/evaluated, and human/domain-expert review has not been obtained. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
@@ -42,6 +42,29 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 35 (2026-07-22) → corpus evidence for four more existing-but-unmeasured Skill rules
+
+- Continued the systematic evidence-closure sweep: `skill.manifest_
+  external_instructions` (VR-SKILL-005), Bandit B301/B506 pickle+yaml
+  (VR-SKILL-007), Bandit B310 urllib (VR-SKILL-009), and Bandit B701
+  jinja2 autoescape (VR-SKILL-010) all had real detector mappings but zero
+  corpus evidence.
+- Verified each detector actually fires as expected by running Bandit
+  directly against a synthetic snippet before writing the corpus case
+  (`pickle.loads` -> B301 high; `urllib.request.urlopen` -> B310 medium/
+  CWE-22; `jinja2.Environment(autoescape=False)` -> B701 high), then added
+  4 positive/safe pairs (8 cases). All four risks move `unmeasured` ->
+  `measured`: TP=1/FP=0/TN=1/FN=0, precision=1.0, recall=1.0 each. No
+  rule-code changes needed.
+- Corpus manifest bumped to `corpusVersion 1.5.0` (46 cases, 23/23
+  balance, 20 provisional-label cases total across Rounds 31–35, still
+  correctly excluded from the frozen 54-item attestation). Regenerated
+  `corpus-v1-l0.json` / `v1-closure.json`; `decision` remains
+  `release_candidate`. Corrected stale corpus-count text (38 -> 46).
+- No test-count change (corpus fixtures only); full suite still 501
+  passed, 0 skipped. Round 34 landed as commit `9227fa7` with GitHub CI
+  #31 successful.
 
 ## Round 34 (2026-07-22) → corpus evidence for two existing-but-unmeasured secret rules
 
