@@ -10,6 +10,14 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 26 (done) — v0.1.0 release prep + Web walkthrough
+
+Added `CHANGELOG.md`, prepared tag `v0.1.0` (deterministic static auditor
+engineering preview). Ran a real-user Web MVP walkthrough end to end (prompt
+review, skill folder review, all report downloads, non-loopback refusal); no
+residual process left. Documented one non-blocking API note: skill upload needs
+folder-style relative paths. No product/rule/closure/security change.
+
 ## Round 25 (done) — scope the release decision
 
 Rewrote `verity/closure.py` to policy v2.0.0 so the release decision covers only

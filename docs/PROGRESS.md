@@ -9,7 +9,7 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "5502e94bc0ac2059a64fe7fd65bc053d03b7dcdf"
+  commit: "88455b3915c978959127e1cb36e01d0a67f48b67"
   tests_collected: 453
   tests_passed: 453
   tests_skipped: 0
@@ -42,6 +42,29 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 26 (2026-07-22) → v0.1.0 release prep + real-user Web walkthrough
+
+- Added `CHANGELOG.md` and prepared the first tag `v0.1.0`, scoped to the
+  deterministic static auditor engineering preview (matching closure policy
+  v2.0.0 `release_candidate`). The changelog honestly separates what ships, the
+  experimental semantic track (not in release scope), and deliberately-absent
+  capabilities.
+- Ran a real-user walkthrough of the local Web MVP (start each server in the
+  foreground, kill it after; no residual process left, per LESSONS): preflight
+  ok with gitleaks 8.28.0; `GET /` and `/api/health` (`scope: static-only`) ok;
+  a risky system prompt produced headline “修改后再使用” (tone bad) and caught the
+  open-ended tool wildcard; a Skill folder review produced “不建议安装” with
+  1 high + 3 medium findings, score 45, coverage sufficient; all three report
+  downloads (json/html/sarif) returned HTTP 200; non-loopback bind
+  (`--host 0.0.0.0`) was correctly refused.
+- Walkthrough finding (documented, not a blocker): the Skill upload API requires
+  folder-style relative paths (`skillname/SKILL.md`); a bare-file upload returns
+  `bad_path: expected a folder upload`. The browser `webkitdirectory` UI sends
+  folder paths automatically, so this only affects manual API callers.
+- No product code, rule, corpus, closure logic or security boundary changed.
+  Full suite: 453 passed, 0 skipped. Round 25 landed as commit `88455b3` with
+  GitHub CI #22 successful.
 
 ## Round 25 (2026-07-22) → closure policy v2.0.0: scope the release decision
 
