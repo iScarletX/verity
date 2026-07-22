@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.5.0",
+  "corpusVersion": "1.6.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -799,6 +799,40 @@
       "expectedRiskIds": [],
       "path": "cases/skill-output-rendering-safe",
       "rationale": "Constructs a Jinja2 Environment with autoescape=True; output rendering is escaped by default.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-sql-injection-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-015"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-015"
+      ],
+      "path": "cases/skill-sql-injection-positive",
+      "rationale": "Builds a SQL query via string concatenation with a caller-supplied value instead of parameterized binding, detected by Bandit B608 (CWE-89).",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-sql-injection-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-015"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-sql-injection-safe",
+      "rationale": "Uses a parameterized query placeholder with a bound parameter tuple; no string-built SQL is used.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

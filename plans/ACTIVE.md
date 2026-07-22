@@ -10,6 +10,15 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 37 (done) — new risk VR-SKILL-015 (SQL injection via string-built queries)
+
+No existing risk fit Bandit B608 (CWE-89) precisely, so registered a new
+risk rather than force-fitting. Added B608 to curated set (13->14),
+detector mapping, guidance, tests, and a corpus pair (precision/recall
+1.0). Extended CWE-4.20's pre-registered controls to include CWE-89 (the
+loader rejects unregistered control citations by design). 27 risks total.
+504 tests. decision stays release_candidate.
+
 ## Round 36 (done) — regression sweep + stale README table fix
 
 Replayed all session-added rules against every checked-in fixture: no

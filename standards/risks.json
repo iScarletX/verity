@@ -1208,6 +1208,46 @@
         "No cross-file reference resolution (single-file prompt review only)"
       ],
       "evaluationReference": null
+    },
+    {
+      "riskId": "VR-SKILL-015",
+      "title": "SQL injection via string-built queries",
+      "scopes": [
+        "skill"
+      ],
+      "definition": "Skill code builds a SQL query by string formatting/concatenation instead of parameterized binding, letting untrusted input alter query structure.",
+      "sourceRefs": [
+        {
+          "sourceId": "CWE-4.20",
+          "controlIds": [
+            "CWE-89"
+          ]
+        },
+        {
+          "sourceId": "BANDIT-DOCS",
+          "controlIds": [
+            "PYTHON-AST-SECURITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May identify string-built query call forms; cannot prove the interpolated value is attacker-controlled without data-flow analysis.",
+        "L1_semantic": "May assess declared database access intent but cannot substitute for AST/data-flow facts.",
+        "V1_5_blackbox": "Not applicable.",
+        "V2_sandbox": "May observe an actual injected query reaching a database driver under isolation."
+      },
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Python-focused (Bandit B608 heuristic only)",
+        "No data-flow proof the interpolated value is attacker-controlled",
+        "No non-Python ORM/query-builder coverage"
+      ],
+      "evaluationReference": null
     }
   ]
 }

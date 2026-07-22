@@ -252,6 +252,35 @@ class TestBanditReal:
                    if f.findingType == "skill.bandit_finding"
                    and f.subject.get("testId") == "B501"]
 
+    def test_b608_sql_string_concat_is_medium(self, tmp_path):
+        """Round 37: closes a gap for SQL injection via string-built
+        queries (new risk VR-SKILL-015, CWE-89). Bandit B608 fires on
+        string-formatted SQL."""
+        (tmp_path / "SKILL.md").write_text(
+            "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
+        (tmp_path / "db.py").write_text(
+            "def get_user(cursor, user_id):\n"
+            "    query = 'SELECT * FROM users WHERE id = ' + user_id\n"
+            "    cursor.execute(query)\n")
+        r = _run_skill(tmp_path)
+        hits = [f for f in r.findings
+               if f.findingType == "skill.bandit_finding"
+               and f.subject.get("testId") == "B608"]
+        assert len(hits) == 1
+        assert hits[0].severity == "medium"
+        assert hits[0].subject.get("cwe") == "CWE-89"
+
+    def test_b608_absent_for_parameterized_query(self, tmp_path):
+        (tmp_path / "SKILL.md").write_text(
+            "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
+        (tmp_path / "db.py").write_text(
+            "def get_user(cursor, user_id):\n"
+            "    cursor.execute('SELECT * FROM users WHERE id = %s', (user_id,))\n")
+        r = _run_skill(tmp_path)
+        assert not [f for f in r.findings
+                   if f.findingType == "skill.bandit_finding"
+                   and f.subject.get("testId") == "B608"]
+
     def test_bandit_tmpdir_is_removed_after_run(self, tmp_path):
         # Assert the tmpdir(s) created *by this run* are gone, rather than
         # diffing the shared temp root globally (which is polluted by

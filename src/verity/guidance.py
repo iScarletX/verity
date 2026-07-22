@@ -461,7 +461,21 @@ _BANDIT_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P1",
     ),
+    "B608": Guidance(
+        id="skill.bandit.B608",
+        plainTitle="SQL 查询用字符串拼接/格式化构建，而非参数化绑定",
+        whyItMatters=(
+            "如果拼接进 SQL 的内容来自不可信输入（用户输入、外部内容等），"
+            "攻击者可能改变查询结构，导致未授权数据读写甚至绕过鉴权。"
+        ),
+        whatToDo=[
+            "改为使用参数化查询（占位符 + 参数列表），不要自己拼接 SQL 字符串。",
+            "若使用 ORM，确认该 ORM 方法本身会自动参数化，而不是回退到原生 SQL 拼接。",
+        ],
+        priority="P1",
+    ),
     "B501": Guidance(
+
         id="skill.bandit.B501",
         plainTitle="HTTPS 请求关闭了证书验证（verify=False）",
         whyItMatters=(

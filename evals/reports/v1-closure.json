@@ -81,7 +81,7 @@
     "evaluatedLayerCount": 0,
     "l0LabelStatuses": {
       "independent_ai_review": 26,
-      "provisional_single_review": 20
+      "provisional_single_review": 22
     },
     "sealedTestConsumed": false,
     "semanticLabelStatuses": {
@@ -89,7 +89,7 @@
       "provisional_single_review": 14
     },
     "substantialOrEvaluatedLayerCount": 0,
-    "unifiedRiskCount": 26
+    "unifiedRiskCount": 27
   },
   "note": "`decision` covers only the deterministic static engineering preview and its honestly-disclosed limits. It is not a claim of evaluated detection accuracy. The controlled semantic review is a separate experimental track and does not gate this release; its open blockers are listed under semanticQualityTrack.",
   "policyId": "verity-v1-closure",

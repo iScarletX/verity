@@ -50,7 +50,7 @@ class TestGuidanceCatalog:
         keys = catalog_keys()["banditTestIds"]
         # Curated set matches builtins.py.
         required = {"B102", "B105", "B106", "B107", "B301", "B303", "B310",
-                    "B501", "B506", "B602", "B605", "B607", "B701"}
+                    "B501", "B506", "B602", "B605", "B607", "B608", "B701"}
         assert set(keys) == required
 
     def test_gitleaks_guidance_rotate_but_no_secret(self):

@@ -640,6 +640,9 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         ("B501", "high",
          "HTTPS/TLS request made with certificate verification disabled "
          "(e.g. requests.get(..., verify=False)); CWE-295.", ["OWASP-AST02"]),
+        ("B608", "medium",
+         "SQL query built via string formatting/concatenation instead of "
+         "parameterized binding; CWE-89.", ["OWASP-AST01"]),
     ]
     for test_id, sev, title, owasp in _BANDIT_RULES:
         rr.register(RuleDefinition(

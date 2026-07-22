@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "25e0fec2c6c3cea1a29f3537d643dadb7d674029"
-  tests_collected: 502
-  tests_passed: 502
+  commit: "968706e681a22f25c9bb44417a2908a790b81ca9"
+  tests_collected: 504
+  tests_passed: 504
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,9 +27,9 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 26 unified risks, 44 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 13 signal / 9 partial. Current L1 breadth: 16 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
+**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 27 unified risks, 47 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 14 signal / 9 partial. Current L1 breadth: 17 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 46 synthetic L0 cases across 20 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–35 added 20 new L0 cases (VR-PROMPT-008, VR-SKILL-014, VR-PROMPT-010, VR-SKILL-008, VR-PROMPT-003, VR-SKILL-011, VR-SKILL-005, VR-SKILL-007, VR-SKILL-009, VR-SKILL-010) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 48 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–37 added 22 new L0 cases (VR-PROMPT-008, VR-SKILL-014, VR-PROMPT-010, VR-SKILL-008, VR-PROMPT-003, VR-SKILL-011, VR-SKILL-005, VR-SKILL-007, VR-SKILL-009, VR-SKILL-010, VR-SKILL-015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, no risk layer is substantial/evaluated, and human/domain-expert review has not been obtained. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
@@ -42,6 +42,35 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 37 (2026-07-22) → new risk + detector: SQL injection via string-built queries
+
+- Verified Bandit 1.7.10 ships `B608` (`hardcoded_sql_expressions`,
+  CWE-89) by running it against a synthetic string-concatenated SQL
+  query. No existing registered risk precisely fit this class (VR-SKILL-
+  006 is process/interpreter execution; VR-SKILL-013 requires cross-file/
+  cross-language data-flow analysis Verity does not have) — registered a
+  new risk, `VR-SKILL-015` ("SQL injection via string-built queries"),
+  with an honest `sourceRefs` citation to `CWE-89` rather than force-
+  fitting an existing category.
+- Extending the `CWE-4.20` source's pre-registered `controls` list
+  required adding `CWE-89` there first — the standards loader rejects any
+  risk citing an unregistered control id, which is a deliberate guard
+  against silently expanding a source's claimed scope.
+- Added `B608` to the curated Bandit test_id set (13 -> 14): medium
+  severity, `OWASP-AST01`. Added the `skill.bandit.B608` -> `VR-SKILL-015`
+  detector mapping, a guidance-catalog entry, 2 real-subprocess Bandit
+  tests, and a positive/safe corpus pair. `VR-SKILL-015` is `measured`:
+  TP=1/FP=0/TN=1/FN=0, precision=1.0, recall=1.0.
+- Corpus manifest bumped to `corpusVersion 1.6.0` (48 cases, 24/24
+  balance, 22 provisional-label cases total across Rounds 31–37, still
+  correctly excluded from the frozen 54-item attestation). Regenerated
+  `corpus-v1-l0.json` / `v1-closure.json`; `decision` remains
+  `release_candidate`. Standards taxonomy now 27 risks / 47 mapped
+  components; corrected README/PROGRESS breadth counts and the Bandit-
+  count claim (13 -> 14).
+- Full suite: 502 -> 504 passed, 0 skipped. Round 36 landed as commit
+  `968706e` with GitHub CI #33 successful.
 
 ## Round 36 (2026-07-22) → regression sweep finds and fixes a stale README table (partly pre-existing)
 

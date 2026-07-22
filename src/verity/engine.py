@@ -1099,7 +1099,7 @@ def _make_bandit_impl(_):  # closure per rule id, so ctx.rule.ruleId works
 
 _BANDIT_TEST_IDS = (
     "B102", "B301", "B303", "B310", "B506", "B602", "B605", "B607",
-    "B701", "B105", "B106", "B107", "B501",
+    "B701", "B105", "B106", "B107", "B501", "B608",
 )
 
 DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
