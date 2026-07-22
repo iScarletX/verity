@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "1c62eb47725a0ce4329a8cfe859d83d3d336b503"
-  tests_collected: 509
-  tests_passed: 509
+  commit: "e7cb271f92e50c15ff7d3272f482635a0206a0d3"
+  tests_collected: 510
+  tests_passed: 510
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -40,6 +40,34 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 41 (2026-07-22) → audit extended to non-Bandit rules; finds and closes an untested fallback path
+
+- Extended Round 40's "does every claimed detection capability actually
+  fire" audit beyond Bandit test_ids to all 25 non-Bandit deterministic
+  rules, by instrumenting every rule implementation and running the full
+  test suite in-process to record which rules ever produced a non-empty
+  hit. 24/25 fired at least once; the sole exception was
+  `skill.python_subprocess_shell_true`.
+- That exception is by design, not a bug: it is documented as a fallback
+  that Bandit's `B602` supersedes at the same (file, line) whenever Bandit
+  runs successfully, and every existing test exercises exactly that
+  (successful-Bandit) path, so the hand-written rule is always correctly
+  suppressed in the suite. But this meant the *fallback itself* — what
+  happens when Bandit fails/is unavailable — had never been exercised by
+  any automated test, the same class of gap as Round 39's B303 finding,
+  just on the hand-written side instead of a Bandit mapping.
+- Manually verified the fallback path is genuinely correct (simulated a
+  Bandit `timeout` failure against the `python_shell_true_skill` fixture;
+  the hand-written rule fired at `high` severity as designed), then added
+  `test_python_subprocess_shell_true_fallback_fires_when_bandit_fails` to
+  make this permanent. The suite now proves both directions of the
+  supersede relationship: Bandit-succeeds -> hand-written suppressed
+  (pre-existing test) and Bandit-fails -> hand-written fires (new test).
+- No product/rule/corpus change; the fallback logic itself was already
+  correct, only the regression proof was missing. Full suite: 509 -> 510
+  passed, 0 skipped. `decision` remains `release_candidate`. Round 40
+  landed as commit `e7cb271` with GitHub CI #37 successful.
 
 ## Round 40 (2026-07-22) → full Bandit id audit + permanent dead-mapping regression gate
 

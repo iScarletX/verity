@@ -10,6 +10,15 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 41 (done) — audit extended to non-Bandit rules
+
+Instrumented all 25 non-Bandit rules across the full test suite: 24/25 fired
+at least once. The exception (skill.python_subprocess_shell_true) is a
+designed Bandit-B602 fallback whose OWN failure-path had never been tested
+(same class of gap as B303). Verified it fires correctly when Bandit fails
+and added a permanent regression test. No product/rule change (logic was
+already correct). 510 tests. decision stays release_candidate.
+
 ## Round 40 (done) — full Bandit id audit + permanent regression gate
 
 Audited all 15 curated Bandit ids end to end; B303 was the only dead

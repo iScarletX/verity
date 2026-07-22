@@ -166,6 +166,35 @@ class TestFixturesEndToEnd:
         assert hand == []
         assert b602[0].severity == "high"
 
+    def test_python_subprocess_shell_true_fallback_fires_when_bandit_fails(self):
+        """Round 41 audit: the supersede relationship above only proves the
+        hand-written rule is correctly SUPPRESSED when Bandit succeeds. It
+        never proved the reverse -- that the fallback rule actually fires
+        when Bandit is unavailable/fails. This is exactly the class of
+        untested-claimed-capability gap found in Round 39 (B303), just on
+        the hand-written side instead of a Bandit test_id. Simulate a
+        Bandit failure and confirm the hand-written rule takes over.
+        """
+        from verity.bandit_runner import BanditRunResult
+
+        class _FailingBandit:
+            def run_on_snapshot(self, snapshot, file_bytes):
+                return BanditRunResult(status="timeout",
+                                       reasonCode="subprocess_timeout",
+                                       toolVersion="1.7.10")
+
+        snap, b = intake_directory(str(FIXTURES / "python_shell_true_skill"))
+        r = run_review(ReviewInputs(engine="skill", snapshot=snap,
+                                    file_bytes=b, profile="minimal"),
+                       bandit_runner=_FailingBandit())
+        hand = [f for f in r.findings
+               if f.findingType == "skill.python_subprocess_shell_true"]
+        b602 = [f for f in r.findings
+               if f.findingType == "skill.bandit_finding"]
+        assert len(hand) == 1
+        assert hand[0].severity == "high"
+        assert b602 == []  # Bandit failed, so it cannot report anything
+
 
 # ========================================================================
 # Rule-level boundary cases

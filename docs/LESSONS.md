@@ -14,6 +14,28 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — A "suppressed by design" fallback rule needs its OWN failure-path test
+
+- **Symptom**: Instrumenting every deterministic rule and running the full
+  suite showed `skill.python_subprocess_shell_true` never produced a hit
+  anywhere. It is a documented Bandit-B602 fallback, always correctly
+  suppressed while Bandit succeeds -- but no test ever simulated Bandit
+  failing to check the fallback path itself actually works.
+- **Root cause**: Every existing test for this rule exercised the
+  "suppressed" branch (Bandit succeeds) because that is the default/normal
+  case in the test environment; nothing exercised the "active" branch
+  (Bandit fails) that is the entire reason the fallback rule exists.
+- **Fix**: Simulated a Bandit `timeout` failure with a stub runner and
+  confirmed the hand-written rule fires at the documented severity; added
+  a permanent test for it. The logic was already correct -- only the proof
+  was missing.
+- **Prevention**: For any "A supersedes/suppresses B" relationship, write
+  tests for BOTH directions: A-active-so-B-suppressed, and
+  A-fails-so-B-active. Proving only the common-path direction leaves the
+  fallback's own correctness as an unverified assumption.
+- **Evidence**: Round 41
+  `test_python_subprocess_shell_true_fallback_fires_when_bandit_fails`.
+
 ### 2026-07-22 — A curated mature-tool test id can be dead configuration for years if never exercised end-to-end
 
 - **Symptom**: While adding a new Bandit-based rule, discovered that
