@@ -6,8 +6,9 @@
 >
 > **V1 engineering preview — release decision: `not_ready`.** Implemented
 > engineering paths are acceptance-tested, but quality-evidence gates remain:
-> Corpus labels need independent review, real semantic-model quality is
-> unmeasured, the sealed split is unconsumed, and no unified risk has
+> 54 non-sealed Corpus labels have independent dual-AI review (not human expert
+> review), protocol-v1 Selection was invalidated after that review found two
+> mislabeled artifacts, the sealed split is unconsumed, and no unified risk has
 > substantial/evaluated evidence. See the reproducible
 > [`evals/reports/v1-closure.json`](evals/reports/v1-closure.json).
 >
@@ -49,9 +50,12 @@ signal / 1 partial: seven semantic Finding Types do not make semantic review
 complete. The versioned [`evals/`](evals/README.md)
 minimal paired corpus reproduces per-risk L0 confusion matrices and fixed
 semantic pipeline contract replays. A separate 42-case synthetic three-split
-protocol can measure one explicitly chosen real-model configuration, but no
-real-model report has been produced and its labels remain
-`provisional_single_review`; it is not broad production accuracy evidence. The
+protocol can measure one explicitly chosen real-model configuration. Protocol
+v2 binds the Corpus digest into the configuration fingerprint; 28
+Calibration/Selection labels are `independent_ai_review`, while 14 sealed-Test
+labels remain `provisional_single_review`. A historical v1 Selection was
+invalidated after review-driven Corpus correction and is not production
+accuracy evidence. The
 gated sequence is:
 
 ```text

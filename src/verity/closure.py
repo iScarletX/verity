@@ -52,11 +52,12 @@ def evaluate_v1_closure(*, engineering_checks: Dict[str, bool],
         blockers.append({"code": "engineering_check_failed:" + check,
                          "class": "engineering",
                          "detail": "Required closure acceptance check failed."})
-    if set(l0_labels) != {"independently_reviewed"} or set(semantic_labels) != {
-            "independently_reviewed"}:
+    if (l0_labels.get("provisional_single_review", 0)
+            or semantic_labels.get("provisional_single_review", 0)):
         blockers.append({
             "code": "evaluation_labels_provisional", "class": "quality_evidence",
-            "detail": "Corpus labels remain provisional single-review labels."})
+            "detail": ("Some Corpus labels remain provisional single-review; "
+                       "independent AI review is tracked separately from human expertise.")})
     if not accepted_real_model_selection_present:
         blockers.append({
             "code": "accepted_real_model_selection_absent",

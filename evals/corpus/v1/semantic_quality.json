@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "protocolId": "verity-semantic-quality-v1",
-  "protocolVersion": "1.0.0",
+  "protocolVersion": "2.0.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
-  "labelStatus": "provisional_single_review",
-  "description": "Synthetic three-split protocol for real-model quality measurement of the seven closed semantic Finding Types.",
+  "labelStatus": "mixed_independent_ai_and_provisional",
+  "description": "Synthetic three-split protocol v2; Calibration/Selection labels received independent AI review, while sealed Test remains provisional and unexposed.",
   "splitPolicy": {
     "calibration": "May be used to develop prompts; never final evidence.",
     "selection": "May choose one frozen model/config after calibration; do not edit from test results.",
@@ -22,7 +22,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration",
       "promptKind": "user_prompt"
     },
@@ -36,7 +36,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration",
       "promptKind": "user_prompt"
     },
@@ -50,7 +50,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration",
       "promptKind": "user_prompt"
     },
@@ -64,7 +64,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration",
       "promptKind": "user_prompt"
     },
@@ -78,7 +78,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration"
     },
     {
@@ -91,7 +91,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration"
     },
     {
@@ -104,7 +104,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration",
       "promptKind": "user_prompt"
     },
@@ -118,7 +118,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration",
       "promptKind": "user_prompt"
     },
@@ -132,7 +132,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration",
       "promptKind": "user_prompt"
     },
@@ -146,7 +146,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration",
       "promptKind": "user_prompt"
     },
@@ -160,7 +160,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration"
     },
     {
@@ -173,7 +173,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration"
     },
     {
@@ -186,7 +186,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration"
     },
     {
@@ -199,7 +199,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "split": "calibration"
     },
     {
@@ -213,7 +213,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "promptKind": "user_prompt"
     },
     {
@@ -227,7 +227,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "promptKind": "user_prompt"
     },
     {
@@ -241,7 +241,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "promptKind": "user_prompt"
     },
     {
@@ -255,7 +255,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "promptKind": "user_prompt"
     },
     {
@@ -269,7 +269,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "promptKind": "user_prompt"
     },
     {
@@ -283,7 +283,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "promptKind": "user_prompt"
     },
     {
@@ -297,7 +297,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "promptKind": "user_prompt"
     },
     {
@@ -311,7 +311,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "promptKind": "user_prompt"
     },
     {
@@ -325,7 +325,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "semantic-quality-selection-behavior-safe",
@@ -338,7 +338,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "semantic-quality-selection-permission-positive",
@@ -351,7 +351,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "semantic-quality-selection-permission-safe",
@@ -364,7 +364,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "semantic-quality-selection-external-positive",
@@ -377,7 +377,7 @@
       "expectedAssessment": "confirmed",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "semantic-quality-selection-external-safe",
@@ -390,7 +390,7 @@
       "expectedAssessment": "rejected",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "semantic-quality-test-conflict-positive",

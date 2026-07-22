@@ -3,7 +3,7 @@
     {
       "class": "quality_evidence",
       "code": "evaluation_labels_provisional",
-      "detail": "Corpus labels remain provisional single-review labels."
+      "detail": "Some Corpus labels remain provisional single-review; independent AI review is tracked separately from human expertise."
     },
     {
       "class": "quality_evidence",
@@ -90,11 +90,12 @@
     "acceptedRealModelSelectionPresent": false,
     "evaluatedLayerCount": 0,
     "l0LabelStatuses": {
-      "provisional_single_review": 26
+      "independent_ai_review": 26
     },
     "sealedTestConsumed": false,
     "semanticLabelStatuses": {
-      "provisional_single_review": 42
+      "independent_ai_review": 28,
+      "provisional_single_review": 14
     },
     "substantialOrEvaluatedLayerCount": 0,
     "unifiedRiskCount": 25

@@ -170,7 +170,8 @@ def load_manifest() -> Dict[str, Any]:
         if (case.get("provenance") != "verity_synthetic"
                 or case.get("license") != "Apache-2.0"):
             raise CorpusError(f"case {cid} has unsupported provenance/license")
-        if case.get("labelStatus") != "provisional_single_review":
+        if case.get("labelStatus") not in {
+                "provisional_single_review", "independent_ai_review"}:
             raise CorpusError(f"case {cid} has unsupported label status")
         assessed = case.get("assessedRiskIds")
         expected = case.get("expectedRiskIds")
@@ -201,6 +202,17 @@ def load_manifest() -> Dict[str, Any]:
                in developer_fixture_digests for _, item in _case_files(path)):
             raise CorpusError(f"corpus/test fixture exact-byte leakage: {cid}")
         digest = _case_payload_digest(path)
+        if case["labelStatus"] == "independent_ai_review":
+            try:
+                from .review_evidence import (load_independent_ai_attestation,
+                                              require_independent_ai_case)
+                require_independent_ai_case(
+                    case_id=cid, source_class="l0", payload_digest=digest,
+                    expected_decision=("present" if expected else "absent"),
+                    attestation=load_independent_ai_attestation())
+            except Exception as exc:
+                raise CorpusError(
+                    f"case {cid} independent review evidence invalid") from exc
         if digest in payload_digests:
             raise CorpusError(f"duplicate corpus payload: {cid}")
         payload_digests.add(digest)

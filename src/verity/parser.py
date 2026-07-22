@@ -18,7 +18,7 @@ The parser emits a compact ``ArtifactModel``:
       "hasSkillMd": bool,
       "manifestFile": {fileId, normalizedPath} | None,
       "manifest": {name, description, version, refs, deps, permissions,
-                   external_instruction_urls, tools} | None,
+                   external_reference_count, external_instruction_urls, tools} | None,
       "manifestRaw": {...}   # raw safe-loaded YAML mapping (for rules)
     }
 
@@ -219,21 +219,29 @@ def _normalize_manifest(raw: Any) -> Dict[str, Any]:
             perms.append(v)
     m["permissions"] = perms
 
-    # external instruction URLs — a strict, structured field only
+    # External references are parsed separately from dangerous execution mode.
+    # Semantic review needs only a neutral presence/count seed; deterministic
+    # rules retain the URL value only for explicitly executable modes.
     ext = raw.get("external_instructions")
     ext_urls: List[str] = []
+    ext_reference_count = 0
     if isinstance(ext, dict):
         src = ext.get("source") or ext.get("url")
         mode = ext.get("mode")
-        if isinstance(src, str) and mode in ("fetch_and_follow", "runtime_fetch"):
-            ext_urls.append(src)
+        if isinstance(src, str):
+            ext_reference_count += 1
+            if mode in ("fetch_and_follow", "runtime_fetch"):
+                ext_urls.append(src)
     elif isinstance(ext, list):
         for e in ext:
             if isinstance(e, dict):
                 src = e.get("source") or e.get("url")
                 mode = e.get("mode")
-                if isinstance(src, str) and mode in ("fetch_and_follow", "runtime_fetch"):
-                    ext_urls.append(src)
+                if isinstance(src, str):
+                    ext_reference_count += 1
+                    if mode in ("fetch_and_follow", "runtime_fetch"):
+                        ext_urls.append(src)
+    m["external_reference_count"] = ext_reference_count
     m["external_instruction_urls"] = ext_urls
     return m
 

@@ -14,6 +14,35 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — Label review can invalidate a green model Selection
+
+- **Symptom**: A frozen Selection passed every predeclared metric, but later
+  blind review found two “safe” artifacts declared `fetch_and_follow` while
+  claiming data-only handling.
+- **Root cause**: The author label captured intended safety, not the actual
+  artifact semantics; configuration fingerprints also omitted Corpus bytes.
+- **Fix**: Corrected the artifacts, independently re-reviewed them, invalidated
+  rather than re-scored protocol-v1 Selection, and added the selected Corpus
+  digest to protocol-v2 configuration fingerprints.
+- **Prevention**: Review labels before sealed reporting; bind every reviewed
+  label to payload digest; never preserve a favorable score over a Corpus
+  correction.
+- **Evidence**: Round 22 digest-bound attestation and Selection invalidation.
+
+### 2026-07-22 — Format repair must not mutate blind-review decisions
+
+- **Symptom**: One blind reviewer produced invalid hand-written JSON, then
+  reported changing present/absent counts during a supposedly format-only fix.
+- **Root cause**: Decisions and serialization were not frozen separately; JSON
+  repair became an untracked second review pass.
+- **Fix**: Invalidated the entire reviewer result, replaced the reviewer with a
+  new model family/new aliases, and required subsequent reviewers to use
+  programmatic `json.dump` plus strict local validation.
+- **Prevention**: Treat changed counts/hashes during format-only repair as
+  evidence invalidation, not a clerical correction. Never hand-repair reviewer
+  decisions in the main workspace.
+- **Evidence**: Round 22 reviewer invalidation and replacement review.
+
 ### 2026-07-22 — Successful pip exit does not prove an installable package
 
 - **Symptom**: Offline `pip install --target` returned zero but produced only an

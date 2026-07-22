@@ -23,7 +23,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "low",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-injection-safe",
@@ -40,7 +40,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-placeholder-positive",
@@ -59,7 +59,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-placeholder-safe",
@@ -76,7 +76,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-conflict-positive",
@@ -95,7 +95,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-conflict-safe",
@@ -112,7 +112,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-hidden-positive",
@@ -131,7 +131,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-hidden-safe",
@@ -148,7 +148,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-tools-positive",
@@ -167,7 +167,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-tools-safe",
@@ -184,7 +184,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-structure-positive",
@@ -202,7 +202,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-structure-safe",
@@ -218,7 +218,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-path-positive",
@@ -236,7 +236,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-path-safe",
@@ -252,7 +252,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-dependency-positive",
@@ -270,7 +270,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-dependency-safe",
@@ -286,7 +286,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-permission-positive",
@@ -304,7 +304,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-permission-safe",
@@ -320,7 +320,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-command-positive",
@@ -338,7 +338,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-command-safe",
@@ -354,7 +354,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-name-syntax-positive",
@@ -372,7 +372,7 @@
       "rationale": "Uses uppercase and underscore characters forbidden by the official Agent Skills name grammar.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-name-syntax-safe",
@@ -388,7 +388,7 @@
       "rationale": "Uses lowercase letters and hyphens and matches the package directory.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-directory-mismatch-positive",
@@ -406,7 +406,7 @@
       "rationale": "Manifest name does not match the package directory name.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-directory-mismatch-safe",
@@ -422,7 +422,7 @@
       "rationale": "Manifest name exactly matches the package directory name.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-optional-fields-positive",
@@ -440,7 +440,7 @@
       "rationale": "Optional compatibility, metadata and allowed-tools fields use invalid official types.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-optional-fields-safe",
@@ -456,7 +456,7 @@
       "rationale": "Optional fields use bounded strings and string-to-string metadata.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     }
   ]
 }

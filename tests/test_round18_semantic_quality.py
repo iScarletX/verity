@@ -83,11 +83,16 @@ def test_all_quality_cases_have_deterministic_semantic_seeds():
 def test_manifest_has_disjoint_complete_three_split_pairs():
     manifest = load_semantic_quality_manifest()
     assert len(manifest["cases"]) == 42
+    assert manifest["protocolVersion"] == "2.0.0"
+    assert manifest["labelStatus"] == "mixed_independent_ai_and_provisional"
     ids = set()
     digests = set()
     for split in ("calibration", "selection", "test"):
         cases = [c for c in manifest["cases"] if c["split"] == split]
         assert len(cases) == 14
+        expected_status = ("provisional_single_review" if split == "test"
+                           else "independent_ai_review")
+        assert {c["labelStatus"] for c in cases} == {expected_status}
         by_type = {}
         for case in cases:
             assert case["caseId"] not in ids; ids.add(case["caseId"])

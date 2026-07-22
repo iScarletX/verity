@@ -39,9 +39,9 @@ pair; Agent Skills specification conformance has four pairs after Round 16.
 Every case records provenance, license, object/language, assessed
 risks, expected risks/severity, and rationale. Answer keys contain risk ids,
 not Rule ids. Exact-byte duplicates of existing developer fixtures are
-rejected to reduce test/corpus leakage. Initial labels are explicitly
-`provisional_single_review`; they require independent review before supporting
-any stronger release claim.
+rejected to reduce test/corpus leakage. All 26 L0 labels now carry `independent_ai_review`, bound to current payload
+digests by `evals/reviews/corpus-v1-independent-ai-review.json`. This is a
+cross-model blind AI second opinion, not human expert review.
 
 `evals/corpus/v1/semantic_replay.json` contains 14 fixed Provider replay cases
 (confirmed/rejected pairs for all seven semantic Finding Types). These measure
@@ -77,12 +77,13 @@ data assets live under `evals/`:
 
 ## Synthetic real-model semantic quality protocol
 
-Round 18 adds `evals/corpus/v1/semantic_quality.json`: 42 independent synthetic
+`evals/corpus/v1/semantic_quality.json` v2 contains 42 independent synthetic
 cases split into 14 calibration, 14 selection and 14 sealed-test cases. Every
 split has one unsafe and one safe counterexample for each of the seven closed
 semantic Finding Types, and every case must produce a deterministic extractor
-seed before it is eligible for model-quality metrics. Labels remain
-`provisional_single_review`.
+seed before it is eligible for model-quality metrics. The 28 Calibration/
+Selection labels have digest-bound `independent_ai_review`; 14 sealed-Test
+labels remain `provisional_single_review` and were not exposed to review Agents.
 
 The protocol follows a strict freeze rule:
 
@@ -121,15 +122,17 @@ Round 21 produced local OpenRouter Calibration research records. The best
 Calibration configuration was GPT-4.1-mini for both roles, temperature 0, two
 repetitions and role Prompt v2.0: recall 1.0, precision 0.875, safe false-
 positive rate 0.142857, stability 0.857143, zero errors/inconclusives. After
-commit `b52eb8d` passed CI, one frozen Selection run returned `eligible` with
+commit `b52eb8d` passed CI, one frozen v1 Selection run returned `eligible` with
 recall 1.0, precision 0.875, safe false-positive rate 0.153846, stability
 0.928571, error rate 0.035714 and zero inconclusives. No tuning followed.
 
-This is preliminary rather than accepted release evidence: labels remain
-`provisional_single_review`, the OpenRouter model id is a mutable alias, one
-safe behavior-mismatch case was repeatedly false-positive and one external-
-trust safe repetition failed candidate-id validation. Reports remain local and
-scrubbed; this is not product Provider integration. Sealed Test is unconsumed.
+Round-22 dual-AI blind review then found that two supposed safe external-trust
+artifacts used `fetch_and_follow`, contradicting their data-only policy. Both
+were corrected to `fetch_as_data` and independently re-reviewed. Therefore the
+historical v1 Selection is explicitly
+`invalidated_by_label_adjudication`; it must not be re-scored after the fact.
+Protocol v2 includes the selected Corpus payload digest in the configuration
+fingerprint. No v2 model run or sealed-Test consumption has occurred.
 
 ## Binary V1 closure report
 

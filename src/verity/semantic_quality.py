@@ -57,10 +57,10 @@ def load_semantic_quality_manifest(path: Path = QUALITY_MANIFEST_PATH
     if set(value) != top or value.get("schemaVersion") != 1:
         raise CorpusError("semantic quality manifest violates strict schema")
     if (value.get("protocolId") != "verity-semantic-quality-v1"
-            or value.get("protocolVersion") != "1.0.0"
+            or value.get("protocolVersion") != "2.0.0"
             or value.get("license") != "Apache-2.0"
             or value.get("provenance") != "verity_synthetic"
-            or value.get("labelStatus") != "provisional_single_review"):
+            or value.get("labelStatus") != "mixed_independent_ai_and_provisional"):
         raise CorpusError("semantic quality manifest provenance/version invalid")
     if not isinstance(value.get("description"), str) or not value["description"].strip():
         raise CorpusError("semantic quality description required")
@@ -96,9 +96,11 @@ def load_semantic_quality_manifest(path: Path = QUALITY_MANIFEST_PATH
         obj = case.get("objectType")
         if split not in SPLITS or obj not in {"prompt", "skill"}:
             raise CorpusError(f"semantic quality case {cid} split/object invalid")
+        expected_label_status = ("provisional_single_review" if split == "test"
+                                 else "independent_ai_review")
         if (case.get("provenance") != "verity_synthetic"
                 or case.get("license") != "Apache-2.0"
-                or case.get("labelStatus") != "provisional_single_review"):
+                or case.get("labelStatus") != expected_label_status):
             raise CorpusError(f"semantic quality case {cid} provenance invalid")
         if not isinstance(case.get("language"), str) or not case["language"].strip():
             raise CorpusError(f"semantic quality case {cid} language invalid")
@@ -122,6 +124,19 @@ def load_semantic_quality_manifest(path: Path = QUALITY_MANIFEST_PATH
             if hashlib.sha256(item.read_bytes()).hexdigest() in fixture_digests:
                 raise CorpusError(f"semantic quality/test fixture leakage: {cid}")
         digest = _case_payload_digest(case_path)
+        if case["labelStatus"] == "independent_ai_review":
+            try:
+                from .review_evidence import (load_independent_ai_attestation,
+                                              require_independent_ai_case)
+                require_independent_ai_case(
+                    case_id=cid, source_class="semantic_quality_non_test",
+                    payload_digest=digest,
+                    expected_decision=("present" if decision == "confirmed"
+                                       else "absent"),
+                    attestation=load_independent_ai_attestation())
+            except Exception as exc:
+                raise CorpusError(
+                    f"semantic quality case {cid} review evidence invalid") from exc
         if digest in payload_digests:
             raise CorpusError(
                 f"semantic quality duplicate payload: {cid}/{payload_digests[digest]}")
@@ -218,7 +233,8 @@ def _selection_gate(split: str, metrics: Dict[str, Any],
 
 def _config_fingerprint(generator: ProviderConfig, validator: ProviderConfig,
                         *, temperature: float, max_output_tokens: int,
-                        repetitions: int, role_prompt_version: str) -> str:
+                        repetitions: int, role_prompt_version: str,
+                        protocol_version: str, corpus_fingerprint: str) -> str:
     # Endpoint and credential environment names intentionally do not enter the
     # public report. Their presence/values are deployment metadata, not model
     # quality dimensions.
@@ -234,7 +250,8 @@ def _config_fingerprint(generator: ProviderConfig, validator: ProviderConfig,
         "temperature": temperature, "maxOutputTokens": max_output_tokens,
         "repetitions": repetitions, "egressPolicy": "redacted_evidence",
         "rolePromptVersion": role_prompt_version,
-        "catalog": sorted(CATALOG), "protocolVersion": "1.0.0",
+        "catalog": sorted(CATALOG), "protocolVersion": protocol_version,
+        "corpusFingerprint": corpus_fingerprint,
     }
     raw = json.dumps(safe, ensure_ascii=False, sort_keys=True,
                      separators=(",", ":")).encode()
@@ -361,6 +378,11 @@ def evaluate_semantic_model_quality(*, split: str, repetitions: int,
         raise CorpusError("semantic quality credentials missing before run")
     manifest = load_semantic_quality_manifest(manifest_path)
     selected = [c for c in manifest["cases"] if c["split"] == split]
+    corpus_fingerprint = hashlib.sha256(json.dumps([
+        {"caseId": c["caseId"], "payloadDigest": c["payloadDigest"],
+         "expectedAssessment": c["expectedAssessment"]}
+        for c in sorted(selected, key=lambda x: x["caseId"])
+    ], ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     required_call_budget = len(selected) * repetitions * 2
     if (not isinstance(max_total_calls, int) or max_total_calls < 1
             or required_call_budget > max_total_calls):
@@ -428,10 +450,13 @@ def evaluate_semantic_model_quality(*, split: str, repetitions: int,
             "temperature": temperature, "maxOutputTokens": max_output_tokens,
             "egressPolicy": "redacted_evidence",
             "rolePromptVersion": role_prompt_version,
+            "corpusFingerprint": corpus_fingerprint,
             "configurationFingerprint": _config_fingerprint(
                 generator_config, validator_config, temperature=temperature,
                 max_output_tokens=max_output_tokens, repetitions=repetitions,
-                role_prompt_version=role_prompt_version),
+                role_prompt_version=role_prompt_version,
+                protocol_version=manifest["protocolVersion"],
+                corpus_fingerprint=corpus_fingerprint),
         },
         "metrics": metrics,
         "stability": stability,

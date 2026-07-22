@@ -1,49 +1,53 @@
-# No active implementation round — independent review required
+# No active implementation round — protocol-v2 evidence decision required
 
 ## Status
 
-Stopped after Round 21. The frozen preliminary real-model Selection gate passed,
-but the V1 machine closure decision remains `not_ready` because the result is
-not yet acceptable as release evidence.
+Stopped after Round 22. Independent dual-AI review now covers every non-sealed
+L0 and semantic-quality label, but it is explicitly not human expert review.
+Historical protocol-v1 Selection is invalidated; protocol v2 has not called a
+model. V1 remains `not_ready`.
 
 ## Evidence now available
 
-- OpenRouter `openai/gpt-4.1-mini`, both roles, temperature 0, two repetitions,
-  role Prompt v2.0.0 and redacted-evidence egress;
-- configuration fingerprint
-  `9cac3830f900e1a668a0fa705ac2c38460f34cf149eb262712988d2065054727`;
-- frozen Selection gate v1.0.0 result: `eligible`;
-- recall 1.0, precision 0.875, safe false-positive rate 0.153846, stability
-  0.928571, error rate 0.035714 and inconclusive rate 0.0;
-- no Selection-informed tuning and no sealed Test consumption.
+- 26/26 L0 cases: digest-bound `independent_ai_review`;
+- 28/28 semantic Calibration/Selection cases: digest-bound
+  `independent_ai_review`;
+- initial valid reviewer agreement 46/54; eight exceptions independently
+  adjudicated; two mislabeled artifacts corrected and independently re-reviewed;
+- one initial reviewer invalidated after decision counts changed during JSON
+  repair and excluded from all comparison;
+- 14/14 fixed semantic contract replays remain reproducible and provisional;
+- 14 sealed-Test cases remain provisional, unexposed and unconsumed;
+- semantic-quality protocol v2 fingerprints the selected Corpus payloads;
+- protocol-v1 Selection is `invalidated_by_label_adjudication` and may not be
+  re-scored or used as release evidence.
 
 ## Remaining release blockers
 
-- all Corpus labels remain `provisional_single_review`; an independent reviewer
-  must adjudicate them before model metrics become accepted release evidence;
-- the OpenRouter model id is an alias rather than a dated immutable revision;
-- one safe declared-behavior case was false-positive in both repetitions and one
-  external-trust safe repetition failed candidate-id validation;
-- no risk has approved substantial/evaluated breadth;
-- sealed Test remains unconsumed and must not be opened until labels and the
-  immutable model configuration are approved.
+- AI cross-model review is not a substitute for human/domain-expert review if a
+  public production-quality claim requires one;
+- protocol v2 has no Calibration/Selection result;
+- the prior OpenRouter model id was a mutable alias rather than an immutable
+  revision;
+- sealed Test remains provisional/unconsumed;
+- no unified risk layer has approved substantial/evaluated breadth.
 
 ## Next authorized decision sequence
 
-1. independently review the 26 L0 and 42 semantic labels without showing the
-   reviewer Verity outputs or current answer rationales first;
-2. decide whether the two Selection anomalies require a new protocol version;
-   do not tune protocol v1 from Selection and then reuse its Selection claim;
-3. resolve an immutable Provider model revision or explicitly record alias drift
-   as a limitation;
-4. if the frozen configuration remains eligible, separately approve sealed Test
-   consumption; Test may be used for final reporting only;
-5. promote breadth only under approved per-risk thresholds, then recompute V1
-   closure.
+1. decide whether public release requires human/domain-expert review of the 54
+   non-sealed labels and arrange it independently if required;
+2. choose an immutable Provider model revision and a fresh bounded research Key;
+3. run protocol-v2 Calibration, freeze role Prompt/model/budget, then run one
+   Selection against predeclared gates;
+4. only after accepted labels and frozen v2 Selection, separately approve sealed
+   Test consumption for final reporting;
+5. promote risk breadth only under approved per-risk thresholds, then recompute
+   V1 closure.
 
 ## Not authorized
 
-- further Prompt/protocol-v1 tuning based on the observed Selection cases;
-- consuming sealed Test before independent labels and configuration approval;
-- changing provisional labels by the project author and calling it independent;
-- Provider Web productization, V1.5, V2 sandbox, or automatic remediation.
+- reviving or reinterpreting protocol-v1 Selection metrics;
+- tuning protocol v1/v2 from the invalidated Selection cases;
+- exposing or consuming sealed Test before a new approval;
+- calling AI blind review “human expert review”;
+- Provider Web productization, V1.5, V2 sandbox or automatic remediation.

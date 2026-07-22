@@ -32,7 +32,7 @@ def test_manifest_is_balanced_traceable_and_independent_of_rule_ids():
     assert all(c["payloadDigest"] and c["rationale"]
                and c["provenance"] == "verity_synthetic"
                and c["license"] == "Apache-2.0"
-               and c["labelStatus"] == "provisional_single_review"
+               and c["labelStatus"] == "independent_ai_review"
                for c in manifest["cases"])
 
 
@@ -111,13 +111,29 @@ def test_reports_are_reproducible():
     assert "reproducible" in proc.stdout
 
 
-def test_manifest_rejects_duplicate_payload(monkeypatch):
-    original = corpus._case_payload_digest
-    monkeypatch.setattr(corpus, "_case_payload_digest",
-                        lambda path: "0" * 64)
+def test_manifest_rejects_stale_review_evidence_before_duplicate(monkeypatch):
+    monkeypatch.setattr(corpus, "_case_payload_digest", lambda path: "0" * 64)
+    with pytest.raises(CorpusError, match="independent review evidence invalid"):
+        load_manifest()
+
+
+def test_manifest_still_rejects_duplicate_payload_with_matching_review_evidence(
+        monkeypatch):
+    import verity.review_evidence as review_evidence
+    manifest = json.loads((REPO / "evals/corpus/v1/manifest.json").read_text())
+    attestation = {
+        c["caseId"]: {
+            "caseId": c["caseId"], "sourceClass": "l0",
+            "payloadDigest": "0" * 64,
+            "finalDecision": ("present" if c["expectedRiskIds"] else "absent"),
+            "reviewStatus": "independent_ai_review",
+        } for c in manifest["cases"]
+    }
+    monkeypatch.setattr(corpus, "_case_payload_digest", lambda path: "0" * 64)
+    monkeypatch.setattr(review_evidence, "load_independent_ai_attestation",
+                        lambda: attestation)
     with pytest.raises(CorpusError, match="duplicate corpus payload"):
         load_manifest()
-    monkeypatch.setattr(corpus, "_case_payload_digest", original)
 
 
 def test_manifest_rejects_exact_developer_fixture_leak(monkeypatch):

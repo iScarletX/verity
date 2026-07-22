@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "5e5bcf0042a8c41fa45443de070fa05bdc86c5f7"
-  tests_collected: 440
-  tests_passed: 440
+  commit: "5629cae7b01b47fba847be1b5e2322239a642ed7"
+  tests_collected: 451
+  tests_passed: 451
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -29,11 +29,11 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 25 unified risks, 42 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 12 signal / 9 partial. Current L1 breadth: 15 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and a separate 42-case semantic model-quality protocol (14 calibration / 14 selection / 14 sealed test; every split has confirmed/rejected pairs for seven types). Fixed reports remain reproducible and score-free. All labels remain `provisional_single_review`. Contract replay still sets `modelQualityMeasured=false`. Real OpenRouter Calibration reports now exist only in gitignored local storage; no frozen Selection or Test report has been accepted as V1 release evidence, and sealed test v1 has not been consumed.
+**Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). All 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
-**V1 closure decision.** `not_ready` under closure policy v1.1.0. Local engineering acceptance is green and a frozen preliminary Selection gate passed, but that result is not accepted release evidence while labels remain provisional and the Provider model id is a mutable alias. Sealed Test is unconsumed and zero risk layers are substantial/evaluated. The decision is reproducible in `evals/reports/v1-closure.json`; it is not an aggregate score.
+**V1 closure decision.** `not_ready` under closure policy v1.1.0. Local engineering acceptance is green, but protocol-v1 Selection is invalid after independent review found and corrected mislabeled artifacts. Protocol v2 has no accepted model run; 14 sealed labels remain provisional/unconsumed, the Provider model id was a mutable alias, and zero risk layers are substantial/evaluated. The decision is reproducible in `evals/reports/v1-closure.json`; it is not an aggregate score.
 
-**Next step.** Independent Corpus label review. Round 21's one frozen preliminary Selection passed its predeclared gate (recall 1.0, precision 0.875, safe FP 0.153846, stability 0.928571, error 0.035714, inconclusive 0), but no protocol-v1 tuning may follow from those cases. Resolve label independence and an immutable model revision before separately deciding whether to consume sealed Test. Do not productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
+**Next step.** Obtain human/domain-expert review if a public release claim requires it, and approve an immutable model revision before running protocol-v2 Calibration/Selection. Do not reinterpret v1 metrics, expose sealed Test, productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
 
 **What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates. Confirmed Findings from completed stages now use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
@@ -42,6 +42,35 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 22 (2026-07-22) → implementation commit pending
+
+- Built deterministic blind-review packets with different aliases/order and no
+  current answers, rationales, detector output, Selection results or sealed
+  Test cases. Two new review-only Agents using different model families
+  independently reviewed 54 cases; one additional initial reviewer was
+  invalidated after JSON repair changed decision counts.
+- Valid reviewers agreed on 87.037% initially: 46 unanimous matches, one
+  unanimous challenge, six disagreements and one uncertain. A separate Qwen
+  adjudicator, blind to author labels and reviewer identities, resolved the
+  eight exceptions: six supported the author and two identified real artifact/
+  label contradictions.
+- Both challenged cases claimed data-only external handling while declaring
+  `fetch_and_follow`. They were corrected to `fetch_as_data` and two new
+  independent reviewers unanimously judged the revised risks absent.
+- Added a scrubbed attestation binding every reviewed case to its current
+  payload digest and final decision. L0 26/26 and semantic Calibration/
+  Selection 28/28 are `independent_ai_review`; 14 sealed-Test and 14 fixed
+  contract labels remain provisional. AI review is not described as human
+  expert review.
+- Separated neutral external-reference presence from dangerous execution mode:
+  data-only references now produce a semantic seed without an L0 Finding or URL
+  egress. All 42 semantic-quality cases have seeds and fixed replay is 14/14.
+- Historical protocol-v1 Selection was invalidated rather than re-scored.
+  Protocol v2 includes the selected Corpus digest in its configuration
+  fingerprint, so future content changes break comparability automatically.
+- Full suite: 451 passed, 0 skipped. Sealed Test remains unexposed/unconsumed;
+  no protocol-v2 model call was made.
 
 ## Round 21 (2026-07-22) → implementation commit `b52eb8d` + local Selection
 

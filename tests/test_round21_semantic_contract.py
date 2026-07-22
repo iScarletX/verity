@@ -59,6 +59,7 @@ def test_role_prompt_version_is_reported_and_changes_fingerprint(monkeypatch):
     second = evaluate_semantic_model_quality(
         **kwargs, role_prompt_version=EVAL_ROLE_PROMPT_VERSION)
     assert second["configuration"]["rolePromptVersion"] == "2.0.0"
+    assert len(second["configuration"]["corpusFingerprint"]) == 64
     assert (first["configuration"]["configurationFingerprint"]
             != second["configuration"]["configurationFingerprint"])
     assert second["selectionGate"]["status"] == "not_applicable"

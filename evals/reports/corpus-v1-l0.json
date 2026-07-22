@@ -17,7 +17,7 @@
       ],
       "expectedSeverity": "low",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-PROMPT-001"
       ],
@@ -36,7 +36,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -55,7 +55,7 @@
       ],
       "expectedSeverity": "medium",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-PROMPT-002"
       ],
@@ -74,7 +74,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -93,7 +93,7 @@
       ],
       "expectedSeverity": "medium",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-PROMPT-004"
       ],
@@ -112,7 +112,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -131,7 +131,7 @@
       ],
       "expectedSeverity": "medium",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-PROMPT-005"
       ],
@@ -150,7 +150,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -169,7 +169,7 @@
       ],
       "expectedSeverity": "high",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-PROMPT-007"
       ],
@@ -188,7 +188,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -207,7 +207,7 @@
       ],
       "expectedSeverity": "high",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-SKILL-001"
       ],
@@ -226,7 +226,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -245,7 +245,7 @@
       ],
       "expectedSeverity": "high",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-SKILL-002"
       ],
@@ -264,7 +264,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -283,7 +283,7 @@
       ],
       "expectedSeverity": "medium",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-SKILL-003"
       ],
@@ -302,7 +302,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -321,7 +321,7 @@
       ],
       "expectedSeverity": "high",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-SKILL-004"
       ],
@@ -340,7 +340,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -359,7 +359,7 @@
       ],
       "expectedSeverity": "high",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-SKILL-006"
       ],
@@ -378,7 +378,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -397,7 +397,7 @@
       ],
       "expectedSeverity": "medium",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-SKILL-001"
       ],
@@ -416,7 +416,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -435,7 +435,7 @@
       ],
       "expectedSeverity": "medium",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-SKILL-001"
       ],
@@ -454,7 +454,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
@@ -473,7 +473,7 @@
       ],
       "expectedSeverity": "medium",
       "label": "unsafe",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [
         "VR-SKILL-001"
       ],
@@ -492,7 +492,7 @@
       "expectedRiskIds": [],
       "expectedSeverity": null,
       "label": "safe_counterexample",
-      "labelStatus": "provisional_single_review",
+      "labelStatus": "independent_ai_review",
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []

@@ -167,6 +167,8 @@ REQUIRED_FILES = [
     "evals/reports/corpus-v1-l0.json",
     "evals/reports/corpus-v1-semantic-contract.json",
     "evals/reports/v1-closure.json",
+    "evals/reviews/corpus-v1-independent-ai-review.json",
+    "evals/reviews/semantic-selection-v1-invalidation.json",
     "tools/run_corpus.py",
     "tools/run_v1_closure.py",
 ]
@@ -507,6 +509,39 @@ def check_v1_closure_baseline(rep: VerifyReport) -> None:
         f"engineeringReady={closure.get('engineeringReady')}")
 
 
+def check_independent_review_evidence(rep: VerifyReport) -> None:
+    """Bind reviewed labels to current payloads and preserve sealed isolation."""
+    try:
+        sys.path.insert(0, str(REPO / "src"))
+        import json
+        from verity.corpus import load_manifest
+        from verity.review_evidence import load_independent_ai_attestation
+        from verity.semantic_quality import load_semantic_quality_manifest
+        attestation = load_independent_ai_attestation()
+        l0 = load_manifest()
+        semantic = load_semantic_quality_manifest()
+        invalidation = json.loads(_read_text(
+            REPO / "evals/reviews/semantic-selection-v1-invalidation.json"))
+        if (len(attestation) != 54
+                or {c["labelStatus"] for c in l0["cases"]}
+                    != {"independent_ai_review"}
+                or sum(c["labelStatus"] == "independent_ai_review"
+                       for c in semantic["cases"]) != 28
+                or sum(c["labelStatus"] == "provisional_single_review"
+                       for c in semantic["cases"]) != 14
+                or semantic["protocolVersion"] != "2.0.0"
+                or invalidation.get("status")
+                    != "invalidated_by_label_adjudication"
+                or invalidation.get("sealedTestConsumed") is not False):
+            raise ValueError("independent review/protocol state mismatch")
+    except Exception as exc:
+        rep.append_fail("independent_review_evidence", str(exc)[:500])
+        return
+    rep.append_ok(
+        "independent_review_evidence",
+        "54 AI-reviewed current payloads; 14 sealed labels provisional; v1 Selection invalidated")
+
+
 def check_semantic_quality_protocol(rep: VerifyReport) -> None:
     """Validate split isolation and deterministic seed eligibility offline."""
     try:
@@ -603,6 +638,7 @@ def run_all(*, require_clean: bool = False,
     check_detection_standards(rep)
     check_corpus_baselines(rep)
     check_v1_closure_baseline(rep)
+    check_independent_review_evidence(rep)
     check_semantic_quality_protocol(rep)
     check_scoring_policy(rep)
     if require_clean:

@@ -219,7 +219,7 @@ def _skill_manifest_and_capability_seed(review_dict, file_bytes, *,
     facts = ((am.get("capabilityFacts") or {}).get("facts") or [])
     if not manifest_file:
         return []
-    if require_external and not manifest.get("external_instruction_urls"):
+    if require_external and not manifest.get("external_reference_count"):
         return []
     if not require_external and not facts and not manifest.get("permissions"):
         return []

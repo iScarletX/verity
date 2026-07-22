@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "status": "invalidated_by_label_adjudication",
+  "protocolId": "verity-semantic-quality-v1",
+  "protocolVersion": "1.0.0",
+  "configurationFingerprint": "9cac3830f900e1a668a0fa705ac2c38460f34cf149eb262712988d2065054727",
+  "invalidatedSplit": "selection",
+  "sealedTestConsumed": false,
+  "reasonCodes": [
+    "selection_safe_case_artifact_contradicted_its_label",
+    "independent_ai_review_confirmed_label_artifact_mismatch",
+    "corpus_payload_corrected_after_selection",
+    "configuration_fingerprint_v1_omitted_corpus_digest"
+  ],
+  "replacementProtocolVersion": "2.0.0",
+  "note": "The historical local Selection report remains a research record but is not accepted release evidence and must not be reinterpreted after the Corpus correction. Protocol v2 requires a Corpus fingerprint."
+}
