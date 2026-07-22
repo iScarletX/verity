@@ -9,7 +9,7 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "e7cb271f92e50c15ff7d3272f482635a0206a0d3"
+  commit: "1a0ea34861b534462c2d21d2e4ca5977f8e66b01"
   tests_collected: 510
   tests_passed: 510
   tests_skipped: 0
@@ -40,6 +40,26 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 42 (2026-07-22) → audit extended to capability facts; finds an untested category
+
+- Extended the same instrumentation technique (Rounds 40–41) to
+  `capabilities.extract_capability_facts`'s 7 fact categories (tool,
+  installation, configuration, network, process, file, credential) by
+  wrapping `_add()` and running the full suite. Result: `configuration`
+  (declared for `.json/.yaml/.yml/.toml/.ini/.cfg` files) had never fired
+  once anywhere in the suite — the same class of untested-capability gap
+  as Rounds 39/41, this time in the capability-facts extractor that feeds
+  semantic egress and least-privilege comparison evidence.
+- Manually confirmed the category works correctly when exercised directly
+  (not a bug, purely a test gap), then extended the existing
+  `test_capability_facts_are_static_bounded_and_not_findings` fixture with
+  a `settings.yaml` file and added an explicit assertion for the
+  `configuration` category and its exact artifact path.
+- No product/rule/corpus change; the extractor logic was already correct.
+  Full suite still 510 passed, 0 skipped (extended an existing test rather
+  than adding a new one). `decision` remains `release_candidate`. Round 41
+  landed as commit `1a0ea34` with GitHub CI #38 successful.
 
 ## Round 41 (2026-07-22) → audit extended to non-Bandit rules; finds and closes an untested fallback path
 

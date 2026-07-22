@@ -116,6 +116,7 @@ allowed-tools: Read Grep
 ---
 """)
     (root / "requirements.txt").write_text("sample-package==1.2.3\n")
+    (root / "settings.yaml").write_text("key: value\n")
     (root / "run.py").write_text("""
 import os
 import requests
@@ -135,8 +136,15 @@ Reader().read_text()
     review = run_review(ReviewInputs("skill", snap, data, profile="minimal"))
     facts = review.artifactModel["capabilityFacts"]
     categories = {f["category"] for f in facts["facts"]}
-    assert {"tool", "installation", "network", "process", "file",
-            "credential"} <= categories
+    # Round 41 audit: "configuration" had zero test coverage anywhere in
+    # the suite despite being a real, working category (verified
+    # separately with instrumentation) -- the same class of untested-
+    # capability gap as Round 39's B303. Locked in here permanently.
+    assert {"tool", "installation", "configuration", "network", "process",
+            "file", "credential"} <= categories
+    assert any(f["category"] == "configuration"
+              and f["artifactPath"] == "settings.yaml"
+              for f in facts["facts"])
     assert not any(f["operation"] == "os.system" for f in facts["facts"])
     assert sum(f["category"] == "file" for f in facts["facts"]) == 1
     assert all(not f["artifactPath"].startswith("/") for f in facts["facts"])

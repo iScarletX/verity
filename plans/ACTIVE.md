@@ -10,6 +10,15 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 42 (done) — audit extended to capability facts
+
+Instrumented capabilities.py's 7 fact categories across the full suite:
+'configuration' had zero test coverage anywhere (same class of gap as
+Rounds 39/41). Confirmed it works correctly when exercised, extended the
+existing capability-facts test with a settings.yaml fixture + explicit
+assertion. No product/rule change. 510 tests (extended existing test).
+decision stays release_candidate.
+
 ## Round 41 (done) — audit extended to non-Bandit rules
 
 Instrumented all 25 non-Bandit rules across the full test suite: 24/25 fired
