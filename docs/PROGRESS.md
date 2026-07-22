@@ -31,9 +31,9 @@ Strings below MUST match the runtime literals.
 
 **Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and a separate 42-case semantic model-quality protocol (14 calibration / 14 selection / 14 sealed test; every split has confirmed/rejected pairs for seven types). Fixed reports remain reproducible and score-free. All labels remain `provisional_single_review`. Contract replay still sets `modelQualityMeasured=false`. Real OpenRouter Calibration reports now exist only in gitignored local storage; no frozen Selection or Test report has been accepted as V1 release evidence, and sealed test v1 has not been consumed.
 
-**V1 closure decision.** `not_ready` under closure policy v1.0.0. Local engineering acceptance is green, including offline package install and cross-format confirmed-semantic parity, but release quality evidence is blocked by provisional single-review labels, no trusted real-model quality report, an unconsumed sealed split, and zero substantial/evaluated risk layers. The decision is reproducible in `evals/reports/v1-closure.json`; it is not an aggregate score.
+**V1 closure decision.** `not_ready` under closure policy v1.1.0. Local engineering acceptance is green and a frozen preliminary Selection gate passed, but that result is not accepted release evidence while labels remain provisional and the Provider model id is a mutable alias. Sealed Test is unconsumed and zero risk layers are substantial/evaluated. The decision is reproducible in `evals/reports/v1-closure.json`; it is not an aggregate score.
 
-**Next step.** Round 21 has frozen GPT-4.1-mini, temperature 0, two repetitions and eval role Prompt v2.0 after Calibration improved to recall 1.0, safe false-positive rate 0.142857, stability 0.857143 and zero errors. Land the validator-coherence/fingerprint/selection-gate changes, then run Selection exactly once against predeclared thresholds. Independent Corpus label review remains required; do not consume Test, productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
+**Next step.** Independent Corpus label review. Round 21's one frozen preliminary Selection passed its predeclared gate (recall 1.0, precision 0.875, safe FP 0.153846, stability 0.928571, error 0.035714, inconclusive 0), but no protocol-v1 tuning may follow from those cases. Resolve label independence and an immutable model revision before separately deciding whether to consume sealed Test. Do not productize Provider/OpenRouter or start V1.5/V2 while V1 remains `not_ready`.
 
 **What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates. Confirmed Findings from completed stages now use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
@@ -43,7 +43,7 @@ Strings below MUST match the runtime literals.
 
 ## Round history (append-only)
 
-## Round 21 (2026-07-22) → pre-Selection implementation checkpoint pending
+## Round 21 (2026-07-22) → implementation commit `b52eb8d` + local Selection
 
 - Ran real OpenRouter Calibration only; no Selection/Test case result was
   inspected. Claude Sonnet 4.5 failed strict JSON on 28/28 generator calls;
@@ -60,10 +60,17 @@ Strings below MUST match the runtime literals.
 - Role Prompt version now enters the scrubbed report and configuration
   fingerprint. Selection policy v1.0.0 was frozen before seeing Selection:
   recall >=0.90, safe FP <=0.20, stability >=0.80, errors <=0.05 and
-  inconclusive <=0.10. Selection will be run exactly once after CI is green.
-- Local real-model reports remain gitignored and contain no Provider traffic,
-  case text, endpoint, credential metadata or host paths. Sealed Test remains
-  unconsumed. Full pre-Selection suite: 440 passed, 0 skipped.
+  inconclusive <=0.10.
+- Commit `b52eb8d` passed GitHub CI #17. The one frozen Selection then returned
+  `eligible`: recall 1.0, precision 0.875, safe FP 0.153846, stability
+  0.928571, error 0.035714 and inconclusive 0. No post-Selection tuning was
+  performed. One safe behavior-mismatch case was repeatedly false-positive and
+  one external-trust safe repetition failed candidate-id validation.
+- This preliminary result is not accepted V1 release evidence: labels remain
+  single-review and `openai/gpt-4.1-mini` is an OpenRouter alias, not a dated
+  immutable revision. Reports remain gitignored and scrubbed. Sealed Test was
+  not consumed; the local one-time Key file was deleted. Full suite: 440 passed,
+  0 skipped.
 
 ## Round 20 (2026-07-22) → implementation commit `5e5bcf0`
 

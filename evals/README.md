@@ -120,9 +120,16 @@ recall >=0.90, safe false-positive rate <=0.20, stability >=0.80, error rate
 Round 21 produced local OpenRouter Calibration research records. The best
 Calibration configuration was GPT-4.1-mini for both roles, temperature 0, two
 repetitions and role Prompt v2.0: recall 1.0, precision 0.875, safe false-
-positive rate 0.142857, stability 0.857143, zero errors/inconclusives. These
-provisional single-review results are not a frozen Selection/Test result and
-not a product Provider integration. The sealed test split remains unconsumed.
+positive rate 0.142857, stability 0.857143, zero errors/inconclusives. After
+commit `b52eb8d` passed CI, one frozen Selection run returned `eligible` with
+recall 1.0, precision 0.875, safe false-positive rate 0.153846, stability
+0.928571, error rate 0.035714 and zero inconclusives. No tuning followed.
+
+This is preliminary rather than accepted release evidence: labels remain
+`provisional_single_review`, the OpenRouter model id is a mutable alias, one
+safe behavior-mismatch case was repeatedly false-positive and one external-
+trust safe repetition failed candidate-id validation. Reports remain local and
+scrubbed; this is not product Provider integration. Sealed Test is unconsumed.
 
 ## Binary V1 closure report
 
@@ -131,8 +138,9 @@ not a product Provider integration. The sealed test split remains unconsumed.
 engineering delivery from quality evidence and permits only two decisions:
 `release_candidate` or `not_ready`. The current decision is `not_ready` even
 though the local engineering checks pass, because labels remain single-review,
-no trusted real-model quality report exists, the sealed split is unconsumed,
-and no unified risk has `substantial`/`evaluated` evidence. This is not an
+the preliminary Selection result is not yet accepted release evidence, the
+sealed split is unconsumed, and no unified risk has `substantial`/`evaluated`
+evidence. This is not an
 aggregate accuracy score and does not call or configure a Provider.
 
 Method references such as SkillOpt, GameWorld, VideoGameQA-Bench, DSGBench,

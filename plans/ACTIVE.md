@@ -1,62 +1,49 @@
-# Round 21 — Calibrate semantic decision contract before Selection
+# No active implementation round — independent review required
 
 ## Status
 
-Approved under maintainer continuing-execution authorization. Calibration-only
-model observations may inform this round; Selection contents and sealed Test
-remain unread and unconsumed.
+Stopped after Round 21. The frozen preliminary real-model Selection gate passed,
+but the V1 machine closure decision remains `not_ready` because the result is
+not yet acceptable as release evidence.
 
-## Evidence prompting the round
+## Evidence now available
 
-OpenRouter Calibration on protocol v1 produced:
+- OpenRouter `openai/gpt-4.1-mini`, both roles, temperature 0, two repetitions,
+  role Prompt v2.0.0 and redacted-evidence egress;
+- configuration fingerprint
+  `9cac3830f900e1a668a0fa705ac2c38460f34cf149eb262712988d2065054727`;
+- frozen Selection gate v1.0.0 result: `eligible`;
+- recall 1.0, precision 0.875, safe false-positive rate 0.153846, stability
+  0.928571, error rate 0.035714 and inconclusive rate 0.0;
+- no Selection-informed tuning and no sealed Test consumption.
 
-- Claude Sonnet 4.5: 28/28 generator runs failed strict JSON parsing;
-- GPT-4.1-mini: recall 1.0, safe false-positive rate 0.285714, stability
-  0.785714;
-- GPT-4.1: recall 1.0, safe false-positive rate 0.5, stability 0.642857;
-- one GPT-4.1-mini validator response combined `confirmed` with
-  `evidence_contradicts_claim`, exposing a missing decision/reason consistency
-  constraint.
+## Remaining release blockers
 
-Reports are local and gitignored. No Selection or Test result was inspected.
+- all Corpus labels remain `provisional_single_review`; an independent reviewer
+  must adjudicate them before model metrics become accepted release evidence;
+- the OpenRouter model id is an alias rather than a dated immutable revision;
+- one safe declared-behavior case was false-positive in both repetitions and one
+  external-trust safe repetition failed candidate-id validation;
+- no risk has approved substantial/evaluated breadth;
+- sealed Test remains unconsumed and must not be opened until labels and the
+  immutable model configuration are approved.
 
-## Goal
+## Next authorized decision sequence
 
-Make validator decisions internally coherent and sharpen the already-defined
-materiality/falsification boundary using only Calibration observations. Then
-rerun Calibration and freeze one eligible configuration for Selection.
+1. independently review the 26 L0 and 42 semantic labels without showing the
+   reviewer Verity outputs or current answer rationales first;
+2. decide whether the two Selection anomalies require a new protocol version;
+   do not tune protocol v1 from Selection and then reuse its Selection claim;
+3. resolve an immutable Provider model revision or explicitly record alias drift
+   as a limitation;
+4. if the frozen configuration remains eligible, separately approve sealed Test
+   consumption; Test may be used for final reporting only;
+5. promote breadth only under approved per-risk thresholds, then recompute V1
+   closure.
 
-## In scope
+## Not authorized
 
-- enforce decision/reason-code consistency in the strict validator schema;
-- require at least one controlled reason code;
-- clarify in the eval-only validator role prompt that `confirmed` requires
-  material support after applying the falsification question, while equivalent
-  narrow wording/capabilities and explicit least-privilege boundaries require
-  rejection;
-- regression tests for contradictory decision/reason combinations;
-- rerun Calibration and compare error, precision, recall, safe false-positive
-  rate and stability;
-- if quality is acceptable, freeze one configuration and run Selection without
-  modifying the protocol afterward.
-
-## Out of scope
-
-- accepting Markdown-fenced or otherwise non-strict JSON without captured
-  evidence of that exact transport failure;
-- reading or changing Selection cases before the frozen Selection run;
-- consuming sealed Test;
-- changing labels, Finding severities, taxonomy, score policy, product Web/CLI
-  Provider behavior, or user artifacts;
-- committing Provider traffic, credentials, raw case text or local reports.
-
-## Acceptance
-
-- contradictory decision/reason payloads fail schema validation;
-- existing fixed replay remains reproducible;
-- Calibration has zero protocol errors for the selected configuration;
-- selected configuration improves or clearly dominates the current
-  GPT-4.1-mini Calibration baseline without sacrificing unsafe-case recall;
-- pytest, clean verify_repo and GitHub CI pass before any Selection claim;
-- Selection is run only once for the frozen Round-21 configuration; Test remains
-  unconsumed.
+- further Prompt/protocol-v1 tuning based on the observed Selection cases;
+- consuming sealed Test before independent labels and configuration approval;
+- changing provisional labels by the project author and calling it independent;
+- Provider Web productization, V1.5, V2 sandbox, or automatic remediation.
