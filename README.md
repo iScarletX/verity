@@ -493,10 +493,18 @@ findings gate, but a `findings_block` always wins in the exit code):
 |---|---:|---:|
 | `clean-skill` | 0 | 0 |
 | `malformed_manifest_skill` | 2 | 2 |
-| `missing_refs_skill` | 3 | 2 |
-| `risky_permissions_skill` | 4 | 2 |
-| `external_instructions_skill` | 1 | 1 |
-| `python_shell_true_skill` | 3 | 1 |
+| `missing_refs_skill` | 5 | 3 |
+| `risky_permissions_skill` | 5 | 2 |
+| `external_instructions_skill` | 2 | 1 |
+| `python_shell_true_skill` | 4 | 1 |
+
+(These counts were re-verified against the current runtime in Round 36; the
+table had already drifted from actual behaviour in earlier rounds — e.g.
+`missing_refs_skill` was already 4/2 at commit `3e854ec`, not the documented
+3/2, due to an undocumented `directory_mismatch` finding — independently of
+Round 30's new `skill.sensitive_path_access` rule, which correctly adds one
+more high finding because the fixture's manifest literally references
+`/etc/passwd`.)
 
 (`python_shell_true_skill`: Bandit B602 high + B607 medium x2. The hand-
 written `subprocess shell=True` rule is suppressed on that (file, line).)

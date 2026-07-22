@@ -14,6 +14,31 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — A documented exact-count table with no asserting test will silently drift
+
+- **Symptom**: README's "Recorded findings on the checked-in fixtures" table
+  claimed `missing_refs_skill` produces 3 findings/2 high, and
+  `python_shell_true_skill` produces 3/1. Actual runtime already produced
+  4/2 and 4/1 respectively at a commit from *before* this session even
+  started — an earlier round added a `directory_mismatch` Finding (likely
+  via a fixture rename) without updating this table, and it went unnoticed
+  for multiple rounds.
+- **Root cause**: The table's exact counts were asserted nowhere in the test
+  suite. Individual tests checked for the *presence* of specific finding
+  types but never the *total* count, so an extra Finding from an unrelated
+  change had nothing to fail.
+- **Fix**: Corrected the table to current, re-verified counts with an
+  explicit note distinguishing pre-existing drift from a new session's
+  genuine addition (don't let a new true positive hide inside an
+  already-stale number). Added a dedicated regression test asserting the
+  exact (findings, high/critical) tuple per fixture.
+- **Prevention**: Any doc claiming an exact reproducible number from running
+  code needs a test that asserts that exact number, not just a related
+  behavior. When adding a new rule, always replay it against every existing
+  checked-in fixture and diff the counts before touching any doc table —
+  this is how the pre-existing drift was found in the first place.
+- **Evidence**: Round 36 `test_documented_fixture_finding_counts_do_not_silently_drift`.
+
 ### 2026-07-22 — A risk's own declared knownGaps is a ready-made backlog
 
 - **Symptom**: Looking for the next detection gap to close required manual

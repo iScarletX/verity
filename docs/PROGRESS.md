@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "9227fa7c83c61ed7e87d6a40cd284ccb53287fbc"
-  tests_collected: 501
-  tests_passed: 501
+  commit: "25e0fec2c6c3cea1a29f3537d643dadb7d674029"
+  tests_collected: 502
+  tests_passed: 502
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -42,6 +42,41 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 36 (2026-07-22) → regression sweep finds and fixes a stale README table (partly pre-existing)
+
+- Ran a systematic regression check: replayed every Session-added rule
+  (Round 29–33: `prompt.untrusted_input_boundary_undeclared`,
+  `prompt.dangling_section_reference`, `skill.sensitive_path_access`,
+  Bandit `B501`) against every existing checked-in Skill/Prompt fixture to
+  confirm none of them introduced a false positive on previously-clean
+  fixtures.
+- Found `missing_refs_skill` genuinely gains one more high finding from
+  `skill.sensitive_path_access` (correct: the fixture's manifest literally
+  references `/etc/passwd`, a distinct risk class — VR-SKILL-014, not the
+  reference-path rule's VR-SKILL-002). No unintended false positives found
+  on any other fixture.
+- While checking this, discovered the README's documented exit-code demo
+  table ("Recorded findings on the checked-in fixtures") had ALREADY
+  drifted from actual runtime behaviour in earlier rounds, independently
+  of this session: `missing_refs_skill` was already 4/2 at commit
+  `3e854ec` (before this session started), not the documented 3/2, and
+  `python_shell_true_skill` was already 4/1, not 3/1 — both due to an
+  undocumented `directory_mismatch` Finding that a prior round's fixture-
+  rename apparently introduced without updating this table. Nothing had
+  ever asserted the table's exact counts, so it silently drifted for
+  multiple rounds unnoticed.
+- Corrected the table to the current, re-verified real counts (with an
+  explicit note distinguishing the pre-existing drift from this session's
+  genuine addition) and added
+  `test_documented_fixture_finding_counts_do_not_silently_drift`, which
+  locks in the exact (findings, high/critical) count per fixture so future
+  rule changes cannot silently drift the table again without a test
+  failing first.
+- No rule/detector/corpus change this round — pure regression verification
+  and a documentation-drift fix uncovered by it. Full suite: 501 -> 502
+  passed, 0 skipped. Round 35 landed as commit `25e0fec` with GitHub CI
+  #32 successful.
 
 ## Round 35 (2026-07-22) → corpus evidence for four more existing-but-unmeasured Skill rules
 

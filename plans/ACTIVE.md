@@ -10,6 +10,16 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 36 (done) — regression sweep + stale README table fix
+
+Replayed all session-added rules against every checked-in fixture: no
+unintended false positives; missing_refs_skill correctly gains one true
+high finding (skill.sensitive_path_access on /etc/passwd). Found the
+README exit-code table had ALREADY drifted before this session
+(undocumented directory_mismatch finding from an earlier round). Fixed the
+table and added a regression test locking in exact counts. No rule/corpus
+change. 502 tests total. decision stays release_candidate.
+
 ## Round 35 (done) — corpus evidence for four more existing Skill rules
 
 Added corpus pairs for VR-SKILL-005 (external instructions), VR-SKILL-007

@@ -98,6 +98,34 @@ class TestFixturesEndToEnd:
             for f in r.findings if f.findingType == "skill.manifest_reference_issue"
         }
         assert {"not_found", "absolute_path", "path_escape"} <= issues
+        # Also references /etc/passwd, a well-known sensitive host path,
+        # independently of the reference-path rule above (different risk:
+        # VR-SKILL-014, not VR-SKILL-002).
+        assert "skill.sensitive_path_access" in _types(r)
+
+    def test_documented_fixture_finding_counts_do_not_silently_drift(self):
+        """README's exit-code demo table names an exact (findings,
+        high/critical) count per checked-in fixture. Nothing previously
+        asserted these totals, so the table silently drifted across
+        several rounds without any test catching it (discovered in
+        Round 36). Lock in the current, README-verified counts so future
+        rule additions/removals cannot drift the table again without a
+        test failing first.
+        """
+        expected = {
+            "clean-skill": (0, 0),
+            "malformed_manifest_skill": (2, 2),
+            "missing_refs_skill": (5, 3),
+            "risky_permissions_skill": (5, 2),
+            "external_instructions_skill": (2, 1),
+            "python_shell_true_skill": (4, 1),
+        }
+        for name, (total, high_crit) in expected.items():
+            r = _run(str(FIXTURES / name))
+            assert len(r.findings) == total, f"{name}: finding count drifted"
+            actual_hc = sum(1 for f in r.findings
+                           if f.severity in ("high", "critical"))
+            assert actual_hc == high_crit, f"{name}: high/critical count drifted"
 
     def test_risky_permissions_and_unpinned(self):
         r = _run(str(FIXTURES / "risky_permissions_skill"))
