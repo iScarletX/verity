@@ -207,6 +207,78 @@ class TestBanditStubs:
 # B. Real Bandit end-to-end (uses locked pinned bandit)                   #
 # ====================================================================== #
 
+class TestAllCuratedBanditIdsFireOnRealTrigger:
+    """Round 39 audit, made permanent. B303 shipped since Round 4 and never
+    actually fired on any real input for 35 rounds because no test ever
+    exercised a real trigger for it through the real Bandit subprocess (the
+    real id for hashlib.md5() on this Python range is B324, not B303 --
+    see LESSONS 2026-07-22). This test proves EVERY currently curated
+    Bandit test_id actually fires on a minimal real trigger snippet, so a
+    future silently-dead mapping (e.g. from a Bandit/Python upgrade
+    changing which id a pattern reports under) fails a test immediately
+    instead of shipping unnoticed for years.
+    """
+
+    # One minimal, real trigger snippet per currently curated test_id.
+    # Keep in sync with _BANDIT_RULES in builtins.py; the count-matching
+    # test below fails loudly if this list and the curated set diverge.
+    _TRIGGERS: Dict[str, str] = {
+        "B102": 'exec("print(1)")\n',
+        "B105": 'password = "hardcoded_password_value_123"\n',
+        "B106": ('def do_login(user):\n    pass\n\n'
+                 'do_login(password="hardcoded_value")\n'),
+        "B107": ('def some_function(user, password="Admin"):\n'
+                 '    print("Hi " + user)\n'),
+        "B301": ('import pickle\n\n\ndef load(data):\n'
+                 '    return pickle.loads(data)\n'),
+        "B310": ('import urllib.request\n\n\ndef fetch(url):\n'
+                 '    return urllib.request.urlopen(url)\n'),
+        "B314": ('import xml.etree.ElementTree as ET\n\n\n'
+                 'def parse(data):\n    return ET.fromstring(data)\n'),
+        "B324": ('import hashlib\n\n\ndef h(data):\n'
+                 '    return hashlib.md5(data).hexdigest()\n'),
+        "B501": ('import requests\n\n\ndef fetch(url):\n'
+                 "    return requests.get(url, verify=False)\n"),
+        "B506": ('import yaml\n\n\ndef load(data):\n'
+                 '    return yaml.load(data, Loader=yaml.Loader)\n'),
+        "B602": ('import subprocess\n\n\ndef run(cmd):\n'
+                 '    subprocess.run(cmd, shell=True)\n'),
+        "B605": 'import os\n\n\ndef run(cmd):\n    os.system(cmd)\n',
+        "B607": ('import subprocess\n\n\ndef run():\n'
+                 '    subprocess.run(["ls", "-la"])\n'),
+        "B608": ('def query(cursor, user_id):\n'
+                 '    cursor.execute("SELECT * FROM users WHERE id = " '
+                 '+ user_id)\n'),
+        "B701": ('from jinja2 import Environment\n\n'
+                 'env = Environment(autoescape=False)\n'),
+    }
+
+    def test_every_curated_bandit_id_fires_end_to_end(self, tmp_path):
+        from verity.builtins import build_skill_rule_registry, build_finding_type_registry
+        ftr = build_finding_type_registry()
+        rr = build_skill_rule_registry(ftr)
+        curated_ids = {rid.split(".")[-1] for rid in rr._by_id
+                      if rid.startswith("skill.bandit.")}
+        # Keep this test itself honest: it must cover every currently
+        # curated id, neither more nor fewer.
+        assert set(self._TRIGGERS) == curated_ids, (
+            "trigger snippet set has drifted from the curated Bandit id "
+            "set -- update _TRIGGERS to match builtins.py's _BANDIT_RULES")
+        for expected_id, code in self._TRIGGERS.items():
+            root = tmp_path / expected_id
+            root.mkdir()
+            (root / "SKILL.md").write_text(
+                "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
+            (root / "target.py").write_text(code)
+            r = _run_skill(root)
+            hits = {f.subject.get("testId") for f in r.findings
+                    if f.findingType == "skill.bandit_finding"}
+            assert expected_id in hits, (
+                f"curated id {expected_id} never fired on its own trigger "
+                f"snippet (got {hits or 'nothing'}) -- this is exactly the "
+                f"class of dead-configuration bug found in Round 39 (B303)")
+
+
 class TestBanditReal:
     def test_shell_true_flagged_by_bandit_and_handwritten_suppressed(self):
         r = _run_skill(FIXTURES / "python_shell_true_skill")

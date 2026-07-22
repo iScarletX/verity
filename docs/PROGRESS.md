@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "c062dde80307efab11ccbf9db9d4554b999df23b"
-  tests_collected: 508
-  tests_passed: 508
+  commit: "1c62eb47725a0ce4329a8cfe859d83d3d336b503"
+  tests_collected: 509
+  tests_passed: 509
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -40,6 +40,28 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 40 (2026-07-22) → full Bandit id audit + permanent dead-mapping regression gate
+
+- Following Round 39's B303 discovery, audited all 15 currently curated
+  Bandit test_ids end to end (through Verity's real pipeline, not raw
+  Bandit) with one minimal real trigger snippet per id: B102, B105, B106,
+  B107, B301, B310, B314, B324, B501, B506, B602, B605, B607, B608, B701.
+  All 15 fire correctly and exclusively as registered — B303 was the only
+  dead mapping; no other curated id has the same problem today.
+- Made the audit permanent: added
+  `TestAllCuratedBanditIdsFireOnRealTrigger`, which builds one skill
+  fixture per curated id from a real trigger snippet, runs it through the
+  real Bandit subprocess via Verity's pipeline, and asserts the expected
+  id is present in the findings. The test also asserts its own trigger-
+  snippet set exactly matches the currently curated id set (from
+  `builtins.py`), so adding a new curated Bandit id without a
+  corresponding real trigger fails this test immediately instead of
+  silently shipping a dead mapping the way B303 did for 35 rounds.
+- No product/rule/corpus change this round — pure regression-gate
+  hardening following directly from Round 39's finding. Full suite:
+  508 -> 509 passed, 0 skipped. `decision` remains `release_candidate`.
+  Round 39 landed as commit `1c62eb4` with GitHub CI #36 successful.
 
 ## Round 39 (2026-07-22) → CORRECTNESS FIX: skill.bandit.B303 was dead configuration since Round 4
 

@@ -10,6 +10,14 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 40 (done) — full Bandit id audit + permanent regression gate
+
+Audited all 15 curated Bandit ids end to end; B303 was the only dead
+mapping (fixed in Round 39). Added TestAllCuratedBanditIdsFireOnRealTrigger
+(one real trigger per curated id + a self-consistency check against the
+curated set) so a future silent mapping drift fails immediately. No
+product/rule/corpus change. 509 tests. decision stays release_candidate.
+
 ## Round 39 (done) — CORRECTNESS FIX: B303 was dead configuration since Round 4
 
 Most consequential fix of the session. skill.bandit.B303 (weak-hash rule,
