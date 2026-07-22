@@ -9,7 +9,7 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "d86ca16c4b7159ef6d38579aa2ea12bd5c19a20e"
+  commit: "10476290d7dece025aea9a6746d94d24c853ef75"
   tests_collected: 510
   tests_passed: 510
   tests_skipped: 0
@@ -40,6 +40,32 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 45 (2026-07-22) → update knownGaps for risks whose detector coverage grew this session
+
+- Round 44 fixed a stale `knownGaps` list caused by an old (Round 16) fix
+  never being reflected in the taxonomy. Checked whether this session's
+  OWN new detectors (Rounds 33/38 added `B501`/`B324`/`B314` to
+  `VR-SKILL-007`/`VR-SKILL-008`) had the same staleness problem already,
+  before it could sit unnoticed for future rounds.
+- `VR-SKILL-007`'s gap said "Only selected Python Bandit checks" without
+  naming which ones, so it did not read as stale, but it was worth being
+  concrete: named the three now-curated checks (`B301` pickle, `B506`
+  yaml.load, `B314` XML parser) and sharpened the data-flow gap wording.
+- `VR-SKILL-008`'s gap literally said "Only **one** selected weak-hash
+  Bandit check" and "No TLS verification/transport matrix" — both now
+  false: Round 38 added `B324` (making two Bandit checks: weak-hash +
+  TLS-verification-disabled `B501`). Rewrote to name both current checks
+  and narrow the still-real residual gap (no certificate-pinning/cipher-
+  suite/protocol-version matrix beyond the disabled-verification case).
+- `VR-SKILL-010` was checked and left unchanged: it gained no new
+  detector this session (still only Jinja `B701`), so its existing gap
+  text remains accurate.
+- No code/rule/detector change; docs-only correction following directly
+  from this session's own additions, closing the loop before it could
+  become a future round's "discovered stale gap" finding. Full suite
+  still 510 passed, 0 skipped; `decision` remains `release_candidate`.
+  Round 44 landed as commit `1047629` with GitHub CI #41 successful.
 
 ## Round 44 (2026-07-22) → fix a stale knownGaps list (VR-SKILL-001)
 

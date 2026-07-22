@@ -733,8 +733,8 @@
         "V2_sandbox": "none"
       },
       "knownGaps": [
-        "Only selected Python Bandit checks",
-        "No source-to-sink data flow",
+        "Only selected Python Bandit checks (pickle B301, unsafe yaml.load B506, unsafe XML parser B314)",
+        "No source-to-sink data flow (pattern presence only, cannot prove the input is attacker-controlled)",
         "No other-language deserializers"
       ],
       "evaluationReference": null
@@ -775,9 +775,9 @@
         "V2_sandbox": "none"
       },
       "knownGaps": [
-        "Only one selected weak-hash Bandit check",
-        "No TLS verification/transport matrix",
-        "No non-Python coverage"
+        "Only selected Python Bandit checks (weak hash B324, TLS verification disabled B501)",
+        "No non-Python coverage",
+        "No certificate pinning/cipher-suite/protocol-version matrix beyond disabled verification"
       ],
       "evaluationReference": null
     },

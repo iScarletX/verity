@@ -10,6 +10,15 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 45 (done) — keep this session's own knownGaps updates honest
+
+Checked VR-SKILL-007/008/010 (which gained new detectors this session) for
+the same staleness Round 44 found elsewhere. VR-SKILL-008's gap literally
+said 'only one weak-hash check' and 'no TLS matrix' -- both now false after
+Round 38 added B324/B501. Rewrote both risks' knownGaps to name current
+detectors and the still-real residual gaps. VR-SKILL-010 unchanged (no new
+detector). Docs-only. 510 tests. decision stays release_candidate.
+
 ## Round 44 (done) — fix stale VR-SKILL-001 knownGaps
 
 Three of four claimed gaps were already fixed by Round 16 (name syntax,
