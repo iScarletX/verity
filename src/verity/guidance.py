@@ -461,6 +461,19 @@ _BANDIT_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P1",
     ),
+    "B501": Guidance(
+        id="skill.bandit.B501",
+        plainTitle="HTTPS 请求关闭了证书验证（verify=False）",
+        whyItMatters=(
+            "关闭证书验证后，任何人都可以用中间人攻击伪造服务器、窃听或篡改传输中的数据，"
+            "尤其当这段请求携带凭据或敏感信息时风险更高。"
+        ),
+        whatToDo=[
+            "删除 verify=False，使用默认的证书验证。",
+            "若是内部自签证书，改为传入 verify='/path/to/ca-bundle.pem' 而不是关闭验证。",
+        ],
+        priority="P0",
+    ),
     "B310": Guidance(
         id="skill.bandit.B310",
         plainTitle="urllib.urlopen 打开可能包含 file:// 等不可信协议的 URL",

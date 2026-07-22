@@ -14,6 +14,23 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — A risk's own declared knownGaps is a ready-made backlog
+
+- **Symptom**: Looking for the next detection gap to close required manual
+  guessing about what might be missing.
+- **Root cause**: Every risk in `standards/risks.json` already declares an
+  explicit, honest `knownGaps` list (e.g. VR-SKILL-008 said "No TLS
+  verification/transport matrix"). These were written when the risk was
+  first registered but nothing forced anyone to revisit and close them.
+- **Fix**: Treated a risk's own `knownGaps` text as a literal backlog item;
+  verified the concrete mature-tool test id it named (Bandit B501) actually
+  exists and fires as expected before adding it, rather than assuming.
+- **Prevention**: Before inventing a new detector idea from scratch, first
+  check whether the risk it would address already names the exact gap in
+  its own `knownGaps` field -- it may already point at the specific mature-
+  tool check id to adopt.
+- **Evidence**: Round 33 `skill.bandit.B501`, VR-SKILL-008 knownGaps entry.
+
 ### 2026-07-22 — A corpus case is a stronger test than a hand-picked unit test
 
 - **Symptom**: A new deterministic rule (Round 29's untrusted-input-boundary

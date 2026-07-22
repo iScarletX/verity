@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.2.0",
+  "corpusVersion": "1.3.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -559,6 +559,40 @@
       "expectedRiskIds": [],
       "path": "cases/prompt-dangling-reference-safe/prompt.txt",
       "rationale": "References 'section 3' and the document defines a matching Section 3 heading with the escalation procedure.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-tls-verification-positive",
+      "objectType": "skill",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-SKILL-008"
+      ],
+      "expectedRiskIds": [
+        "VR-SKILL-008"
+      ],
+      "path": "cases/skill-tls-verification-positive",
+      "rationale": "HTTPS client calls requests.get(url, verify=False), disabling TLS certificate verification (CWE-295), detected by Bandit B501.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "high",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "skill-tls-verification-safe",
+      "objectType": "skill",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-SKILL-008"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/skill-tls-verification-safe",
+      "rationale": "HTTPS client uses requests.get(url) with default certificate verification enabled.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

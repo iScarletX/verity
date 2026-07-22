@@ -10,6 +10,14 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 33 (done) — close the TLS-verification known gap (Bandit B501)
+
+VR-SKILL-008's own declared knownGaps said "No TLS verification/transport
+matrix" -- added Bandit B501 (request_with_no_cert_validation, CWE-295,
+high) to the curated set (12->13), + detector mapping + corpus pair + 2
+real-subprocess tests + guidance entry. VR-SKILL-008 now measured
+(precision/recall 1.0). decision stays release_candidate. 501 tests total.
+
 ## Round 32 (done) — close remaining evidence gaps (VR-SKILL-014, VR-PROMPT-010)
 
 Added corpus positive/safe pairs for Round 30's sensitive-path rule and

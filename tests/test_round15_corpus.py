@@ -19,12 +19,12 @@ REPO = Path(__file__).parent.parent
 
 def test_manifest_is_balanced_traceable_and_independent_of_rule_ids():
     manifest = load_manifest()
-    assert manifest["corpusVersion"] == "1.2.0"
-    assert len(manifest["cases"]) == 32
+    assert manifest["corpusVersion"] == "1.3.0"
+    assert len(manifest["cases"]) == 34
     positives = [c for c in manifest["cases"] if c["label"] == "unsafe"]
     safe = [c for c in manifest["cases"]
             if c["label"] == "safe_counterexample"]
-    assert len(positives) == len(safe) == 16
+    assert len(positives) == len(safe) == 17
     text = (REPO / "evals/corpus/v1/manifest.json").read_text()
     # Answer keys use stable risks only, never detector/rule names.
     mappings = load_detector_mappings()
@@ -46,21 +46,23 @@ def test_manifest_is_balanced_traceable_and_independent_of_rule_ids():
                            "skill-sensitive-path-positive",
                            "skill-sensitive-path-safe",
                            "prompt-dangling-reference-positive",
-                           "prompt-dangling-reference-safe"}
+                           "prompt-dangling-reference-safe",
+                           "skill-tls-verification-positive",
+                           "skill-tls-verification-safe"}
 
 
 def test_l0_metrics_are_per_risk_and_never_a_safety_score():
     report = evaluate()
     assert report["baselineClass"] == "minimal_pair_baseline"
     assert report["aggregateSafetyScore"] is None
-    assert report["caseCount"] == 32
+    assert report["caseCount"] == 34
     assert report["stability"] == {
-        "stableCases": 32, "unstableCases": 0, "rate": 1.0}
+        "stableCases": 34, "unstableCases": 0, "rate": 1.0}
     assert report["highOrCriticalUnsafeCases"] == {
-        "caseCount": 6, "tp": 6, "fn": 0}  # Round 32 added skill-sensitive-path-positive (high)
+        "caseCount": 7, "tp": 7, "fn": 0}  # Round 33 added skill-tls-verification-positive (high)
     measured = [r for r in report["riskResults"]
                 if r["status"] == "measured"]
-    assert len(measured) == 13  # Round 31 added VR-PROMPT-008; Round 32 added VR-SKILL-014, VR-PROMPT-010
+    assert len(measured) == 14  # Round 31: VR-PROMPT-008; Round 32: VR-SKILL-014, VR-PROMPT-010; Round 33: VR-SKILL-008
     assert all(r["caseCount"] == (8 if r["riskId"] == "VR-SKILL-001" else 2)
                for r in measured)
     assert all(set(r["confusion"]) == {"tp", "fp", "tn", "fn"}

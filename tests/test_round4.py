@@ -224,6 +224,34 @@ class TestBanditReal:
         assert br["toolName"] == "bandit"
         assert br["toolVersion"] == "1.7.10"
 
+    def test_b501_tls_verification_disabled_is_high(self, tmp_path):
+        """Round 33: closes the 'no TLS verification matrix' known gap on
+        VR-SKILL-008. Bandit B501 fires on requests.get(..., verify=False),
+        a real disabled-certificate-validation pattern (CWE-295)."""
+        (tmp_path / "SKILL.md").write_text(
+            "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
+        (tmp_path / "client.py").write_text(
+            "import requests\n"
+            "requests.get('https://example.com', verify=False)\n")
+        r = _run_skill(tmp_path)
+        hits = [f for f in r.findings
+               if f.findingType == "skill.bandit_finding"
+               and f.subject.get("testId") == "B501"]
+        assert len(hits) == 1
+        assert hits[0].severity == "high"
+        assert hits[0].subject.get("cwe") == "CWE-295"
+
+    def test_b501_absent_when_verification_enabled(self, tmp_path):
+        (tmp_path / "SKILL.md").write_text(
+            "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n")
+        (tmp_path / "client.py").write_text(
+            "import requests\n"
+            "requests.get('https://example.com')\n")
+        r = _run_skill(tmp_path)
+        assert not [f for f in r.findings
+                   if f.findingType == "skill.bandit_finding"
+                   and f.subject.get("testId") == "B501"]
+
     def test_bandit_tmpdir_is_removed_after_run(self, tmp_path):
         # Assert the tmpdir(s) created *by this run* are gone, rather than
         # diffing the shared temp root globally (which is polluted by

@@ -637,6 +637,9 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
          "Hardcoded password default argument.", ["OWASP-AST02"]),
         ("B107", "medium",
          "Hardcoded password default parameter.", ["OWASP-AST02"]),
+        ("B501", "high",
+         "HTTPS/TLS request made with certificate verification disabled "
+         "(e.g. requests.get(..., verify=False)); CWE-295.", ["OWASP-AST02"]),
     ]
     for test_id, sev, title, owasp in _BANDIT_RULES:
         rr.register(RuleDefinition(

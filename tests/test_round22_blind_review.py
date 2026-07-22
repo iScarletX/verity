@@ -184,7 +184,9 @@ def test_committed_attestation_binds_exactly_54_nonsealed_current_payloads():
                               "skill-sensitive-path-positive",
                               "skill-sensitive-path-safe",
                               "prompt-dangling-reference-positive",
-                              "prompt-dangling-reference-safe"}
+                              "prompt-dangling-reference-safe",
+                              "skill-tls-verification-positive",
+                              "skill-tls-verification-safe"}
     assert {c["labelStatus"] for c in semantic["cases"]
             if c["split"] != "test"} == {"independent_ai_review"}
     assert {c["labelStatus"] for c in semantic["cases"]
