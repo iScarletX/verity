@@ -422,10 +422,9 @@
         "V2_sandbox": "none"
       },
       "knownGaps": [
-        "Current name syntax is looser than the official specification",
-        "No parent-directory name match",
-        "No license/compatibility/metadata validation",
-        "No explicit supported spec version"
+        "No 'license' field validation (not currently a checked manifest field)",
+        "No cross-check that declared allowed-tools/permissions syntax is fully parsed against a formal grammar (shape-only checks)",
+        "Only the single spec snapshot retrieved-2026-07-21 is validated against; no multi-version compatibility matrix"
       ],
       "evaluationReference": null
     },

@@ -9,7 +9,7 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "c657d988fa595733795a6cdc1bdf44e51d9617da"
+  commit: "d86ca16c4b7159ef6d38579aa2ea12bd5c19a20e"
   tests_collected: 510
   tests_passed: 510
   tests_skipped: 0
@@ -40,6 +40,34 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 44 (2026-07-22) → fix a stale knownGaps list (VR-SKILL-001)
+
+- Applying the same "a risk's own knownGaps is a ready-made backlog"
+  method from Round 37, checked `VR-SKILL-001`'s declared gaps against
+  current code. Three of its four claimed gaps were stale, already fixed
+  by Round 16 and never updated: name-syntax strictness (the regex
+  already rejects uppercase/underscore/leading/trailing/consecutive
+  hyphens and enforces the 64-char cap), parent-directory name match
+  (`skill_manifest_name_issue` already compares against
+  `snapshot.artifactRootName`), and an explicit supported spec version
+  (`AGENT_SKILLS_SPEC_SNAPSHOT = "retrieved-2026-07-21"` already exists
+  and is cited in the README rule table).
+- The fourth claim ("No license/compatibility/metadata validation") was
+  half-stale: `compatibility` and `metadata` shape validation already
+  exist in `skill_manifest_optional_field_issue`; only `license` field
+  validation is genuinely absent (the spec has no such required field for
+  Verity to validate against in the current snapshot; this is a narrower,
+  honest residual gap, not the broad claim previously recorded).
+- Rewrote `VR-SKILL-001`'s `knownGaps` to the three claims that are
+  actually still true today (no `license` field validation, allowed-
+  tools/permissions checked only for shape not a formal grammar, only one
+  spec snapshot validated with no multi-version matrix). No code/rule/
+  detector change — this is the same class of documentation drift as
+  Round 36's README table, just in the standards taxonomy this time.
+- Full suite still 510 passed, 0 skipped; `decision` remains
+  `release_candidate`. Round 43 landed as commit `d86ca16` with GitHub CI
+  #40 successful.
 
 ## Round 43 (2026-07-22) → close the "does every claimed capability actually fire" audit campaign
 

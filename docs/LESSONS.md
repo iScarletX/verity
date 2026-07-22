@@ -36,6 +36,27 @@ adding, put the most recent entry at the TOP.
 - **Evidence**: Round 41
   `test_python_subprocess_shell_true_fallback_fires_when_bandit_fails`.
 
+### 2026-07-22 — A risk's knownGaps list can go stale the same way a README table can
+
+- **Symptom**: `VR-SKILL-001`'s `knownGaps` claimed "name syntax is looser
+  than spec", "no parent-directory match", and "no explicit spec version"
+  — but all three were fixed by Round 16 and the taxonomy entry was never
+  updated afterward.
+- **Root cause**: Fixing a gap in code does not automatically update the
+  standards taxonomy's prose description of that gap; nothing checks
+  `knownGaps` text against runtime behavior.
+- **Fix**: Verified each claim against current code/tests, then rewrote
+  the list to only the parts still genuinely true (narrowed the fourth
+  claim from a broad "no license/compatibility/metadata validation" to
+  the accurate "no license field validation" — compatibility/metadata
+  are already checked).
+- **Prevention**: When using a risk's `knownGaps` as a backlog (Round 37's
+  method), first verify each claim is still true before either acting on
+  it or leaving it standing — the same document-drift risk as an exact-
+  count table (Round 36) applies to any prose claim about current
+  behavior.
+- **Evidence**: Round 44 `standards/risks.json` VR-SKILL-001 update.
+
 ### 2026-07-22 — A curated mature-tool test id can be dead configuration for years if never exercised end-to-end
 
 - **Symptom**: While adding a new Bandit-based rule, discovered that

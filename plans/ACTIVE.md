@@ -10,6 +10,14 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 44 (done) — fix stale VR-SKILL-001 knownGaps
+
+Three of four claimed gaps were already fixed by Round 16 (name syntax,
+directory match, spec version) and never updated in the taxonomy. Fourth
+claim narrowed to what's actually still missing (license field only;
+compatibility/metadata already validated). Docs-only fix. 510 tests.
+decision stays release_candidate.
+
 ## Round 43 (done) — close the audit campaign
 
 Audited the remaining surfaces (9 Prompt rules, 7 semantic extractors,
