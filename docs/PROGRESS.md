@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "d7e2ea439c4eb1e35f3ccefd677cbdab6d0e856a"
-  tests_collected: 477
-  tests_passed: 477
+  commit: "133f767b209b25ea223b07f334c5f2ce7b865ea0"
+  tests_collected: 493
+  tests_passed: 493
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,7 +27,7 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 25 unified risks, 42 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 12 signal / 9 partial. Current L1 breadth: 15 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
+**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 26 unified risks, 44 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 13 signal / 9 partial. Current L1 breadth: 16 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
 **Corpus baseline.** The Corpus has 26 synthetic L0 cases across 10 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). All 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
@@ -42,6 +42,63 @@ Strings below MUST match the runtime literals.
 ---
 
 ## Round history (append-only)
+
+## Round 29 (2026-07-22) → close a real detection gap: two new deterministic Prompt rules + long-document semantic fix
+
+- User-reported symptom: a real production system prompt (NexPlay Creative
+  Agent, ~250+ lines) produced zero findings from Verity, while an external
+  reviewer (Butler) found several real issues including a genuine security
+  gap. Root-caused two independent, honest coverage gaps rather than
+  patching cosmetically:
+  1. **No deterministic rule existed at all** for "declares acceptance of
+     external/user-supplied content but states no trust boundary /
+     anti-injection-override anywhere" (VR-PROMPT-008, OWASP LLM01). This is
+     exactly the gap the external report's highest-priority finding named.
+  2. The semantic `instruction_conflict` extractor hard-capped candidate
+     lines to the document's first 16 lines. On a long prompt, a genuine
+     conflict whose two sides are both past line 16 produced **zero seeds**,
+     so the semantic stage never even called a model for it — silently, with
+     no error. Verified with a 192-line synthetic case: conflict at lines
+     141/172 was invisible before the fix, found after.
+- Added two new deterministic Prompt rules (builtins.py/engine.py):
+  `prompt.untrusted_input_boundary_undeclared` (medium, system_prompt only,
+  English+Chinese phrase lists, fenced-code excluded, maps VR-PROMPT-008) and
+  `prompt.dangling_section_reference` (medium, any prompt kind, strict
+  numbered "see section N"/"见第N节" forms only, checked against the
+  document's own headings, maps new risk VR-PROMPT-010 "Internal reference
+  integrity"). Both are structural-absence/consistency patterns — the same
+  class as existing manifest checks — not free-form LLM guesses.
+- Fixed `extract_instruction_conflict` (semantic/catalog.py):
+  `_select_conflict_candidate_lines` keeps the original exhaustive behaviour
+  unchanged for short documents (<=16 lines, byte-for-byte same existing
+  test results), and for longer documents additionally anchors on lines
+  carrying a strong-constraint marker (must/never/必须/绝不/...) so a real
+  conflict anywhere in the document can still produce a seed, bounded (24
+  anchored + head window, capped combinations) so it cannot explode on a
+  huge prompt.
+- Added `VR-PROMPT-010` to `standards/risks.json` (26 risks total, L0
+  coverage `signal`) with an honest `verityOriginalRationale` (not claimed
+  against an external security taxonomy) and 2 new detector mappings (44
+  runtime components total). Regenerated both offline reports
+  (`corpus-v1-l0.json`, `v1-closure.json`); `decision` remains
+  `release_candidate` — this round only strengthens the deterministic
+  scope, it does not touch the semantic quality track.
+- Surveyed local prior-art (Butler project docs, `docs/工具/Butler/`) for
+  ideas, not code: the AgentLinter rule-catalog reference and the Butler
+  static/semantic layering design independently confirm Verity's L0/L1
+  split and pointed at concrete, currently-missing deterministic checks
+  (dangling cross-references, declared-input-without-trust-boundary). No
+  code, dependency, or detector was copied; both new rules were written
+  from scratch against Verity's own registry/evidence/subject-key
+  contracts and tested against false positives before landing.
+- Added 16 new tests (6 untrusted-input-boundary incl. fenced-code and
+  prompt-kind-gate cases, 7 dangling-reference incl. a mid-sentence-false-
+  heading regression guard, 3 long-document/short-document extractor
+  cases). Guidance catalog entries added for both new FindingTypes. README
+  Prompt rule inventory table and breadth counts updated to match runtime.
+  Full suite: 477 -> 493 passed, 0 skipped. V1 remains `release_candidate`
+  (deterministic scope); semantic quality track unchanged. Round 28 landed
+  as commit `133f767` with GitHub CI #25 successful.
 
 ## Round 28 (2026-07-22) → semantic UX: show partial findings + retry transient errors
 

@@ -1,50 +1,363 @@
 {
   "schemaVersion": 1,
   "detectors": [
-    {"detectorType":"deterministic_rule","detectorId":"prompt.instruction_override_marker","riskIds":["VR-PROMPT-001"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"prompt.unfilled_placeholder","riskIds":["VR-PROMPT-002"],"contribution":"partial"},
-    {"detectorType":"deterministic_rule","detectorId":"prompt.system_hardcoded_secret","riskIds":["VR-PROMPT-003"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"prompt.duplicate_numeric_assignment","riskIds":["VR-PROMPT-004"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"prompt.control_character","riskIds":["VR-PROMPT-005"],"contribution":"partial"},
-    {"detectorType":"deterministic_rule","detectorId":"prompt.empty_or_whitespace","riskIds":["VR-PROMPT-002"],"contribution":"partial"},
-    {"detectorType":"deterministic_rule","detectorId":"prompt.open_ended_tool_wildcard","riskIds":["VR-PROMPT-007"],"contribution":"signal"},
-
-    {"detectorType":"deterministic_rule","detectorId":"skill.missing_skill_md","riskIds":["VR-SKILL-001"],"contribution":"partial"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_parse_failure","riskIds":["VR-SKILL-001"],"contribution":"partial"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_name_issue","riskIds":["VR-SKILL-001"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_description_missing","riskIds":["VR-SKILL-001"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_optional_field_issue","riskIds":["VR-SKILL-001"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_missing_reference","riskIds":["VR-SKILL-002"],"contribution":"partial"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_unsafe_reference_path","riskIds":["VR-SKILL-002"],"contribution":"partial"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_unpinned_dependency","riskIds":["VR-SKILL-003"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_permission_wildcard","riskIds":["VR-SKILL-004"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_external_instructions","riskIds":["VR-SKILL-005","VR-PROMPT-008"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.manifest_script_suffix_mismatch","riskIds":["VR-SKILL-002"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.python_subprocess_shell_true","riskIds":["VR-SKILL-006"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B102","riskIds":["VR-SKILL-006"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B301","riskIds":["VR-SKILL-007"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B303","riskIds":["VR-SKILL-008"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B310","riskIds":["VR-SKILL-009"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B506","riskIds":["VR-SKILL-007"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B602","riskIds":["VR-SKILL-006"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B605","riskIds":["VR-SKILL-006"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B607","riskIds":["VR-SKILL-006"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B701","riskIds":["VR-SKILL-010"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B105","riskIds":["VR-SKILL-011"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B106","riskIds":["VR-SKILL-011"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.bandit.B107","riskIds":["VR-SKILL-011"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.gitleaks_finding","riskIds":["VR-SKILL-011"],"contribution":"partial"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.fake_secret_fixture","riskIds":["VR-SKILL-011"],"contribution":"signal"},
-    {"detectorType":"deterministic_rule","detectorId":"skill.dangerous_shell_pattern","riskIds":["VR-SKILL-006"],"contribution":"signal"},
-
-    {"detectorType":"capability_extractor","detectorId":"skill.capability_facts.v1","riskIds":["VR-SKILL-004","VR-SKILL-006","VR-SKILL-009","VR-SKILL-011","VR-SKILL-012","VR-SKILL-014"],"contribution":"signal"},
-
-    {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.instruction_conflict","riskIds":["VR-PROMPT-004"],"contribution":"signal"},
-    {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.missing_output_contract","riskIds":["VR-PROMPT-006"],"contribution":"signal"},
-    {"detectorType":"semantic_finding_type","detectorId":"semantic.skill.declared_behavior_mismatch","riskIds":["VR-SKILL-012"],"contribution":"signal"},
-    {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.trust_boundary_ambiguity","riskIds":["VR-PROMPT-008"],"contribution":"signal"},
-    {"detectorType":"semantic_finding_type","detectorId":"semantic.prompt.excessive_tool_scope","riskIds":["VR-PROMPT-007"],"contribution":"signal"},
-    {"detectorType":"semantic_finding_type","detectorId":"semantic.skill.permission_capability_mismatch","riskIds":["VR-SKILL-004"],"contribution":"signal"},
-    {"detectorType":"semantic_finding_type","detectorId":"semantic.skill.external_instruction_trust_gap","riskIds":["VR-SKILL-005"],"contribution":"signal"}
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.instruction_override_marker",
+      "riskIds": [
+        "VR-PROMPT-001"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.unfilled_placeholder",
+      "riskIds": [
+        "VR-PROMPT-002"
+      ],
+      "contribution": "partial"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.system_hardcoded_secret",
+      "riskIds": [
+        "VR-PROMPT-003"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.duplicate_numeric_assignment",
+      "riskIds": [
+        "VR-PROMPT-004"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.control_character",
+      "riskIds": [
+        "VR-PROMPT-005"
+      ],
+      "contribution": "partial"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.empty_or_whitespace",
+      "riskIds": [
+        "VR-PROMPT-002"
+      ],
+      "contribution": "partial"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.open_ended_tool_wildcard",
+      "riskIds": [
+        "VR-PROMPT-007"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.missing_skill_md",
+      "riskIds": [
+        "VR-SKILL-001"
+      ],
+      "contribution": "partial"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_parse_failure",
+      "riskIds": [
+        "VR-SKILL-001"
+      ],
+      "contribution": "partial"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_name_issue",
+      "riskIds": [
+        "VR-SKILL-001"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_description_missing",
+      "riskIds": [
+        "VR-SKILL-001"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_optional_field_issue",
+      "riskIds": [
+        "VR-SKILL-001"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_missing_reference",
+      "riskIds": [
+        "VR-SKILL-002"
+      ],
+      "contribution": "partial"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_unsafe_reference_path",
+      "riskIds": [
+        "VR-SKILL-002"
+      ],
+      "contribution": "partial"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_unpinned_dependency",
+      "riskIds": [
+        "VR-SKILL-003"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_permission_wildcard",
+      "riskIds": [
+        "VR-SKILL-004"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_external_instructions",
+      "riskIds": [
+        "VR-SKILL-005",
+        "VR-PROMPT-008"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.manifest_script_suffix_mismatch",
+      "riskIds": [
+        "VR-SKILL-002"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.python_subprocess_shell_true",
+      "riskIds": [
+        "VR-SKILL-006"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B102",
+      "riskIds": [
+        "VR-SKILL-006"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B301",
+      "riskIds": [
+        "VR-SKILL-007"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B303",
+      "riskIds": [
+        "VR-SKILL-008"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B310",
+      "riskIds": [
+        "VR-SKILL-009"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B506",
+      "riskIds": [
+        "VR-SKILL-007"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B602",
+      "riskIds": [
+        "VR-SKILL-006"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B605",
+      "riskIds": [
+        "VR-SKILL-006"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B607",
+      "riskIds": [
+        "VR-SKILL-006"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B701",
+      "riskIds": [
+        "VR-SKILL-010"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B105",
+      "riskIds": [
+        "VR-SKILL-011"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B106",
+      "riskIds": [
+        "VR-SKILL-011"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.bandit.B107",
+      "riskIds": [
+        "VR-SKILL-011"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.gitleaks_finding",
+      "riskIds": [
+        "VR-SKILL-011"
+      ],
+      "contribution": "partial"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.fake_secret_fixture",
+      "riskIds": [
+        "VR-SKILL-011"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.dangerous_shell_pattern",
+      "riskIds": [
+        "VR-SKILL-006"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "capability_extractor",
+      "detectorId": "skill.capability_facts.v1",
+      "riskIds": [
+        "VR-SKILL-004",
+        "VR-SKILL-006",
+        "VR-SKILL-009",
+        "VR-SKILL-011",
+        "VR-SKILL-012",
+        "VR-SKILL-014"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.instruction_conflict",
+      "riskIds": [
+        "VR-PROMPT-004"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.missing_output_contract",
+      "riskIds": [
+        "VR-PROMPT-006"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.skill.declared_behavior_mismatch",
+      "riskIds": [
+        "VR-SKILL-012"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.trust_boundary_ambiguity",
+      "riskIds": [
+        "VR-PROMPT-008"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.excessive_tool_scope",
+      "riskIds": [
+        "VR-PROMPT-007"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.skill.permission_capability_mismatch",
+      "riskIds": [
+        "VR-SKILL-004"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.skill.external_instruction_trust_gap",
+      "riskIds": [
+        "VR-SKILL-005"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.untrusted_input_boundary_undeclared",
+      "riskIds": [
+        "VR-PROMPT-008"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.dangling_section_reference",
+      "riskIds": [
+        "VR-PROMPT-010"
+      ],
+      "contribution": "signal"
+    }
   ]
 }

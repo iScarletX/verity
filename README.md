@@ -55,8 +55,8 @@ future `semantic: completed` means the controlled semantic stage ran, not that
 semantic coverage is complete.
 
 The machine-readable [`standards/`](standards/README.md) baseline separates
-these axes. It records 25 unified risks and rates current breadth only as
-`none`, `signal`, or `partial`. Current L1 breadth is still only 15 none / 9
+these axes. It records 26 unified risks and rates current breadth only as
+`none`, `signal`, or `partial`. Current L1 breadth is still only 16 none / 9
 signal / 1 partial: seven semantic Finding Types do not make semantic review
 complete. The versioned [`evals/`](evals/README.md)
 minimal paired corpus reproduces per-risk L0 confusion matrices and fixed
@@ -359,6 +359,8 @@ prompt registry now contains the following deterministic rules:
 | `prompt.control_character` | medium | any | ASCII control characters (except \t, \n, \r) and Unicode bidi overrides (U+202A–U+202E, U+2066–U+2069). NUL is rejected at intake, not here. |
 | `prompt.empty_or_whitespace` | medium | any | Empty or whitespace-only prompt content. |
 | `prompt.open_ended_tool_wildcard` | high | `system_prompt` only | Only strict-form matches: `allowed_tools: *`, `permissions: ["*"]`, `tools: ["*"]`. Narrative star is not matched. |
+| `prompt.untrusted_input_boundary_undeclared` | medium | `system_prompt` only | Declares acceptance of external/user-supplied content (English/Chinese phrase list) with no trust-boundary or anti-injection-override statement anywhere in the document. Literal phrase presence/absence only — cannot judge whether a present mitigation is actually effective. Maps to VR-PROMPT-008. |
+| `prompt.dangling_section_reference` | medium | any | "see section N" / "见第N节" whose target number has no matching heading anywhere in the document. Only strict numbered-section forms are matched; free-form prose pointers ("see the rules above") are not. Maps to VR-PROMPT-010. |
 
 Severity discipline (also visible in the HTML report):
 

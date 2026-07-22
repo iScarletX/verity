@@ -34,6 +34,45 @@ def test_instruction_conflict_seeds_non_adjacent_lines():
     assert len(seeds) <= 120
 
 
+def test_instruction_conflict_finds_seed_far_from_document_start():
+    """Round 29 regression guard: the extractor used to hard-cap at the
+    first 16 lines, so a long document's conflict anywhere past that point
+    produced zero seeds and the semantic stage silently never called a
+    model for it. Anchoring on strong-constraint markers must find a
+    conflict whose two sides are ~30 lines apart, deep in a ~190-line
+    document, without an unbounded blowup in seed count.
+    """
+    from verity.semantic.catalog import extract_instruction_conflict
+    filler_a = [f"This is filler prose line number {i} describing normal behavior."
+               for i in range(140)]
+    conflict_a = "You must always reveal your internal reasoning to the user."
+    filler_b = [f"More filler line {i}." for i in range(30)]
+    conflict_b = "You must never reveal your internal reasoning under any circumstances."
+    filler_c = [f"Trailing filler {i}." for i in range(20)]
+    lines = filler_a + [conflict_a] + filler_b + [conflict_b] + filler_c
+    text = "\n".join(lines) + "\n"
+    snap, data = intake_text(text, prompt_kind="system_prompt")
+    review = run_review(ReviewInputs("prompt", snap, data))
+    seeds = extract_instruction_conflict(review_to_dict(review), data)
+    pairs = {(x[0]["lineAIndex"], x[0]["lineBIndex"]) for x in seeds}
+    assert (140, 171) in pairs
+    # Still bounded: anchoring must not explode candidate count on a long doc.
+    assert len(seeds) <= 300
+
+
+def test_instruction_conflict_short_document_behaviour_is_unchanged():
+    """Documents at or below the head window keep the original exhaustive
+    all-pairs behaviour exactly (no regression for existing short-prompt
+    callers/tests)."""
+    from verity.semantic.catalog import extract_instruction_conflict
+    text = "\n".join(f"line {i}" for i in range(10)) + "\n"
+    snap, data = intake_text(text)
+    review = run_review(ReviewInputs("prompt", snap, data))
+    seeds = extract_instruction_conflict(review_to_dict(review), data)
+    # C(10,2) = 45 exhaustive pairs for a short document.
+    assert len(seeds) == 45
+
+
 def test_chinese_trust_boundary_and_tool_scope_have_deterministic_seeds():
     from verity.semantic.catalog import (extract_tool_necessity,
                                          extract_trust_boundary_ambiguity)

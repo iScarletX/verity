@@ -14,6 +14,28 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-22 — A candidate-line cap silently blinds an extractor on long real documents
+
+- **Symptom**: A ~250-line real system prompt produced zero deterministic or
+  semantic findings from Verity, while an external reviewer found a real
+  security gap and a real instruction conflict in the same document.
+- **Root cause**: `extract_instruction_conflict` hard-capped candidate lines
+  to the document's first 16 lines before pairing them. Every unit test used
+  short synthetic prompts, so the cap never showed a symptom until a long
+  real-world document was actually tried. No error was raised — the stage
+  just quietly produced zero seeds and zero model calls for that document.
+- **Fix**: Anchor candidate selection on strong-constraint markers
+  (must/never/必须/绝不/...) so long documents contribute in-bounds candidates
+  from anywhere in the text, not only its opening lines; short documents keep
+  the exact prior exhaustive behaviour (regression-tested byte-for-byte).
+- **Prevention**: Any "cap to the first N units" bound on a variable-length
+  real artifact needs at least one test using a realistically long document,
+  not only short synthetic fixtures. A rule/extractor that can silently
+  produce zero candidates on real input is a coverage risk even when its unit
+  tests are green.
+- **Evidence**: Round 29 `_select_conflict_candidate_lines`,
+  `test_instruction_conflict_finds_seed_far_from_document_start`.
+
 ### 2026-07-22 — A Web API-key surface must reuse the audited env-var path, not hold raw keys
 
 - **Symptom**: Exposing a Provider API-key field in the Web UI risks the key

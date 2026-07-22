@@ -975,6 +975,23 @@
       "safeFalsePositiveRate": null,
       "severityPolicy": "not_scored_in_round15",
       "status": "unmeasured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-PROMPT-010",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unmeasured"
     }
   ],
   "schemaVersion": 1,

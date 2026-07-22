@@ -48,9 +48,12 @@ class SemanticFindingType:
 # ------------------------------------------------------------------- #
 
 def _prompt_lines(review_dict: Dict[str, Any],
-                  file_bytes: Dict[str, bytes]) -> List[Tuple[Dict[str, Any], int, int]]:
-    """Return [(location, start, end)] for every non-empty line of the
-    single prompt file."""
+                  file_bytes: Dict[str, bytes]) -> List[Tuple[Dict[str, Any], int, int, bytes]]:
+    """Return [(location, start, end, raw_line_bytes)] for every non-empty
+    line of the single prompt file. ``raw_line_bytes`` (stripped of line
+    endings) lets callers cheaply inspect line content without re-reading
+    the file, e.g. to anchor on strong-constraint markers in long prompts.
+    """
     snap = review_dict.get("snapshot") or {}
     files = snap.get("files") or []
     prompt_file = next((f for f in files if f.get("status") == "included"), None)
@@ -69,7 +72,7 @@ def _prompt_lines(review_dict: Dict[str, Any],
                 "sourceByteRange": {"start": offset,
                                      "end": offset + len(stripped)},
                 "locationSchemaVersion": "1",
-            }, offset, offset + len(stripped)))
+            }, offset, offset + len(stripped), stripped))
         offset += len(line)
     return out
 
@@ -107,11 +110,77 @@ def _make_evidence_records(locations, *, snapshot_id: str,
     return out
 
 
+# Strong-constraint markers used to anchor candidate lines in long
+# documents (see below). Deliberately narrow: words that typically
+# introduce an absolute, falsifiable behavioural rule rather than prose.
+# Chinese and English covered; both directions (positive obligation /
+# negative prohibition) so a "must X" line can be paired against a
+# "never X" / "must not X" line anywhere else in the document.
+_STRONG_CONSTRAINT_MARKERS = (
+    # English
+    "must always", "must never", "always ", "never ", "must not",
+    "you must", "required to", "shall not", "forbidden", "prohibited",
+    "only ", "exactly ", "strictly",
+    # Chinese
+    "必须", "绝不", "绝对不", "禁止", "不得", "只能", "仅", "一律",
+    "永远不", "从不", "只允许", "严禁",
+)
+
+
+def _select_conflict_candidate_lines(lines, *, head_window: int,
+                                     max_anchored: int, max_total: int):
+    """Pick a bounded set of line indices to compare for instruction
+    conflicts, WITHOUT truncating to only the document's opening lines.
+
+    Short documents (<= head_window lines) keep the original exhaustive
+    behaviour unchanged (every non-empty line is a candidate). Long
+    documents anchor on lines containing a strong-constraint marker
+    ("must"/"never"/"必须"/"绝不"/...), because a genuine instruction
+    conflict is almost always phrased as an absolute obligation or
+    prohibition -- prose lines rarely participate in a real
+    contradiction. This lets the seed scale to any document length
+    instead of only ever looking at its first N lines.
+    """
+    n = len(lines)
+    if n <= head_window:
+        return list(range(n))
+    anchored = []
+    for i, entry in enumerate(lines):
+        raw = entry[3] if len(entry) > 3 else b""
+        try:
+            text = raw.decode("utf-8", errors="ignore").lower()
+        except Exception:
+            text = ""
+        if any(marker in text for marker in _STRONG_CONSTRAINT_MARKERS):
+            anchored.append(i)
+        if len(anchored) >= max_anchored:
+            break
+    # Always keep a head slice too (covers documents whose real conflicts
+    # are simple and adjacent near the top, and keeps prior behaviour for
+    # existing short-document tests exact).
+    head = list(range(min(head_window, n)))
+    combined = []
+    seen = set()
+    for i in head + anchored:
+        if i not in seen:
+            seen.add(i)
+            combined.append(i)
+        if len(combined) >= max_total:
+            break
+    return combined
+
+
 def extract_instruction_conflict(review_dict, file_bytes):
-    """For prompt engine: pair up every two non-empty lines as a possible
-    conflict candidate seed. This is intentionally noisy on purpose:
-    the semantic Validator is what decides whether the pair actually
-    conflicts. Bounded by ``max_candidates_per_extractor`` upstream.
+    """For prompt engine: pair up candidate lines as a possible conflict
+    seed. This is intentionally noisy on purpose: the semantic Validator
+    is what decides whether the pair actually conflicts. Bounded by
+    ``max_candidates_per_extractor`` upstream.
+
+    Line selection: short documents compare every non-empty line
+    (unchanged, exhaustive). Long documents additionally anchor on lines
+    carrying a strong-constraint marker (see ``_STRONG_CONSTRAINT_MARKERS``)
+    so conflicts anywhere in a long prompt -- not only near the top -- can
+    still produce a seed. See docs/LESSONS.md for the motivating gap.
     """
     if review_dict.get("engine") != "prompt":
         return []
@@ -124,12 +193,12 @@ def extract_instruction_conflict(review_dict, file_bytes):
     evs = _make_evidence_records(locs, snapshot_id=sid,
                                   producer_id="extractor.prompt.instruction_conflict")
     out = []
-    # Compare bounded non-adjacent pairs too: semantic contradictions often
-    # span sections. Cap before combinations so a huge prompt cannot create
-    # unbounded O(n²) seeds; the orchestrator applies a second candidate cap.
-    bounded = evs[:16]
-    for i, j in combinations(range(len(bounded)), 2):
-        a, b = bounded[i], bounded[j]
+    # Cap before combinations so a huge prompt cannot create unbounded
+    # O(n²) seeds; the orchestrator applies a second candidate cap on top.
+    selected = _select_conflict_candidate_lines(
+        lines, head_window=16, max_anchored=24, max_total=24)
+    for i, j in combinations(selected, 2):
+        a, b = evs[i], evs[j]
         out.append((
             {"lineAIndex": i, "lineBIndex": j},
             [a["evidenceId"], b["evidenceId"]],

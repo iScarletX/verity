@@ -10,6 +10,20 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 29 (done) — close a real deterministic coverage gap
+
+User reported Verity found zero issues on a real production system prompt
+while an external reviewer found real ones. Root-caused two honest gaps: (1)
+no rule existed for "declares external input acceptance, no trust-boundary
+statement" (VR-PROMPT-008) — added `prompt.untrusted_input_boundary_undeclared`;
+(2) the semantic instruction-conflict extractor hard-capped at the first 16
+lines, silently blind on long real documents — fixed with marker-anchored
+candidate selection, short-document behaviour unchanged. Also added
+`prompt.dangling_section_reference` (new risk VR-PROMPT-010). +16 tests (493
+total). decision stays `release_candidate`; this only strengthens the
+deterministic scope. This is round 1 of an ongoing, user-directed push for
+broader/more accurate detection — more rounds to follow in this session.
+
 ## Round 28 (done) — semantic UX: partial findings + transient retry
 
 Web view now shows confirmed semantic findings + a `partial` flag when a run

@@ -1179,6 +1179,35 @@
         "OWASP matrix needs taxonomy-derived replacement"
       ],
       "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-010",
+      "title": "Internal reference integrity",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A prompt refers to a numbered section or named rule that does not exist anywhere in the document's own structure, so the referenced behaviour cannot be located or executed as written.",
+      "sourceRefs": [],
+      "verityOriginalRationale": "Not represented as a security vulnerability by the selected external threat taxonomies, but is a real build-integrity defect observed in practice (a document edited over time loses a section while a reference to it remains, producing an unresolvable instruction at execution time). Related informally to general software documentation consistency checks (e.g. broken cross-reference detection), which is not itself a security standard.",
+      "layerBoundaries": {
+        "L0_static": "May prove a numbered-section/named-rule reference has no matching heading anywhere in the document.",
+        "L1_semantic": "May judge whether prose (non-numbered) references still point at material that covers the claimed behaviour.",
+        "V1_5_blackbox": "May observe whether the model actually fails or improvises when asked to follow the dangling reference.",
+        "V2_sandbox": "Not applicable."
+      },
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Only strict numbered/named reference forms are matched; free-form prose pointers are not checked",
+        "Cannot verify the referenced section's content still covers the claimed rule, only that a heading with that number exists",
+        "No cross-file reference resolution (single-file prompt review only)"
+      ],
+      "evaluationReference": null
     }
   ]
 }

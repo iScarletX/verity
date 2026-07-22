@@ -103,6 +103,29 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="high",
         requiredEvidenceKinds=["source_span"],
     ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.untrusted_input_boundary_undeclared",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("boundaryCategory", "literal_enum",
+                         allowedValues=["untrusted_input_boundary_undeclared"]),
+        ],
+        subjectKeyFields=["artifactPath", "boundaryCategory"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.dangling_section_reference",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("referenceText", "evidence_field", "reference.text"),
+        ],
+        subjectKeyFields=["artifactPath", "referenceText"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # --- Skill engine ---------------------------------------------------
     # Manifest / metadata findings
     ftr.register(FindingTypeDefinition(
@@ -388,6 +411,37 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         defaultSeverity="high",
         controlIds=["OWASP-AST-03"],
         applicablePromptKinds=["system_prompt"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.untrusted_input_boundary_undeclared",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("System prompt declares it accepts external/user-supplied "
+               "content but has no explicit trust-boundary or anti-"
+               "injection-override statement anywhere in the document."),
+        findingType="prompt.untrusted_input_boundary_undeclared",
+        implementationId="impl.prompt.untrusted_input_boundary_undeclared.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["OWASP-LLM01:2025"],
+        applicablePromptKinds=["system_prompt"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.dangling_section_reference",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Prompt references a numbered section/rule (e.g. \"see "
+               "section 7\"/\"见第7节\") that does not exist anywhere in the "
+               "document's own headings."),
+        findingType="prompt.dangling_section_reference",
+        implementationId="impl.prompt.dangling_section_reference.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["quality.consistency"],
     ))
     return rr
 

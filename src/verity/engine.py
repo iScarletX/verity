@@ -807,6 +807,210 @@ def prompt_open_ended_tool_wildcard(ctx: RuleContext) -> List[RuleHit]:
     return out
 
 
+# --- P8: untrusted-input trust-boundary declaration is absent ----------
+
+# Phrases that indicate the prompt explicitly accepts external/user-
+# supplied content (creative intent, scripts, retrieved data, tool output,
+# attachments, etc). Deliberately narrow and literal, English + Chinese.
+_INPUT_ACCEPTANCE_MARKERS = (
+    rb"user input", rb"user-supplied", rb"user provided", rb"external content",
+    rb"retrieved content", rb"tool output", rb"uploaded file", rb"attachment",
+    "用户输入".encode("utf-8"), "用户提供".encode("utf-8"),
+    "用户上传".encode("utf-8"), "附件".encode("utf-8"),
+    "参考文件".encode("utf-8"), "用户提交".encode("utf-8"),
+    "用户提供的".encode("utf-8"), "参考输入".encode("utf-8"),
+)
+
+# Phrases that indicate the prompt already declares a trust boundary /
+# anti-injection posture. If ANY of these are present, the rule does not
+# fire — the mitigation is considered declared. Deliberately literal, not
+# a semantic judgement of quality.
+_TRUST_BOUNDARY_MARKERS = (
+    rb"treat.{0,20}as data", rb"not as instructions", rb"never follow",
+    rb"ignore.{0,20}instructions", rb"do not follow.{0,20}embedded",
+    rb"untrusted", rb"prompt injection", rb"injection attack",
+    "视为数据".encode("utf-8"), "不视为指令".encode("utf-8"),
+    "越权指令".encode("utf-8"), "忽略.{0,20}指令".encode("utf-8"),
+    "注入".encode("utf-8"), "不可信".encode("utf-8"),
+    "拒绝执行".encode("utf-8"), "角色切换指令".encode("utf-8"),
+)
+_TRUST_BOUNDARY_RE = [re.compile(p, re.IGNORECASE) for p in _TRUST_BOUNDARY_MARKERS]
+
+
+def prompt_untrusted_input_boundary_undeclared(ctx: RuleContext) -> List[RuleHit]:
+    """Flag a system prompt that declares it accepts external/user-supplied
+    content but never states a trust-boundary / anti-injection-override
+    rule anywhere in the document.
+
+    This is a structural absence pattern ("declares X, never declares the
+    companion mitigation Y"), the same class as existing manifest checks
+    (e.g. missing reference). It is a SIGNAL, not proof of an actual
+    vulnerability: a prompt could rely on an external system layer for
+    this. Severity is therefore MEDIUM, matching the discipline used by
+    other structural-absence rules in this registry.
+
+    Boundaries:
+    - System-prompt only (a user prompt is not itself a trust boundary
+      policy document).
+    - Only fires once per file (not once per input-acceptance mention):
+      the absence is a whole-document fact, not a per-occurrence one.
+    - Fenced/inline code excluded when scanning for BOTH marker sets, so
+      an example embedded in a code block cannot itself satisfy or violate
+      the check.
+    - Literal phrase matching only; this cannot judge whether a present
+      mitigation phrase is actually effective, only whether one exists.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        lower = data.lower()
+
+        def _present_outside_code(markers) -> bool:
+            for m in markers:
+                if isinstance(m, bytes):
+                    for match in re.finditer(re.escape(m), lower):
+                        if not _in_ranges(match.start(), excluded):
+                            return True
+                else:
+                    for match in m.finditer(lower):
+                        if not _in_ranges(match.start(), excluded):
+                            return True
+            return False
+
+        accepts_input = _present_outside_code(_INPUT_ACCEPTANCE_MARKERS)
+        if not accepts_input:
+            continue
+        has_boundary = False
+        for pat in _TRUST_BOUNDARY_RE:
+            for match in pat.finditer(lower):
+                if not _in_ranges(match.start(), excluded):
+                    has_boundary = True
+                    break
+            if has_boundary:
+                break
+        if has_boundary:
+            continue
+        # Anchor the Finding at the first input-acceptance occurrence so
+        # there is a concrete, navigable evidence location.
+        anchor = None
+        for m in _INPUT_ACCEPTANCE_MARKERS:
+            idx = lower.find(m if isinstance(m, bytes) else m)
+            if idx != -1 and not _in_ranges(idx, excluded):
+                if anchor is None or idx < anchor[0]:
+                    anchor = (idx, idx + len(m))
+        if anchor is None:
+            continue
+        ev = make_source_span_evidence(
+            snapshot_id=ctx.snapshot.snapshotId,
+            file_id=f.fileId, artifact_path=f.normalizedPath,
+            file_digest=f.contentDigest or "",
+            byte_range=anchor,
+            raw_bytes=data[anchor[0]:anchor[1]], producer=prod,
+        )
+        subject = {
+            "artifactPath": f.normalizedPath,
+            "boundaryCategory": "untrusted_input_boundary_undeclared",
+        }
+        out.append(RuleHit(evidences=[ev], subject=subject))
+    return out
+
+
+# --- P9: dangling section/rule reference ---------------------------------
+
+# "see section 7" / "见第7节" / "见XX规则" style references. Captures the
+# referenced token (a number or a short quoted/bare title) so it can be
+# checked against the document's own headings.
+# Only strict NUMBERED section references. A separate class of "named rule"
+# reference (e.g. "见回复规则") would require verifying that some heading's
+# *title text* matches the reference, which is far more prone to false
+# positives from paraphrasing and is intentionally left out of this rule.
+_SECTION_REF_PATTERNS = [
+    re.compile(rb"(?:see|per)\s+section\s+([0-9]+(?:\.[0-9]+)*)", re.IGNORECASE),
+    re.compile("见第\\s*([0-9０-９]+(?:\\.[0-9]+)*)\\s*节".encode("utf-8")),
+]
+# Matches numbered headings in either of two common forms:
+#   "## 7. Title" / "7.2 Title" / "7）Title"  (bare numbered heading)
+#   "## Section 7" / "Section 7.2"              (English word + number)
+_HEADING_NUMBER_RE = re.compile(
+    ("^\\s*(?:#+\\s*)?([0-9]+(?:\\.[0-9]+)*)[\\.\\s" + "）" + ")]").encode("utf-8"),
+    re.MULTILINE)
+# Anchored at line start (with optional markdown #/whitespace) so a mid-
+# sentence reference occurrence ("See section 7...") is never mistaken for
+# a heading declaration of that same section.
+_HEADING_NUMBER_WORD_RE = re.compile(
+    rb"^\s*(?:#+\s*)?section\s+([0-9]+(?:\.[0-9]+)*)", re.IGNORECASE | re.MULTILINE)
+
+
+def prompt_dangling_section_reference(ctx: RuleContext) -> List[RuleHit]:
+    """Flag a numbered-section reference ("see section 7", "见第7节") whose
+    target section number does not appear as a heading/number anywhere in
+    the document.
+
+    Boundaries:
+    - Only strict numbered-section reference forms are matched (English
+      "see/per section N[.N]", Chinese "见第N节"). Free-form prose
+      pointers ("see the rules above") are not matched — this rule cannot
+      judge those without understanding context, and a false claim of
+      "dangling" there would be worse than silence.
+    - The existence check only looks for the referenced number appearing
+      as a heading/numbered-item marker at line start; it cannot verify
+      that the *content* under that number still covers the claimed
+      rule (that is a semantic judgement, out of scope for a static rule).
+    - Fenced/inline code excluded on both the reference occurrence and the
+      heading scan.
+    - Each distinct dangling reference text is reported once per file.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        heading_numbers = {m.group(1).decode("utf-8", "ignore")
+                           for m in _HEADING_NUMBER_RE.finditer(data)
+                           if not _in_ranges(m.start(), excluded)}
+        heading_numbers |= {m.group(1).decode("utf-8", "ignore")
+                            for m in _HEADING_NUMBER_WORD_RE.finditer(data)
+                            if not _in_ranges(m.start(), excluded)}
+        seen_refs = set()
+        for pat in _SECTION_REF_PATTERNS:
+            for m in pat.finditer(data):
+                if _in_ranges(m.start(), excluded):
+                    continue
+                target = m.group(1).decode("utf-8", "ignore")
+                # Normalise full-width digits to ASCII for comparison.
+                target_norm = target.translate(str.maketrans(
+                    "０１２３４５６７８９", "0123456789"))
+                if target_norm in heading_numbers:
+                    continue
+                key = (f.normalizedPath, target_norm)
+                if key in seen_refs:
+                    continue
+                seen_refs.add(key)
+                ev = make_source_span_evidence(
+                    snapshot_id=ctx.snapshot.snapshotId,
+                    file_id=f.fileId, artifact_path=f.normalizedPath,
+                    file_digest=f.contentDigest or "",
+                    byte_range=(m.start(), m.end()),
+                    raw_bytes=m.group(0), producer=prod,
+                )
+                subject = {
+                    "artifactPath": f.normalizedPath,
+                    "referenceText": m.group(0).decode("utf-8", "ignore"),
+                }
+                out.append(RuleHit(evidences=[ev], subject=subject))
+    return out
+
+
 # Skill rules live in a separate module so this file stays focused on the
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
@@ -833,6 +1037,8 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.control_character.v1": prompt_control_character,
     "impl.prompt.empty_or_whitespace.v1": prompt_empty_or_whitespace,
     "impl.prompt.open_ended_tool_wildcard.v1": prompt_open_ended_tool_wildcard,
+    "impl.prompt.untrusted_input_boundary_undeclared.v1": prompt_untrusted_input_boundary_undeclared,
+    "impl.prompt.dangling_section_reference.v1": prompt_dangling_section_reference,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
     "impl.skill.missing_skill_md.v1": _sr.skill_missing_skill_md,
