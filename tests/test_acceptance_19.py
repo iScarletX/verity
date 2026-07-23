@@ -193,10 +193,22 @@ def test_item_07_deterministic_finding_path_has_no_llm_import():
     not import any validator/LLM module."""
     import verity.engine as engine_mod
     import inspect
+    import re
     src = inspect.getsource(engine_mod)
-    forbidden = ("validation_policy", "openai", "anthropic", "requests")
+    # Check for actual IMPORT statements, not bare substrings: the
+    # deterministic engine must not import any validator/LLM/network
+    # module. A naive substring scan would false-positive on legitimate
+    # rule content -- e.g. the instruction-bypass regex must contain the
+    # word "requests" (as in "ignore previous requests"), which is not an
+    # import. (Round 46.)
+    forbidden = ("validation_policy", "openai", "anthropic", "requests",
+                 "httpx", "urllib.request", "socket")
     for f in forbidden:
-        assert f not in src, f"engine.py must not import {f}"
+        mod = re.escape(f)
+        pat = re.compile(
+            rf"(?m)^\s*(?:import\s+{mod}\b|from\s+{mod}\b|"
+            rf"import\s+[\w., ]*\b{mod}\b)")
+        assert not pat.search(src), f"engine.py must not import {f}"
 
 
 def test_item_07_deterministic_finding_survives_full_pipeline():

@@ -126,6 +126,30 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="medium",
         requiredEvidenceKinds=["source_span"],
     ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.embedded_system_role_marker",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("markerCategory", "literal_enum",
+                         allowedValues=["embedded_system_role_marker"]),
+        ],
+        subjectKeyFields=["artifactPath", "markerCategory"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.markdown_data_exfiltration",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("exfilCategory", "literal_enum",
+                         allowedValues=["markdown_image_querystring"]),
+        ],
+        subjectKeyFields=["artifactPath", "exfilCategory"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # --- Skill engine ---------------------------------------------------
     # Manifest / metadata findings
     ftr.register(FindingTypeDefinition(
@@ -454,6 +478,39 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="medium",
         controlIds=["quality.consistency"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.embedded_system_role_marker",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Prompt text embeds chat-template/system-role control tokens "
+               "(e.g. <|im_start|>system, [system](#assistant), <<SYS>>, "
+               "{{#system~}}) that can hijack the instruction hierarchy "
+               "when the artifact is treated as data. Adapted from vigil-llm "
+               "SystemInstructions YARA signatures."),
+        findingType="prompt.embedded_system_role_marker",
+        implementationId="impl.prompt.embedded_system_role_marker.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["OWASP-LLM01:2025"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.markdown_data_exfiltration",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Prompt text contains a markdown image whose URL carries a "
+               "query string, a known data-exfiltration channel (the model "
+               "is induced to render an image URL with secret data in the "
+               "query). Adapted from vigil-llm MarkdownExfiltration YARA."),
+        findingType="prompt.markdown_data_exfiltration",
+        implementationId="impl.prompt.markdown_data_exfiltration.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["OWASP-LLM01:2025"],
     ))
     return rr
 

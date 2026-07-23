@@ -388,9 +388,27 @@ def _in_ranges(pos: int, ranges: Sequence[Tuple[int, int]]) -> bool:
 
 # --- P1: instruction-override marker (rewritten, code-exclusion aware) ---
 
+# Broadened instruction-bypass phrase set. Adapted (not copied) from the
+# authoritative patterns in vigil-llm's InstructionBypass YARA rule
+# (Adam M. Swanda, Apache-2.0) and NVIDIA garak's DAN/promptinject probes,
+# which are the de-facto reference corpora for this attack class. The
+# structure is verb + optional temporal qualifier + instruction-object, plus
+# a few well-known named-jailbreak markers.
 _JAILBREAK_TERMS = re.compile(
-    rb"(?i)(ignore (?:all )?previous instructions|disregard (?:all )?prior (?:instructions|rules|context)|"
-    rb"you are now dan\b|jailbreak mode|bypass (?:safety|guardrails|filters))"
+    rb"(?i)("
+    # verb + (optional qualifier) + object  -- the core bypass phrase
+    rb"(?:ignore|disregard|skip|forget|neglect|overlook|omit|bypass|"
+    rb"pay no attention to|do not follow|do not obey)\s+"
+    rb"(?:(?:all|any|the)\s+)?"
+    rb"(?:prior|previous|preceding|above|foregoing|earlier|initial)?\s*"
+    rb"(?:content|text|instructions?|directives?|commands?|context|"
+    rb"conversation|inputs?|data|messages?|responses?|requests?|rules?|"
+    rb"prompts?|guardrails?|guidelines?)"
+    # well-known named jailbreaks / mode markers
+    rb"|you are now dan\b|\bdan mode\b|jailbreak mode|developer mode enabled"
+    rb"|do anything now|bypass (?:safety|guardrails|filters|restrictions)"
+    rb"|without (?:any )?(?:restrictions|limitations|filters|censorship)"
+    rb")"
 )
 
 
@@ -1084,6 +1102,122 @@ def prompt_dangling_section_reference(ctx: RuleContext) -> List[RuleHit]:
     return out
 
 
+# --- P11: embedded system-role / chat-template control tokens -----------
+
+# Literal control tokens that, if present inside prompt/skill *content*,
+# can hijack the instruction hierarchy of a downstream model that renders
+# the artifact into a chat template. Adapted from vigil-llm's
+# SystemInstructions YARA rule (Adam M. Swanda, Apache-2.0) plus the common
+# ChatML / Llama-2 / Guidance control tokens. These are exact literals, not
+# heuristics -- a legitimate prompt almost never needs to embed another
+# model's turn-delimiter tokens.
+_SYSTEM_ROLE_MARKERS = (
+    b"<|im_start|>system", b"<|im_start|>assistant", b"<|im_end|>",
+    b"[system](#assistant)", b"[system](#context)",
+    b"<<SYS>>", b"<</SYS>>", b"<s>[INST]", b"[/INST]",
+    b"{{#system~}}", b"{{/system~}}", b"<|system|>", b"<|assistant|>",
+    b"### System:", b"System Instruction: ",
+)
+
+
+def prompt_embedded_system_role_marker(ctx: RuleContext) -> List[RuleHit]:
+    """Flag literal chat-template/system-role control tokens embedded in the
+    reviewed text (indirect prompt-injection vector).
+
+    Boundaries:
+    - Exact-literal case-insensitive match on a closed token list; no
+      heuristics, so false positives are limited to text that literally
+      contains another model's control tokens.
+    - Fenced/inline code is excluded (docs frequently quote these tokens
+      when explaining them).
+    - Severity MEDIUM: presence is a real injection vector but not proof of
+      a successful attack.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        lower = data.lower()
+        excluded = _excluded_ranges(data)
+        seen = set()
+        for marker in _SYSTEM_ROLE_MARKERS:
+            start = 0
+            ml = marker.lower()
+            while True:
+                idx = lower.find(ml, start)
+                if idx == -1:
+                    break
+                start = idx + len(ml)
+                if _in_ranges(idx, excluded):
+                    continue
+                if idx in seen:
+                    continue
+                seen.add(idx)
+                ev = make_source_span_evidence(
+                    snapshot_id=ctx.snapshot.snapshotId,
+                    file_id=f.fileId, artifact_path=f.normalizedPath,
+                    file_digest=f.contentDigest or "",
+                    byte_range=(idx, idx + len(marker)),
+                    raw_bytes=data[idx:idx + len(marker)], producer=prod,
+                )
+                out.append(RuleHit(evidences=[ev], subject={
+                    "artifactPath": f.normalizedPath,
+                    "markerCategory": "embedded_system_role_marker",
+                }))
+                break  # one finding per marker kind per file is enough
+    return out
+
+
+# --- P12: markdown data-exfiltration image ------------------------------
+
+# Markdown image whose URL carries a query string: ![alt](https://h/p?...=...)
+# A model induced to render this leaks whatever it puts in the query. From
+# vigil-llm MarkdownExfiltration YARA + the Bing-Chat exfil PoC it cites.
+_MD_EXFIL = re.compile(
+    rb"!\[[^\]]*\]\(\s*https?://[^)\s]+\?[^)\s]*=[^)\s]*\)", re.IGNORECASE)
+
+
+def prompt_markdown_data_exfiltration(ctx: RuleContext) -> List[RuleHit]:
+    """Flag a markdown image whose URL has a query string (data-exfil shape).
+
+    Boundaries:
+    - Only markdown *image* syntax (`![...](url?...=...)`) with an http(s)
+      URL that has a query parameter. Plain links and query-less images are
+      not matched.
+    - Fenced/inline code excluded.
+    - Severity MEDIUM: this is the known exfil channel shape, not proof the
+      querystring actually carries secret data.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        for m in _MD_EXFIL.finditer(data):
+            if _in_ranges(m.start(), excluded):
+                continue
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(m.start(), m.end()),
+                raw_bytes=m.group(0), producer=prod,
+            )
+            out.append(RuleHit(evidences=[ev], subject={
+                "artifactPath": f.normalizedPath,
+                "exfilCategory": "markdown_image_querystring",
+            }))
+    return out
+
+
 # Skill rules live in a separate module so this file stays focused on the
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
@@ -1112,6 +1246,8 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.open_ended_tool_wildcard.v1": prompt_open_ended_tool_wildcard,
     "impl.prompt.untrusted_input_boundary_undeclared.v1": prompt_untrusted_input_boundary_undeclared,
     "impl.prompt.dangling_section_reference.v1": prompt_dangling_section_reference,
+    "impl.prompt.embedded_system_role_marker.v1": prompt_embedded_system_role_marker,
+    "impl.prompt.markdown_data_exfiltration.v1": prompt_markdown_data_exfiltration,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
     "impl.skill.sensitive_path_access.v1": skill_sensitive_path_access,

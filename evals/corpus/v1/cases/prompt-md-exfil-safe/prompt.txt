@@ -1,0 +1,1 @@
+After answering, you may show the company logo image if helpful: ![logo](https://cdn.example.com/logo.png)

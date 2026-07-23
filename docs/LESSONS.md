@@ -14,6 +14,43 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-23 — Port authoritative OSS detection signatures instead of hand-rolling narrow ones
+
+- **Symptom**: Verity's instruction-override detector matched only ~3
+  hardcoded phrases and missed most real-world bypass phrasing; several
+  well-known injection vectors (embedded chat-template tokens, markdown
+  image exfil) had zero coverage — despite mature open-source projects
+  having battle-tested signatures for exactly these.
+- **Root cause**: Rules were written from first principles rather than
+  ported from the de-facto reference corpora (NVIDIA garak, ProtectAI
+  llm-guard, vigil-llm YARA). Reinventing a narrow subset guarantees
+  lower recall than adapting a maintained one.
+- **Fix**: Cloned 8 authoritative projects, extracted their real
+  signatures, and adapted (not copied) the highest-value deterministic
+  ones into Verity rules with attribution, tests, and corpus evidence.
+- **Prevention**: For any detection class that a popular security tool
+  already covers, start by mining that tool's actual rules/regexes/probe
+  taxonomy; only hand-roll what none of them provide. Record the source
+  project + license in the rule title.
+- **Evidence**: Round 46 `prompt.embedded_system_role_marker`,
+  `prompt.markdown_data_exfiltration`, upgraded
+  `prompt.instruction_override_marker`; `/tmp/oss_audit/EXTRACTION.md`.
+
+### 2026-07-23 — An architectural substring scan can false-positive on legitimate rule content
+
+- **Symptom**: The item-7 isolation test asserted the bare word
+  "requests" never appears in engine.py (to prove no `import requests`).
+  A broadened bypass regex legitimately needed the word "requests" (as in
+  "ignore previous requests"), breaking the test.
+- **Root cause**: The test approximated "does not import X" with "substring
+  X absent", which conflates import statements with ordinary rule text.
+- **Fix**: Rewrote it to match actual `import`/`from ... import`
+  statements via regex; also extended the forbidden set to
+  httpx/urllib.request/socket. Still fully enforces the real invariant.
+- **Prevention**: Assert the actual construct (import statement), not a
+  substring proxy, when the substring can legitimately occur in data.
+- **Evidence**: Round 46 `test_item_07_deterministic_finding_path_has_no_llm_import`.
+
 ### 2026-07-22 — A "suppressed by design" fallback rule needs its OWN failure-path test
 
 - **Symptom**: Instrumenting every deterministic rule and running the full

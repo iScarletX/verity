@@ -362,6 +362,8 @@ prompt registry now contains the following deterministic rules:
 | `prompt.open_ended_tool_wildcard` | high | `system_prompt` only | Only strict-form matches: `allowed_tools: *`, `permissions: ["*"]`, `tools: ["*"]`. Narrative star is not matched. |
 | `prompt.untrusted_input_boundary_undeclared` | medium | `system_prompt` only | Declares acceptance of external/user-supplied content (English/Chinese phrase list) with no trust-boundary or anti-injection-override statement anywhere in the document. Literal phrase presence/absence only — cannot judge whether a present mitigation is actually effective. Maps to VR-PROMPT-008. |
 | `prompt.dangling_section_reference` | medium | any | "see section N" / "见第N节" whose target number has no matching heading anywhere in the document. Only strict numbered-section forms are matched; free-form prose pointers ("see the rules above") are not. Maps to VR-PROMPT-010. |
+| `prompt.embedded_system_role_marker` | medium | any | Literal chat-template/system-role control tokens embedded in the reviewed text (`<\|im_start\|>system`, `<<SYS>>`, `[system](#assistant)`, `{{#system~}}`, etc.) — an indirect prompt-injection vector. Exact-literal closed list; fenced/inline code excluded. Adapted from vigil-llm SystemInstructions YARA. Maps to VR-PROMPT-001. |
+| `prompt.markdown_data_exfiltration` | medium | any | Markdown image whose URL carries a query string (`![x](https://h/p?q=...)`), a known data-exfiltration channel. Only markdown image syntax with an http(s) query-string URL; plain links/query-less images not matched. Adapted from vigil-llm MarkdownExfiltration YARA. Maps to VR-PROMPT-001. |
 
 Severity discipline (also visible in the HTML report):
 

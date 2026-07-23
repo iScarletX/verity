@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "10476290d7dece025aea9a6746d94d24c853ef75"
-  tests_collected: 510
-  tests_passed: 510
+  commit: "fef70c49b933c26286be26b06f87e2ec81f8f842"
+  tests_collected: 518
+  tests_passed: 518
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -29,7 +29,7 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 27 unified risks, 48 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 14 signal / 9 partial. Current L1 breadth: 17 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 50 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–38 added 24 new L0 cases (VR-PROMPT-008, VR-SKILL-014, VR-PROMPT-010, VR-SKILL-008, VR-PROMPT-003, VR-SKILL-011, VR-SKILL-005, VR-SKILL-007, VR-SKILL-009, VR-SKILL-010, VR-SKILL-015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 56 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–46 added 30 new L0 cases (across VR-PROMPT-008/010/003/001, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, no risk layer is substantial/evaluated, and human/domain-expert review has not been obtained. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
@@ -40,6 +40,50 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 46 (2026-07-23) → mine authoritative OSS security projects; port 3 real detection patterns
+
+- Cloned and mined 8 of the most authoritative open-source LLM-security /
+  prompt-audit projects: NVIDIA garak, ProtectAI llm-guard, rebuff,
+  Microsoft PyRIT, promptfoo, NVIDIA NeMo-Guardrails, vigil-llm,
+  guardrails-ai. Extracted their real detection signatures (not just read
+  docs) into `/tmp/oss_audit/EXTRACTION.md`. This directly answers the
+  owner's instruction to stop reinventing and instead port what mature,
+  battle-tested projects already do.
+- Ported three deterministic patterns, each adapted (not copied) from a
+  named source and mapped to a unified risk:
+  1. **Upgraded `prompt.instruction_override_marker`**: replaced the
+     narrow 3-phrase regex with vigil-llm's authoritative InstructionBypass
+     phrase grammar (verb × temporal qualifier × instruction-object, ~11
+     verbs × ~15 objects) plus garak's named-jailbreak markers. Far higher
+     recall on real bypass phrasing.
+  2. **New `prompt.embedded_system_role_marker`** (medium, VR-PROMPT-001):
+     detects chat-template/system-role control tokens embedded in reviewed
+     text (`<|im_start|>system`, `<<SYS>>`, `[system](#assistant)`,
+     `{{#system~}}`, ChatML/Llama-2/Guidance tokens) — a classic indirect
+     prompt-injection vector Verity previously had zero coverage for.
+     Adapted from vigil-llm SystemInstructions YARA.
+  3. **New `prompt.markdown_data_exfiltration`** (medium, VR-PROMPT-001):
+     detects markdown images whose URL carries a query string
+     (`![x](https://h/p?q=...)`), the known Bing-Chat-style exfil channel.
+     Adapted from vigil-llm MarkdownExfiltration YARA.
+- Each new rule has positive/negative unit tests (incl. code-block
+  exclusion) and a versioned corpus positive/safe pair. VR-PROMPT-001 now
+  has three balanced sub-pattern pairs (override / embedded-role /
+  md-exfil), all precision=1.0/recall=1.0. 2 new detector mappings (50
+  runtime components), 2 guidance entries.
+- Fixed a pre-existing over-broad architectural test: item-7 scanned
+  engine.py source for the bare substring "requests"/"openai" etc.; the
+  upgraded bypass regex legitimately contains the word "requests" (as in
+  "ignore previous requests"). Rewrote the test to match actual import
+  statements (still fully enforces the no-LLM/no-network-import
+  invariant, now also covers httpx/urllib.request/socket).
+- corpus `corpusVersion 1.9.0` (56 cases, 28/28 balance). De-hardcoded two
+  brittle name-list assertions (corpus + blind-review provisional sets)
+  into structural checks so future corpus growth cannot silently drift
+  them. Regenerated corpus/closure reports; `decision` stays
+  `release_candidate`. Full suite: 510 -> 518 passed, 0 skipped. Rounds
+  43–45 landed as commits `d86ca16`/`1047629`/`fef70c4`, all CI-green.
 
 ## Round 45 (2026-07-22) → update knownGaps for risks whose detector coverage grew this session
 

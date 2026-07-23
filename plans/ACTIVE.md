@@ -10,6 +10,24 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 46 (done) — mine 8 authoritative OSS security projects, port 3 real patterns
+
+Owner directive: stop reinventing, port what mature open-source projects do.
+Cloned garak(NVIDIA), llm-guard(ProtectAI), rebuff, PyRIT(MS), promptfoo,
+NeMo-Guardrails(NVIDIA), vigil-llm, guardrails-ai; extracted real signatures
+(/tmp/oss_audit/EXTRACTION.md). Ported 3: upgraded instruction-override
+regex to vigil's authoritative InstructionBypass grammar + garak jailbreak
+markers; new prompt.embedded_system_role_marker (chat-template injection
+tokens, zero coverage before); new prompt.markdown_data_exfiltration (image
+URL querystring exfil). Each with tests + corpus pairs. VR-PROMPT-001 now 3
+sub-pattern pairs, precision/recall 1.0. Fixed an over-broad architectural
+test. 518 tests. decision stays release_candidate.
+
+MORE OSS TO PORT (next rounds): garak encoding/token-smuggling detectors,
+llm-guard invisible-text (Cf/Co/Cn unicode) + gibberish + ban-topics,
+promptfoo red-team plugins, PyRIT converters. Semantic-layer patterns from
+garak probes still to mine.
+
 ## Round 45 (done) — keep this session's own knownGaps updates honest
 
 Checked VR-SKILL-007/008/010 (which gained new detectors this session) for

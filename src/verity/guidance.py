@@ -160,6 +160,34 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P2",
     ),
+    "prompt.embedded_system_role_marker": Guidance(
+        id="prompt.embedded_system_role_marker",
+        plainTitle="文本内嵌了聊天模板/系统角色控制符（注入风险）",
+        whyItMatters=(
+            "内容里出现 <|im_start|>system、[system](#assistant)、<<SYS>>、"
+            "{{#system~}} 这类其它模型的对话轮控制符，一旦这段内容被下游模型"
+            "拼进对话模板，就可能被当成真正的系统指令执行，属于典型的间接提示注入。"
+        ),
+        whatToDo=[
+            "删除或转义这些控制符；正常业务文本不需要嵌入其它模型的轮次分隔符。",
+            "若确需展示这些符号（如写文档解释它们），放进代码块/转义，避免被当指令。",
+        ],
+        priority="P1",
+    ),
+    "prompt.markdown_data_exfiltration": Guidance(
+        id="prompt.markdown_data_exfiltration",
+        plainTitle="Markdown 图片 URL 带查询参数（数据外泄通道）",
+        whyItMatters=(
+            "![x](https://host/path?q=...) 这种带查询串的图片链接是已知的数据外泄"
+            "手法：模型被诱导把敏感数据拼进 URL 查询参数再渲染图片，数据就发到了"
+            "外部服务器。"
+        ),
+        whatToDo=[
+            "移除该图片链接，或改用不带查询参数的固定资源地址。",
+            "对模型输出中的图片/链接做出站白名单校验，禁止动态查询串。",
+        ],
+        priority="P1",
+    ),
 
     # Skill engine — manifest / metadata ------------------------------
     "skill.manifest_issue": Guidance(

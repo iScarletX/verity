@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.8.0",
+  "corpusVersion": "1.9.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -901,6 +901,78 @@
       "expectedRiskIds": [],
       "path": "cases/skill-weak-hash-safe",
       "rationale": "Hashes a password with hashlib.sha256; no weak hash algorithm is used.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-embedded-role-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "path": "cases/prompt-embedded-role-positive/prompt.txt",
+      "rationale": "Embeds ChatML <|im_start|>system control tokens inside the prompt body, an indirect-injection vector that can hijack the instruction hierarchy.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-embedded-role-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-embedded-role-safe/prompt.txt",
+      "rationale": "States a role constraint in plain prose with no embedded chat-template control tokens.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-md-exfil-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "path": "cases/prompt-md-exfil-positive/prompt.txt",
+      "rationale": "Instructs rendering a markdown image whose URL carries a query string, a known data-exfiltration channel.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-md-exfil-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-001"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-md-exfil-safe/prompt.txt",
+      "rationale": "References a static logo image with no query string; not an exfiltration shape.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

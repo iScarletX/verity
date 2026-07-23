@@ -390,6 +390,22 @@
         "VR-SKILL-007"
       ],
       "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.embedded_system_role_marker",
+      "riskIds": [
+        "VR-PROMPT-001"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.markdown_data_exfiltration",
+      "riskIds": [
+        "VR-PROMPT-001"
+      ],
+      "contribution": "signal"
     }
   ]
 }
