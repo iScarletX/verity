@@ -1,8 +1,14 @@
 # Verity — Prompt & Skill Auditor
 
-> **New agents / new chats — start here:** read `AGENTS.md`, then run
-> `python3 tools/verify_repo.py`. The current test count and
+> **New agents / new chats — start here:** read `AGENTS.md` (esp. §0 for the
+> mission), then run `python3 tools/verify_repo.py`. The current test count and
 > capability matrix live at the top of `docs/PROGRESS.md`.
+>
+> **Mission:** grow into a maximally-capable auditor of *all* Prompt/Skill
+> problems — static, then dynamic/execution, ultimately embeddable into other
+> agents. "Deterministic/offline/light-deps" is the current V1-phase discipline,
+> not the goal (see `AGENTS.md §0`). **V1 today** is a deterministic static
+> auditor at `release_candidate`.
 >
 > **V1 deterministic static auditor — release decision: `release_candidate`
 > (engineering preview).** Closure policy v2.0.0 scopes the release to the
@@ -37,15 +43,29 @@
 > opting in without complete configuration honestly returns
 > `provider_not_configured`.
 
-## Product roadmap (must not be lost)
+## Mission & roadmap (must not be lost)
 
-Verity is planned as a three-layer audit tool:
+**Mission.** Verity is being built to become a maximally-capable auditor
+that catches *all* the problems in an LLM Prompt or Agent Skill —
+progressing from static checks to *dynamic / execution* checking, and
+ultimately to being **embedded into other agents** to vet things in real
+time. It exists to *surpass* the founder's earlier tool (Butler), not to
+match it. "Deterministic / offline / light-dependency" is the current
+**V1-phase discipline** that keeps this release shippable and
+reproducible — it is not the end state. The one property that survives
+every phase: the core that ingests the untrusted reviewed artifact stays
+physically isolated from any model/network/execution layer, and new
+power is added as isolated adapters (see `AGENTS.md §0`, §4).
+
+Verity grows through these layers:
 
 | Version | Layer | Status |
 |---|---|---|
 | **V1** (this repo) | Deterministic static checks (release scope) + a separate experimental controlled semantic review | **Deterministic static auditor: `release_candidate` engineering preview (no evaluated-accuracy claim). Semantic review: experimental, default-off, `experimental_not_ready`, not in the release gate.** |
-| **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) | **Not implemented.** Blocked until standards, corpus, static breadth and semantic breadth foundations are complete. |
-| **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill under audit | **Not implemented.** Later phase. |
+| **Local model layer** | Optional, offline, deterministic specialist-classifier adapter for semantic judgments static rules can't make (topic coherence, role-boundary ambiguity). Gitleaks-style degradable; distinct from the failed generic-LLM-judge line. | **On roadmap.** Needs founder go-ahead before installing heavy deps / downloading weights. |
+| **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) — the mission's *dynamic* checking | **Not yet implemented.** Foundations (standards, corpus, static/semantic breadth) come first. |
+| **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill — the mission's *execution-process* checking | **Not yet implemented.** |
+| **Embeddable service** | Callable by other agents in real time, under the same isolation + honest-coverage rules | **On roadmap.** |
 
 ### Detection breadth is not execution status
 

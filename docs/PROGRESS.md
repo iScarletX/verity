@@ -41,6 +41,43 @@ Strings below MUST match the runtime literals.
 
 ---
 
+## Round 53 (2026-07-23) → re-anchor Verity's mission in the canonical docs (docs-only)
+
+- Founder correction: Verity's canonical docs (AGENTS.md §0, README) had
+  been describing it as "a local, read-only, **static** auditor" and framed
+  V1.5 black-box / V2 sandbox as distant/optional future. That framing is a
+  V1-phase description, not the mission, and it repeatedly misled fresh
+  sessions (including this one) into treating "static/offline/light-deps" as
+  Verity's permanent identity and into guarding the architecture instead of
+  growing it.
+- The founder's actual north star: Verity is being built to catch **all**
+  Prompt/Skill problems, progress to **dynamic / execution** checking
+  (black-box prompt runs, sandboxed skill execution), and ultimately be
+  **embedded into other agents** to vet in real time. Butler was the
+  founder's earlier tool; Verity exists to **surpass** it — parity is a
+  floor, not a ceiling.
+- Rewrote AGENTS.md §0 (Mission / current-phase / the one surviving safety
+  property) and §4 intro + phase-gate wording so later phases read as
+  "on the roadmap, built under their own safety conditions" rather than
+  "planned/forbidden". Added an explicit "Local specialist-model layer"
+  and "Embeddable service" to the roadmap. Rewrote the README top banner +
+  "Mission & roadmap" table to match.
+- KEY CLARIFICATION preserved in the docs: "deterministic / offline /
+  light-deps" is downgraded from IDENTITY to (a) V1-phase discipline and
+  (b) one true safety property — the core that ingests the UNTRUSTED
+  reviewed artifact must stay physically isolated from any
+  model/network/execution layer. New power is added via the existing
+  isolated-adapter pattern (Bandit/gitleaks already run as controlled
+  out-of-process adapters), not by dissolving isolation. The concrete
+  safety mechanisms in §4 (egress/schema/budget gates, sandbox
+  destruction, "don't claim a phase works before it does") are unchanged.
+- Docs-only: no code, rule, corpus, test-count, or closure-decision change.
+  Full suite still 566 passed; verify_repo PASS. This unblocks the
+  local-model layer (Option B) as an on-roadmap step rather than a
+  deviation — but per AGENTS.md §6 it still needs explicit founder
+  go-ahead + a concrete plan before any heavy dep is installed or any
+  model weight downloaded.
+
 ## Round 52 (2026-07-23) → fix "detects nothing" on real prompts + close Butler minor #1/#5
 
 - Owner report: "老是检查不出任何问题" (Verity keeps finding nothing).
