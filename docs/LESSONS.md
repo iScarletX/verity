@@ -14,6 +14,34 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-23 — Absence-check markers must match the concept, not a bare keyword substring
+
+- **Symptom**: `prompt.untrusted_input_boundary_undeclared` reported
+  nothing on a real system prompt that genuinely lacked any injection
+  defense. Its "boundary is declared" suppressor matched the bare
+  substring "注入" (injection), and the prompt happened to say "不得重新注入
+  下一轮" (about data flow), so the rule wrongly believed a defense was
+  declared and stayed silent — a false negative on exactly the case it
+  exists to catch.
+- **Root cause**: For an "X declared but Y-mitigation absent" rule, the
+  mitigation markers were single keywords that occur in unrelated text.
+  Absence checks are especially dangerous: a too-loose mitigation marker
+  silently *suppresses* real findings rather than adding noise.
+- **Fix**: Every trust-boundary marker now requires surrounding defensive
+  phrasing (verb + injection/override object, or "treat as data / not as
+  instructions"), not a bare keyword. Symmetrically fixed the inverse
+  false positive where the broadened attack regex matched a *defensive*
+  "ignore malicious user input" instruction — tightened to self-referential
+  objects (previous/your instructions) only.
+- **Prevention**: When a marker's presence SUPPRESSES a finding, hold it
+  to a higher precision bar than a marker that RAISES one, and always test
+  it against a realistic document that uses the keyword in an unrelated
+  sense. Test both an attack and a same-keyword defense for any
+  injection-related rule.
+- **Evidence**: Round 49 `_TRUST_BOUNDARY_MARKERS` / `_JAILBREAK_TERMS`
+  tightening + `test_unrelated_word_zhu_ru_does_not_suppress` +
+  `test_negative_defensive_ignore_user_input`.
+
 ### 2026-07-23 — Port authoritative OSS detection signatures instead of hand-rolling narrow ones
 
 - **Symptom**: Verity's instruction-override detector matched only ~3

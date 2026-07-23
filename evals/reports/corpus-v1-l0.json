@@ -533,9 +533,7 @@
       "labelStatus": "provisional_single_review",
       "observedRiskIds": [],
       "stable": true,
-      "unexpectedOutOfScopeRiskIds": [
-        "VR-PROMPT-001"
-      ]
+      "unexpectedOutOfScopeRiskIds": []
     },
     {
       "assessedRiskIds": [
