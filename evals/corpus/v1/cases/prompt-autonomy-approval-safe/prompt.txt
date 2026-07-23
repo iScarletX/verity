@@ -1,0 +1,2 @@
+Act proactively when analysing the project.
+Before publishing changes or deleting files, you must obtain human approval.

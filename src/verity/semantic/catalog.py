@@ -127,22 +127,22 @@ _STRONG_CONSTRAINT_MARKERS = (
 )
 
 
-def _select_conflict_candidate_lines(lines, *, head_window: int,
-                                     max_anchored: int, max_total: int):
+def _select_conflict_candidate_lines(lines, *, max_total: int):
     """Pick a bounded set of line indices to compare for instruction
     conflicts, WITHOUT truncating to only the document's opening lines.
 
-    Short documents (<= head_window lines) keep the original exhaustive
-    behaviour unchanged (every non-empty line is a candidate). Long
-    documents anchor on lines containing a strong-constraint marker
-    ("must"/"never"/"必须"/"绝不"/...), because a genuine instruction
-    conflict is almost always phrased as an absolute obligation or
-    prohibition -- prose lines rarely participate in a real
-    contradiction. This lets the seed scale to any document length
-    instead of only ever looking at its first N lines.
+    The default Provider payload can carry eight Evidence records. Selection
+    therefore returns at most ``max_total`` lines so the extractor cannot
+    create apparently valid seeds whose evidence is later truncated before
+    the model sees it.
+
+    Strong-constraint lines are selected first and sampled from both the
+    beginning and end of that set. Opening prose fills only the remaining
+    slots. This preserves deep-document conflicts while keeping the outbound
+    evidence bundle bounded and honest.
     """
     n = len(lines)
-    if n <= head_window:
+    if n <= max_total:
         return list(range(n))
     anchored = []
     for i, entry in enumerate(lines):
@@ -153,15 +153,16 @@ def _select_conflict_candidate_lines(lines, *, head_window: int,
             text = ""
         if any(marker in text for marker in _STRONG_CONSTRAINT_MARKERS):
             anchored.append(i)
-        if len(anchored) >= max_anchored:
-            break
-    # Always keep a head slice too (covers documents whose real conflicts
-    # are simple and adjacent near the top, and keeps prior behaviour for
-    # existing short-document tests exact).
-    head = list(range(min(head_window, n)))
+
+    if len(anchored) > max_total:
+        left = (max_total + 1) // 2
+        right = max_total - left
+        anchored = anchored[:left] + (anchored[-right:] if right else [])
+
+    head = list(range(min(max_total, n)))
     combined = []
     seen = set()
-    for i in head + anchored:
+    for i in anchored + head:
         if i not in seen:
             seen.add(i)
             combined.append(i)
@@ -176,11 +177,11 @@ def extract_instruction_conflict(review_dict, file_bytes):
     is what decides whether the pair actually conflicts. Bounded by
     ``max_candidates_per_extractor`` upstream.
 
-    Line selection: short documents compare every non-empty line
-    (unchanged, exhaustive). Long documents additionally anchor on lines
-    carrying a strong-constraint marker (see ``_STRONG_CONSTRAINT_MARKERS``)
-    so conflicts anywhere in a long prompt -- not only near the top -- can
-    still produce a seed. See docs/LESSONS.md for the motivating gap.
+    Line selection is bounded to the Provider evidence budget. Documents with
+    at most eight non-empty lines remain exhaustive; longer documents
+    prioritize lines carrying a strong-constraint marker (see
+    ``_STRONG_CONSTRAINT_MARKERS``), including markers deep in the document.
+    See docs/LESSONS.md for the motivating gaps.
     """
     if review_dict.get("engine") != "prompt":
         return []
@@ -189,16 +190,17 @@ def extract_instruction_conflict(review_dict, file_bytes):
         return []
     snap = review_dict.get("snapshot") or {}
     sid = snap.get("snapshotId", "")
-    locs = [l[0] for l in lines]
-    evs = _make_evidence_records(locs, snapshot_id=sid,
-                                  producer_id="extractor.prompt.instruction_conflict")
     out = []
-    # Cap before combinations so a huge prompt cannot create unbounded
-    # O(n²) seeds; the orchestrator applies a second candidate cap on top.
-    selected = _select_conflict_candidate_lines(
-        lines, head_window=16, max_anchored=24, max_total=24)
-    for i, j in combinations(selected, 2):
-        a, b = evs[i], evs[j]
+    # The semantic egress contract defaults to eight Evidence records.
+    # Build records only for the lines that can actually cross that boundary.
+    selected = _select_conflict_candidate_lines(lines, max_total=8)
+    selected_locs = [lines[i][0] for i in selected]
+    evs = _make_evidence_records(
+        selected_locs, snapshot_id=sid,
+        producer_id="extractor.prompt.instruction_conflict")
+    for left, right in combinations(range(len(selected)), 2):
+        i, j = selected[left], selected[right]
+        a, b = evs[left], evs[right]
         out.append((
             {"lineAIndex": i, "lineBIndex": j},
             [a["evidenceId"], b["evidenceId"]],

@@ -283,6 +283,61 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P2",
     ),
+    "prompt.output_format_conflict": Guidance(
+        id="prompt.output_format_conflict",
+        plainTitle="顶层输出格式互相冲突：既要求 JSON，又明确禁止 JSON",
+        whyItMatters=(
+            "两条要求作用于同一个最终回复层级，模型不可能同时满足。结果会在 JSON、"
+            "纯文本或混合输出之间摇摆，直接破坏下游解析。Verity 已排除 JSON 字段"
+            "内部填写自然语言、示例代码和明确的条件回退分支。"
+        ),
+        whatToDo=[
+            "选定唯一的顶层输出格式，并删除或改写相反要求。",
+            "若确实存在条件格式，把触发条件、优先级和失败分支写在同一处。",
+        ],
+        priority="P1",
+    ),
+    "prompt.output_budget_conflict": Guidance(
+        id="prompt.output_budget_conflict",
+        plainTitle="明确的最小输出量已经超过总输出上限",
+        whyItMatters=(
+            "提示词同时声明了输出项数、每项最小长度和总长度上限；按同一单位直接"
+            "相乘后，最低需求已经大于总上限，因此无论模型多强都无法完全遵守。"
+            "Verity 没有估算平均长度，也没有在 token、字数之间做猜测换算。"
+        ),
+        whatToDo=[
+            "降低项目数量或每项最小长度，或者提高总输出上限。",
+            "统一长度单位，并说明超出预算时允许省略、分页还是继续下一轮。",
+        ],
+        priority="P1",
+    ),
+    "prompt.autonomy_without_approval": Guidance(
+        id="prompt.autonomy_without_approval",
+        plainTitle="要求自主执行高影响操作，但没有用户确认边界",
+        whyItMatters=(
+            "提示词既要求 Agent 主动/自主工作，又允许删除、发送、发布、部署、付款"
+            "或修改文件等外部副作用，却没有说明何时必须停下来获得确认。这会让"
+            "“主动”被解释成未经授权地改变外部状态。"
+        ),
+        whatToDo=[
+            "列出可以自动完成的只读或可逆操作。",
+            "对删除、发送、发布、部署、付款和覆盖写入明确要求用户确认。",
+        ],
+        priority="P1",
+    ),
+    "prompt.failure_strategy_missing": Guidance(
+        id="prompt.failure_strategy_missing",
+        plainTitle="外部调用、检索或解析流程没有失败处理约定",
+        whyItMatters=(
+            "提示词要求执行容易失败的步骤，却没有定义超时、错误、空结果或格式异常"
+            "时怎么办。模型往往会继续编造结果、静默跳过步骤或返回无法解析的内容。"
+        ),
+        whatToDo=[
+            "为相关步骤补充超时、重试次数和最终失败返回结构。",
+            "明确空结果、无权限、响应格式错误时是停止、降级还是请求用户处理。",
+        ],
+        priority="P2",
+    ),
 
     # Skill engine — manifest / metadata ------------------------------
     "skill.manifest_issue": Guidance(

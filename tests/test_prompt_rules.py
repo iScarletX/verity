@@ -832,6 +832,225 @@ class TestModelEndpointNoFallback:
 
 
 # =========================================================================
+# Round 54: independent review-capability baseline
+# =========================================================================
+
+class TestOutputFormatConflict:
+    ft = "prompt.output_format_conflict"
+
+    def test_chinese_top_level_json_conflict(self):
+        r = _run(
+            "你必须只输出一个合法 JSON 对象。\n"
+            "你必须不要输出 JSON，只输出自然语言段落。\n",
+            kind="system_prompt",
+        )
+        hits = _findings_of(r, self.ft)
+        assert len(hits) == 1
+        assert hits[0].severity == "medium"
+        assert len(hits[0].evidenceIds) == 2
+
+    def test_english_top_level_json_conflict(self):
+        r = _run(
+            "Return exactly one JSON object and no commentary.\n"
+            "Only output plain text; do not use JSON.\n"
+        )
+        assert self.ft in _find_types(r)
+
+    def test_nested_natural_language_field_is_not_a_conflict(self):
+        r = _run(
+            "整体只输出一个 JSON 对象。\n"
+            "其中 prompt 字段必须是面向用户的英文自然语言描述。\n"
+        )
+        assert self.ft not in _find_types(r)
+
+    def test_explicit_fallback_formats_are_not_a_conflict(self):
+        r = _run(
+            "Normally return JSON. If the receiving client explicitly "
+            "does not support JSON, return a plain-text error message.\n"
+        )
+        assert self.ft not in _find_types(r)
+
+    def test_quoted_example_is_excluded(self):
+        r = _run(
+            "The following is a bad example:\n"
+            "```\nReturn JSON only.\nDo not output JSON.\n```\n"
+            "Always follow the contract defined by the caller.\n"
+        )
+        assert self.ft not in _find_types(r)
+
+    def test_json_quality_guard_is_not_a_json_prohibition(self):
+        r = _run(
+            "Return exactly one valid JSON object.\n"
+            "The input is not JSON and must be parsed first.\n"
+            "Do not output invalid JSON and do not wrap JSON in Markdown.\n"
+        )
+        assert self.ft not in _find_types(r)
+
+    def test_chinese_json_quality_guard_is_not_a_json_prohibition(self):
+        r = _run(
+            "只输出一个合法 JSON 对象。\n"
+            "输入为非 JSON 文本，需要先解析。\n"
+            "不得输出无效 JSON，也不要在 JSON 外添加解释。\n"
+        )
+        assert self.ft not in _find_types(r)
+
+
+class TestOutputBudgetConflict:
+    ft = "prompt.output_budget_conflict"
+
+    def test_chinese_explicit_arithmetic_conflict(self):
+        r = _run(
+            "输出 10 个场景。\n"
+            "每个场景至少 100 字符。\n"
+            "总输出不得超过 500 字符。\n"
+        )
+        hits = _findings_of(r, self.ft)
+        assert len(hits) == 1
+        assert hits[0].severity == "medium"
+        assert len(hits[0].evidenceIds) == 3
+
+    def test_english_explicit_arithmetic_conflict(self):
+        r = _run(
+            "Return 8 items.\n"
+            "Each item must contain at least 120 tokens.\n"
+            "The total response must not exceed 500 tokens.\n"
+        )
+        assert self.ft in _find_types(r)
+
+    def test_feasible_budget_is_quiet(self):
+        r = _run(
+            "Return 4 items.\n"
+            "Each item must contain at least 100 tokens.\n"
+            "The total response must not exceed 500 tokens.\n"
+        )
+        assert self.ft not in _find_types(r)
+
+    def test_incomparable_units_are_quiet(self):
+        r = _run(
+            "输出 10 个场景。\n"
+            "每个场景至少 100 字符。\n"
+            "总输出不得超过 500 tokens。\n"
+        )
+        assert self.ft not in _find_types(r)
+
+    def test_no_invented_minimum_is_quiet(self):
+        r = _run("Generate 20 ideas. Keep the total response under 500 tokens.")
+        assert self.ft not in _find_types(r)
+
+
+class TestAutonomyWithoutApproval:
+    ft = "prompt.autonomy_without_approval"
+
+    def test_chinese_autonomous_side_effect_without_boundary(self):
+        r = _run(
+            "你必须主动工作，自行删除过期文件并发送通知，无需询问用户。",
+            kind="system_prompt",
+        )
+        hits = _findings_of(r, self.ft)
+        assert len(hits) == 1
+        assert hits[0].severity == "medium"
+        assert len(hits[0].evidenceIds) == 2
+
+    def test_english_autonomous_side_effect_without_boundary(self):
+        r = _run(
+            "Act proactively and publish changes or delete obsolete files "
+            "without asking the user.",
+            kind="system_prompt",
+        )
+        assert self.ft in _find_types(r)
+
+    def test_explicit_approval_boundary_is_quiet(self):
+        r = _run(
+            "主动整理建议；删除文件、发布变更或发送消息前必须获得用户确认。",
+            kind="system_prompt",
+        )
+        assert self.ft not in _find_types(r)
+        r = _run(
+            "Act proactively and delete obsolete files, but ask the user "
+            "before deleting anything.",
+            kind="system_prompt",
+        )
+        assert self.ft not in _find_types(r)
+
+    def test_proactive_answering_has_no_side_effect(self):
+        r = _run(
+            "Be proactive in answering the user's questions and suggesting "
+            "useful follow-up topics.",
+            kind="system_prompt",
+        )
+        assert self.ft not in _find_types(r)
+
+    def test_user_prompt_is_not_a_role_policy(self):
+        r = _run("Please proactively delete obsolete files.", kind="user_prompt")
+        assert self.ft not in _find_types(r)
+
+
+class TestFailureStrategyMissing:
+    ft = "prompt.failure_strategy_missing"
+
+    def test_external_api_workflow_without_failure_strategy(self):
+        r = _run(
+            "Call the external API to fetch the account data, then parse the "
+            "response and generate the final report.",
+            kind="system_prompt",
+        )
+        hits = _findings_of(r, self.ft)
+        assert hits
+        assert all(h.severity == "low" for h in hits)
+
+    def test_retrieval_workflow_without_empty_result_strategy(self):
+        r = _run(
+            "使用搜索工具检索相关文档，然后根据检索内容生成答复。",
+            kind="system_prompt",
+        )
+        assert self.ft in _find_types(r)
+
+    def test_declared_failure_strategy_is_quiet(self):
+        r = _run(
+            "调用外部 API 获取数据。超时后重试两次；仍失败时返回结构化错误，"
+            "空结果则明确说明没有找到数据。",
+            kind="system_prompt",
+        )
+        assert self.ft not in _find_types(r)
+        r = _run(
+            "Parse the API response. If the response format is invalid or "
+            "a required field is missing, return a structured error.",
+            kind="system_prompt",
+        )
+        assert self.ft not in _find_types(r)
+
+    def test_local_text_task_is_quiet(self):
+        r = _run("Summarize the text supplied by the user.")
+        assert self.ft not in _find_types(r)
+
+    def test_documentation_about_api_errors_is_not_an_operation(self):
+        r = _run(
+            "Explain what an API timeout means and describe common retry "
+            "strategies for a software engineering audience."
+        )
+        assert self.ft not in _find_types(r)
+
+
+def test_round54_realistic_prompt_surfaces_all_four_independent_signals():
+    r = _run(
+        "你是内容发布 Agent，必须主动工作并自行发布变更。\n"
+        "调用外部 API 获取素材并解析响应。\n"
+        "输出 10 个场景，每个场景至少 100 字符。\n"
+        "总输出不得超过 500 字符。\n"
+        "你必须只输出一个合法 JSON 对象。\n"
+        "你必须不要输出 JSON，只输出自然语言段落。\n",
+        kind="system_prompt",
+    )
+    types = _find_types(r)
+    assert {
+        "prompt.output_format_conflict",
+        "prompt.output_budget_conflict",
+        "prompt.autonomy_without_approval",
+        "prompt.failure_strategy_missing",
+    } <= types
+
+
+# =========================================================================
 # Prompt-kind enum + Coverage accounting
 # =========================================================================
 

@@ -1,0 +1,2 @@
+Call the external API to fetch account data.
+Retry once on timeout, return a structured error on failure, and report an empty result explicitly.

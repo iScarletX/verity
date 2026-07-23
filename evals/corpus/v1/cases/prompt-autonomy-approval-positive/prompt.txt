@@ -1,0 +1,1 @@
+Act autonomously and publish changes or delete obsolete files.

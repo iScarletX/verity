@@ -233,6 +233,54 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="low",
         requiredEvidenceKinds=["source_span"],
     ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.output_format_conflict",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("conflictCategory", "literal_enum",
+                         allowedValues=["top_level_json_vs_non_json"]),
+        ],
+        subjectKeyFields=["artifactPath", "conflictCategory"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.output_budget_conflict",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("budgetCategory", "literal_enum",
+                         allowedValues=["explicit_minimum_exceeds_total"]),
+        ],
+        subjectKeyFields=["artifactPath", "budgetCategory"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.autonomy_without_approval",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("autonomyCategory", "literal_enum",
+                         allowedValues=["high_impact_action_without_approval"]),
+        ],
+        subjectKeyFields=["artifactPath", "autonomyCategory"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.failure_strategy_missing",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("operationCategory", "literal_enum",
+                         allowedValues=["external_call", "retrieval", "parsing"]),
+        ],
+        subjectKeyFields=["artifactPath", "operationCategory"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # --- Skill engine ---------------------------------------------------
     # Manifest / metadata findings
     ftr.register(FindingTypeDefinition(
@@ -707,6 +755,73 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="low",
         controlIds=["quality.consistency"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.output_format_conflict",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Prompt gives mutually exclusive top-level output-format "
+               "directives: JSON-only and explicitly non-JSON/plain-text. "
+               "Field-level natural-language content, examples and declared "
+               "fallback branches are excluded."),
+        findingType="prompt.output_format_conflict",
+        implementationId="impl.prompt.output_format_conflict.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["quality.consistency"],
+        evidencePerFinding=2,
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.output_budget_conflict",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Explicit item count multiplied by the explicit per-item "
+               "minimum exceeds the explicit total output maximum in the "
+               "same unit. This is a mechanically proven budget conflict; "
+               "Verity never invents an estimated per-item size."),
+        findingType="prompt.output_budget_conflict",
+        implementationId="impl.prompt.output_budget_conflict.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["quality.consistency"],
+        evidencePerFinding=3,
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.autonomy_without_approval",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("System prompt combines an autonomy mandate with a high-impact "
+               "external side effect but declares no approval/confirmation "
+               "boundary. Helpful proactive analysis without side effects "
+               "is excluded."),
+        findingType="prompt.autonomy_without_approval",
+        implementationId="impl.prompt.autonomy_without_approval.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["quality.authorization"],
+        applicablePromptKinds=["system_prompt"],
+        evidencePerFinding=2,
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.failure_strategy_missing",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Prompt mandates an external call, retrieval, or parsing step "
+               "but declares no failure, timeout, retry, fallback, empty-"
+               "result, or structured-error strategy anywhere."),
+        findingType="prompt.failure_strategy_missing",
+        implementationId="impl.prompt.failure_strategy_missing.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low",
+        controlIds=["quality.resilience"],
     ))
     return rr
 

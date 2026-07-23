@@ -14,6 +14,47 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-23 — Test the evidence that crosses the Provider boundary, not only the extractor seed
+
+- **Symptom**: The long-document instruction-conflict extractor produced a
+  seed containing two deep constraint lines, so extractor tests passed, but
+  the Candidate Generator still could not judge that conflict reliably.
+- **Root cause**: The extractor accumulated up to 24 Evidence records while
+  `build_generator_request` sent only the first eight. Opening prose was
+  ordered first, so the deep lines that justified the seed were silently
+  truncated before egress. The test stopped at the extractor output and
+  never inspected the actual Provider payload.
+- **Fix**: Bound instruction-conflict line selection to the default
+  eight-Evidence egress budget, prioritize strong constraints across the
+  document, preserve original line indices, and assert that both deep
+  conflict snippets appear in the generated outbound request.
+- **Prevention**: For every staged analyzer, test the final boundary object
+  consumed by the next stage. A valid intermediate Candidate/Evidence record
+  is not proof that ordering, redaction or budget caps preserve it at egress.
+- **Evidence**: Round 54;
+  `test_instruction_conflict_finds_seed_far_from_document_start`,
+  `test_instruction_conflict_short_document_is_bounded_to_egress_budget`.
+
+### 2026-07-23 — A reference auditor supplies hypotheses, not labels
+
+- **Symptom**: Treating Butler parity as the target encouraged copying broad
+  checks such as estimated token pressure and vague role quality, even
+  though Butler's own archived model reports disagree with each other and
+  sometimes report inapplicable or contradictory findings.
+- **Root cause**: A prior tool's finding list was used as if it were ground
+  truth instead of one noisy observation from a different architecture and
+  evaluation process.
+- **Fix**: Use Butler read-only to enumerate failure shapes, then require
+  Verity-owned risk definitions, evidence boundaries, positive cases and
+  safe counterexamples. Round 54 implements only claims it can support:
+  exact same-unit budget contradictions, explicit high-impact autonomy
+  without approval, and supported failure-prone operations without a
+  strategy. Broader judgment is left for semantic or black-box measurement.
+- **Prevention**: Never promote a competitor/reference finding directly into
+  a label. Reproduce the behavior, define the narrow claim independently,
+  test disagreement cases, and preserve an honest known-gaps list.
+- **Evidence**: Round 54 Prompt rule tests and Corpus v1.15.0.
+
 ### 2026-07-23 — Exact-literal detection markers silently miss real prompts; broaden behind a multi-signal precision gate, and expect neutral out-of-scope corpus firings
 
 - **Symptom**: The owner reported "老是检查不出任何问题" (Verity finds

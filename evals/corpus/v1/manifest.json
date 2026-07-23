@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.14.0",
+  "corpusVersion": "1.15.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -1261,6 +1261,150 @@
       "expectedRiskIds": [],
       "path": "cases/prompt-endpoint-fallback-safe/prompt.txt",
       "rationale": "Same pinned model but with an explicit fallback and retry path declared.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-format-conflict-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "path": "cases/prompt-format-conflict-positive/prompt.txt",
+      "rationale": "Two unconditional top-level directives require JSON-only and explicitly prohibit JSON, so they cannot be satisfied together.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-format-conflict-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-format-conflict-safe/prompt.txt",
+      "rationale": "The top-level output is JSON while one field contains natural-language text; these requirements are compatible at different structural levels.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-budget-conflict-positive",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-011"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-011"
+      ],
+      "path": "cases/prompt-budget-conflict-positive/prompt.txt",
+      "rationale": "The explicit item count multiplied by the explicit per-item token minimum exceeds the explicit total token maximum.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-budget-conflict-safe",
+      "objectType": "prompt",
+      "promptKind": "user_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-011"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-budget-conflict-safe/prompt.txt",
+      "rationale": "The explicit per-item minimum fits within the declared total maximum.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-autonomy-approval-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-012"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-012"
+      ],
+      "path": "cases/prompt-autonomy-approval-positive/prompt.txt",
+      "rationale": "Combines an autonomy mandate with publishing and deletion side effects but declares no human approval boundary.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-autonomy-approval-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-012"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-autonomy-approval-safe/prompt.txt",
+      "rationale": "Proactive analysis is allowed, while publishing and deletion explicitly require human approval.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-failure-strategy-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-013"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-013"
+      ],
+      "path": "cases/prompt-failure-strategy-positive/prompt.txt",
+      "rationale": "Mandates an external API call and response parsing with no failure, timeout, retry, empty-result, or structured-error behavior.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "low",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-failure-strategy-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-013"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-failure-strategy-safe/prompt.txt",
+      "rationale": "The same external operation declares timeout retry, terminal failure, and empty-result behavior.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

@@ -1984,6 +1984,363 @@ def prompt_model_endpoint_no_fallback(ctx: RuleContext) -> List[RuleHit]:
     return out
 
 
+# --- P20: mutually exclusive top-level output formats -------------------
+
+_OUTPUT_JSON = re.compile(r"\bjson\b", re.IGNORECASE)
+_OUTPUT_TOP_LEVEL = re.compile(
+    r"\b(?:return|output|respond|reply|produce|emit)\b"
+    r"|输出|返回|回复|响应|生成",
+    re.IGNORECASE,
+)
+_OUTPUT_STRICT = re.compile(
+    r"\b(?:must|shall|only|exactly|strictly|required)\b"
+    r"|必须|只能|仅|只输出|严格|唯一",
+    re.IGNORECASE,
+)
+_OUTPUT_JSON_NEGATION = re.compile(
+    r"\b(?:do\s+not|don't|must\s+not|never|avoid)\s+"
+    r"(?:(?:return|output|emit|use|produce)\s+)?(?:any\s+)?json\b"
+    r"|\b(?:respond|reply|return|output)\s+without\s+json\b"
+    r"|\b(?:output|response|reply|format)\s+"
+    r"(?:(?:must|shall|should)\s+be\s+|is\s+)?"
+    r"(?:not|non[- ]?)\s*json\b"
+    r"|\b(?:use|return|output|emit)\s+(?:a\s+)?non[- ]json\b"
+    r"|(?:不要|不得|禁止|避免|不可|不能)"
+    r"(?:返回|输出|回复|使用|采用)?(?:任何)?\s*JSON"
+    r"|不使用\s*JSON|不采用\s*JSON"
+    r"|(?:输出|返回|回复|格式)(?:必须|应当|应该|为|是)?\s*非\s*JSON",
+    re.IGNORECASE,
+)
+_OUTPUT_PLAIN_ONLY = re.compile(
+    r"\b(?:only\s+)?(?:reply|respond|return|output)\s+"
+    r"(?:only\s+)?(?:(?:with|in)\s+)?(?:a\s+)?"
+    r"(?:plain[- ]text|natural[- ]language)"
+    r"(?:\s+(?:paragraph|response|reply|text))?(?:\s+only)?\b"
+    r"|(?:只|仅|只能)输出[^。\n]{0,12}(?:纯文本|自然语言段落)",
+    re.IGNORECASE,
+)
+_OUTPUT_CONDITIONAL = re.compile(
+    r"\b(?:if|when|unless|except|otherwise|fallback)\b"
+    r"|如果|若|仅当|除非|例外|除外|否则|不支持时|不可用时|失败时",
+    re.IGNORECASE,
+)
+
+
+def _char_span_to_bytes(text: str, start: int, end: int) -> Tuple[int, int]:
+    return (len(text[:start].encode("utf-8")),
+            len(text[:end].encode("utf-8")))
+
+
+def _line_char_spans(text: str) -> List[Tuple[int, int, str]]:
+    out: List[Tuple[int, int, str]] = []
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        visible = line.rstrip("\r\n")
+        out.append((offset, offset + len(visible), visible))
+        offset += len(line)
+    if not out and text:
+        out.append((0, len(text), text))
+    return out
+
+
+def _source_evidence_for_char_span(
+        ctx: RuleContext, file_obj, data: bytes, text: str,
+        span: Tuple[int, int], producer: Producer) -> EvidenceRecord:
+    bstart, bend = _char_span_to_bytes(text, span[0], span[1])
+    return make_source_span_evidence(
+        snapshot_id=ctx.snapshot.snapshotId,
+        file_id=file_obj.fileId,
+        artifact_path=file_obj.normalizedPath,
+        file_digest=file_obj.contentDigest or "",
+        byte_range=(bstart, bend),
+        raw_bytes=data[bstart:bend],
+        producer=producer,
+    )
+
+
+def prompt_output_format_conflict(ctx: RuleContext) -> List[RuleHit]:
+    """Prove the narrow JSON-vs-non-JSON top-level conflict.
+
+    The rule intentionally requires two independently classified top-level
+    directives. It does not infer a conflict from a natural-language field
+    inside JSON, and it skips conditional/fallback format branches.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        text = data.decode("utf-8", "ignore")
+        excluded = _excluded_ranges(data)
+        positive: List[Tuple[int, int]] = []
+        negative: List[Tuple[int, int]] = []
+        for start, end, line in _line_char_spans(text):
+            if not line.strip() or _OUTPUT_CONDITIONAL.search(line):
+                continue
+            bstart, _ = _char_span_to_bytes(text, start, end)
+            if _in_ranges(bstart, excluded):
+                continue
+            explicit_negative = bool(_OUTPUT_JSON_NEGATION.search(line))
+            plain_only = bool(_OUTPUT_PLAIN_ONLY.search(line))
+            if explicit_negative or plain_only:
+                negative.append((start, end))
+                continue
+            if (_OUTPUT_JSON.search(line)
+                    and _OUTPUT_TOP_LEVEL.search(line)
+                    and _OUTPUT_STRICT.search(line)):
+                positive.append((start, end))
+        if not positive or not negative:
+            continue
+        ev_pos = _source_evidence_for_char_span(
+            ctx, f, data, text, positive[0], prod)
+        ev_neg = _source_evidence_for_char_span(
+            ctx, f, data, text, negative[0], prod)
+        out.append(RuleHit(evidences=[ev_pos, ev_neg], subject={
+            "artifactPath": f.normalizedPath,
+            "conflictCategory": "top_level_json_vs_non_json",
+        }))
+    return out
+
+
+# --- P21: mechanically impossible explicit output budget ----------------
+
+_OUTPUT_ITEM_COUNT = re.compile(
+    r"(?:输出|生成|返回|提供|包含|列出|制作)\s*"
+    r"(?:至少|最少|恰好|正好)?\s*(\d{1,4})\s*"
+    r"(?:个|条|项|段|组|张|轮|场景|方案|结果|记录)"
+    r"|\b(?:return|output|generate|provide|include|list|produce)\s+"
+    r"(?:exactly\s+|at\s+least\s+)?(\d{1,4})\s+"
+    r"(?:items?|scenes?|entries|records?|results?|options?|sections?|paragraphs?)\b",
+    re.IGNORECASE,
+)
+_OUTPUT_PER_ITEM_MIN = re.compile(
+    r"每(?:个|条|项|段|组|张|轮|场景|方案|结果|记录)[^。\n]{0,35}"
+    r"(?:至少|不少于|最少)\s*(\d{1,6})\s*(tokens?|字|字符)"
+    r"|\beach\s+(?:item|scene|entry|record|result|option|section|paragraph)"
+    r"[^.\n]{0,45}\b(?:at\s+least|minimum\s+of)\s+"
+    r"(\d{1,6})\s*(tokens?|words?|characters?)\b",
+    re.IGNORECASE,
+)
+_OUTPUT_TOTAL_MAX = re.compile(
+    r"(?:总(?:输出|回复|响应|长度)?|整体(?:输出|回复|响应)?|全文|输出总长度)"
+    r"[^。\n]{0,25}(?:不超过|不得超过|最多|上限(?:为|是)?|限制(?:为|在)?)"
+    r"\s*(\d{1,7})\s*(tokens?|字|字符)"
+    r"|\b(?:the\s+)?(?:total|entire|overall)\s+"
+    r"(?:output|response|reply)?[^.\n]{0,30}"
+    r"(?:must\s+not\s+exceed|at\s+most|maximum(?:\s+of)?|under)"
+    r"\s*(\d{1,7})\s*(tokens?|words?|characters?)\b",
+    re.IGNORECASE,
+)
+
+
+def _budget_unit(unit: str) -> str:
+    value = unit.lower()
+    if value.startswith("token"):
+        return "token"
+    if value.startswith("word"):
+        return "word"
+    return "character"
+
+
+def _outside_text_matches(pattern: re.Pattern, text: str,
+                          excluded: Sequence[Tuple[int, int]]):
+    matches = []
+    for match in pattern.finditer(text):
+        bstart, _ = _char_span_to_bytes(text, match.start(), match.end())
+        if not _in_ranges(bstart, excluded):
+            matches.append(match)
+    return matches
+
+
+def prompt_output_budget_conflict(ctx: RuleContext) -> List[RuleHit]:
+    """Flag only arithmetic contradictions with an explicit lower bound.
+
+    No token/character conversion and no guessed average size is used.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        text = data.decode("utf-8", "ignore")
+        excluded = _excluded_ranges(data)
+        counts = _outside_text_matches(_OUTPUT_ITEM_COUNT, text, excluded)
+        per_items = _outside_text_matches(_OUTPUT_PER_ITEM_MIN, text, excluded)
+        totals = _outside_text_matches(_OUTPUT_TOTAL_MAX, text, excluded)
+        hit = None
+        for count_m in counts:
+            count = int(count_m.group(1) or count_m.group(2))
+            for per_m in per_items:
+                per_value = int(per_m.group(1) or per_m.group(3))
+                per_unit = _budget_unit(per_m.group(2) or per_m.group(4))
+                for total_m in totals:
+                    total = int(total_m.group(1) or total_m.group(3))
+                    total_unit = _budget_unit(
+                        total_m.group(2) or total_m.group(4))
+                    if per_unit == total_unit and count * per_value > total:
+                        hit = (count_m, per_m, total_m)
+                        break
+                if hit:
+                    break
+            if hit:
+                break
+        if hit is None:
+            continue
+        evidences = [
+            _source_evidence_for_char_span(
+                ctx, f, data, text, (m.start(), m.end()), prod)
+            for m in hit
+        ]
+        out.append(RuleHit(evidences=evidences, subject={
+            "artifactPath": f.normalizedPath,
+            "budgetCategory": "explicit_minimum_exceeds_total",
+        }))
+    return out
+
+
+# --- P22: autonomy + high-impact action without approval ----------------
+
+_AUTONOMY_MANDATE = re.compile(
+    r"\b(?:act|work|operate)\s+(?:proactively|autonomously)\b"
+    r"|\b(?:proactively|autonomously)\s+(?:act|work|operate|decide|execute)\b"
+    r"|主动工作|主动执行|自主执行|自主操作|自行决定|自行处理",
+    re.IGNORECASE,
+)
+_HIGH_IMPACT_ACTION = re.compile(
+    r"\b(?:delete|remove)\s+(?:files?|records?|data|accounts?)\b"
+    r"|\b(?:publish|deploy)\s+(?:changes?|content|releases?)\b"
+    r"|\bsend\s+(?:messages?|emails?|notifications?)\b"
+    r"|\b(?:purchase|pay|charge)\b"
+    r"|\b(?:modify|write|overwrite)\s+(?:files?|settings?|configuration|records?)\b"
+    r"|\b(?:run|execute)\s+(?:commands?|scripts?)\b"
+    r"|删除(?:文件|记录|数据|账户)|移除(?:文件|记录|数据)"
+    r"|发布(?:变更|内容|版本)|部署(?:变更|版本|服务)"
+    r"|发送(?:消息|邮件|通知)|购买|付款|扣款"
+    r"|修改(?:文件|设置|配置|记录)|写入(?:文件|设置|配置|记录)"
+    r"|执行(?:命令|脚本)",
+    re.IGNORECASE,
+)
+_APPROVAL_BOUNDARY = re.compile(
+    r"\b(?:must|required\s+to|shall)\s+(?:first\s+)?"
+    r"(?:obtain|request|get)\s+(?:the\s+)?(?:user|human)?\s*"
+    r"(?:approval|confirmation|authorization)\b"
+    r"|\bbefore\s+[^.\n]{0,45}\b(?:ask|confirm|obtain approval)\b"
+    r"|\b(?:ask|confirm\s+with)\s+(?:the\s+)?(?:user|human)"
+    r"[^.\n]{0,35}\bbefore\b"
+    r"|\b(?:request|obtain|get)\s+(?:the\s+)?(?:user|human)?\s*"
+    r"(?:approval|confirmation|authorization)[^.\n]{0,35}\bbefore\b"
+    r"|\bonly\s+after\s+(?:the\s+)?(?:user|human)\s+"
+    r"(?:approves|confirms|authorizes)\b"
+    r"|(?:删除|发送|发布|部署|修改|执行)[^。\n]{0,24}(?:前|之前)"
+    r"[^。\n]{0,16}(?:必须|需要|需)(?:获得)?(?:用户|人工)?"
+    r"(?:确认|批准|授权)"
+    r"|(?:删除|发送|发布|部署|修改|执行)[^。\n]{0,24}(?:前|之前)"
+    r"(?:必须|需要|需|先)?(?:询问|征得)(?:用户|人工)"
+    r"|(?:必须|需要|需)(?:先)?获得(?:用户|人工)?(?:确认|批准|授权)"
+    r"|经(?:用户|人工)(?:确认|批准|授权)后|不得未经(?:用户|人工)?(?:确认|批准|授权)",
+    re.IGNORECASE,
+)
+
+
+def prompt_autonomy_without_approval(ctx: RuleContext) -> List[RuleHit]:
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        text = data.decode("utf-8", "ignore")
+        excluded = _excluded_ranges(data)
+        if _outside_text_matches(_APPROVAL_BOUNDARY, text, excluded):
+            continue
+        autonomy = _outside_text_matches(_AUTONOMY_MANDATE, text, excluded)
+        actions = _outside_text_matches(_HIGH_IMPACT_ACTION, text, excluded)
+        if not autonomy or not actions:
+            continue
+        evidences = [
+            _source_evidence_for_char_span(
+                ctx, f, data, text, (m.start(), m.end()), prod)
+            for m in (autonomy[0], actions[0])
+        ]
+        out.append(RuleHit(evidences=evidences, subject={
+            "artifactPath": f.normalizedPath,
+            "autonomyCategory": "high_impact_action_without_approval",
+        }))
+    return out
+
+
+# --- P23: failure-prone operation without a declared failure strategy ----
+
+_FAILURE_STRATEGY = re.compile(
+    r"\b(?:on\s+failure|if\s+[^.\n]{0,35}\bfails?|error|exception|timeout|"
+    r"time\s*out|retry|backoff|fallback|failover|unavailable|empty\s+result|"
+    r"no\s+results?|structured\s+error|malformed|invalid\s+(?:response|format)|"
+    r"missing\s+(?:data|field|information|input)|permission\s+denied|"
+    r"unauthorized)\b"
+    r"|失败|错误|异常|超时|重试|回退|降级|不可用|空结果|无结果|未找到|"
+    r"结构化错误|兜底|格式无效|格式错误|缺少|缺失|权限不足|无权限|无法访问",
+    re.IGNORECASE,
+)
+_FAILURE_PRONE_OPERATIONS = {
+    "external_call": re.compile(
+        r"\b(?:call|invoke|query|request|connect\s+to)\s+(?:the\s+)?"
+        r"(?:external\s+)?(?:api|endpoint|service|model)\b"
+        r"|(?:调用|请求|访问|连接)(?:外部)?(?:\s*API|接口|服务|模型)",
+        re.IGNORECASE,
+    ),
+    "retrieval": re.compile(
+        r"\b(?:use|call)\s+(?:the\s+)?(?:search|retrieval|browser)\s+"
+        r"(?:tool|service)\b"
+        r"|\b(?:search|retrieve|fetch)\s+(?:documents?|records?|the\s+web|"
+        r"knowledge\s+base)\b"
+        r"|(?:使用|调用)[^。\n]{0,8}(?:搜索|检索|浏览器)[^。\n]{0,6}(?:工具|服务)"
+        r"|(?:搜索|检索|抓取)(?:相关)?(?:文档|内容|网页|记录|知识库)",
+        re.IGNORECASE,
+    ),
+    "parsing": re.compile(
+        r"\b(?:parse|deserialize|decode)\s+(?:the\s+)?"
+        r"(?:response|file|document|json|yaml|xml|attachment)\b"
+        r"|(?:解析|反序列化|解码)(?:响应|文件|文档|JSON|YAML|XML|附件)",
+        re.IGNORECASE,
+    ),
+}
+
+
+def prompt_failure_strategy_missing(ctx: RuleContext) -> List[RuleHit]:
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        text = data.decode("utf-8", "ignore")
+        excluded = _excluded_ranges(data)
+        if _outside_text_matches(_FAILURE_STRATEGY, text, excluded):
+            continue
+        for category, pattern in _FAILURE_PRONE_OPERATIONS.items():
+            matches = _outside_text_matches(pattern, text, excluded)
+            if not matches:
+                continue
+            match = matches[0]
+            ev = _source_evidence_for_char_span(
+                ctx, f, data, text, (match.start(), match.end()), prod)
+            out.append(RuleHit(evidences=[ev], subject={
+                "artifactPath": f.normalizedPath,
+                "operationCategory": category,
+            }))
+    return out
+
+
 # Skill rules live in a separate module so this file stays focused on the
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
@@ -2021,6 +2378,10 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.topic_splice.v1": prompt_topic_splice,
     "impl.prompt.version_naming_inconsistent.v1": prompt_version_naming_inconsistent,
     "impl.prompt.model_endpoint_no_fallback.v1": prompt_model_endpoint_no_fallback,
+    "impl.prompt.output_format_conflict.v1": prompt_output_format_conflict,
+    "impl.prompt.output_budget_conflict.v1": prompt_output_budget_conflict,
+    "impl.prompt.autonomy_without_approval.v1": prompt_autonomy_without_approval,
+    "impl.prompt.failure_strategy_missing.v1": prompt_failure_strategy_missing,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
     "impl.skill.sensitive_path_access.v1": skill_sensitive_path_access,

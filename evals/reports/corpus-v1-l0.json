@@ -1,7 +1,7 @@
 {
   "aggregateSafetyScore": null,
   "baselineClass": "minimal_pair_baseline",
-  "caseCount": 72,
+  "caseCount": 80,
   "caseResults": [
     {
       "assessedRiskIds": [
@@ -1376,10 +1376,162 @@
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "caseId": "prompt-format-conflict-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-004"
+      ],
+      "caseId": "prompt-format-conflict-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-011"
+      ],
+      "caseId": "prompt-budget-conflict-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-011"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-011"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-011"
+      ],
+      "caseId": "prompt-budget-conflict-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-012"
+      ],
+      "caseId": "prompt-autonomy-approval-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-012"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-012"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-012"
+      ],
+      "caseId": "prompt-autonomy-approval-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-013"
+      ],
+      "caseId": "prompt-failure-strategy-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-013"
+      ],
+      "expectedSeverity": "low",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-013"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-013"
+      ],
+      "caseId": "prompt-failure-strategy-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
     }
   ],
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.14.0",
+  "corpusVersion": "1.15.0",
   "disclaimer": "Minimal paired per-risk offline baseline only. One positive and one safe counterexample cannot establish broad precision/recall. This is not a safety score and not a semantic, black-box, or sandbox evaluation.",
   "highOrCriticalUnsafeCases": {
     "caseCount": 11,
@@ -1453,12 +1605,12 @@
       "status": "measured"
     },
     {
-      "caseCount": 2,
+      "caseCount": 4,
       "confusion": {
         "fn": 0,
         "fp": 0,
-        "tn": 1,
-        "tp": 1
+        "tn": 2,
+        "tp": 2
       },
       "languages": [
         "en"
@@ -1935,12 +2087,75 @@
       "safeFalsePositiveRate": 0.0,
       "severityPolicy": "not_scored_in_round15",
       "status": "measured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-PROMPT-011",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-PROMPT-012",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
+    },
+    {
+      "caseCount": 2,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 1,
+        "tp": 1
+      },
+      "languages": [
+        "en"
+      ],
+      "objectTypes": [
+        "prompt"
+      ],
+      "precision": 1.0,
+      "recall": 1.0,
+      "riskId": "VR-PROMPT-013",
+      "safeFalsePositiveRate": 0.0,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "measured"
     }
   ],
   "schemaVersion": 1,
   "stability": {
     "rate": 1.0,
-    "stableCases": 72,
+    "stableCases": 80,
     "unstableCases": 0
   }
 }

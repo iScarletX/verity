@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "c7dc95b"
-  tests_collected: 566
-  tests_passed: 566
+  commit: "0ad9c2c"
+  tests_collected: 590
+  tests_passed: 590
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,19 +27,57 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 27 unified risks, 57 mapped runtime components (49 deterministic rules + 1 capability extractor + 7 semantic finding types) and four mature-tool decisions. Current L0 breadth: 4 none / 14 signal / 9 partial. Current L1 breadth: 17 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
+**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 30 unified risks, 61 mapped runtime components (53 deterministic rules + 1 capability extractor + 7 semantic finding types) and four mature-tool decisions. Current L0 breadth: 4 none / 17 signal / 9 partial. Current L1 breadth: 20 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 72 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–52 added 34 new L0 cases (across VR-PROMPT-008/010/003/001/002, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 80 synthetic L0 cases across 24 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. The other 54 L0 cases are `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, no risk layer is substantial/evaluated, and human/domain-expert review has not been obtained. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
-**Next step.** The deterministic static auditor is a shippable engineering preview. Any *evaluated accuracy* or public production-quality claim, or productionizing the semantic path, still requires: a NEW protocol version with fresh unseen splits (v2 Selection is consumed and must not be tuned from), a frozen Selection passing predeclared gates against a dated immutable model, sealed-Test consumption under approval, and human/domain-expert review. Do not reinterpret v1/v2 metrics, expose sealed Test, or start V1.5/V2 under the current decision.
+**Next step.** Round 55 is the owner-authorized V1.5 Prompt black-box entry round. Build the default-off isolated runner, versioned test-case/scorer contracts, bounded Provider adapter and separate run report using only fake providers in CI. Before the first real external run, obtain and record the explicit test set, dated model, call/token/cost budget and recording location required by `AGENTS.md`; the reviewed prompt must never control Provider configuration. This authorization does not expose the sealed semantic Test split, retry the consumed v2 Selection, install a local model, or start V2 Skill execution.
 
 **What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, experimental semantic pipeline plus bounded JSON-over-HTTPS Provider adapter (default OFF; trusted CLI configuration only), standalone CLI/Web review, trusted Web-first Skill project identity/history with scope-aware five-state version and compatible-score diff, and an isolated synthetic-only real-model evaluation command with strict split/call/egress/report gates. Confirmed Findings from completed stages now use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 54 (2026-07-23) → independent review baseline, real Prompt findings, and black-box handoff
+
+- Owner authorized Verity as the writable primary project and Butler as
+  read-only reference. Butler's checks and past reports were used only to
+  generate failure hypotheses: they contain contradictory judgments and
+  broad heuristic estimates, so Butler ids/results are not Verity labels or
+  acceptance truth.
+- Added four bounded, explainable deterministic Prompt findings:
+  `prompt.output_format_conflict` proves unconditional top-level JSON-vs-
+  non-JSON conflicts; `prompt.output_budget_conflict` proves same-unit
+  arithmetic impossibility from explicit count/per-item minimum/total
+  maximum; `prompt.autonomy_without_approval` signals explicit autonomy plus
+  a closed-list high-impact side effect with no approval boundary; and
+  `prompt.failure_strategy_missing` signals supported external-call,
+  retrieval or parsing operations with no declared failure strategy.
+- Added Finding Types, rules, implementations, Chinese guidance, exact
+  detector mappings, three new unified risks (VR-PROMPT-011/012/013), 24
+  regression tests and eight provisional positive/safe Corpus cases. The
+  combined realistic regression requires all four findings to survive in one
+  review. Corpus v1.15.0 now has 80 balanced cases across 24 measured risks;
+  the new tiny pairs are measurement plumbing, not broad accuracy evidence.
+- Repaired a real semantic evidence-chain defect. The instruction-conflict
+  extractor could select deep constraint lines but emitted up to 24 Evidence
+  records while the Provider request sent only the first eight, so the model
+  often never received the lines that justified the seed. Selection is now
+  bounded to the egress budget, prioritizes strong constraints across the
+  document, and is tested against the actual outbound request payload.
+- Tightened JSON-negation matching after adversarial review so “do not output
+  invalid JSON” and “do not wrap JSON in Markdown” do not become false
+  JSON-prohibition evidence. No torch/transformers package or model weight
+  was installed; no sealed Test label was exposed and the consumed v2
+  Selection was not retried.
+- Full suite: 590 passed, 0 skipped. Repository verification passes. Runtime
+  baseline: 30 risks, 61 mapped components (53 deterministic rules + one
+  capability extractor + seven semantic Finding Types). The static release
+  remains an engineering preview with no evaluated-accuracy claim. Round 55
+  now enters V1.5 black-box implementation under its explicit opt-in gates.
 
 ## Round 53 (2026-07-23) → re-anchor Verity's mission in the canonical docs (docs-only)
 

@@ -75,8 +75,8 @@ future `semantic: completed` means the controlled semantic stage ran, not that
 semantic coverage is complete.
 
 The machine-readable [`standards/`](standards/README.md) baseline separates
-these axes. It records 27 unified risks and rates current breadth only as
-`none`, `signal`, or `partial`. Current L1 breadth is still only 17 none / 9
+these axes. It records 30 unified risks and rates current breadth only as
+`none`, `signal`, or `partial`. Current L1 breadth is still only 20 none / 9
 signal / 1 partial: seven semantic Finding Types do not make semantic review
 complete. The versioned [`evals/`](evals/README.md)
 minimal paired corpus reproduces per-risk L0 confusion matrices and fixed
@@ -366,7 +366,7 @@ Honest OWASP AST10 status (shown in every skill report as a matrix):
 We never claim `full` coverage. The report enumerates only `partial` and
 `none` per category.
 
-## Prompt rule inventory (round 2)
+## Prompt rule inventory
 
 Prompt Auditor and Skill Auditor use **separate** rule registries. The
 prompt registry now contains the following deterministic rules:
@@ -391,6 +391,10 @@ prompt registry now contains the following deterministic rules:
 | `prompt.topic_splice` | medium | any | An image/media **style description spliced onto the head** of an agent system prompt (Butler #1). Deterministic, dependency-free approximation of neural topic-coherence checks: requires style-domain head + agent-domain body + near-zero character-n-gram overlap, so ordinary/title-first/pure-image prompts are not flagged. Maps to VR-PROMPT-002. |
 | `prompt.version_naming_inconsistent` | low | any | The same entity is written with inconsistent version **forms** (`v2.0` vs `version 2` vs `2.0.0`) that refer to the same release. Grouped by a normalized preceding-entity key; requires ≥1 explicit version prefix and numerically prefix-compatible tuples, so distinct entities (`python 3.11` vs `api v1`) and genuine migrations (`v1`→`v2`) are not flagged. Maps to VR-PROMPT-002. (Butler minor #1.) |
 | `prompt.model_endpoint_no_fallback` | low | any | Prompt pins a specific model/endpoint (`gpt-4o`, a URL, `model: "…"`) for an imperative step with no fallback/retry/degradation path declared anywhere. Structural-absence signal; requires a vendor-recognizable pinned id in imperative context, suppressed by any fallback vocabulary. Whether the step is truly *critical* is a human judgement (precision over recall). Maps to VR-PROMPT-002. (Butler minor #5.) |
+| `prompt.output_format_conflict` | medium | any | Two unconditional top-level directives require JSON-only and explicitly non-JSON/plain-text output. Nested natural-language fields, examples and conditional fallback branches are excluded. Dual-evidence. Maps to VR-PROMPT-004. |
+| `prompt.output_budget_conflict` | medium | any | An explicit item count multiplied by an explicit per-item minimum exceeds an explicit total maximum in the same unit. No token/word/character conversion or inferred average is used. Triple-evidence. Maps to VR-PROMPT-011. |
+| `prompt.autonomy_without_approval` | medium | `system_prompt` only | An explicit autonomy mandate is combined with a closed-list high-impact side effect, but no user/human approval boundary is declared. Proactive analysis without side effects is excluded. Maps to VR-PROMPT-012. |
+| `prompt.failure_strategy_missing` | low | any | A supported external-call, retrieval or parsing operation is required while the prompt declares no timeout, retry, fallback, empty-result or structured-error behavior. This is a bounded structural-absence signal, not general edge-case judgment. Maps to VR-PROMPT-013. |
 
 Severity discipline (also visible in the HTML report):
 

@@ -1,0 +1,3 @@
+Return 12 records.
+Each record must contain at least 80 tokens.
+The total response must not exceed 600 tokens.

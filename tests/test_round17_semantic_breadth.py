@@ -57,20 +57,52 @@ def test_instruction_conflict_finds_seed_far_from_document_start():
     pairs = {(x[0]["lineAIndex"], x[0]["lineBIndex"]) for x in seeds}
     assert (140, 171) in pairs
     # Still bounded: anchoring must not explode candidate count on a long doc.
-    assert len(seeds) <= 300
+    assert len(seeds) <= 28
+
+    evidence = []
+    seen = set()
+    for _hint, _ids, records in seeds:
+        for record in records:
+            if record["evidenceId"] not in seen:
+                seen.add(record["evidenceId"])
+                evidence.append(record)
+    request = build_generator_request(
+        review_id="long-conflict", engine="prompt",
+        finding_type="semantic.prompt.instruction_conflict",
+        evidences=evidence, file_bytes=data,
+        egress_policy="redacted_evidence",
+        subject_taxonomy={}, max_evidence=8,
+        prompt_kind="system_prompt",
+    )
+    snippets = [item.get("textSnippet", "") for item in request["evidence"]]
+    assert conflict_a in snippets
+    assert conflict_b in snippets
 
 
-def test_instruction_conflict_short_document_behaviour_is_unchanged():
-    """Documents at or below the head window keep the original exhaustive
-    all-pairs behaviour exactly (no regression for existing short-prompt
-    callers/tests)."""
+def test_instruction_conflict_short_document_is_bounded_to_egress_budget():
+    """The extractor must not create evidence the default Provider request
+    silently drops. Ten lines are reduced to eight, so every seeded pair is
+    actually visible to the model under the default evidence budget."""
     from verity.semantic.catalog import extract_instruction_conflict
     text = "\n".join(f"line {i}" for i in range(10)) + "\n"
     snap, data = intake_text(text)
     review = run_review(ReviewInputs("prompt", snap, data))
     seeds = extract_instruction_conflict(review_to_dict(review), data)
-    # C(10,2) = 45 exhaustive pairs for a short document.
-    assert len(seeds) == 45
+    # C(8,2) = 28; the default semantic evidence cap is eight.
+    assert len(seeds) == 28
+
+
+def test_instruction_conflict_anchor_is_case_insensitive():
+    from verity.semantic.catalog import extract_instruction_conflict
+    lines = [f"Filler line {i}." for i in range(20)]
+    lines[12] = "YOU MUST ALWAYS return the complete result."
+    lines[18] = "YOU MUST NEVER return the complete result."
+    text = "\n".join(lines) + "\n"
+    snap, data = intake_text(text, prompt_kind="system_prompt")
+    review = run_review(ReviewInputs("prompt", snap, data))
+    seeds = extract_instruction_conflict(review_to_dict(review), data)
+    pairs = {(x[0]["lineAIndex"], x[0]["lineBIndex"]) for x in seeds}
+    assert (12, 18) in pairs
 
 
 def test_chinese_trust_boundary_and_tool_scope_have_deterministic_seeds():

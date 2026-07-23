@@ -33,22 +33,17 @@ addition to describing how Verity's test suite acts as a pipeline gate.
 
 ## Versioned corpus baseline
 
-`evals/corpus/v1/manifest.json` contains 72 independently labelled synthetic
-L0 cases across 21 current risk classes. Most risks retain one positive/safe
+`evals/corpus/v1/manifest.json` contains 80 labelled synthetic
+L0 cases across 24 current risk classes. Most risks retain one positive/safe
 pair; Agent Skills specification conformance has four pairs after Round 16.
 Every case records provenance, license, object/language, assessed
 risks, expected risks/severity, and rationale. Answer keys contain risk ids,
 not Rule ids. Exact-byte duplicates of existing developer fixtures are
 rejected to reduce test/corpus leakage. 26 L0 labels carry `independent_ai_review`, bound to current payload
 digests by `evals/reviews/corpus-v1-independent-ai-review.json`. This is a
-cross-model blind AI second opinion, not human expert review. Rounds 31–37
-added eleven new pairs (VR-PROMPT-008 untrusted-input trust-boundary,
-VR-SKILL-014 sensitive host-path access, VR-PROMPT-010 dangling section
-reference, VR-SKILL-008 TLS certificate verification, VR-PROMPT-003
-hardcoded prompt secret, VR-SKILL-011 hardcoded skill credential,
-VR-SKILL-005 external instructions, VR-SKILL-007 unsafe deserialization,
-VR-SKILL-009 untrusted network destination, VR-SKILL-010 unsafe output
-rendering, VR-SKILL-015 SQL injection via string-built queries) as
+cross-model blind AI second opinion, not human expert review. The other 54 L0
+cases, including Round 54's output-format conflict, explicit output-budget
+conflict, autonomy/approval boundary and failure-strategy pairs, remain
 `provisional_single_review`; they are intentionally excluded from the frozen
 attestation until a future review round covers them.
 

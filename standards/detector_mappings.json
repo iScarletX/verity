@@ -462,6 +462,38 @@
         "VR-PROMPT-002"
       ],
       "contribution": "partial"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.output_format_conflict",
+      "riskIds": [
+        "VR-PROMPT-004"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.output_budget_conflict",
+      "riskIds": [
+        "VR-PROMPT-011"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.autonomy_without_approval",
+      "riskIds": [
+        "VR-PROMPT-012"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.failure_strategy_missing",
+      "riskIds": [
+        "VR-PROMPT-013"
+      ],
+      "contribution": "signal"
     }
   ]
 }

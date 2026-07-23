@@ -1,0 +1,2 @@
+You must return exactly one JSON object.
+Do not output JSON; reply only with a plain-text paragraph.

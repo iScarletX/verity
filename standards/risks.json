@@ -163,9 +163,9 @@
         "V2_sandbox": "none"
       },
       "knownGaps": [
-        "Semantic extractor compares only adjacent non-empty lines",
+        "Semantic extractor sends at most eight strong-constraint lines to keep every seed inside the Provider evidence budget",
         "No cross-section constraint graph",
-        "No corpus metrics"
+        "Static coverage proves only strict numeric assignments and top-level JSON-vs-non-JSON conflicts; broader contradictions remain semantic"
       ],
       "evaluationReference": null
     },
@@ -1245,6 +1245,113 @@
         "Python-focused (Bandit B608 heuristic only)",
         "No data-flow proof the interpolated value is attacker-controlled",
         "No non-Python ORM/query-builder coverage"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-011",
+      "title": "Output resource constraints are infeasible",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "Explicit output quantity, per-item minimum, and total output maximum cannot all be satisfied in the same declared unit.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION",
+            "INFORMATION-INTEGRITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May prove same-unit arithmetic contradictions when count, per-item minimum, and total maximum are all explicit.",
+        "L1_semantic": "May judge likely budget pressure when one or more lower bounds are implicit; this is not implemented.",
+        "V1_5_blackbox": "May measure truncation, omitted items, and contract noncompliance under the configured model budget.",
+        "V2_sandbox": "Not applicable."
+      },
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No token/word/character conversion is attempted",
+        "No inferred average item size or task-complexity estimate",
+        "No model-specific tokenizer or black-box truncation measurement"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-012",
+      "title": "Autonomous authority boundary is undefined",
+      "scopes": [
+        "system_prompt"
+      ],
+      "definition": "A system prompt mandates autonomous behavior for high-impact external side effects without requiring user or human approval.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION",
+            "INFORMATION-SECURITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May signal explicit autonomy language combined with a closed list of high-impact action phrases and no approval boundary.",
+        "L1_semantic": "May judge broader role, initiative, and delegated-authority ambiguity; this is not implemented.",
+        "V1_5_blackbox": "May probe whether the model performs or proposes side effects without seeking approval.",
+        "V2_sandbox": "May observe attempted side effects only inside the future isolated Skill sandbox."
+      },
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Closed action vocabulary; no general authority graph",
+        "Cannot prove whether an external application enforces approval",
+        "Helpful proactive analysis without side effects is deliberately excluded"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-013",
+      "title": "Failure and edge-case handling is undefined",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A prompt mandates a failure-prone external call, retrieval, or parsing step but declares no timeout, retry, fallback, empty-result, or structured-error behavior.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION",
+            "VALUE-CHAIN-COMPONENT-INTEGRATION"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May signal supported operation phrases when the whole prompt contains no supported failure-strategy marker.",
+        "L1_semantic": "May judge whether a declared strategy covers each operation and material edge case; this is not implemented.",
+        "V1_5_blackbox": "May inject timeouts, malformed responses, and empty results and score the observed behavior.",
+        "V2_sandbox": "May observe runtime failure handling for Skills inside isolation."
+      },
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "none",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Closed operation and strategy vocabularies",
+        "A strategy anywhere in the prompt suppresses the signal even if it covers a different operation",
+        "No fault injection or malformed-response execution"
       ],
       "evaluationReference": null
     }

@@ -1,0 +1,1 @@
+Call the external API to fetch account data, parse the response, and produce the report.
