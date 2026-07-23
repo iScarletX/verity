@@ -406,6 +406,14 @@
         "VR-PROMPT-001"
       ],
       "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.encoded_injection_payload",
+      "riskIds": [
+        "VR-PROMPT-001"
+      ],
+      "contribution": "signal"
     }
   ]
 }

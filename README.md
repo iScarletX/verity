@@ -364,6 +364,7 @@ prompt registry now contains the following deterministic rules:
 | `prompt.dangling_section_reference` | medium | any | "see section N" / "见第N节" whose target number has no matching heading anywhere in the document. Only strict numbered-section forms are matched; free-form prose pointers ("see the rules above") are not. Maps to VR-PROMPT-010. |
 | `prompt.embedded_system_role_marker` | medium | any | Literal chat-template/system-role control tokens embedded in the reviewed text (`<\|im_start\|>system`, `<<SYS>>`, `[system](#assistant)`, `{{#system~}}`, etc.) — an indirect prompt-injection vector. Exact-literal closed list; fenced/inline code excluded. Adapted from vigil-llm SystemInstructions YARA. Maps to VR-PROMPT-001. |
 | `prompt.markdown_data_exfiltration` | medium | any | Markdown image whose URL carries a query string (`![x](https://h/p?q=...)`), a known data-exfiltration channel. Only markdown image syntax with an http(s) query-string URL; plain links/query-less images not matched. Adapted from vigil-llm MarkdownExfiltration YARA. Maps to VR-PROMPT-001. |
+| `prompt.encoded_injection_payload` | medium | any | A base64/hex blob that **decodes to** an instruction-bypass phrase (encoded hidden-instruction smuggling). Only fires when the decoded bytes match the bypass grammar, so benign encoded tokens/assets are not flagged. Inspired by NVIDIA garak encoding-injection probes. Maps to VR-PROMPT-001. |
 
 Severity discipline (also visible in the HTML report):
 

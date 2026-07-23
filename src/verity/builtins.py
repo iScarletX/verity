@@ -151,6 +151,18 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="medium",
         requiredEvidenceKinds=["source_span"],
     ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.encoded_injection_payload",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("encodingCategory", "literal_enum",
+                         allowedValues=["base64", "hex"]),
+        ],
+        subjectKeyFields=["artifactPath", "encodingCategory"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # --- Skill engine ---------------------------------------------------
     # Manifest / metadata findings
     ftr.register(FindingTypeDefinition(
@@ -508,6 +520,23 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
                "query). Adapted from vigil-llm MarkdownExfiltration YARA."),
         findingType="prompt.markdown_data_exfiltration",
         implementationId="impl.prompt.markdown_data_exfiltration.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["OWASP-LLM01:2025"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.encoded_injection_payload",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Prompt text contains a base64/hex blob that decodes to an "
+               "instruction-bypass phrase (encoded hidden-instruction "
+               "smuggling). Only fires when the decoded bytes match the "
+               "bypass grammar, keeping false positives near zero. Inspired "
+               "by NVIDIA garak encoding-injection probes."),
+        findingType="prompt.encoded_injection_payload",
+        implementationId="impl.prompt.encoded_injection_payload.v1",
         applicableKinds=["prompt"],
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="medium",

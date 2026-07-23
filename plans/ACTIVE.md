@@ -10,6 +10,14 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 48 (done) — port garak encoding-injection detection
+
+New prompt.encoded_injection_payload: base64/hex blob that DECODES to a
+bypass phrase (near-zero FP by construction -- benign encoded tokens not
+flagged). Inspired by garak InjectBase64/InjectHex probes. +4 tests +
+corpus pair. VR-PROMPT-001 now 4 sub-pattern pairs, all precision/recall
+1.0. corpus 60 cases (30/30). 525 tests. decision stays release_candidate.
+
 ## Round 47 (done) — port llm-guard invisible-character coverage
 
 Added invisible/zero-width + Unicode TAG-block (tag-smuggling) detection to

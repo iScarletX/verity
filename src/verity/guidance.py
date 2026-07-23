@@ -188,6 +188,19 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P1",
     ),
+    "prompt.encoded_injection_payload": Guidance(
+        id="prompt.encoded_injection_payload",
+        plainTitle="文本里藏了 base64/hex 编码的越权指令",
+        whyItMatters=(
+            "把“忽略之前所有指令”这类命令编码成 base64/hex 藏在正文里，是常见的"
+            "绕过过滤器手法：模型被诱导先解码再执行，就绕过了明文检测。"
+        ),
+        whatToDo=[
+            "删除该编码串；正常业务不需要在提示词里嵌入编码后的指令。",
+            "若确需传编码数据，明确标注用途，并确保下游不会“解码后当指令执行”。",
+        ],
+        priority="P1",
+    ),
 
     # Skill engine — manifest / metadata ------------------------------
     "skill.manifest_issue": Guidance(

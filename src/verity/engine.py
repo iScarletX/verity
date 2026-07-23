@@ -17,6 +17,8 @@ tests/test_architecture.py enforces this by AST-level import inspection.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 import uuid
 from dataclasses import dataclass
@@ -1248,6 +1250,99 @@ def prompt_markdown_data_exfiltration(ctx: RuleContext) -> List[RuleHit]:
     return out
 
 
+# --- P13: encoded (base64/hex) instruction-bypass payload ---------------
+
+# Inspired by NVIDIA garak's encoding-injection probes (InjectBase64 /
+# InjectHex etc.), which smuggle instructions past filters by encoding
+# them. For a STATIC auditor the analogous, low-false-positive detection
+# is: the text contains a long base64/hex blob that *actually decodes to*
+# an instruction-bypass phrase. We only flag when the decoded content
+# matches the same authoritative bypass grammar used by
+# prompt.instruction_override_marker -- so a benign base64 asset (an
+# image, a token) is never flagged, only an encoded hidden instruction.
+_B64_BLOB = re.compile(rb"[A-Za-z0-9+/]{24,}={0,2}")
+_HEX_BLOB = re.compile(rb"(?:[0-9A-Fa-f]{2}){16,}")
+# Decoded-content trigger: a compact subset of the bypass grammar, matched
+# against decoded text (already lowercased).
+_DECODED_BYPASS = re.compile(
+    rb"(?:ignore|disregard|forget|bypass|override)\b[^\n]{0,40}"
+    rb"(?:instruction|previous|prior|rule|prompt|system|above|safety|guardrail)"
+    rb"|you are (?:now )?dan\b|do anything now|developer mode"
+)
+
+
+def _decoded_has_bypass(raw: bytes) -> bool:
+    try:
+        text = raw.decode("utf-8", "ignore").lower().encode("utf-8")
+    except Exception:
+        return False
+    return bool(_DECODED_BYPASS.search(text))
+
+
+def prompt_encoded_injection_payload(ctx: RuleContext) -> List[RuleHit]:
+    """Flag a base64/hex blob that decodes to an instruction-bypass phrase.
+
+    Boundaries:
+    - Only fires when the DECODED bytes contain a known bypass phrase, so
+      ordinary encoded assets/tokens are not flagged (very low false
+      positive rate by construction).
+    - Fenced/inline code excluded (docs may show encoded examples).
+    - Severity MEDIUM: an encoded hidden instruction is a real smuggling
+      vector; static analysis cannot prove the model would obey it.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        seen: set = set()
+        for pat, kind, decoder in (
+            (_B64_BLOB, "base64", _try_b64),
+            (_HEX_BLOB, "hex", _try_hex),
+        ):
+            for m in pat.finditer(data):
+                if _in_ranges(m.start(), excluded):
+                    continue
+                decoded = decoder(m.group(0))
+                if decoded is None or not _decoded_has_bypass(decoded):
+                    continue
+                key = (m.start(), kind)
+                if key in seen:
+                    continue
+                seen.add(key)
+                ev = make_source_span_evidence(
+                    snapshot_id=ctx.snapshot.snapshotId,
+                    file_id=f.fileId, artifact_path=f.normalizedPath,
+                    file_digest=f.contentDigest or "",
+                    byte_range=(m.start(), m.end()),
+                    raw_bytes=m.group(0), producer=prod,
+                )
+                out.append(RuleHit(evidences=[ev], subject={
+                    "artifactPath": f.normalizedPath,
+                    "encodingCategory": kind,
+                }))
+    return out
+
+
+def _try_b64(blob: bytes) -> Optional[bytes]:
+    try:
+        pad = blob + b"=" * (-len(blob) % 4)
+        return base64.b64decode(pad, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+
+
+def _try_hex(blob: bytes) -> Optional[bytes]:
+    try:
+        return binascii.unhexlify(blob[: len(blob) - (len(blob) % 2)])
+    except (binascii.Error, ValueError):
+        return None
+
+
 # Skill rules live in a separate module so this file stays focused on the
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
@@ -1278,6 +1373,7 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.dangling_section_reference.v1": prompt_dangling_section_reference,
     "impl.prompt.embedded_system_role_marker.v1": prompt_embedded_system_role_marker,
     "impl.prompt.markdown_data_exfiltration.v1": prompt_markdown_data_exfiltration,
+    "impl.prompt.encoded_injection_payload.v1": prompt_encoded_injection_payload,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
     "impl.skill.sensitive_path_access.v1": skill_sensitive_path_access,
