@@ -238,6 +238,24 @@ class TestControlCharacter:
         with pytest.raises(IntakeError):
             intake_text("bad\x00value")
 
+    def test_positive_zero_width_space(self):
+        # Round 46 (adapted from llm-guard invisible_text): U+200B ZWSP.
+        r = _run("answer\u200bhonestly")
+        cats = {f.subject["controlCategory"] for f in _findings_of(r, self.ft)}
+        assert "invisible_char" in cats
+
+    def test_positive_unicode_tag_smuggling(self):
+        # U+E0041 -- Unicode TAG block, the invisible instruction-smuggling
+        # vector. Must be flagged as invisible_char.
+        r = _run("visible text\U000e0041\U000e0042")
+        cats = {f.subject["controlCategory"] for f in _findings_of(r, self.ft)}
+        assert "invisible_char" in cats
+
+    def test_positive_bom_and_word_joiner(self):
+        r = _run("a\ufeffb\u2060c")
+        cats = {f.subject["controlCategory"] for f in _findings_of(r, self.ft)}
+        assert "invisible_char" in cats
+
 
 # =========================================================================
 # 6. empty_or_whitespace

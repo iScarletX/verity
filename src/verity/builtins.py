@@ -73,7 +73,8 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         subjectFields=[
             SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
             SubjectField("controlCategory", "literal_enum",
-                         allowedValues=["control_char", "bidi_override"]),
+                         allowedValues=["control_char", "bidi_override",
+                                        "invisible_char"]),
         ],
         subjectKeyFields=["artifactPath", "controlCategory"],
         defaultSeverity="medium",

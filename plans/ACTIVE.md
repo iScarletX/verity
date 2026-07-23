@@ -10,6 +10,14 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 47 (done) — port llm-guard invisible-character coverage
+
+Added invisible/zero-width + Unicode TAG-block (tag-smuggling) detection to
+prompt.control_character as a new invisible_char category (adapted from
+ProtectAI llm-guard invisible_text Cf/Co/Cn). +3 unit tests + corpus pair
+for VR-PROMPT-005. corpus 58 cases (29/29). 521 tests. decision stays
+release_candidate.
+
 ## Round 46 (done) — mine 8 authoritative OSS security projects, port 3 real patterns
 
 Owner directive: stop reinventing, port what mature open-source projects do.

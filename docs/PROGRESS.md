@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "fef70c49b933c26286be26b06f87e2ec81f8f842"
-  tests_collected: 518
-  tests_passed: 518
+  commit: "be79565c28b409cc577bb3e12eee33233f718b5c"
+  tests_collected: 521
+  tests_passed: 521
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -29,7 +29,7 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 27 unified risks, 48 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 14 signal / 9 partial. Current L1 breadth: 17 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 56 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–46 added 30 new L0 cases (across VR-PROMPT-008/010/003/001, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 58 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–46 added 30 new L0 cases (across VR-PROMPT-008/010/003/001, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, no risk layer is substantial/evaluated, and human/domain-expert review has not been obtained. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
@@ -40,6 +40,29 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 47 (2026-07-23) → port llm-guard invisible-character coverage into control_character
+
+- Continued mining the cloned OSS projects. ProtectAI llm-guard's
+  `invisible_text` scanner bans Unicode categories Cf/Co/Cn; Verity's
+  `prompt.control_character` only covered C0 controls + bidi overrides,
+  missing the entire zero-width / invisible-formatting / tag-smuggling
+  surface.
+- Added an `invisible_char` detection class to the existing rule: U+200B
+  ZWSP, U+200C ZWNJ, U+200D ZWJ, U+2060 word joiner, U+FEFF BOM, U+180E,
+  and critically the **Unicode TAG block U+E0000–E007F** (the modern
+  invisible-instruction "tag smuggling" vector). Reported under a distinct
+  `controlCategory: invisible_char` so it is separable from ordinary
+  controls/bidi in reports and SARIF.
+- Added 3 unit tests (ZWSP, tag-smuggling, BOM+word-joiner) and a
+  versioned corpus pair for VR-PROMPT-005 (hidden/deceptive encoding),
+  giving that risk a second sub-pattern pair alongside the existing
+  bidi-based one. VR-PROMPT-005 stays `measured`, precision=1.0,
+  recall=1.0 across both pairs.
+- corpus `corpusVersion 1.10.0` (58 cases, 29/29 balance). Regenerated
+  corpus/closure reports; `decision` stays `release_candidate`. Full
+  suite: 518 -> 521 passed, 0 skipped. Round 46 landed as commit
+  `be79565` with GitHub CI #43 successful.
 
 ## Round 46 (2026-07-23) → mine authoritative OSS security projects; port 3 real detection patterns
 

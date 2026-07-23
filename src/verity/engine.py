@@ -774,7 +774,24 @@ def prompt_duplicate_numeric_assignment(ctx: RuleContext) -> List[RuleHit]:
 # control chars that are legal in UTF-8 but almost always accidents in
 # prompts: BEL, backspace, ESC, form feed, and the Unicode bidi override
 # characters (a known prompt-injection vector).
+#
+# Round 46 (adapted from ProtectAI llm-guard invisible_text, which bans
+# unicode categories Cf/Co/Cn): also flag zero-width / invisible
+# formatting characters and the Unicode "tag" block (U+E0000-E007F), which
+# is the modern invisible-instruction "tag smuggling" vector. These are
+# reported under a separate ``invisible_char`` category so they are
+# distinguishable from ordinary C0 controls and bidi overrides.
 _CONTROL_CHARS = re.compile(rb"[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]|\xe2\x80[\xaa-\xae]|\xe2\x81[\xa6-\xa9]")
+_INVISIBLE_CHARS = re.compile(
+    # U+200B ZWSP, U+200C ZWNJ, U+200D ZWJ, U+2060 WORD JOINER
+    rb"\xe2\x80[\x8b-\x8d]|\xe2\x81\xa0"
+    # U+FEFF BOM / zero-width no-break space
+    rb"|\xef\xbb\xbf"
+    # U+180E MONGOLIAN VOWEL SEPARATOR
+    rb"|\xe1\xa0\x8e"
+    # U+E0000-U+E007F Unicode TAG block (tag smuggling): UTF-8 F3 A0 80-81 xx
+    rb"|\xf3\xa0[\x80\x81][\x80-\xbf]"
+)
 
 
 def prompt_control_character(ctx: RuleContext) -> List[RuleHit]:
@@ -806,6 +823,19 @@ def prompt_control_character(ctx: RuleContext) -> List[RuleHit]:
             subject = {
                 "artifactPath": f.normalizedPath,
                 "controlCategory": cat,
+            }
+            out.append(RuleHit(evidences=[ev], subject=subject))
+        for m in _INVISIBLE_CHARS.finditer(data):
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(m.start(), m.end()),
+                raw_bytes=m.group(0), producer=prod,
+            )
+            subject = {
+                "artifactPath": f.normalizedPath,
+                "controlCategory": "invisible_char",
             }
             out.append(RuleHit(evidences=[ev], subject=subject))
     return out

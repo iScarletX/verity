@@ -19,12 +19,12 @@ REPO = Path(__file__).parent.parent
 
 def test_manifest_is_balanced_traceable_and_independent_of_rule_ids():
     manifest = load_manifest()
-    assert manifest["corpusVersion"] == "1.9.0"
-    assert len(manifest["cases"]) == 56
+    assert manifest["corpusVersion"] == "1.10.0"
+    assert len(manifest["cases"]) == 58
     positives = [c for c in manifest["cases"] if c["label"] == "unsafe"]
     safe = [c for c in manifest["cases"]
             if c["label"] == "safe_counterexample"]
-    assert len(positives) == len(safe) == 28
+    assert len(positives) == len(safe) == 29
     text = (REPO / "evals/corpus/v1/manifest.json").read_text()
     # Answer keys use stable risks only, never detector/rule names.
     mappings = load_detector_mappings()
@@ -57,9 +57,9 @@ def test_l0_metrics_are_per_risk_and_never_a_safety_score():
     report = evaluate()
     assert report["baselineClass"] == "minimal_pair_baseline"
     assert report["aggregateSafetyScore"] is None
-    assert report["caseCount"] == 56
+    assert report["caseCount"] == 58
     assert report["stability"] == {
-        "stableCases": 56, "unstableCases": 0, "rate": 1.0}
+        "stableCases": 58, "unstableCases": 0, "rate": 1.0}
     assert report["highOrCriticalUnsafeCases"] == {
         "caseCount": 11, "tp": 11, "fn": 0}  # Round 37 added skill-sql-injection-positive (medium, not high/critical)
     measured = [r for r in report["riskResults"]
