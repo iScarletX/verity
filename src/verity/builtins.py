@@ -198,6 +198,18 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="low",
         requiredEvidenceKinds=["source_span"],
     ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.topic_splice",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("spliceCategory", "literal_enum",
+                         allowedValues=["style_head_on_agent_body"]),
+        ],
+        subjectKeyFields=["artifactPath", "spliceCategory"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # --- Skill engine ---------------------------------------------------
     # Manifest / metadata findings
     ftr.register(FindingTypeDefinition(
@@ -620,6 +632,23 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         applicableKinds=["prompt"],
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="low",
+        controlIds=["quality.consistency"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.topic_splice",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("An image/media style description is spliced onto the head of "
+               "an agent system prompt (cross-domain head vs body). "
+               "Deterministic, dependency-free approximation of neural "
+               "topic-coherence checks; requires style-head + agent-body + "
+               "near-zero lexical overlap to fire."),
+        findingType="prompt.topic_splice",
+        implementationId="impl.prompt.topic_splice.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
         controlIds=["quality.consistency"],
     ))
     return rr

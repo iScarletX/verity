@@ -1551,6 +1551,90 @@ def prompt_fullwidth_mixed(ctx: RuleContext) -> List[RuleHit]:
     return out
 
 
+# --- P17: head/body topic splice (Butler #1) ----------------------------
+#
+# Detects the specific, high-confidence splice Butler flagged on the
+# NexPlay SP: an image/media STYLE description glued onto the head of an
+# AGENT system prompt. This is a deterministic, dependency-free
+# approximation of what OSS tools (llm-guard relevance/ban_topics) do with
+# neural models -- it does NOT attempt general topic-coherence, only this
+# concrete cross-domain-head pattern, and requires THREE independent
+# signals to fire so ordinary prompts (incl. title-first and pure image
+# prompts) are never flagged:
+#   1. the first line carries >=2 image/media STYLE-domain terms, AND
+#   2. the body carries >=2 AGENT-instruction terms, AND
+#   3. head vs body character-3gram Jaccard overlap is near zero.
+_STYLE_DOMAIN_TERMS = (
+    "风格", "剧照", "皮肤纹理", "布料", "光线", "色彩", "景深", "构图",
+    "镜头", "写实", "摄影", "画风", "质感", "氛围感", "调色",
+    "photoreal", "cinematic", "lighting", "texture", "render",
+    "aspect ratio", "depth of field", "bokeh", "color grading",
+)
+_AGENT_DOMAIN_TERMS = (
+    "你是", "系统提示", "负责", "工作流", "工具", "用户", "任务",
+    "system prompt", "agent", "skill", "you are", "assistant",
+    "instruction", "role", "task", "workflow",
+)
+
+
+def _char_ngrams(s: str, n: int = 3):
+    s = "".join(s.split()).lower()
+    return set(s[i:i + n] for i in range(len(s) - n + 1)) if len(s) >= n else set()
+
+
+def prompt_topic_splice(ctx: RuleContext) -> List[RuleHit]:
+    """Flag an image/media STYLE description spliced onto the head of an
+    AGENT system prompt (Butler report #1).
+
+    Requires three independent signals (style head + agent body + near-zero
+    lexical overlap) so ordinary prompts, title-first prompts and pure
+    image prompts are not flagged. Deterministic, dependency-free.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        text = data.decode("utf-8", "ignore")
+        lines = [(ln.strip()) for ln in text.splitlines() if ln.strip()]
+        if len(lines) < 4:
+            continue
+        head = lines[0]
+        body = " ".join(lines[1:])
+        if len(head) < 12 or len(body) < 80:
+            continue
+        hl, bl = head.lower(), body.lower()
+        head_style = sum(t in hl for t in _STYLE_DOMAIN_TERMS)
+        body_agent = sum(t in bl for t in _AGENT_DOMAIN_TERMS)
+        if head_style < 2 or body_agent < 2:
+            continue
+        overlap = (lambda a, b: len(a & b) / len(a | b) if a and b else 0.0)(
+            _char_ngrams(head), _char_ngrams(body))
+        if overlap >= 0.05:
+            continue
+        # anchor at the head line (byte range)
+        head_bytes = head.encode("utf-8")
+        idx = data.find(head_bytes)
+        if idx < 0:
+            idx = 0
+            head_bytes = data[:len(head_bytes)]
+        ev = make_source_span_evidence(
+            snapshot_id=ctx.snapshot.snapshotId,
+            file_id=f.fileId, artifact_path=f.normalizedPath,
+            file_digest=f.contentDigest or "",
+            byte_range=(idx, idx + len(head_bytes)),
+            raw_bytes=head_bytes, producer=prod,
+        )
+        out.append(RuleHit(evidences=[ev], subject={
+            "artifactPath": f.normalizedPath,
+            "spliceCategory": "style_head_on_agent_body",
+        }))
+    return out
+
+
 # Skill rules live in a separate module so this file stays focused on the
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
@@ -1585,6 +1669,7 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.named_dangling_reference.v1": prompt_named_dangling_reference,
     "impl.prompt.duplicate_content_line.v1": prompt_duplicate_content_line,
     "impl.prompt.fullwidth_mixed.v1": prompt_fullwidth_mixed,
+    "impl.prompt.topic_splice.v1": prompt_topic_splice,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
     "impl.skill.sensitive_path_access.v1": skill_sensitive_path_access,

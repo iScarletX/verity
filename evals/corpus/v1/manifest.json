@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.12.0",
+  "corpusVersion": "1.13.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -1153,6 +1153,42 @@
       "expectedRiskIds": [],
       "path": "cases/prompt-fullwidth-safe/prompt.txt",
       "rationale": "same content using only half-width ASCII digits/letters.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-topic-splice-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "path": "cases/prompt-topic-splice-positive/prompt.txt",
+      "rationale": "An image/media style description is spliced onto the head of an agent system prompt; head and body are cross-domain with near-zero lexical overlap.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-topic-splice-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-topic-splice-safe/prompt.txt",
+      "rationale": "Same agent system prompt without the spliced image-style head; coherent throughout.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

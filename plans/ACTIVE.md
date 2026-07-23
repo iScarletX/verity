@@ -10,6 +10,22 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 51 (done) — topic-splice: a "semantic" Butler finding done dependency-free
+
+Built prompt.topic_splice (Butler #1 image-style-head-on-agent-body):
+deterministic char-n-gram + cross-domain-vocab gate, no ML deps. Verified
+5/5 (splice/normal-zh/normal-en/title-first/pure-image). NexPlay SP now
+reports #1 AND #2. +4 tests + corpus pair. corpus 68 cases (34/34). 541
+tests. decision stays release_candidate.
+
+OWNER DECISION PENDING: broader coherence / role-ambiguity / true
+token-budget need either (B) a local specialist classifier model added as
+an OPTIONAL gitleaks-style degradable dependency (torch/transformers,
+offline, deterministic -- NOT the failed generic-LLM-judge line), or (C)
+restarting the semantic track with specialist models. Both need owner
+approval to add heavy deps / change architecture. Butler scorecard:
+#1/#2/#4/minor#2/minor#4 detected; #3/#5/minor#3 remain.
+
 ## Round 50 (done) — close 3 more Butler-report findings deterministically
 
 Built named-dangling-reference (Butler #4), duplicate-content-line (minor

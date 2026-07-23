@@ -240,6 +240,20 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P2",
     ),
+    "prompt.topic_splice": Guidance(
+        id="prompt.topic_splice",
+        plainTitle="开头像是图像画风描述，与后面的 Agent 系统提示词主题不符",
+        whyItMatters=(
+            "文档开头是一段图像/画风描述（真人写实、光线、色彩、景深…），紧接着却是"
+            "一个 Agent 系统提示词。这两段主题完全不搭，通常是复制粘贴拼接错误，"
+            "会让模型把画风约束误当成对自身行为的指令，造成角色定位混乱。"
+        ),
+        whatToDo=[
+            "删除开头这段与系统提示词无关的画风描述，只保留真正的 Agent 定义。",
+            "若确实需要画风信息，放到它该去的地方（图像生成 Skill 的参数），不要混进 SP 开头。",
+        ],
+        priority="P1",
+    ),
 
     # Skill engine — manifest / metadata ------------------------------
     "skill.manifest_issue": Guidance(

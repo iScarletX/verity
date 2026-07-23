@@ -1,7 +1,7 @@
 {
   "aggregateSafetyScore": null,
   "baselineClass": "minimal_pair_baseline",
-  "caseCount": 66,
+  "caseCount": 68,
   "caseResults": [
     {
       "assessedRiskIds": [
@@ -1258,10 +1258,48 @@
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "caseId": "prompt-topic-splice-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "caseId": "prompt-topic-splice-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
     }
   ],
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.12.0",
+  "corpusVersion": "1.13.0",
   "disclaimer": "Minimal paired per-risk offline baseline only. One positive and one safe counterexample cannot establish broad precision/recall. This is not a safety score and not a semantic, black-box, or sandbox evaluation.",
   "highOrCriticalUnsafeCases": {
     "caseCount": 11,
@@ -1292,12 +1330,12 @@
       "status": "measured"
     },
     {
-      "caseCount": 6,
+      "caseCount": 8,
       "confusion": {
         "fn": 0,
         "fp": 0,
-        "tn": 3,
-        "tp": 3
+        "tn": 4,
+        "tp": 4
       },
       "languages": [
         "en",
@@ -1822,7 +1860,7 @@
   "schemaVersion": 1,
   "stability": {
     "rate": 1.0,
-    "stableCases": 66,
+    "stableCases": 68,
     "unstableCases": 0
   }
 }

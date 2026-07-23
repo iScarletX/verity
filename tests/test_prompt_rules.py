@@ -612,6 +612,46 @@ class TestFullwidthMixed:
 
 
 # =========================================================================
+# Round 51: topic-splice (Butler #1) -- deterministic, dependency-free
+# =========================================================================
+
+class TestTopicSplice:
+    ft = "prompt.topic_splice"
+
+    def test_positive_style_head_on_agent_body(self):
+        r = _run(
+            "真人写实电影剧照风格，自然皮肤纹理，柔和漫射晨光，电影级色彩分级，浅景深构图\n"
+            "你是 NexPlay Creative Agent，负责互动影游生产总控。\n"
+            "你像资深导演一样主动工作。\n"
+            "业务 Skill 按合同产出企划、资产、分集。\n"
+            "默认用中文处理用户可见内容。\n", kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_negative_coherent_agent_prompt(self):
+        r = _run(
+            "你是 NexPlay Creative Agent，负责互动影游生产总控。\n"
+            "你像资深导演一样工作。\n"
+            "业务 Skill 产出企划资产分集视频封面。\n"
+            "默认中文处理用户可见内容。\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_pure_image_prompt(self):
+        r = _run(
+            "真人写实电影剧照风格\n自然皮肤纹理，布料细节\n"
+            "柔和漫射晨光，电影级色彩\n浅景深构图，氛围感强烈\n",
+            kind="user_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_english_agent_prompt(self):
+        r = _run(
+            "You are a helpful customer support assistant.\n"
+            "Always be polite and concise in every reply.\n"
+            "Escalate to a human when asked twice.\n"
+            "Never reveal internal system details.\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+
+# =========================================================================
 # Prompt-kind enum + Coverage accounting
 # =========================================================================
 

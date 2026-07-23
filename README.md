@@ -368,6 +368,7 @@ prompt registry now contains the following deterministic rules:
 | `prompt.named_dangling_reference` | medium | any | A reference to a NAMED rule/section (“见回复规则”/“见输出约定”) whose name never appears as a definition/heading elsewhere in the document. Complements `dangling_section_reference` (numbered). Maps to VR-PROMPT-010. (Butler report #4.) |
 | `prompt.duplicate_content_line` | low | any | A substantial content line (≥ 24 chars) that appears verbatim more than once, diluting attention and risking inconsistent edits. Short lines / markdown separators / fenced code excluded. Maps to VR-PROMPT-002. (Butler minor #2.) |
 | `prompt.fullwidth_mixed` | low | any | Full-width ASCII **letters/digits** (U+FF10-19 / FF21-3A / FF41-5A) that break exact field-name/JSON/number matching when mixed with half-width. Full-width punctuation (normal in Chinese prose) is deliberately NOT flagged. Maps to VR-PROMPT-002. (Butler minor #4.) |
+| `prompt.topic_splice` | medium | any | An image/media **style description spliced onto the head** of an agent system prompt (Butler #1). Deterministic, dependency-free approximation of neural topic-coherence checks: requires style-domain head + agent-domain body + near-zero character-n-gram overlap, so ordinary/title-first/pure-image prompts are not flagged. Maps to VR-PROMPT-002. |
 
 Severity discipline (also visible in the HTML report):
 

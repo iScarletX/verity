@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "a1005e09fb5d5bee351ca6fe95dd4b3bf8e30763"
-  tests_collected: 537
-  tests_passed: 537
+  commit: "c94773bde7e7e97440b4272baed47d0b9fb01fb9"
+  tests_collected: 541
+  tests_passed: 541
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -29,7 +29,7 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 27 unified risks, 48 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 14 signal / 9 partial. Current L1 breadth: 17 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 66 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–46 added 30 new L0 cases (across VR-PROMPT-008/010/003/001, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 68 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–46 added 30 new L0 cases (across VR-PROMPT-008/010/003/001, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, no risk layer is substantial/evaluated, and human/domain-expert review has not been obtained. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
@@ -40,6 +40,46 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 51 (2026-07-23) → topic-splice detection: a "semantic" Butler finding done dependency-free
+
+- Directly tested the owner's challenge — "can't the OSS projects' way
+  (running an AI model) work for us?". Investigated how llm-guard etc.
+  actually handle topic/coherence: they load neural models (BAAI/bge
+  embeddings, DeBERTa/RoBERTa zero-shot). That is a different, more
+  reliable path than Verity's abandoned generic-LLM-judge line (those are
+  deterministic, offline, benchmarkable specialist classifiers) — but the
+  environment has no ML stack and AGENTS.md forbids auto-installing heavy
+  deps / downloading model weights without owner approval.
+- Key correction to an earlier over-broad claim ("semantic findings
+  REQUIRE a model"): Butler #1 (image-style prose spliced onto an agent
+  system prompt) is actually detectable **dependency-free and
+  deterministically** with a targeted heuristic. Verified before building:
+  char-3gram Jaccard cleanly separates the splice (0.0 overlap) from a
+  coherent prompt (0.27).
+- New `prompt.topic_splice` (medium, VR-PROMPT-002): fires only when THREE
+  independent signals co-occur — first line carries >=2 image/media
+  style-domain terms, body carries >=2 agent-instruction terms, and
+  head/body char-3gram overlap < 0.05. This precision gate was necessary:
+  a naive low-overlap threshold false-positived on normal short-intro
+  English prompts (0.047), so the rule requires the cross-domain vocab
+  signals too. Verified 5/5 on splice / normal-zh / normal-en /
+  title-first / pure-image cases.
+- +4 unit tests, guidance entry, detector mapping (55 runtime
+  components), corpus positive/safe pair. On the real NexPlay SP (with its
+  original image-style head restored) Verity now reports BOTH
+  topic_splice (#1) and untrusted_input_boundary_undeclared (#2).
+- corpus `corpusVersion 1.13.0` (68 cases, 34/34). Regenerated
+  corpus/closure reports; `decision` stays `release_candidate`. Full
+  suite: 537 -> 541 passed, 0 skipped. Round 50 landed as commit
+  `c94773b` with GitHub CI #47 successful.
+- HONEST SCOPE NOTE: this is a targeted heuristic for one concrete splice
+  shape, NOT general topic-coherence. Broad coherence, "主动工作"
+  role-ambiguity, and true token-budget-vs-task judgment still need either
+  a local specialist model (owner decision pending: adds torch/
+  transformers as an optional, gitleaks-style degradable dependency) or
+  the semantic track. Butler NexPlay scorecard now: #1 ✅, #2 ✅, #4 ✅,
+  minor#2 ✅, minor#4 ✅ detected; #3/#5/minor#3 still semantic-judgment.
 
 ## Round 50 (2026-07-23) → close 3 more Butler-report findings with deterministic rules
 
