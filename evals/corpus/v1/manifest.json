@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.11.0",
+  "corpusVersion": "1.12.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -1045,6 +1045,114 @@
       "expectedRiskIds": [],
       "path": "cases/prompt-encoded-injection-safe/prompt.txt",
       "rationale": "Contains a base64 preferences token that decodes to harmless config data and is explicitly not executed.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-named-dangling-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "path": "cases/prompt-named-dangling-positive/prompt.txt",
+      "rationale": "references a named rule (见处置规则) never defined anywhere in the document.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "medium",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-named-dangling-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-named-dangling-safe/prompt.txt",
+      "rationale": "references 见处置规则 and the document defines 处置规则 immediately after.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-duplicate-line-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "path": "cases/prompt-duplicate-line-positive/prompt.txt",
+      "rationale": "a substantial instruction line appears verbatim twice, diluting attention and risking inconsistent edits.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "low",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-duplicate-line-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-duplicate-line-safe/prompt.txt",
+      "rationale": "two distinct instruction lines, no verbatim repetition.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-fullwidth-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "path": "cases/prompt-fullwidth-positive/prompt.txt",
+      "rationale": "uses full-width digits/letters in ratio and field-name contexts, a parsing hazard when mixed with half-width forms.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "low",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-fullwidth-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-fullwidth-safe/prompt.txt",
+      "rationale": "same content using only half-width ASCII digits/letters.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

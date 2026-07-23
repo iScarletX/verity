@@ -1,7 +1,7 @@
 {
   "aggregateSafetyScore": null,
   "baselineClass": "minimal_pair_baseline",
-  "caseCount": 60,
+  "caseCount": 66,
   "caseResults": [
     {
       "assessedRiskIds": [
@@ -1144,10 +1144,124 @@
       "observedRiskIds": [],
       "stable": true,
       "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "caseId": "prompt-named-dangling-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "expectedSeverity": "medium",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-010"
+      ],
+      "caseId": "prompt-named-dangling-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "caseId": "prompt-duplicate-line-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedSeverity": "low",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "caseId": "prompt-duplicate-line-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "caseId": "prompt-fullwidth-positive",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedSeverity": "low",
+      "label": "unsafe",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
+    },
+    {
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "caseId": "prompt-fullwidth-safe",
+      "coverageStatuses": [
+        "sufficient",
+        "sufficient"
+      ],
+      "expectedRiskIds": [],
+      "expectedSeverity": null,
+      "label": "safe_counterexample",
+      "labelStatus": "provisional_single_review",
+      "observedRiskIds": [],
+      "stable": true,
+      "unexpectedOutOfScopeRiskIds": []
     }
   ],
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.11.0",
+  "corpusVersion": "1.12.0",
   "disclaimer": "Minimal paired per-risk offline baseline only. One positive and one safe counterexample cannot establish broad precision/recall. This is not a safety score and not a semantic, black-box, or sandbox evaluation.",
   "highOrCriticalUnsafeCases": {
     "caseCount": 11,
@@ -1178,15 +1292,16 @@
       "status": "measured"
     },
     {
-      "caseCount": 2,
+      "caseCount": 6,
       "confusion": {
         "fn": 0,
         "fp": 0,
-        "tn": 1,
-        "tp": 1
+        "tn": 3,
+        "tp": 3
       },
       "languages": [
-        "en"
+        "en",
+        "zh"
       ],
       "objectTypes": [
         "prompt"
@@ -1661,15 +1776,16 @@
       "status": "unmeasured"
     },
     {
-      "caseCount": 2,
+      "caseCount": 4,
       "confusion": {
         "fn": 0,
         "fp": 0,
-        "tn": 1,
-        "tp": 1
+        "tn": 2,
+        "tp": 2
       },
       "languages": [
-        "en"
+        "en",
+        "zh"
       ],
       "objectTypes": [
         "prompt"
@@ -1706,7 +1822,7 @@
   "schemaVersion": 1,
   "stability": {
     "rate": 1.0,
-    "stableCases": 60,
+    "stableCases": 66,
     "unstableCases": 0
   }
 }

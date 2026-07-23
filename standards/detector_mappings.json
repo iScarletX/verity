@@ -414,6 +414,30 @@
         "VR-PROMPT-001"
       ],
       "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.named_dangling_reference",
+      "riskIds": [
+        "VR-PROMPT-010"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.duplicate_content_line",
+      "riskIds": [
+        "VR-PROMPT-002"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.fullwidth_mixed",
+      "riskIds": [
+        "VR-PROMPT-002"
+      ],
+      "contribution": "signal"
     }
   ]
 }

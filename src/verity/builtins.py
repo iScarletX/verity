@@ -163,6 +163,41 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="medium",
         requiredEvidenceKinds=["source_span"],
     ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.named_dangling_reference",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("referenceText", "evidence_field", "reference.text"),
+        ],
+        subjectKeyFields=["artifactPath", "referenceText"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.duplicate_content_line",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("duplicateCategory", "literal_enum",
+                         allowedValues=["repeated_content_line"]),
+        ],
+        subjectKeyFields=["artifactPath", "duplicateCategory"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.fullwidth_mixed",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("widthCategory", "literal_enum",
+                         allowedValues=["fullwidth_ascii_variant"]),
+        ],
+        subjectKeyFields=["artifactPath", "widthCategory"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # --- Skill engine ---------------------------------------------------
     # Manifest / metadata findings
     ftr.register(FindingTypeDefinition(
@@ -541,6 +576,51 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="medium",
         controlIds=["OWASP-LLM01:2025"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.named_dangling_reference",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Prompt references a NAMED rule/section (e.g. \u201c见回复规则\u201d, "
+               "\u201c见输出约定\u201d) whose name never appears as a heading or "
+               "definition elsewhere in the document."),
+        findingType="prompt.named_dangling_reference",
+        implementationId="impl.prompt.named_dangling_reference.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["quality.consistency"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.duplicate_content_line",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("A substantial content line (>=24 chars) appears verbatim more "
+               "than once in the prompt, diluting attention and risking "
+               "inconsistent edits."),
+        findingType="prompt.duplicate_content_line",
+        implementationId="impl.prompt.duplicate_content_line.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low",
+        controlIds=["quality.consistency"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.fullwidth_mixed",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Prompt uses full-width ASCII-variant characters (U+FF01-FF5E) "
+               "or ideographic space, which mixed with half-width forms can "
+               "break exact field-name/JSON parsing."),
+        findingType="prompt.fullwidth_mixed",
+        implementationId="impl.prompt.fullwidth_mixed.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low",
+        controlIds=["quality.consistency"],
     ))
     return rr
 

@@ -1368,6 +1368,189 @@ def _try_hex(blob: bytes) -> Optional[bytes]:
         return None
 
 
+# --- P14: named dangling reference ("see the reply rules" / “见回复规则”) --
+
+# Butler report #4: a prompt points at a named rule/section ("见回复规则",
+# "见上文XX规则", "per the output rules") that never appears as an actual
+# heading/definition anywhere else in the document. Complements the
+# numbered-section rule (prompt.dangling_section_reference). Deterministic:
+# extract the referenced NAME, then require that name to appear again as a
+# heading-like line elsewhere; if it appears only at the reference site,
+# it is dangling.
+# Match on decoded text (str), not bytes, so Unicode classes work. A CJK
+# name of 2-12 chars between the reference verb and a rule-noun suffix.
+_NAMED_REF = re.compile(
+    "(?:见|参见|详见|按)\\s*"
+    "([\u4e00-\u9fff]{1,10}?(?:规则|约定|协议|流程|定义|说明|部分|机制))")
+def prompt_named_dangling_reference(ctx: RuleContext) -> List[RuleHit]:
+    """Flag a reference to a NAMED rule/section whose name never appears
+    elsewhere in the document as a defined term/heading.
+
+    Boundaries:
+    - Only Chinese “见<name>规则/约定/协议/流程/定义/说明/部分/机制”
+      forms (the shape Butler observed on the NexPlay SP). English named
+      refs are left for a later iteration to keep false positives low.
+    - Existence check: the captured name must appear at least once MORE in
+      the document (outside the reference occurrence). If the name occurs
+      only at the reference site, it is dangling.
+    - Fenced/inline code excluded.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        text = data.decode("utf-8", "ignore")
+        seen = set()
+        for m in _NAMED_REF.finditer(text):
+            # byte offset of the match start for code-exclusion + evidence
+            byte_start = len(text[:m.start()].encode("utf-8"))
+            byte_end = len(text[:m.end()].encode("utf-8"))
+            if _in_ranges(byte_start, excluded):
+                continue
+            name = m.group(1)
+            # The name must appear somewhere else in the document (a
+            # definition/heading). Count occurrences of the name overall;
+            # >1 means it is defined elsewhere, ==1 means only the ref.
+            if text.count(name) > 1:
+                continue
+            if name in seen:
+                continue
+            seen.add(name)
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(byte_start, byte_end),
+                raw_bytes=data[byte_start:byte_end], producer=prod,
+            )
+            out.append(RuleHit(evidences=[ev], subject={
+                "artifactPath": f.normalizedPath,
+                "referenceText": m.group(0),
+            }))
+    return out
+
+
+# --- P15: duplicated content line (Butler minor #2) ---------------------
+
+
+def prompt_duplicate_content_line(ctx: RuleContext) -> List[RuleHit]:
+    """Flag a substantial content line that appears verbatim more than once.
+
+    Butler minor finding #2 (repeated statements dilute attention / risk
+    inconsistent edits). Deterministic and low-false-positive:
+    - Only lines >= 24 visible chars are considered (short lines like
+      headings, separators, list bullets repeat legitimately).
+    - Markdown table/separator lines and fenced code are ignored.
+    - Reports the SECOND+ occurrence, citing it; identity is the
+      normalized line text so one Finding per duplicated line.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        seen_norm: Dict[bytes, int] = {}
+        reported = set()
+        offset = 0
+        for raw in data.splitlines(keepends=True):
+            line = raw.rstrip(b"\r\n")
+            start = offset
+            offset += len(raw)
+            stripped = line.strip()
+            # skip short lines, markdown separators/tables, fenced code
+            if len(stripped) < 24:
+                continue
+            if _in_ranges(start, excluded):
+                continue
+            if set(stripped) <= set(b"|-=+:_ #*"):
+                continue
+            norm = b" ".join(stripped.split())
+            if norm in seen_norm:
+                if norm not in reported:
+                    reported.add(norm)
+                    ev = make_source_span_evidence(
+                        snapshot_id=ctx.snapshot.snapshotId,
+                        file_id=f.fileId, artifact_path=f.normalizedPath,
+                        file_digest=f.contentDigest or "",
+                        byte_range=(start, start + len(line)),
+                        raw_bytes=line, producer=prod,
+                    )
+                    out.append(RuleHit(evidences=[ev], subject={
+                        "artifactPath": f.normalizedPath,
+                        "duplicateCategory": "repeated_content_line",
+                    }))
+            else:
+                seen_norm[norm] = start
+    return out
+
+
+# --- P16: full-width / half-width mixed digits+latin (Butler minor #4) --
+
+# Full-width LETTERS and DIGITS only (U+FF10-FF19 digits, U+FF21-FF3A
+# uppercase, U+FF41-FF5A lowercase). Deliberately NOT full-width
+# punctuation: Chinese prose legitimately uses ，。：（） etc., so
+# flagging those would be pure noise. Full-width letters/digits, by
+# contrast, almost always indicate an identifier/field-name/number that
+# will fail exact half-width matching -- the actual parsing hazard Butler
+# flagged.
+# Matched on DECODED text (str): a byte-class on UTF-8 bytes would match
+# individual continuation/lead bytes of ordinary CJK characters (e.g. the
+# 0xE4 lead byte of 你), so this MUST run on decoded str.
+_FULLWIDTH = re.compile("[\uff10-\uff19\uff21-\uff3a\uff41-\uff5a]")
+
+
+def prompt_fullwidth_mixed(ctx: RuleContext) -> List[RuleHit]:
+    """Flag full-width ASCII letters/digits, which mixed with half-width
+    forms break exact field-name/JSON/number parsing.
+
+    Butler minor finding #4. Deterministic: any full-width letter/digit
+    (U+FF10-FF19 / U+FF21-FF3A / U+FF41-FF5A) is flagged once per file (a
+    single Finding at the first occurrence, since the issue is
+    document-level). Full-width PUNCTUATION is intentionally not flagged
+    because it is normal in Chinese prose.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        text = data.decode("utf-8", "ignore")
+        chosen = None
+        for cand in _FULLWIDTH.finditer(text):
+            byte_start = len(text[:cand.start()].encode("utf-8"))
+            if not _in_ranges(byte_start, excluded):
+                byte_end = len(text[:cand.end()].encode("utf-8"))
+                chosen = (byte_start, byte_end)
+                break
+        if chosen is None:
+            continue
+        ev = make_source_span_evidence(
+            snapshot_id=ctx.snapshot.snapshotId,
+            file_id=f.fileId, artifact_path=f.normalizedPath,
+            file_digest=f.contentDigest or "",
+            byte_range=chosen,
+            raw_bytes=data[chosen[0]:chosen[1]], producer=prod,
+        )
+        out.append(RuleHit(evidences=[ev], subject={
+            "artifactPath": f.normalizedPath,
+            "widthCategory": "fullwidth_ascii_variant",
+        }))
+    return out
+
+
 # Skill rules live in a separate module so this file stays focused on the
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
@@ -1399,6 +1582,9 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.embedded_system_role_marker.v1": prompt_embedded_system_role_marker,
     "impl.prompt.markdown_data_exfiltration.v1": prompt_markdown_data_exfiltration,
     "impl.prompt.encoded_injection_payload.v1": prompt_encoded_injection_payload,
+    "impl.prompt.named_dangling_reference.v1": prompt_named_dangling_reference,
+    "impl.prompt.duplicate_content_line.v1": prompt_duplicate_content_line,
+    "impl.prompt.fullwidth_mixed.v1": prompt_fullwidth_mixed,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
     "impl.skill.sensitive_path_access.v1": skill_sensitive_path_access,

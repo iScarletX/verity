@@ -201,6 +201,45 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P1",
     ),
+    "prompt.named_dangling_reference": Guidance(
+        id="prompt.named_dangling_reference",
+        plainTitle="引用了一个没有定义的具名规则/章节",
+        whyItMatters=(
+            "文本里写了“见回复规则”“见输出约定”这类具名引用，但全文找不到这个名字"
+            "对应的定义或章节，执行时无法确定该按什么规则处理，行为不可预测。"
+        ),
+        whatToDo=[
+            "补上被引用的规则/章节定义，或把引用改成直接写清楚的操作说明。",
+            "若该规则已改名/合并，更新引用指向正确的名称。",
+        ],
+        priority="P2",
+    ),
+    "prompt.duplicate_content_line": Guidance(
+        id="prompt.duplicate_content_line",
+        plainTitle="同一句实质内容在文中重复出现",
+        whyItMatters=(
+            "同一条较长的指令原样重复，既稀释注意力，也容易在后续修改时只改了一处、"
+            "另一处漏改，造成前后不一致。"
+        ),
+        whatToDo=[
+            "合并重复内容，只保留一处权威表述；其它地方改为引用。",
+            "若确需强调，改用简短的交叉引用而不是整句复制。",
+        ],
+        priority="P2",
+    ),
+    "prompt.fullwidth_mixed": Guidance(
+        id="prompt.fullwidth_mixed",
+        plainTitle="使用了全角 ASCII 字符（可能破坏解析）",
+        whyItMatters=(
+            "全角字母/数字/标点（如ａＡ１：（）与半角混用时，字段名、JSON 键、"
+            "分隔符可能无法精确匹配，导致解析错乱。"
+        ),
+        whatToDo=[
+            "把用于结构/字段/标记的全角字符统一改成半角。",
+            "仅在纯中文正文里保留全角标点；涉及字段名/键/符号一律用半角。",
+        ],
+        priority="P2",
+    ),
 
     # Skill engine — manifest / metadata ------------------------------
     "skill.manifest_issue": Guidance(

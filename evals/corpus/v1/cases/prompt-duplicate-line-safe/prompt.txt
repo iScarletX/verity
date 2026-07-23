@@ -1,0 +1,2 @@
+You must always validate every incoming field against the schema first.
+Then handle the request and produce a well-structured output for users.

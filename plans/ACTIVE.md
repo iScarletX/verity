@@ -10,6 +10,19 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 50 (done) — close 3 more Butler-report findings deterministically
+
+Built named-dangling-reference (Butler #4), duplicate-content-line (minor
+#2), fullwidth-mixed (minor #4). Fixed a byte-class-on-UTF-8 bug (matched
+CJK lead bytes) by running those rules on decoded str. +9 tests + 3 corpus
+pairs. corpus 66 cases (33/33). 537 tests. decision stays
+release_candidate.
+
+Butler NexPlay scorecard: #2/#4/minor#2/minor#4 now DETECTED; minor#1
+(version-naming) + minor#5 (model-endpoint-no-fallback) still portable next;
+#1 topic-mismatch / #3 token-budget / #5 role-ambiguity / minor#3
+edge-handling are semantic-judgment, out of L0 scope.
+
 ## Round 49 (done) — fix two real precision bugs found by re-testing the NexPlay SP
 
 The owner's real NexPlay SP still reported 0 findings (wrong). Fixed: (1)

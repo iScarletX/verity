@@ -550,6 +550,68 @@ class TestEncodedInjectionPayload:
 
 
 # =========================================================================
+# Round 50: Butler-parity deterministic rules (named dangling ref /
+# duplicate line / full-width mixing)
+# =========================================================================
+
+class TestNamedDanglingReference:
+    ft = "prompt.named_dangling_reference"
+
+    def test_positive_undefined_named_rule(self):
+        r = _run("你是助手。输出时见回复规则处理。\n第一节 角色\n第二节 语气\n",
+                 kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_negative_defined_named_rule(self):
+        r = _run("你是助手。输出时见回复规则处理。\n回复规则：先结论后细节。\n",
+                 kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+
+class TestDuplicateContentLine:
+    ft = "prompt.duplicate_content_line"
+
+    def test_positive_repeated_long_line(self):
+        line = "You must always validate the input before processing it."
+        r = _run(f"{line}\nsomething else entirely here\n{line}\n",
+                 kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_negative_short_repeats_ok(self):
+        r = _run("Yes.\nName?\nYes.\nName?\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_unique_lines(self):
+        r = _run("First distinct instruction line about topic A here.\n"
+                 "Second distinct instruction line about topic B here.\n",
+                 kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+
+class TestFullwidthMixed:
+    ft = "prompt.fullwidth_mixed"
+
+    def test_positive_fullwidth_letters(self):
+        # full-width letters in a field-name context (parsing hazard)
+        r = _run("输出字段ａｂｃ 和半角 abc 混用\n", kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_positive_fullwidth_digits(self):
+        r = _run("比例固定为 １６:９ 而不是 16:9\n", kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_negative_pure_halfwidth(self):
+        r = _run("output field: abc using ascii only\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_chinese_prose_no_fullwidth_ascii(self):
+        # Chinese punctuation (，。) is NOT full-width ASCII variant range,
+        # so ordinary Chinese prose must not trip this rule.
+        r = _run("你是一个助手，请礼貌地回答问题。\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+
+# =========================================================================
 # Prompt-kind enum + Coverage accounting
 # =========================================================================
 

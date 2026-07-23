@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "9ea24978768423c41385f485aa95c308b9892d67"
-  tests_collected: 528
-  tests_passed: 528
+  commit: "a1005e09fb5d5bee351ca6fe95dd4b3bf8e30763"
+  tests_collected: 537
+  tests_passed: 537
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -29,7 +29,7 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 27 unified risks, 48 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 14 signal / 9 partial. Current L1 breadth: 17 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 60 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–46 added 30 new L0 cases (across VR-PROMPT-008/010/003/001, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 66 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–46 added 30 new L0 cases (across VR-PROMPT-008/010/003/001, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, no risk layer is substantial/evaluated, and human/domain-expert review has not been obtained. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
@@ -40,6 +40,40 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 50 (2026-07-23) → close 3 more Butler-report findings with deterministic rules
+
+- Triaged all 10 Butler findings on the NexPlay SP against Verity. Built
+  the three that are cleanly deterministic and were still missing:
+  1. **`prompt.named_dangling_reference`** (medium, VR-PROMPT-010, Butler
+     #4): a NAMED rule reference (“见回复规则”) whose name never appears as
+     a definition elsewhere. Complements the numbered-section rule.
+  2. **`prompt.duplicate_content_line`** (low, VR-PROMPT-002, Butler minor
+     #2): a substantial line (≥ 24 chars) repeated verbatim.
+  3. **`prompt.fullwidth_mixed`** (low, VR-PROMPT-002, Butler minor #4):
+     full-width ASCII letters/digits that break exact field matching.
+     Deliberately excludes full-width punctuation (normal Chinese prose).
+- Two real correctness bugs found and fixed during implementation, both
+  from the same root cause — a byte-class regex (`[...]`) on UTF-8 bytes
+  matches individual CJK lead/continuation bytes: the initial
+  fullwidth rule false-positived on ordinary Chinese text (0xE4 lead byte
+  of 你 fell in the byte range). Rewrote fullwidth + named-dangling to
+  match on DECODED str and map back to byte offsets. This is the same
+  class as Round 49's precision work; caught by a self-written negative
+  test before shipping.
+- Each rule: positive/negative unit tests + a versioned corpus pair.
+  VR-PROMPT-002 and VR-PROMPT-010 both `measured`, precision/recall 1.0.
+  3 detector mappings (54 runtime components), 3 guidance entries.
+- corpus `corpusVersion 1.12.0` (66 cases, 33/33 balance). Regenerated
+  corpus/closure reports; `decision` stays `release_candidate`. Full
+  suite: 528 -> 537 passed, 0 skipped. Round 49 landed as commit
+  `a1005e0` with GitHub CI #46 successful.
+- BUTLER-PARITY SCORECARD (NexPlay SP, 10 findings): #2 injection defense
+  ✅ (Round 49), #4 dangling ref ✅, minor#2 duplicate ✅, minor#4
+  full-width ✅, minor#1 version-naming-inconsistency and minor#5
+  model-endpoint-no-fallback still portable (next), and #1 topic-mismatch
+  / #3 token-budget / #5 role-ambiguity / minor#3 edge-handling remain
+  genuine semantic-judgment items out of L0 scope.
 
 ## Round 49 (2026-07-23) → fix two real precision bugs surfaced by re-testing the NexPlay SP
 
