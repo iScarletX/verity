@@ -14,6 +14,43 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-23 — Exact-literal detection markers silently miss real prompts; broaden behind a multi-signal precision gate, and expect neutral out-of-scope corpus firings
+
+- **Symptom**: The owner reported "老是检查不出任何问题" (Verity finds
+  nothing). Realistic system prompts (customer-care, RAG, email) returned 0
+  findings even though they clearly ingest untrusted third-party content
+  with no anti-injection declaration. The engine and the rule were fine; the
+  acceptance markers for `prompt.untrusted_input_boundary_undeclared` were an
+  EXACT byte-literal list ("customer message", "from the customer", …), so
+  "a customer sends a message" and nearly every real phrasing missed. A
+  rule that only fires on its own corpus fixtures looks green in CI while
+  being useless on real input.
+- **Root cause**: Detection markers were tuned to the exact strings in the
+  reference SP + corpus, not to the concept. Passing tests measured recall
+  only against those same literal shapes, hiding the coverage gap.
+- **Fix**: Broadened to a multi-signal co-occurrence gate (ingestion-verb +
+  content-object + provenance, per sentence-segment, EN+ZH) on the decoded
+  str — the Round-51 topic_splice discipline. Crucially the gate has a
+  deliberate dividing line: fire on ingestion of rich/third-party content,
+  stay silent on generic Q&A ("answer the user's question"), because firing
+  on bare user-question would be noise on nearly every prompt. Locked with
+  6 new positive (realistic-phrasing) + 6 new negative (precision) tests.
+- **Prevention**: When a deterministic rule "finds nothing," first test it
+  on realistic paraphrases, not just the fixtures. Prefer concept-level
+  multi-signal gates over literal phrase lists; always add negative tests
+  that pin the precision boundary (the thing that must stay silent).
+  Second: broadening a rule can legitimately make it fire on OTHER corpus
+  cases that were only labeled for a different risk. The corpus scorer
+  iterates a case's `assessedRiskIds` only, so such a firing lands in
+  `unexpectedOutOfScopeRiskIds` — neutral, not a false positive — but it
+  DOES change the exact-string baseline. Re-run `tools/run_corpus.py --write`
+  and confirm the diff is only these neutral out-of-scope entries.
+- **Evidence**: Round 52; `tests/test_prompt_rules.py`
+  `TestUntrustedInputBoundaryUndeclared` (broadening block) +
+  `TestVersionNamingInconsistent` + `TestModelEndpointNoFallback`;
+  `evals/reports/corpus-v1-l0.json` (embedded-role cases gained a neutral
+  `VR-PROMPT-008` out-of-scope entry).
+
 ### 2026-07-23 — Absence-check markers must match the concept, not a bare keyword substring
 
 - **Symptom**: `prompt.untrusted_input_boundary_undeclared` reported

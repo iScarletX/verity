@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "corpusId": "verity-detection-corpus",
-  "corpusVersion": "1.13.0",
+  "corpusVersion": "1.14.0",
   "license": "Apache-2.0",
   "provenance": "verity_synthetic",
   "description": "Minimal synthetic paired corpus for offline L0 measurement. Cases paraphrase risk concepts and do not copy third-party source text.",
@@ -1189,6 +1189,78 @@
       "expectedRiskIds": [],
       "path": "cases/prompt-topic-splice-safe/prompt.txt",
       "rationale": "Same agent system prompt without the spliced image-style head; coherent throughout.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-version-naming-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "path": "cases/prompt-version-naming-positive/prompt.txt",
+      "rationale": "The same API is written as both a prefixed and a spelled-out form referring to the same release, an inconsistency that breaks exact version matching.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "low",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-version-naming-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-version-naming-safe/prompt.txt",
+      "rationale": "Same content using one consistent version form throughout.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": null,
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-endpoint-fallback-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "unsafe",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "path": "cases/prompt-endpoint-fallback-positive/prompt.txt",
+      "rationale": "Pins a specific model for a required step with no declared fallback, retry or degradation path anywhere in the document.",
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "expectedSeverity": "low",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "prompt-endpoint-fallback-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "label": "safe_counterexample",
+      "assessedRiskIds": [
+        "VR-PROMPT-002"
+      ],
+      "expectedRiskIds": [],
+      "path": "cases/prompt-endpoint-fallback-safe/prompt.txt",
+      "rationale": "Same pinned model but with an explicit fallback and retry path declared.",
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,

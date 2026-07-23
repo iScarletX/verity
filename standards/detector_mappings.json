@@ -446,6 +446,22 @@
         "VR-PROMPT-002"
       ],
       "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.version_naming_inconsistent",
+      "riskIds": [
+        "VR-PROMPT-002"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.model_endpoint_no_fallback",
+      "riskIds": [
+        "VR-PROMPT-002"
+      ],
+      "contribution": "partial"
     }
   ]
 }

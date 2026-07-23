@@ -210,6 +210,29 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="medium",
         requiredEvidenceKinds=["source_span"],
     ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.version_naming_inconsistent",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("entityKey", "evidence_field", "version.entity"),
+        ],
+        subjectKeyFields=["artifactPath", "entityKey"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.model_endpoint_no_fallback",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("endpointCategory", "literal_enum",
+                         allowedValues=["pinned_no_fallback"]),
+        ],
+        subjectKeyFields=["artifactPath", "endpointCategory"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # --- Skill engine ---------------------------------------------------
     # Manifest / metadata findings
     ftr.register(FindingTypeDefinition(
@@ -510,7 +533,7 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
     ))
     rr.register(RuleDefinition(
         ruleId="prompt.untrusted_input_boundary_undeclared",
-        ruleVersion="1.0.0",
+        ruleVersion="1.1.0",
         supersedes=[],
         engine="prompt",
         title=("System prompt declares it accepts external/user-supplied "
@@ -649,6 +672,40 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         applicableKinds=["prompt"],
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="medium",
+        controlIds=["quality.consistency"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.version_naming_inconsistent",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("The same entity is referred to with inconsistent version "
+               "forms (e.g. \"v2.0\" vs \"version 2\" vs \"2.0.0\"). Only "
+               "fires when the forms differ but the numeric version is "
+               "prefix-compatible for the SAME entity; genuine distinct "
+               "versions of different entities are not flagged."),
+        findingType="prompt.version_naming_inconsistent",
+        implementationId="impl.prompt.version_naming_inconsistent.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low",
+        controlIds=["quality.consistency"],
+        evidencePerFinding=2,
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.model_endpoint_no_fallback",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Prompt names a pinned model/endpoint/API for an imperative "
+               "step but declares no fallback/degradation/retry path "
+               "anywhere. Deterministic structural-absence signal; whether "
+               "the step is truly critical is a human judgement."),
+        findingType="prompt.model_endpoint_no_fallback",
+        implementationId="impl.prompt.model_endpoint_no_fallback.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low",
         controlIds=["quality.consistency"],
     ))
     return rr

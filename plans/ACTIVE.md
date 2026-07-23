@@ -10,6 +10,29 @@ gate. Independent dual-AI review covers every non-sealed label but is not human
 expert review. Protocol-v1 Selection is invalidated; the first frozen
 protocol-v2 Selection returned `not_eligible`; sealed Test is unconsumed.
 
+## Round 52 (done) — fix "detects nothing" on real prompts + close Butler minor #1/#5
+
+Owner report "老是检查不出任何问题": reproduced 0-findings on realistic
+support/RAG/email system prompts. Root cause = the input-boundary rule's
+EXACT byte-literal acceptance markers missed every realistic phrasing.
+Fix (Option A, no approval): (1) broadened
+`prompt.untrusted_input_boundary_undeclared` to v1.1.0 with a multi-signal
+co-occurrence gate (verb+object+provenance, EN/ZH) that fires on ingestion of
+rich/third-party content and stays silent on generic Q&A; trust-boundary
+suppression untouched. (2) new `prompt.version_naming_inconsistent` (Butler
+minor #1). (3) new `prompt.model_endpoint_no_fallback` (Butler minor #5). Both
+new rules low/VR-PROMPT-002. +25 tests (566 total). corpus 1.14.0 (72 cases,
+36/36); 57 runtime components. The 3 real prompts now report VR-PROMPT-008;
+calculator/plain-chat stay silent. decision stays release_candidate.
+
+OWNER DECISION STILL PENDING (unchanged): the remaining open-ended
+judgment findings (#3 token-budget, #5 role-ambiguity, minor#3 edge-handling)
+need either (B) a local specialist classifier added as an OPTIONAL
+gitleaks-style degradable dependency, or (C) restarting the semantic track
+with specialist models. Both need owner approval to add heavy deps / change
+architecture. Butler scorecard now ~7/10:
+#1/#2/#4/minor#1/minor#2/minor#4/minor#5 detected; #3/#5/minor#3 remain.
+
 ## Round 51 (done) — topic-splice: a "semantic" Butler finding done dependency-free
 
 Built prompt.topic_splice (Butler #1 image-style-head-on-agent-body):

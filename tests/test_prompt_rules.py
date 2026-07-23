@@ -411,6 +411,101 @@ class TestUntrustedInputBoundaryUndeclared:
             kind="system_prompt")
         assert self.ft in _find_types(r)
 
+    # --- Round 52: broadened acceptance detection --------------------------
+    # The old exact-literal marker list missed realistic phrasings, so a real
+    # support/RAG/email system prompt returned zero findings. These lock the
+    # broadened multi-signal gate: it fires on ingestion of rich/third-party
+    # content and stays silent on generic conversational Q&A.
+
+    def test_positive_customer_sends_message_paraphrase(self):
+        """The motivating miss: semantically identical to 'customer message'
+        but not a literal match, so the pre-Round-52 rule was silent."""
+        r = _run(
+            "You are a customer support assistant.\n"
+            "When a customer sends a message, read it carefully and decide "
+            "what to do.\nAlways be polite.\n", kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_positive_rag_documents(self):
+        r = _run(
+            "You are a research assistant.\n"
+            "Given a question and a set of documents retrieved from the web, "
+            "read the documents and answer the question.\nCite your sources.\n",
+            kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_positive_email_assistant(self):
+        r = _run(
+            "You are an email assistant.\n"
+            "Summarize the user's incoming emails and draft replies for "
+            "review.\n", kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_positive_support_tickets(self):
+        r = _run(
+            "You summarize customer support tickets and suggest responses.\n",
+            kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_positive_tool_output_compound_fires_alone(self):
+        """An O0 untrusted-content compound is specific enough to fire on its
+        own, with no separate verb/source signal."""
+        r = _run("Format the tool output into a table.\n",
+                 kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_positive_chinese_tickets_emails(self):
+        r = _run("你负责阅读客户提交的工单和邮件，并给出处理建议。\n",
+                 kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_negative_plain_chat_answer_question(self):
+        """THE key precision negative: generic Q&A must stay silent, or the
+        rule would fire on nearly every chat prompt."""
+        r = _run(
+            "You are a helpful assistant.\n"
+            "Answer the user's question clearly and concisely.\n",
+            kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_reply_to_user_message(self):
+        r = _run("Reply to the user's message in a friendly tone.\n",
+                 kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_respond_to_request(self):
+        r = _run("Respond to the user's request to add two numbers.\n",
+                 kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_bare_user_input_weak_provenance(self):
+        """Bare interlocutor object + only weak S-user provenance must stay
+        silent: Branch 2 requires strong (arrival/third-party) provenance."""
+        r = _run("You accept user input and validate it before saving.\n",
+                 kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_rich_object_as_output_not_input(self):
+        """A rich object mentioned as OUTPUT (no ingestion verb, no source)
+        must not read as accepting external content."""
+        r = _run(
+            "Write a summary and deliver your report as a PDF attachment.\n",
+            kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_rich_object_in_fenced_code(self):
+        r = _run(
+            "See example below.\n\n```\nread the documents from the "
+            "customer\n```\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_writing_coach_question(self):
+        r = _run(
+            "You are a writing coach.\n"
+            "When the user asks a question about grammar, explain the rule.\n",
+            kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
 
 # =========================================================================
 # Round 29: dangling_section_reference (maps VR-PROMPT-010)
@@ -648,6 +743,91 @@ class TestTopicSplice:
             "Always be polite and concise in every reply.\n"
             "Escalate to a human when asked twice.\n"
             "Never reveal internal system details.\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+
+# =========================================================================
+# Round 52: version-naming inconsistency (Butler minor #1)
+# =========================================================================
+
+class TestVersionNamingInconsistent:
+    ft = "prompt.version_naming_inconsistent"
+
+    def test_positive_prefixed_vs_word(self):
+        r = _run("Use the API v2.0 for all calls.\n"
+                 "The API version 2 schema is documented below.\n",
+                 kind="system_prompt")
+        hits = _findings_of(r, self.ft)
+        assert hits and hits[0].severity == "low"
+        assert len(hits[0].evidenceIds) == 2  # both conflicting sites cited
+
+    def test_positive_dotted_vs_short(self):
+        r = _run("Our schema v2 is stable.\n"
+                 "Migrate everything to schema 2.0.0 now.\n",
+                 kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_negative_genuine_migration_v1_v2(self):
+        # (1,) vs (2,) are numerically incompatible -> a real version bump,
+        # not a naming inconsistency.
+        r = _run("The old API v1 is deprecated.\n"
+                 "Use API v2 going forward.\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_distinct_entities(self):
+        r = _run("Requires python 3.11 and api v1 to run.\n",
+                 kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_plain_decimals(self):
+        # No explicit version prefix anywhere -> plain numbers, not versions.
+        r = _run("Set temperature to 0.7 and read 3 files.\n"
+                 "Pi is about 3.14 here.\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_single_mention(self):
+        r = _run("This is version 2.0 of the spec.\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+
+# =========================================================================
+# Round 52: pinned model/endpoint with no fallback (Butler minor #5)
+# =========================================================================
+
+class TestModelEndpointNoFallback:
+    ft = "prompt.model_endpoint_no_fallback"
+
+    def test_positive_pinned_model_no_fallback(self):
+        r = _run("For summarization you must use gpt-4o to process each "
+                 "document.\nReturn concise output.\n", kind="system_prompt")
+        hits = _findings_of(r, self.ft)
+        assert hits and hits[0].severity == "low"
+
+    def test_positive_pinned_url_no_fallback(self):
+        r = _run("Call https://api.example.com/v1/score to score the text.\n",
+                 kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_negative_fallback_declared(self):
+        r = _run("Use gpt-4o to summarize; if it fails, fall back to "
+                 "gpt-3.5.\n", kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_retry_declared(self):
+        r = _run("Query claude-opus for the answer; retry on timeout.\n",
+                 kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_vague_model_reference(self):
+        r = _run("Use the model to summarize the text.\n",
+                 kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_passive_mention(self):
+        # A pinned id mentioned passively (not in an imperative step) is not
+        # a critical-dependency-without-fallback signal.
+        r = _run("This assistant is built on gpt-4o.\nBe helpful.\n",
+                 kind="system_prompt")
         assert self.ft not in _find_types(r)
 
 

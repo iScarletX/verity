@@ -29,14 +29,21 @@ a real system prompt (the "NexPlay SP"), which produced **10 findings**
 | #4 named dangling reference (见回复规则…) | ✅ detected | `prompt.named_dangling_reference` (Round 50) |
 | minor #2 duplicate content line | ✅ detected | `prompt.duplicate_content_line` (Round 50) |
 | minor #4 full-width / half-width mixing | ✅ detected | `prompt.fullwidth_mixed` (Round 50) |
-| minor #1 version-naming inconsistency | ⏳ portable, not built | deterministic, doable next |
-| minor #5 model endpoint has no fallback | ⏳ portable, not built | deterministic (half), doable next |
+| minor #1 version-naming inconsistency | ✅ detected | `prompt.version_naming_inconsistent` — deterministic (Round 52) |
+| minor #5 model endpoint has no fallback | ✅ detected | `prompt.model_endpoint_no_fallback` — deterministic structural-absence (Round 52) |
 | #3 task complexity exceeds token budget | ❌ not yet | needs judgment (see below) |
 | #5 vague "主动工作" role/authority boundary | ❌ not yet | needs judgment (see below) |
 | minor #3 missing edge-case / error strategy | ❌ not yet | needs judgment (see below) |
 
-**Score: 5 / 10 detected, +2 cleanly portable, 3 remain genuinely
-judgment-level.**
+**Score: 7 / 10 detected, 3 remain genuinely judgment-level.**
+
+> **Round 52 update.** The 2 previously-"portable" items are now built and
+> shipped, reaching the ~7/10 target of Option A. Separately, Round 52 fixed
+> a real "detects nothing" bug the owner reported: the VR-PROMPT-008
+> input-boundary rule only matched EXACT literal phrases and so returned 0
+> findings on realistic support/RAG/email prompts; it was broadened to a
+> multi-signal precision gate (still deterministic, dependency-free). The
+> question below (Option B) is unchanged and still the blocked decision.
 
 ---
 

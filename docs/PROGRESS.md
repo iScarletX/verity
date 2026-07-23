@@ -5,13 +5,13 @@
 <!-- verify_repo.py: begin verified_against block -->
 ```yaml
 verified_against:
-  date: "2026-07-22"
+  date: "2026-07-23"
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "c94773bde7e7e97440b4272baed47d0b9fb01fb9"
-  tests_collected: 541
-  tests_passed: 541
+  commit: "c7dc95b"
+  tests_collected: 566
+  tests_passed: 566
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,9 +27,9 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 27 unified risks, 48 mapped runtime components and four mature-tool decisions. Current L0 breadth: 4 none / 14 signal / 9 partial. Current L1 breadth: 17 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
+**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 27 unified risks, 57 mapped runtime components (49 deterministic rules + 1 capability extractor + 7 semantic finding types) and four mature-tool decisions. Current L0 breadth: 4 none / 14 signal / 9 partial. Current L1 breadth: 17 none / 9 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 68 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–46 added 30 new L0 cases (across VR-PROMPT-008/010/003/001, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 72 synthetic L0 cases across 21 risks, 14 fixed semantic contract replays, and semantic-quality protocol v2 with 42 cases (14 calibration / 14 selection / 14 sealed test). 26 L0 and 28 non-Test semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. Rounds 31–52 added 34 new L0 cases (across VR-PROMPT-008/010/003/001/002, VR-SKILL-014/008/011/005/007/009/010/015) as `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 14 fixed contract labels and 14 sealed-Test labels remain provisional. Two mislabeled external-trust safe artifacts were corrected and independently re-reviewed. Fixed reports remain reproducible and score-free; contract replay is 14/14 and `modelQualityMeasured=false`.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, no risk layer is substantial/evaluated, and human/domain-expert review has not been obtained. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
@@ -40,6 +40,68 @@ Strings below MUST match the runtime literals.
 **Deliberately absent.** No accepted frozen Selection/Test quality result, or automatic remediation/PatchSet apply. The Web UI now has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its frozen quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 52 (2026-07-23) → fix "detects nothing" on real prompts + close Butler minor #1/#5
+
+- Owner report: "老是检查不出任何问题" (Verity keeps finding nothing).
+  Reproduced directly — realistic system prompts (a customer-care bot, a
+  RAG assistant, an email assistant) each returned 0 findings even though
+  they clearly ingest untrusted third-party content with no anti-injection
+  declaration (the exact shape of `prompt.untrusted_input_boundary_undeclared`,
+  VR-PROMPT-008 / OWASP-LLM01). Root cause: the acceptance markers were an
+  EXACT byte-literal list ("customer message", "from the customer", ...), so
+  "a customer sends a message" and every other realistic phrasing missed.
+  The engine worked; the phrasing coverage did not.
+- **Part 1 — broadened `prompt.untrusted_input_boundary_undeclared` to
+  v1.1.0.** Replaced the literal list with a MULTI-SIGNAL co-occurrence gate
+  (Round-51 discipline) on the decoded str: per sentence-segment, an
+  ingestion verb + a content-object + provenance must co-occur, with three
+  branches (O0 untrusted-content compound fires alone; O1 rich/third-party
+  artifact needs verb-or-source; O2 bare interlocutor object needs verb AND
+  strong provenance). The dividing line is deliberate: fire on ingestion of
+  rich/third-party content (documents, emails, files, attachments, tickets,
+  retrieved/tool content), stay SILENT on generic conversational Q&A
+  ("answer the user's question") — firing there would be noise on nearly
+  every prompt (the forbidden failure mode). Response verbs never count as
+  ingestion. The trust-boundary suppression side is UNTOUCHED, so every
+  Round-49/boundary-declared/fenced-code negative still passes. +12 unit
+  tests (6 positive realistic phrasings, 6 precision negatives). Verified
+  end-to-end: the 3 real prompts that returned 0 findings now report
+  VR-PROMPT-008; a calculator and a plain chat assistant still report
+  nothing.
+- **Part 2 — new `prompt.version_naming_inconsistent`** (low, VR-PROMPT-002,
+  Butler minor #1): the same entity written with inconsistent version FORMS
+  (v2.0 / version 2 / 2.0.0) that refer to the same release. Grouped by a
+  normalized preceding-entity key; requires ≥1 explicit version prefix and
+  numerically prefix-compatible tuples, so distinct entities (`python 3.11`
+  vs `api v1`) and genuine v1→v2 migrations are not flagged. Dual-evidence.
+- **Part 3 — new `prompt.model_endpoint_no_fallback`** (low, VR-PROMPT-002,
+  Butler minor #5): a pinned model/endpoint (`gpt-4o`, a URL, `model: "…"`)
+  used in an imperative step with no fallback/retry/degradation path
+  declared anywhere. Structural-absence rule; requires a vendor-recognizable
+  pinned id in imperative context, suppressed by any fallback vocabulary.
+  Honest scope: whether the step is truly *critical* is left to the human
+  (guidance says so); precision over recall.
+- Each new rule: FindingType + Rule + engine impl + `DEFAULT_IMPLEMENTATIONS`
+  registration + Chinese guidance + detector mapping (VR-PROMPT-002) +
+  positive/negative unit tests + a corpus positive/safe pair. 57 runtime
+  components (was 55). corpus `corpusVersion 1.14.0` (72 cases, 36/36).
+- Corpus note (honest): the broadened boundary rule now also fires
+  VR-PROMPT-008 on the two `prompt-embedded-role` cases ("You summarize
+  customer tickets", no defense) — a genuine indirect-injection surface.
+  Those cases are only *assessed* for VR-PROMPT-001, so the per-risk
+  confusion loop (which iterates only `assessedRiskIds`) records it as a
+  neutral `unexpectedOutOfScopeRiskIds` entry; it cannot become a false
+  positive and does not corrupt any measured precision/recall. Regenerated
+  the exact-string corpus baseline to capture it. VR-PROMPT-002 now 12 cases
+  (6/6) precision/recall 1.0; VR-PROMPT-008 unchanged (1/1).
+- Butler NexPlay scorecard: #1 ✅, #2 ✅ (now on realistic phrasings, not
+  just the literal SP), #4 ✅, minor#1 ✅ (NEW), minor#2 ✅, minor#4 ✅,
+  minor#5 ✅ (NEW). Remaining #3 token-budget / #5 role-ambiguity / minor#3
+  edge-handling are still open-ended semantic-judgment (Option B/C, owner
+  decision pending). Butler parity now ~7/10 as targeted.
+- Full suite: 541 → 566 passed, 0 skipped. `decision` stays
+  `release_candidate`. verified_against parent commit `c7dc95b`.
 
 ## Round 51 (2026-07-23) → topic-splice detection: a "semantic" Butler finding done dependency-free
 

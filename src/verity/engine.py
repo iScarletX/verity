@@ -938,20 +938,163 @@ def prompt_open_ended_tool_wildcard(ctx: RuleContext) -> List[RuleHit]:
 
 # --- P8: untrusted-input trust-boundary declaration is absent ----------
 
-# Phrases that indicate the prompt explicitly accepts external/user-
-# supplied content (creative intent, scripts, retrieved data, tool output,
-# attachments, etc). Deliberately narrow and literal, English + Chinese.
-_INPUT_ACCEPTANCE_MARKERS = (
-    rb"user input", rb"user-supplied", rb"user provided", rb"external content",
-    rb"retrieved content", rb"tool output", rb"uploaded file", rb"attachment",
-    rb"attached document", rb"customer's message", rb"customer message",
-    rb"from the customer", rb"from the user", rb"messages from the user",
-    rb"messages from the customer", rb"documents from the user",
-    "用户输入".encode("utf-8"), "用户提供".encode("utf-8"),
-    "用户上传".encode("utf-8"), "附件".encode("utf-8"),
-    "参考文件".encode("utf-8"), "用户提交".encode("utf-8"),
-    "用户提供的".encode("utf-8"), "参考输入".encode("utf-8"),
-)
+# Detecting that the prompt accepts external/untrusted content.
+#
+# Round 52 rewrite. The old version was a flat list of EXACT literal byte
+# phrases ("customer message", "from the customer", ...). It missed almost
+# every realistic phrasing ("a customer sends a message, read it") and so a
+# support/RAG/email system prompt returned zero findings. This is the fix.
+#
+# We now use a MULTI-SIGNAL co-occurrence gate (same discipline as
+# prompt.topic_splice / Round 51) on three axes, matched on the DECODED str
+# (never byte-class regex on UTF-8 -- Round 50 lesson) with the existing
+# fenced/inline-code exclusion preserved. The dividing line is deliberate:
+# fire on ingestion of RICH / THIRD-PARTY content (documents, emails, files,
+# attachments, tickets, retrieved/web content, tool output, ...) -- the real
+# OWASP-LLM01 indirect-injection surface -- and STAY SILENT on generic
+# conversational Q&A ("answer the user's question"), which would otherwise
+# fire on nearly every prompt (the forbidden false-positive mode). A response
+# verb (answer/reply/respond/help) never counts as ingestion.
+#
+# All English fragments carry their own \b anchors; Chinese entries are plain
+# substrings (CJK has no word boundaries). All patterns are re.IGNORECASE and
+# matched against the ORIGINAL-case decoded str so char offsets stay aligned
+# with byte-offset recovery (str.lower() can change length for exotic chars).
+
+# Axis V -- ingestion verbs. Response verbs (answer/reply/respond/help/assist/
+# bare use) are deliberately EXCLUDED. "summary" (the noun) is excluded so
+# "write a summary ... as a PDF attachment" does not read as ingestion.
+_UIB_VERB = re.compile(
+    r"\bread(?:s|ing)?\b|\breceiv(?:e|es|ed|ing)\b|\baccept(?:s|ed|ing)?\b"
+    r"|\bprocess(?:es|ed|ing)?\b|\breview(?:s|ed|ing)?\b"
+    r"|\banaly[sz](?:e|es|ed|ing|is)?\b"
+    r"|\bsummar(?:ize|ise|izes|ises|izing|ising|ized|ised)\b"
+    r"|\bpars(?:e|es|ed|ing)\b|\bingest(?:s|ed|ing)?\b|\bextract(?:s|ed|ing)?\b"
+    r"|\bgiven\b|\bhandl(?:e|es|ed|ing)\b|\bgo through\b|\blook (?:at|through)\b"
+    r"|阅读|读取|接收|接受|处理|分析|总结|摘要|归纳|提取|解析|根据|查看|审阅|整理",
+    re.IGNORECASE)
+
+# Axis O0 -- explicit untrusted-content compounds. Specific enough to FIRE
+# ALONE (no verb/source needed); no benign non-ingesting prompt writes these.
+_UIB_O0 = re.compile(
+    r"\bexternal content\b|\buntrusted (?:content|input|data)\b"
+    r"|\bthird[- ]party content\b|\bretrieved content\b|\btool (?:output|results?)\b"
+    r"|\buploaded files?\b|\battached (?:document|file)s?\b|\bpasted text\b"
+    r"|\bweb content\b|\bsearch results?\b"
+    r"|外部内容|不可信内容|工具输出|工具结果|检索结果|上传的文件|参考文件|参考输入",
+    re.IGNORECASE)
+
+# Axis O1 -- rich / third-party artifact objects. Need a V OR any S nearby.
+_UIB_O1 = re.compile(
+    r"\battachments?\b|\bdocuments?\b|\bfiles?\b|\be-?mails?\b|\btickets?\b"
+    r"|\btranscripts?\b|\bscripts?\b|\bscreenshots?\b|\bpdf\b|\bspreadsheets?\b"
+    r"|\bcsv\b|\breviews?\b|\bcomments?\b|\bposts?\b|\barticles?\b|\bweb ?pages?\b"
+    r"|\bsubmissions?\b|\bfeedback\b|\bresumes?\b|\bcv\b|\bcontracts?\b|\binvoices?\b"
+    r"|附件|文件|文档|邮件|电子邮件|工单|转录|剧本|截图|表格|评论|评价|帖子"
+    r"|文章|网页|提交内容|反馈|简历|合同",
+    re.IGNORECASE)
+
+# Axis O2 -- bare interlocutor objects. Need a V AND a strong-S (not S-user).
+_UIB_O2 = re.compile(
+    r"\bmessages?\b|\bmsg\b|\bquestions?\b|\bquer(?:y|ies)\b|\brequests?\b"
+    r"|\binput\b|\btext\b|\bcontent\b"
+    r"|消息|问题|请求|输入|内容|文本",
+    re.IGNORECASE)
+
+# Axis S -- provenance. S-arrival + S-thirdparty are "strong"; S-user is weak
+# (qualifies Branch 1 only, never Branch 2).
+_UIB_S_ARRIVAL = re.compile(
+    r"\bsent by\b|\bsubmitted by\b|\buploaded by\b|\bprovided by\b"
+    r"|\bthey (?:send|provide|upload)\b|\bsends\b|\bsubmits\b|\buploads\b"
+    r"|\bprovides\b|\bincoming\b|\binbound\b"
+    r"|发来|提交|上传|提供|发送的",
+    re.IGNORECASE)
+_UIB_S_THIRD = re.compile(
+    r"\bfrom the customer\b|\bfrom the client\b|\bfrom the web\b"
+    r"|\bfrom the database\b|\bfrom search\b|\bthe customers?\b|\bthe clients?\b"
+    r"|\bcustomers?\b|\bclients?\b|\bexternal\b|\bthird[- ]party\b|\buntrusted\b"
+    r"|\bretrieved\b|\breturned by\b|\bfetched from\b|\bscraped from\b"
+    r"|\bknowledge ?base\b"
+    r"|客户|外部|第三方|不可信|检索|抓取|工具返回|接口返回|对方",
+    re.IGNORECASE)
+_UIB_S_USER = re.compile(
+    r"\bfrom the user\b|\bfrom a user\b|\bthe user'?s\b|\buser-supplied\b"
+    r"|\buser provided\b|\buser input\b|\busers?\b"
+    r"|用户|用户提供|用户上传|用户提交",
+    re.IGNORECASE)
+
+# Segment on sentence enders only (NOT commas -- a comma-joined RAG sentence
+# such as "given a set of documents retrieved from the web, read the
+# documents" must stay one segment so its signals co-occur).
+_UIB_SEG_SPLIT = re.compile(r"[\n.!?。！？]")
+
+
+def _uib_segments(text: str) -> List[Tuple[int, int]]:
+    """Char [start, end) spans of each sentence-level segment of ``text``."""
+    segs: List[Tuple[int, int]] = []
+    start = 0
+    for m in _UIB_SEG_SPLIT.finditer(text):
+        if m.start() > start:
+            segs.append((start, m.start()))
+        start = m.end()
+    if start < len(text):
+        segs.append((start, len(text)))
+    return segs
+
+
+def _uib_axis_present(regex, text: str, seg: Tuple[int, int],
+                      excluded: Sequence[Tuple[int, int]]) -> bool:
+    """True iff ``regex`` matches inside the segment, OUTSIDE code ranges."""
+    sub = text[seg[0]:seg[1]]
+    for m in regex.finditer(sub):
+        cpos = seg[0] + m.start()
+        bpos = len(text[:cpos].encode("utf-8"))
+        if not _in_ranges(bpos, excluded):
+            return True
+    return False
+
+
+def _uib_first_object_span(text: str, seg: Tuple[int, int],
+                           excluded: Sequence[Tuple[int, int]]):
+    """Byte span of the first non-code content-object match (O0>O1>O2) in the
+    segment, used to anchor the Finding's evidence at a navigable location."""
+    sub = text[seg[0]:seg[1]]
+    for regex in (_UIB_O0, _UIB_O1, _UIB_O2):
+        for m in regex.finditer(sub):
+            cstart = seg[0] + m.start()
+            bstart = len(text[:cstart].encode("utf-8"))
+            if not _in_ranges(bstart, excluded):
+                bend = len(text[:seg[0] + m.end()].encode("utf-8"))
+                return (bstart, bend)
+    return None
+
+
+def _uib_detect_acceptance(text: str, excluded: Sequence[Tuple[int, int]]):
+    """Return the byte span to anchor on if the prompt declares it ingests
+    external/untrusted content, else None. Multi-signal per-segment gate:
+
+    - Branch 0: any O0 compound            -> fire (self-sufficient).
+    - Branch 1: O1 rich object AND (V OR any S incl. S-user).
+    - Branch 2: O2 bare object AND V AND strong-S (arrival/third-party only).
+    """
+    for seg in _uib_segments(text):
+        has_o0 = _uib_axis_present(_UIB_O0, text, seg, excluded)
+        has_o1 = _uib_axis_present(_UIB_O1, text, seg, excluded)
+        has_o2 = _uib_axis_present(_UIB_O2, text, seg, excluded)
+        if not (has_o0 or has_o1 or has_o2):
+            continue
+        has_v = _uib_axis_present(_UIB_VERB, text, seg, excluded)
+        strong_s = (_uib_axis_present(_UIB_S_ARRIVAL, text, seg, excluded)
+                    or _uib_axis_present(_UIB_S_THIRD, text, seg, excluded))
+        any_s = strong_s or _uib_axis_present(_UIB_S_USER, text, seg, excluded)
+        fire = (has_o0
+                or (has_o1 and (has_v or any_s))
+                or (has_o2 and has_v and strong_s))
+        if fire:
+            span = _uib_first_object_span(text, seg, excluded)
+            if span is not None:
+                return span
+    return None
 
 # Phrases that indicate the prompt already declares a trust boundary /
 # anti-injection posture. If ANY of these are present, the rule does not
@@ -1002,10 +1145,13 @@ def prompt_untrusted_input_boundary_undeclared(ctx: RuleContext) -> List[RuleHit
       policy document).
     - Only fires once per file (not once per input-acceptance mention):
       the absence is a whole-document fact, not a per-occurrence one.
-    - Fenced/inline code excluded when scanning for BOTH marker sets, so
-      an example embedded in a code block cannot itself satisfy or violate
-      the check.
-    - Literal phrase matching only; this cannot judge whether a present
+    - Fenced/inline code excluded when scanning for BOTH the acceptance
+      signals and the trust-boundary markers, so an example embedded in a
+      code block cannot itself satisfy or violate the check.
+    - Round 52: acceptance detection is a multi-signal co-occurrence gate
+      (verb + content-object + provenance) on the decoded str, tuned to
+      fire on ingestion of rich/third-party content and stay silent on
+      generic conversational Q&A. It still cannot judge whether a present
       mitigation phrase is actually effective, only whether one exists.
     """
     out: List[RuleHit] = []
@@ -1017,24 +1163,13 @@ def prompt_untrusted_input_boundary_undeclared(ctx: RuleContext) -> List[RuleHit
             continue
         data = ctx.file_bytes.get(f.fileId, b"")
         excluded = _excluded_ranges(data)
-        lower = data.lower()
+        text = data.decode("utf-8", "ignore")
 
-        def _present_outside_code(markers) -> bool:
-            for m in markers:
-                if isinstance(m, bytes):
-                    for match in re.finditer(re.escape(m), lower):
-                        if not _in_ranges(match.start(), excluded):
-                            return True
-                else:
-                    for match in m.finditer(lower):
-                        if not _in_ranges(match.start(), excluded):
-                            return True
-            return False
-
-        accepts_input = _present_outside_code(_INPUT_ACCEPTANCE_MARKERS)
-        if not accepts_input:
+        anchor = _uib_detect_acceptance(text, excluded)
+        if anchor is None:
             continue
         has_boundary = False
+        lower = data.lower()
         for pat in _TRUST_BOUNDARY_RE:
             for match in pat.finditer(lower):
                 if not _in_ranges(match.start(), excluded):
@@ -1043,16 +1178,6 @@ def prompt_untrusted_input_boundary_undeclared(ctx: RuleContext) -> List[RuleHit
             if has_boundary:
                 break
         if has_boundary:
-            continue
-        # Anchor the Finding at the first input-acceptance occurrence so
-        # there is a concrete, navigable evidence location.
-        anchor = None
-        for m in _INPUT_ACCEPTANCE_MARKERS:
-            idx = lower.find(m if isinstance(m, bytes) else m)
-            if idx != -1 and not _in_ranges(idx, excluded):
-                if anchor is None or idx < anchor[0]:
-                    anchor = (idx, idx + len(m))
-        if anchor is None:
             continue
         ev = make_source_span_evidence(
             snapshot_id=ctx.snapshot.snapshotId,
@@ -1635,6 +1760,230 @@ def prompt_topic_splice(ctx: RuleContext) -> List[RuleHit]:
     return out
 
 
+# --- P18: version-naming inconsistency (Butler minor #1) ----------------
+#
+# Flags the SAME entity referred to with inconsistent version FORMS in one
+# document ("v2.0" vs "version 2" vs "2.0.0" vs "V2"). Deterministic and
+# precision-gated: an explicit version prefix is required on at least one
+# side (so plain decimals like "3.14" are never versions), the two mentions
+# must attach to the SAME normalized entity key (so "python 3.11" and
+# "api v1" are never compared), and their numeric tuples must be
+# prefix-compatible (so a genuine v1->v2 migration is not flagged).
+_VERSION_PREFIXED = re.compile(
+    r"(?P<entity>[A-Za-z][A-Za-z0-9_+.\-]{0,31})?\s*"
+    r"\b(?P<prefix>v|ver|version)\.?\s*(?P<num>\d+(?:\.\d+){0,3})\b",
+    re.IGNORECASE)
+# A bare dotted number attached to a preceding entity word ("schema 2.0.0").
+_VERSION_BARE = re.compile(
+    r"\b(?P<entity>[A-Za-z][A-Za-z0-9_+.\-]{0,31})\s+(?P<num>\d+\.\d+(?:\.\d+){0,2})\b")
+# Chinese "版本 2" / "版本2.0" / "第2版" style.
+_VERSION_ZH = re.compile("(?P<prefix>版本|版)\\s*(?P<num>\\d+(?:\\.\\d+){0,3})")
+
+
+def _version_tuple(num: str) -> Tuple[int, ...]:
+    return tuple(int(p) for p in num.split(".") if p != "")
+
+
+def _version_compatible(a: Tuple[int, ...], b: Tuple[int, ...]) -> bool:
+    """True iff one tuple is a prefix of the other (same version, different
+    notation), e.g. (2,) ~ (2,0) ~ (2,0,0). (1,) vs (2,) is NOT compatible."""
+    n = min(len(a), len(b))
+    return a[:n] == b[:n]
+
+
+def prompt_version_naming_inconsistent(ctx: RuleContext) -> List[RuleHit]:
+    """Flag one entity written with inconsistent version forms (Butler
+    minor #1). Fires once per (file, entity) whose mentions differ in
+    surface form but agree (prefix-compatible) on the numeric version.
+
+    Boundaries:
+    - At least one mention in the group must carry an explicit version
+      prefix (v/ver/version/版本/版); bare decimals alone are never
+      treated as versions.
+    - Mentions are grouped by a normalized preceding-entity key; a mention
+      with no attachable entity is skipped (conservative). Distinct
+      entities are never compared.
+    - Only numerically prefix-compatible tuples are flagged; a real
+      v1->v2 change is left alone.
+    - Fenced/inline code excluded; matched on decoded str with byte-offset
+      recovery (Round 50).
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        text = data.decode("utf-8", "ignore")
+        # mention = (entity_key, tuple, has_prefix, surface, char_start, char_end)
+        mentions = []
+
+        def _add(entity, num, has_prefix, cstart, cend):
+            if not entity:
+                return
+            key = entity.strip().lower().strip(".-_")
+            if not key or key.isdigit():
+                return
+            bstart = len(text[:cstart].encode("utf-8"))
+            if _in_ranges(bstart, excluded):
+                return
+            surface = text[cstart:cend]
+            mentions.append((key, _version_tuple(num), has_prefix,
+                             surface, cstart, cend))
+
+        for m in _VERSION_PREFIXED.finditer(text):
+            _add(m.group("entity"), m.group("num"), True,
+                 m.start(), m.end())
+        for m in _VERSION_BARE.finditer(text):
+            _add(m.group("entity"), m.group("num"), False,
+                 m.start(), m.end())
+        for m in _VERSION_ZH.finditer(text):
+            # Chinese: the entity is the token(s) immediately before 版本/版.
+            pre = text[max(0, m.start() - 12):m.start()]
+            ent = re.search(r"([A-Za-z0-9_+.\-]+|[一-鿿]{2,6})\s*$", pre)
+            _add(ent.group(1) if ent else "", m.group("num"), True,
+                 m.start(), m.end())
+
+        # group by entity key
+        groups: Dict[str, list] = {}
+        for mm in mentions:
+            groups.setdefault(mm[0], []).append(mm)
+
+        for key, occs in groups.items():
+            if len(occs) < 2:
+                continue
+            if not any(o[2] for o in occs):  # need >=1 explicit prefix
+                continue
+            occs_sorted = sorted(occs, key=lambda t: t[4])
+            first = occs_sorted[0]
+            partner = None
+            for o in occs_sorted[1:]:
+                # inconsistent SURFACE form but compatible numeric version
+                if (o[3].strip().lower() != first[3].strip().lower()
+                        and _version_compatible(o[1], first[1])):
+                    partner = o
+                    break
+            if partner is None:
+                continue
+            evs = []
+            for o in (first, partner):
+                bstart = len(text[:o[4]].encode("utf-8"))
+                bend = len(text[:o[5]].encode("utf-8"))
+                evs.append(make_source_span_evidence(
+                    snapshot_id=ctx.snapshot.snapshotId,
+                    file_id=f.fileId, artifact_path=f.normalizedPath,
+                    file_digest=f.contentDigest or "",
+                    byte_range=(bstart, bend),
+                    raw_bytes=data[bstart:bend], producer=prod,
+                ))
+            out.append(RuleHit(evidences=evs, subject={
+                "artifactPath": f.normalizedPath,
+                "entityKey": key,
+            }))
+    return out
+
+
+# --- P19: pinned model/endpoint with no fallback (Butler minor #5) ------
+#
+# Flags a prompt that names a PINNED model/endpoint/API for an imperative
+# step and declares NO fallback/degradation/retry path anywhere. This is a
+# structural-absence rule (same shape as the trust-boundary rule). Honest
+# scope: the DETERMINISTIC part is "pinned identifier present in imperative
+# context" + "fallback vocabulary absent". Whether the step is truly
+# critical, and whether a declared fallback actually covers THIS endpoint,
+# are judgment calls left to the human (stated in guidance). Severity low.
+_ENDPOINT_PINNED = re.compile(
+    r"\bgpt-4o?\b|\bgpt-4\.\d\b|\bgpt-3\.5\b|\bo1(?:-[\w.]+)?\b"
+    r"|\bclaude-\d[\w.\-]*\b|\bclaude-(?:opus|sonnet|haiku)[\w.\-]*\b"
+    r"|\bgemini-\d[\w.\-]*\b|\btext-embedding-3-\w+\b|\bdeepseek-[\w.\-]+\b"
+    r"|\bqwen[\w.\-]+\b"
+    r"|https?://[^\s)\"']+"
+    r"|\bmodel\s*[:=]\s*[\"'][^\"']+[\"']",
+    re.IGNORECASE)
+_ENDPOINT_VERB = re.compile(
+    r"\buse\b|\buses\b|\bcall\b|\bcalls\b|\bquery\b|\bqueries\b|\binvoke\b"
+    r"|\binvokes\b|\bsend to\b|\broute to\b|\bmust use\b|\bdepends on\b"
+    r"|调用|使用|请求|发送到|依赖",
+    re.IGNORECASE)
+_ENDPOINT_FALLBACK = re.compile(
+    r"\bfall\s?backs?\b|\bfalling back\b|\bretr(?:y|ies|ying)\b|\bback\s?off\b"
+    r"|\bdegrad(?:e|es|ed|ation)\b|\bif [^.\n]{0,40}\bfails?\b|\bon failure\b"
+    r"|\bif [^.\n]{0,40}\bunavailable\b|\btime ?out\b|\balternative model\b"
+    r"|\bsecondary\b|\bbackup\b|\belse use\b|\bfailover\b"
+    r"|回退|降级|重试|失败时|不可用时|备用|超时|容错|兜底",
+    re.IGNORECASE)
+
+
+def prompt_model_endpoint_no_fallback(ctx: RuleContext) -> List[RuleHit]:
+    """Flag a pinned model/endpoint used imperatively with no declared
+    fallback/degradation path (Butler minor #5).
+
+    Boundaries:
+    - Requires a PINNED, vendor-recognizable identifier (model id, URL, or
+      `model: "..."`) co-occurring in a segment with an imperative verb;
+      vague "the model" or a passive "built on gpt-4o" mention does not
+      fire.
+    - Suppressed if ANY fallback/retry/degradation vocabulary appears
+      anywhere outside code (literal presence only -- cannot verify the
+      fallback actually covers this endpoint).
+    - Precision over recall: only catches recognizable pinned identifiers.
+      Severity low (advisory robustness hygiene). Fenced/inline code
+      excluded; decoded-str matching with byte-offset recovery.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        text = data.decode("utf-8", "ignore")
+
+        # whole-document fallback presence (outside code) => suppress
+        has_fallback = False
+        for m in _ENDPOINT_FALLBACK.finditer(text):
+            if not _in_ranges(len(text[:m.start()].encode("utf-8")), excluded):
+                has_fallback = True
+                break
+        if has_fallback:
+            continue
+
+        anchor = None
+        for seg in _uib_segments(text):
+            has_id = _uib_axis_present(_ENDPOINT_PINNED, text, seg, excluded)
+            has_verb = _uib_axis_present(_ENDPOINT_VERB, text, seg, excluded)
+            if has_id and has_verb:
+                sub = text[seg[0]:seg[1]]
+                for m in _ENDPOINT_PINNED.finditer(sub):
+                    cstart = seg[0] + m.start()
+                    bstart = len(text[:cstart].encode("utf-8"))
+                    if not _in_ranges(bstart, excluded):
+                        bend = len(text[:seg[0] + m.end()].encode("utf-8"))
+                        anchor = (bstart, bend)
+                        break
+            if anchor is not None:
+                break
+        if anchor is None:
+            continue
+        ev = make_source_span_evidence(
+            snapshot_id=ctx.snapshot.snapshotId,
+            file_id=f.fileId, artifact_path=f.normalizedPath,
+            file_digest=f.contentDigest or "",
+            byte_range=anchor,
+            raw_bytes=data[anchor[0]:anchor[1]], producer=prod,
+        )
+        out.append(RuleHit(evidences=[ev], subject={
+            "artifactPath": f.normalizedPath,
+            "endpointCategory": "pinned_no_fallback",
+        }))
+    return out
+
+
 # Skill rules live in a separate module so this file stays focused on the
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
@@ -1670,6 +2019,8 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.duplicate_content_line.v1": prompt_duplicate_content_line,
     "impl.prompt.fullwidth_mixed.v1": prompt_fullwidth_mixed,
     "impl.prompt.topic_splice.v1": prompt_topic_splice,
+    "impl.prompt.version_naming_inconsistent.v1": prompt_version_naming_inconsistent,
+    "impl.prompt.model_endpoint_no_fallback.v1": prompt_model_endpoint_no_fallback,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
     "impl.skill.sensitive_path_access.v1": skill_sensitive_path_access,

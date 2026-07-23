@@ -254,6 +254,35 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P1",
     ),
+    "prompt.version_naming_inconsistent": Guidance(
+        id="prompt.version_naming_inconsistent",
+        plainTitle="同一对象的版本写法不一致（如 v2.0 / version 2 / 2.0.0 混用）",
+        whyItMatters=(
+            "同一个对象（API、协议、规范、schema 等）在文中用了不同的版本写法，"
+            "指的却是同一个版本。这类不一致容易让读者或下游系统误判到底是哪个版本，"
+            "也会破坏对版本号做精确匹配的自动化流程。"
+        ),
+        whatToDo=[
+            "统一版本写法：选定一种格式（如 v2.0.0）并在全文一致使用。",
+            "确认这几处引用的确实是同一个版本；若本意是不同版本，请改用可区分的编号。",
+        ],
+        priority="P2",
+    ),
+    "prompt.model_endpoint_no_fallback": Guidance(
+        id="prompt.model_endpoint_no_fallback",
+        plainTitle="指定了固定的模型/接口，但没有声明失败时的回退方案",
+        whyItMatters=(
+            "提示词把某个关键步骤绑定到一个具体的模型/接口（如 gpt-4o、某个 URL），"
+            "却没有任何“失败/超时/不可用时怎么办”的说明。一旦该模型或接口不可用，"
+            "整个流程就没有降级路径。注意：这一步是否真的“关键”需要人来判断，"
+            "Verity 只机械地指出“绑定了具体依赖且全文没有回退/重试/降级措辞”。"
+        ),
+        whatToDo=[
+            "为该步骤补一句回退/降级策略（如“若 X 不可用则改用 Y”或“失败时重试/超时处理”）。",
+            "若回退由外部系统层负责（不在本 prompt 内），标注为已知依赖并说明所依赖的机制。",
+        ],
+        priority="P2",
+    ),
 
     # Skill engine — manifest / metadata ------------------------------
     "skill.manifest_issue": Guidance(
