@@ -1,0 +1,1 @@
+Return the assessment as a YAML document.

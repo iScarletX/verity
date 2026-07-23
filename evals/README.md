@@ -47,10 +47,11 @@ conflict, autonomy/approval boundary and failure-strategy pairs, remain
 `provisional_single_review`; they are intentionally excluded from the frozen
 attestation until a future review round covers them.
 
-`evals/corpus/v1/semantic_replay.json` contains 14 fixed Provider replay cases
-(confirmed/rejected pairs for all seven semantic Finding Types). These measure
-only Candidate → Validation → Assessment contract behavior. They explicitly
-set `modelQualityMeasured: false` and do not call any external model.
+`evals/corpus/v1/semantic_replay.json` contains 28 fixed Provider replay cases
+(confirmed/rejected pairs for all fourteen semantic Finding Types). These
+measure only Candidate → Validation → Assessment contract behavior. They
+explicitly set `modelQualityMeasured: false` and do not call any external
+model.
 
 `tools/run_corpus.py --check` reruns each case twice and reproduces separate
 committed reports:
@@ -79,13 +80,14 @@ data assets live under `evals/`:
 - `evals/reports/`      — recorded outputs (with PII / secrets
                           scrubbed) for regression tracking
 
-## Synthetic real-model semantic quality protocol
+## Frozen protocol-v2 semantic quality history
 
 `evals/corpus/v1/semantic_quality.json` v2 contains 42 independent synthetic
 cases split into 14 calibration, 14 selection and 14 sealed-test cases. Every
 split has one unsafe and one safe counterexample for each of the seven closed
-semantic Finding Types, and every case must produce a deterministic extractor
-seed before it is eligible for model-quality metrics. The 28 Calibration/
+semantic Finding Types that existed when v2 was frozen, and every case must
+produce a deterministic extractor seed before it is eligible for model-quality
+metrics. The 28 Calibration/
 Selection labels have digest-bound `independent_ai_review`; 14 sealed-Test
 labels remain `provisional_single_review` and were not exposed to review Agents.
 
@@ -148,6 +150,122 @@ tp=12/fn=2/tn=8/fp=6. The consumed protocol-v2 Selection must not be re-scored
 or used to tune this protocol version; a quality improvement requires a new
 protocol version with fresh, unseen splits. Sealed Test was not exposed or
 consumed. Scrubbed reports live only in gitignored `.verity-data/model-evals/`.
+
+## Fresh protocol-v3 Verity/Butler comparison
+
+`evals/corpus/v1/semantic_comparison_v3.json` contains 56 fresh cases: two
+unsafe and two safe counterexamples for each of the fourteen current semantic
+Finding Types. Every case has a deterministic extractor seed, but all labels
+remain `provisional_single_review`. This committed development corpus therefore
+meets the minimum size for the comparison plumbing while remaining ineligible
+for a superiority claim until its payload-digest-bound labels are independently
+reviewed.
+
+`tools/semantic_head_to_head.py` has five deliberately separate operations:
+
+```bash
+export VERITY_COMPARISON_SEED='<private random seed>'
+python3 tools/semantic_head_to_head.py packet \
+  --system-id verity \
+  --seed-env VERITY_COMPARISON_SEED
+
+python3 tools/semantic_head_to_head.py run-verity \
+  --packet .verity-data/semantic-comparison/verity/packet.json \
+  --alias-map .verity-data/semantic-comparison/verity/alias-map.json \
+  --base-url https://trusted-provider.example/v1 \
+  --generator-model '<pinned-generator-model>' \
+  --validator-model '<pinned-validator-model>' \
+  --api-key-env VERITY_EVAL_API_KEY \
+  --repetitions 2 \
+  --max-output-tokens 800 \
+  --max-total-calls 240 \
+  --max-total-tokens '<approved-total-token-cap>' \
+  --max-spend-usd '<approved-USD-cap>' \
+  --generator-input-price-per-million '<provider-price>' \
+  --generator-output-price-per-million '<provider-price>' \
+  --validator-input-price-per-million '<provider-price>' \
+  --validator-output-price-per-million '<provider-price>' \
+  --output .verity-data/semantic-comparison/verity/observations.json
+
+python3 tools/semantic_head_to_head.py run-butler \
+  --packet .verity-data/semantic-comparison/butler/packet.json \
+  --alias-map .verity-data/semantic-comparison/butler/alias-map.json \
+  --butler-root '<read-only-Butler-root>' \
+  --base-url https://trusted-provider.example/v1 \
+  --model '<pinned-model-a>' \
+  --model '<pinned-model-b>' \
+  --input-price-per-million '<model-a-price>' \
+  --input-price-per-million '<model-b-price>' \
+  --output-price-per-million '<model-a-price>' \
+  --output-price-per-million '<model-b-price>' \
+  --api-key-env VERITY_EVAL_API_KEY \
+  --repetitions 2 \
+  --max-output-tokens 800 \
+  --max-total-calls '<approved-call-cap>' \
+  --max-total-tokens '<approved-total-token-cap>' \
+  --max-spend-usd '<approved-USD-cap>' \
+  --timeout 30 \
+  --wall-timeout-seconds '<approved-wall-clock-cap>' \
+  --output .verity-data/semantic-comparison/butler/observations.json
+
+python3 tools/semantic_head_to_head.py attest-labels \
+  --reviewer-a-packet '<reviewer A answer-hidden packet>' \
+  --reviewer-a-map '<reviewer A local alias map>' \
+  --reviewer-a-observations '<reviewer A observations>' \
+  --reviewer-b-packet '<reviewer B answer-hidden packet>' \
+  --reviewer-b-map '<reviewer B local alias map>' \
+  --reviewer-b-observations '<reviewer B observations>'
+
+python3 tools/semantic_head_to_head.py compare \
+  --verity-packet '<verity packet>' \
+  --verity-map '<verity local alias map>' \
+  --verity-observations '<scrubbed Verity observations>' \
+  --butler-packet '<Butler packet>' \
+  --butler-map '<Butler local alias map>' \
+  --butler-observations '<scrubbed Butler observations>' \
+  --labels '<independent label attestation>'
+```
+
+Packet output contains artifacts and one target-risk definition, but no case
+id, Finding Type, risk id, author answer, label status, source path, or payload
+digest. Verity, Butler and the two label reviewers receive separately shuffled
+aliases; each local map row is bound to its packet-item digest. `attest-labels`
+requires exactly two reviewer systems and configuration fingerprints distinct
+from each other and from the evaluated systems. The built-in `run-verity`
+command accepts only a `system-id=verity` packet and therefore cannot be used
+to manufacture either independent review. Every review must be stable,
+decisive and unanimous across reviewers; names alone cannot establish
+independence. Every packet is rechecked for answer metadata when its alias map
+or observations cross a comparison boundary. The comparator requires at least
+56 cases, all fourteen risks, two repetitions, recall >=0.90, safe
+false-positive rate <=0.20, stability >=0.80, error rate <=0.05 and
+inconclusive rate <=0.10. It then additionally
+requires Verity recall to be non-inferior to Butler, Verity safe false
+positives to be strictly lower, and Verity errors to be no worse. Only that
+scoped, independently labelled benchmark may emit
+`verity_exceeds_butler_on_this_independently_labelled_benchmark`.
+
+No real v3 Provider run has been made in the repository. It still requires the
+operator to name the trusted provider endpoint, exact model ids, credential
+environment variable, repetitions, call/token/spend limits and local report
+path. Butler observations must come from Butler itself under a frozen
+configuration; Butler output is never used as the answer key. The read-only
+adapter builds a temporary Node bundle from the supplied Butler source and its
+already-installed dependencies, records a source fingerprint, and never writes
+to or installs into Butler. It reuses Butler's document profiler, static
+checker, selected LLM checks and vote aggregator. It deliberately omits
+Butler's final consolidation/deduplication presentation stages because those
+can contact a separate embeddings endpoint and can introduce findings outside
+the one target risk. This limitation remains explicit in every comparison
+report.
+
+Both system runners reserve a conservative upper bound before every HTTP
+attempt: UTF-8 request bytes plus fixed message overhead plus the configured
+maximum output. Retries consume fresh call/token/spend reservation. They write
+a scrubbed sidecar budget audit beside the observation file and stop before a
+request that would exceed any approved cap. The Butler adapter also reads
+Provider responses incrementally and aborts as soon as the response-byte cap
+would be exceeded.
 
 ## Binary V1 closure report
 

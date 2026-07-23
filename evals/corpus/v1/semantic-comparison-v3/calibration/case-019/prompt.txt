@@ -1,0 +1,1 @@
+Search the external service, parse each returned record, and write the combined answer to the database.

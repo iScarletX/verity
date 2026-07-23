@@ -1,4 +1,4 @@
-"""Semantic FindingType catalog (initial 3 entries).
+"""Controlled semantic FindingType catalog and deterministic seed extractors.
 
 Each entry declares:
 - ``findingType`` — controlled id
@@ -19,6 +19,8 @@ Each entry declares:
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -32,6 +34,21 @@ class SemanticSubjectField:
 
 
 @dataclass(frozen=True)
+class SemanticJudgmentPolicy:
+    """Catalog-owned adjudication policy sent to both semantic roles.
+
+    These strings are trusted Verity configuration, not reviewed artifact
+    content.  Keeping applicability and counterexamples beside each Finding
+    Type makes the Validator falsify a concrete claim instead of applying one
+    generic "looks risky" instruction to every semantic class.
+    """
+    appliesWhen: List[str]
+    confirmWhen: List[str]
+    rejectWhen: List[str]
+    insufficientWhen: List[str]
+
+
+@dataclass(frozen=True)
 class SemanticFindingType:
     findingType: str
     engine: str
@@ -40,6 +57,7 @@ class SemanticFindingType:
     subjectKeyFields: List[str]
     falsificationQuestion: str
     guidanceId: str
+    judgmentPolicy: SemanticJudgmentPolicy
     owaspAst10: List[str] = field(default_factory=list)
 
 
@@ -86,13 +104,26 @@ def _make_evidence_records(locations, *, snapshot_id: str,
     from ..canonical import occurrence_fingerprint, domain_tag, sha256_hex
     out = []
     for index, loc in enumerate(locations):
+        metadata = ((metadata_by_index or [])[index]
+                    if metadata_by_index and index < len(metadata_by_index)
+                    else {})
         # Non-secret path: use minimal fingerprint (canonical location +
         # a synthetic raw digest based on the location itself so
         # extractor-produced evidence has a stable id).
         fp = occurrence_fingerprint(sensitivity="normal",
                                      locations=[loc],
                                      raw_bytes=b"")
-        eid = f"ev-sem-{sha256_hex(domain_tag('semantic-evidence'), fp.encode())[:16]}"
+        # The same source span can legitimately feed several controlled
+        # extractors or several facts from one extractor. Include producer and
+        # bounded structured metadata in Evidence identity so the global pool
+        # cannot collapse one semantic role/fact into whichever ran first.
+        metadata_fingerprint = json.dumps(
+            metadata, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":")).encode()
+        eid_digest = sha256_hex(
+            domain_tag("semantic-evidence"), producer_id.encode(), fp.encode(),
+            metadata_fingerprint)
+        eid = f"ev-sem-{eid_digest[:16]}"
         out.append({
             "evidenceId": eid,
             "snapshotId": snapshot_id,
@@ -101,13 +132,123 @@ def _make_evidence_records(locations, *, snapshot_id: str,
             "sensitivity": "normal",
             "occurrenceFingerprint": fp,
             "producer": {"componentId": producer_id,
-                          "componentVersion": "1.0.0",
+                          "componentVersion": "2.0.0",
                           "executionId": "sem-static-extract"},
-            "metadata": ((metadata_by_index or [])[index]
-                         if metadata_by_index and index < len(metadata_by_index)
-                         else {}),
+            "metadata": metadata,
         })
     return out
+
+
+def _contains_any(text: str, terms: Tuple[str, ...]) -> List[str]:
+    return [term for term in terms if term in text]
+
+
+def _constraint_line_metadata(raw: bytes, line_index: int) -> Dict[str, Any]:
+    """Return bounded, non-conclusive structure facts for one prompt line."""
+    text = raw.decode("utf-8", errors="ignore").lower()
+    stages = []
+    if _contains_any(text, (
+            "start with", "begin with", "first ", "opening", "开头", "首先",
+            "先给", "先输出")):
+        stages.append("opening_segment")
+    if _contains_any(text, (
+            "then ", "after that", "follow with", "next ", "然后", "随后",
+            "接着", "再给", "再输出")):
+        stages.append("later_segment")
+    if _contains_any(text, (
+            "final answer", "final response", "final output", "最终回答",
+            "最终答复", "最终输出")):
+        stages.append("final_output")
+    if not stages:
+        stages.append("unspecified")
+
+    targets = []
+    target_terms = (
+        ("summary", ("summary", "摘要", "总结")),
+        ("explanation", ("explanation", "explain", "说明", "解释")),
+        ("reasoning", ("reasoning", "chain of thought", "思考过程", "推理过程")),
+        ("answer", ("answer", "response", "reply", "回答", "答复", "回复")),
+        ("structured_output", ("json", "yaml", "schema", "表格", "字段")),
+    )
+    for name, terms in target_terms:
+        if _contains_any(text, terms):
+            targets.append(name)
+    if not targets:
+        targets.append("unspecified")
+
+    signals = []
+    signal_terms = (
+        ("maximum_length", (
+            "under ", "at most", "no more than", "fewer than", "以内",
+            "不超过", "至多", "少于")),
+        ("minimum_length", (
+            "at least", "no fewer than", "more than", "不少于", "至少",
+            "多于")),
+        ("prohibition", (
+            "never ", "must not", "do not", "不得", "禁止", "绝不")),
+        ("requirement", (
+            "must ", "required", "shall ", "必须", "务必", "需要")),
+    )
+    for name, terms in signal_terms:
+        if _contains_any(text, terms):
+            signals.append(name)
+    return {
+        "evidenceRole": "prompt_constraint",
+        "lineIndex": line_index,
+        "outputStages": stages[:3],
+        "contentTargets": targets[:4],
+        "constraintSignals": signals[:4],
+    }
+
+
+_FORMAT_TERMS = {
+    "json": ("json",),
+    "yaml": ("yaml", "yml"),
+    "tabular": ("table", "tabular", "csv", "表格"),
+    "structured_text": ("schema", "structured", "格式", "字段"),
+}
+_TYPE_TERMS = (
+    "string", "integer", "number", "boolean", "array", "object", "list",
+    "字符串", "整数", "数字", "布尔", "数组", "对象", "列表",
+)
+_REQUIRED_TERMS = (
+    "required", "optional", "must include", "必填", "选填", "必须包含",
+)
+_ENUM_TERMS = (
+    "enum", "one of", "allowed values", "可选值", "枚举", "只能是",
+)
+_UNIT_TERMS = (
+    "unit", "decimal", "yyyy-mm-dd", "单位", "小数", "日期格式",
+)
+
+
+def _output_contract_metadata(text: str) -> Dict[str, Any]:
+    requested = [
+        name for name, terms in _FORMAT_TERMS.items()
+        if any(term in text for term in terms)
+    ]
+    # Count only declaration-like names, not every noun in prose.
+    field_patterns = (
+        r"\bfields?\s*[:=]\s*[a-z_][a-z0-9_-]*",
+        r"\b[a-z_][a-z0-9_-]*\s*\((?:string|integer|number|boolean|array|object|list)",
+        r'["\'][a-z_][a-z0-9_-]*["\']\s*:',
+        r"(?:字段|包含)\s*[:：]?\s*[A-Za-z_\u4e00-\u9fff][^。\n]{0,80}",
+    )
+    named_fields = sum(len(re.findall(pattern, text, flags=re.IGNORECASE))
+                       for pattern in field_patterns)
+    return {
+        "evidenceRole": "output_contract",
+        "requestedFormats": requested[:4],
+        "namedFieldSignalCount": min(named_fields, 32),
+        "typeMarkerCount": min(
+            sum(text.count(term) for term in _TYPE_TERMS), 32),
+        "requirednessMarkerCount": min(
+            sum(text.count(term) for term in _REQUIRED_TERMS), 32),
+        "enumMarkerCount": min(
+            sum(text.count(term) for term in _ENUM_TERMS), 32),
+        "unitMarkerCount": min(
+            sum(text.count(term) for term in _UNIT_TERMS), 32),
+    }
 
 
 # Strong-constraint markers used to anchor candidate lines in long
@@ -195,9 +336,13 @@ def extract_instruction_conflict(review_dict, file_bytes):
     # Build records only for the lines that can actually cross that boundary.
     selected = _select_conflict_candidate_lines(lines, max_total=8)
     selected_locs = [lines[i][0] for i in selected]
+    selected_metadata = [
+        _constraint_line_metadata(lines[i][3], i) for i in selected
+    ]
     evs = _make_evidence_records(
         selected_locs, snapshot_id=sid,
-        producer_id="extractor.prompt.instruction_conflict")
+        producer_id="extractor.prompt.instruction_conflict",
+        metadata_by_index=selected_metadata)
     for left, right in combinations(range(len(selected)), 2):
         i, j = selected[left], selected[right]
         a, b = evs[left], evs[right]
@@ -223,7 +368,10 @@ def extract_missing_output_contract(review_dict, file_bytes):
         return []
     data = file_bytes.get(prompt_file["fileId"], b"")
     text = data.decode("utf-8", errors="replace").lower()
-    triggers = ("json", "yaml", "schema", "structured", "格式", "字段")
+    triggers = (
+        "json", "yaml", "schema", "structured", "csv", "table", "tabular",
+        "格式", "字段", "表格",
+    )
     if not any(t in text for t in triggers):
         return []
     # single evidence covering the whole prompt
@@ -236,15 +384,21 @@ def extract_missing_output_contract(review_dict, file_bytes):
     }
     evs = _make_evidence_records([loc],
                                   snapshot_id=snap.get("snapshotId", ""),
-                                  producer_id="extractor.prompt.missing_output_contract")
+                                  producer_id="extractor.prompt.missing_output_contract",
+                                  metadata_by_index=[
+                                      _output_contract_metadata(text)])
     return [({"triggers": [t for t in triggers if t in text]},
              [evs[0]["evidenceId"]], evs)]
 
 
-def _whole_prompt_seed(review_dict, file_bytes, *, triggers, producer_id):
+def _whole_prompt_seed(review_dict, file_bytes, *, triggers, producer_id,
+                       metadata_builder=None, require_all_groups=None,
+                       system_prompt_only=False):
     if review_dict.get("engine") != "prompt":
         return []
     snap = review_dict.get("snapshot") or {}
+    if system_prompt_only and snap.get("promptKind") != "system_prompt":
+        return []
     prompt_file = next((f for f in (snap.get("files") or [])
                         if f.get("status") == "included"), None)
     if prompt_file is None:
@@ -254,14 +408,337 @@ def _whole_prompt_seed(review_dict, file_bytes, *, triggers, producer_id):
     found = [t for t in triggers if t in text]
     if not found:
         return []
+    if require_all_groups and not all(
+            any(term in text for term in group) for group in require_all_groups):
+        return []
     loc = {"fileId": prompt_file["fileId"],
            "artifactPath": prompt_file["normalizedPath"],
            "fileDigest": prompt_file.get("contentDigest") or "",
            "sourceByteRange": {"start": 0, "end": len(data)},
            "locationSchemaVersion": "1"}
+    metadata = (metadata_builder(text) if metadata_builder else {
+        "evidenceRole": "prompt_analysis",
+        "signalFamilies": ["trigger_present"],
+    })
     ev = _make_evidence_records([loc], snapshot_id=snap.get("snapshotId", ""),
-                                producer_id=producer_id)[0]
+                                producer_id=producer_id,
+                                metadata_by_index=[metadata])[0]
     return [({"triggerCount": len(found)}, [ev["evidenceId"]], [ev])]
+
+
+def _prompt_analysis_metadata(*, signal_families, **counts):
+    metadata: Dict[str, Any] = {
+        "evidenceRole": "prompt_analysis",
+        "signalFamilies": list(signal_families)[:12],
+    }
+    for key, value in counts.items():
+        if isinstance(value, bool):
+            metadata[key] = value
+        elif isinstance(value, int):
+            metadata[key] = min(max(value, 0), 128)
+        elif isinstance(value, list):
+            metadata[key] = value[:12]
+    return metadata
+
+
+_TRUST_SOURCE_TERMS = (
+    "external content", "retrieved", "user input", "tool output",
+    "web page", "document content", "网页内容", "检索内容", "用户输入",
+    "工具输出", "外部内容",
+)
+_TRUST_BOUNDARY_TERMS = (
+    "treat as data", "not instructions", "untrusted data", "do not follow",
+    "delimiter", "quote", "只作为数据", "不是指令", "不可信数据",
+    "不要遵循", "分隔符", "引用",
+)
+
+
+def _trust_boundary_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["untrusted_content_boundary"],
+        sourceSignalCount=sum(text.count(x) for x in _TRUST_SOURCE_TERMS),
+        mitigationSignalCount=sum(text.count(x) for x in _TRUST_BOUNDARY_TERMS),
+    )
+
+
+_TOOL_SCOPE_TERMS = (
+    "allowed_tools", "allowed-tools", "permissions:", "tools:",
+    "工具权限", "允许工具",
+)
+_TOOL_BOUNDARY_TERMS = (
+    "least privilege", "only when needed", "approval", "confirm before",
+    "最小权限", "仅在需要时", "批准", "确认后",
+)
+
+
+def _tool_scope_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["declared_tool_scope"],
+        toolDeclarationCount=sum(text.count(x) for x in _TOOL_SCOPE_TERMS),
+        approvalSignalCount=sum(text.count(x) for x in _TOOL_BOUNDARY_TERMS),
+    )
+
+
+_BUDGET_PRESSURE_TERMS = (
+    "detailed", "comprehensive", "exhaustive", "every ", "all ", "each ",
+    "step-by-step", "逐一", "详细", "全面", "完整", "所有", "每个", "逐步",
+)
+_BUDGET_LIMIT_TERMS = (
+    "brief", "concise", "short", "under ", "at most", "no more than",
+    "token", "words", "characters", "简洁", "精简", "不超过", "以内",
+    "字", "字符",
+)
+_PRIORITY_TERMS = (
+    "prioritize", "priority", "omit first", "if space", "优先", "空间不足",
+    "无法全部", "可省略",
+)
+_CONTINUATION_TERMS = (
+    "continue", "continuation", "next response", "分段", "续写", "下一轮",
+)
+
+
+def _budget_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["output_volume", "output_limit"],
+        pressureSignalCount=sum(text.count(x) for x in _BUDGET_PRESSURE_TERMS),
+        limitSignalCount=sum(text.count(x) for x in _BUDGET_LIMIT_TERMS),
+        prioritySignalCount=sum(text.count(x) for x in _PRIORITY_TERMS),
+        continuationSignalCount=sum(text.count(x) for x in _CONTINUATION_TERMS),
+    )
+
+
+def extract_output_budget_pressure(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes,
+        triggers=_BUDGET_PRESSURE_TERMS + _BUDGET_LIMIT_TERMS,
+        require_all_groups=(_BUDGET_PRESSURE_TERMS, _BUDGET_LIMIT_TERMS),
+        producer_id="extractor.prompt.output_budget_pressure",
+        metadata_builder=_budget_metadata)
+
+
+_AUTONOMY_TERMS = (
+    "autonomously", "without asking", "do not ask", "take initiative",
+    "act immediately", "自行", "自主", "无需询问", "不要询问", "立即执行",
+)
+_SIDE_EFFECT_TERMS = (
+    "send ", "publish", "deploy", "purchase", "delete", "transfer",
+    "approve", "reject", "modify account", "发出", "发布", "部署", "购买",
+    "删除", "转账", "批准", "拒绝", "修改账户",
+)
+_APPROVAL_TERMS = (
+    "ask for approval", "require approval", "confirm with the user",
+    "human approval", "draft only", "用户确认", "人工批准", "先请求批准",
+    "仅生成草稿", "确认后",
+)
+
+
+def _authority_metadata(text):
+    actions = [
+        name for name, terms in (
+            ("communication", ("send ", "发出", "发送")),
+            ("publication", ("publish", "发布")),
+            ("deployment", ("deploy", "部署")),
+            ("financial", ("purchase", "transfer", "购买", "转账")),
+            ("destructive", ("delete", "删除")),
+            ("access_control", ("approve", "reject", "修改账户", "批准", "拒绝")),
+        ) if any(term in text for term in terms)
+    ]
+    return _prompt_analysis_metadata(
+        signal_families=["autonomous_action", "external_side_effect"],
+        autonomySignalCount=sum(text.count(x) for x in _AUTONOMY_TERMS),
+        sideEffectSignalCount=sum(text.count(x) for x in _SIDE_EFFECT_TERMS),
+        approvalSignalCount=sum(text.count(x) for x in _APPROVAL_TERMS),
+        operationKinds=actions,
+    )
+
+
+def extract_authority_boundary_ambiguity(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes,
+        triggers=_AUTONOMY_TERMS + _SIDE_EFFECT_TERMS,
+        require_all_groups=(_AUTONOMY_TERMS, _SIDE_EFFECT_TERMS),
+        producer_id="extractor.prompt.authority_boundary",
+        metadata_builder=_authority_metadata,
+        system_prompt_only=True)
+
+
+_FAILURE_OPERATION_TERMS = (
+    "api", "http", "fetch", "retrieve", "search", "parse", "decode",
+    "database", "tool call", "external service", "接口", "请求", "检索",
+    "搜索", "解析", "解码", "数据库", "工具调用", "外部服务",
+)
+_FAILURE_STRATEGY_TERMS = (
+    "timeout", "retry", "backoff", "fallback", "empty result",
+    "malformed", "structured error", "partial failure", "超时", "重试",
+    "退避", "回退", "空结果", "格式错误", "结构化错误", "部分失败",
+)
+
+
+def _failure_metadata(text):
+    operations = [
+        name for name, terms in (
+            ("network_call", ("api", "http", "fetch", "接口", "请求")),
+            ("retrieval", ("retrieve", "search", "检索", "搜索")),
+            ("parsing", ("parse", "decode", "解析", "解码")),
+            ("database", ("database", "数据库")),
+            ("tool_call", ("tool call", "工具调用")),
+        ) if any(term in text for term in terms)
+    ]
+    strategies = [
+        name for name, terms in (
+            ("timeout", ("timeout", "超时")),
+            ("retry", ("retry", "backoff", "重试", "退避")),
+            ("fallback", ("fallback", "回退")),
+            ("empty_result", ("empty result", "空结果")),
+            ("malformed_input", ("malformed", "格式错误")),
+            ("structured_error", ("structured error", "结构化错误")),
+            ("partial_failure", ("partial failure", "部分失败")),
+        ) if any(term in text for term in terms)
+    ]
+    return _prompt_analysis_metadata(
+        signal_families=["failure_prone_operation"],
+        operationKinds=operations,
+        strategyKinds=strategies,
+        operationSignalCount=sum(text.count(x) for x in _FAILURE_OPERATION_TERMS),
+        strategySignalCount=sum(text.count(x) for x in _FAILURE_STRATEGY_TERMS),
+    )
+
+
+def extract_failure_strategy_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_FAILURE_OPERATION_TERMS,
+        producer_id="extractor.prompt.failure_strategy_gap",
+        metadata_builder=_failure_metadata)
+
+
+_VAGUE_CRITERIA_TERMS = (
+    "appropriate", "reasonable", "as needed", "when necessary",
+    "sufficiently", "high quality", "brief", "concise", "complex",
+    "long content", "content is long", "适当", "合理", "酌情", "必要时",
+    "尽量", "足够",
+    "高质量", "简洁", "复杂", "内容较长",
+)
+_BOUNDARY_CRITERIA_TERMS = (
+    "at least", "at most", "exactly", "between ", "if ", "when ",
+    "characters", "words", "items", "至少", "至多", "恰好", "介于",
+    "如果", "当", "字", "条",
+)
+
+
+def _ambiguity_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["vague_operational_criterion"],
+        vagueCriterionCount=sum(text.count(x) for x in _VAGUE_CRITERIA_TERMS),
+        boundaryMarkerCount=sum(text.count(x) for x in _BOUNDARY_CRITERIA_TERMS),
+    )
+
+
+def extract_ambiguous_operational_criteria(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_VAGUE_CRITERIA_TERMS,
+        producer_id="extractor.prompt.ambiguous_operational_criteria",
+        metadata_builder=_ambiguity_metadata)
+
+
+_GROUNDING_TASK_TERMS = (
+    "law", "legal", "medical", "health", "financial", "tax", "fact",
+    "statistics", "citation", "source", "research", "法律", "医疗", "健康",
+    "金融", "财务", "税务", "事实", "统计", "引用", "来源", "研究",
+)
+_GROUNDING_CONTROL_TERMS = (
+    "cite", "verify", "source", "uncertain", "do not guess", "do not invent",
+    "human review", "核实", "引用", "来源", "不确定", "不要猜测", "不得编造",
+    "人工复核",
+)
+
+
+def _grounding_metadata(text):
+    domains = [
+        name for name, terms in (
+            ("legal", ("law", "legal", "法律")),
+            ("medical", ("medical", "health", "医疗", "健康")),
+            ("financial", ("financial", "tax", "金融", "财务", "税务")),
+            ("factual", ("fact", "statistics", "research", "事实", "统计", "研究")),
+            ("citations", ("citation", "source", "引用", "来源")),
+        ) if any(term in text for term in terms)
+    ]
+    return _prompt_analysis_metadata(
+        signal_families=["consequential_or_verifiable_claim"],
+        operationKinds=domains,
+        groundingSignalCount=sum(text.count(x) for x in _GROUNDING_TASK_TERMS),
+        mitigationSignalCount=sum(text.count(x) for x in _GROUNDING_CONTROL_TERMS),
+    )
+
+
+def extract_grounding_requirement_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_GROUNDING_TASK_TERMS,
+        producer_id="extractor.prompt.grounding_requirement_gap",
+        metadata_builder=_grounding_metadata)
+
+
+_REASONING_TERMS = (
+    "chain of thought", "reasoning", "scratchpad", "internal policy",
+    "hidden rule", "decision rule", "思维链", "推理过程", "思考过程",
+    "内部策略", "隐藏规则", "内部规则", "判断规则",
+)
+_REASONING_EXPOSURE_TERMS = (
+    "show", "reveal", "print", "include", "display", "展示", "公开",
+    "输出", "透露", "包含",
+)
+_REASONING_CONTAINMENT_TERMS = (
+    "do not reveal", "keep internal", "final answer only", "brief rationale",
+    "不要透露", "仅内部", "只输出最终", "简短理由",
+)
+
+
+def _reasoning_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["reasoning_or_internal_policy"],
+        reasoningSignalCount=sum(text.count(x) for x in _REASONING_TERMS),
+        exposureSignalCount=sum(text.count(x) for x in _REASONING_EXPOSURE_TERMS),
+        containmentSignalCount=sum(
+            text.count(x) for x in _REASONING_CONTAINMENT_TERMS),
+    )
+
+
+def extract_sensitive_reasoning_exposure(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_REASONING_TERMS,
+        producer_id="extractor.prompt.sensitive_reasoning_exposure",
+        metadata_builder=_reasoning_metadata)
+
+
+_VERIFICATION_TASK_TERMS = (
+    "fields", "steps", "requirements", "must include", "schema",
+    "title", "summary", "tags", "字段", "步骤", "要求", "必须包含",
+    "标题", "摘要", "标签",
+)
+_VERIFICATION_CONTROL_TERMS = (
+    "verify", "validate", "check before", "self-check", "checklist",
+    "核对", "验证", "输出前检查", "自检", "检查清单",
+)
+_DOWNSTREAM_TERMS = (
+    "downstream", "parser", "automation", "production", "decision",
+    "下游", "解析器", "自动化", "生产", "决策",
+)
+
+
+def _verification_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["multi_constraint_output"],
+        requirementSignalCount=sum(text.count(x) for x in _VERIFICATION_TASK_TERMS),
+        verificationSignalCount=sum(
+            text.count(x) for x in _VERIFICATION_CONTROL_TERMS),
+        downstreamSignalCount=sum(text.count(x) for x in _DOWNSTREAM_TERMS),
+    )
+
+
+def extract_verification_step_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_VERIFICATION_TASK_TERMS,
+        producer_id="extractor.prompt.verification_step_gap",
+        metadata_builder=_verification_metadata)
 
 
 def extract_trust_boundary_ambiguity(review_dict, file_bytes):
@@ -269,7 +746,8 @@ def extract_trust_boundary_ambiguity(review_dict, file_bytes):
         review_dict, file_bytes,
         triggers=("external content", "retrieved", "user input", "tool output",
                   "网页内容", "检索内容", "用户输入", "工具输出"),
-        producer_id="extractor.prompt.trust_boundary")
+        producer_id="extractor.prompt.trust_boundary",
+        metadata_builder=_trust_boundary_metadata)
 
 
 def extract_tool_necessity(review_dict, file_bytes):
@@ -277,7 +755,138 @@ def extract_tool_necessity(review_dict, file_bytes):
         review_dict, file_bytes,
         triggers=("allowed_tools", "allowed-tools", "permissions:", "tools:",
                   "工具权限", "允许工具"),
-        producer_id="extractor.prompt.tool_necessity")
+        producer_id="extractor.prompt.tool_necessity",
+        metadata_builder=_tool_scope_metadata)
+
+
+def _capability_family(category: str, operation: str) -> str:
+    category = category.lower()
+    operation = operation.lower()
+    if category == "network":
+        return "network_access"
+    if category == "process":
+        return "process_execution"
+    if category == "credential":
+        return "credential_access"
+    if category == "installation":
+        return "dependency_installation"
+    if category == "configuration":
+        return "configuration_access"
+    if category == "file":
+        if any(term in operation for term in ("write", "append")):
+            return "file_write"
+        if any(term in operation for term in ("read",)):
+            return "file_read"
+        return "file_access"
+    return category[:80] or "unknown"
+
+
+def _permission_descriptor(permission: str) -> Tuple[str, str]:
+    value = permission.strip()
+    lower = value.lower()
+    target = ""
+    if lower.startswith(("bash", "shell", "terminal")):
+        match = re.search(r"\(([^:()]+)", value)
+        if match:
+            target = match.group(1).strip().rsplit("/", 1)[-1].lower()[:80]
+        return "process_execution", target
+    if lower.startswith(("webfetch", "websearch", "http", "network")):
+        return "network_access", target
+    if lower.startswith(("read", "grep", "search")):
+        return "file_read", target
+    if lower.startswith(("write", "edit", "delete", "move")):
+        return "file_write", target
+    if lower.startswith(("credential", "secret", "env")):
+        return "credential_access", target
+    return "unknown", target
+
+
+def _declared_behavior_families(description: str) -> Tuple[List[str], List[str]]:
+    text = description.lower()
+    declared = []
+    denied = []
+    definitions = (
+        ("network_access", (
+            "network", "endpoint", "api", "url", "web", "fetch", "retrieve",
+            "网络", "接口", "网址", "网页", "获取", "检索")),
+        ("process_execution", (
+            "command", "shell", "subprocess", "execute", "命令", "进程", "执行")),
+        ("file_read", (
+            "read file", "reads ", "read-only", "读取文件", "只读")),
+        ("file_write", (
+            "write file", "writes ", "edit file", "写入文件", "编辑文件")),
+        ("credential_access", (
+            "credential", "secret", "environment variable", "凭据", "密钥",
+            "环境变量")),
+    )
+    negations = (
+        "without {term}", "no {term}", "never {term}",
+        "does not use {term}", "不使用{term}", "无{term}", "禁止{term}",
+    )
+    for family, terms in definitions:
+        present = any(term in text for term in terms)
+        negative = any(
+            pattern.format(term=term) in text
+            for term in terms for pattern in negations
+        )
+        negative = negative or any(
+            re.search(
+                r"(?:without|no|never|does not|doesn't)\b.{0,32}\b"
+                + re.escape(term), text)
+            for term in terms if term.isascii()
+        )
+        negative = negative or any(
+            re.search(r"(?:不|无|禁止).{0,16}" + re.escape(term), text)
+            for term in terms if not term.isascii()
+        )
+        if family == "network_access" and any(
+                marker in text for marker in ("local-only", "offline only",
+                                               "仅本地", "仅离线")):
+            negative = True
+        if negative:
+            denied.append(family)
+        elif present:
+            declared.append(family)
+    return sorted(set(declared)), sorted(set(denied))
+
+
+def _permission_matches(family: str, target: str,
+                        descriptors: List[Tuple[str, str]]) -> bool:
+    for declared_family, declared_target in descriptors:
+        family_match = (
+            declared_family == family
+            or (declared_family == "file_read" and family == "file_access")
+            or (declared_family == "file_write" and family == "file_access")
+        )
+        if not family_match:
+            continue
+        if family == "process_execution" and declared_target:
+            if (target and target.lower().rsplit("/", 1)[-1]
+                    == declared_target):
+                return True
+            continue
+        return True
+    return False
+
+
+def _fact_location(file_info: Dict[str, Any], fact: Dict[str, Any],
+                   file_bytes: Dict[str, bytes]) -> Dict[str, Any]:
+    data = file_bytes.get(file_info["fileId"], b"")
+    start = 0
+    end = min(600, len(data))
+    line_number = fact.get("sourceLine")
+    if isinstance(line_number, int) and line_number > 0:
+        lines = data.splitlines(keepends=True)
+        if line_number <= len(lines):
+            start = sum(len(line) for line in lines[:line_number - 1])
+            end = start + len(lines[line_number - 1].rstrip(b"\r\n"))
+    return {
+        "fileId": file_info["fileId"],
+        "artifactPath": file_info["normalizedPath"],
+        "fileDigest": file_info.get("contentDigest") or "",
+        "sourceByteRange": {"start": start, "end": end},
+        "locationSchemaVersion": "1",
+    }
 
 
 def _skill_manifest_and_capability_seed(review_dict, file_bytes, *,
@@ -288,11 +897,15 @@ def _skill_manifest_and_capability_seed(review_dict, file_bytes, *,
     manifest_file = am.get("manifestFile")
     manifest = am.get("manifest") or {}
     facts = ((am.get("capabilityFacts") or {}).get("facts") or [])
+    observed_facts = [
+        fact for fact in facts if fact.get("sourceKind") != "manifest"
+    ]
     if not manifest_file:
         return []
     if require_external and not manifest.get("external_reference_count"):
         return []
-    if not require_external and not facts and not manifest.get("permissions"):
+    if (not require_external and not observed_facts
+            and not manifest.get("permissions")):
         return []
     snap = review_dict.get("snapshot") or {}
     files = {f.get("normalizedPath"): f for f in (snap.get("files") or [])
@@ -302,27 +915,53 @@ def _skill_manifest_and_capability_seed(review_dict, file_bytes, *,
                   "fileDigest": "", "sourceByteRange": {"start": 0,
                   "end": min(500, len(file_bytes.get(manifest_file["fileId"], b"")))},
                   "locationSchemaVersion": "1"}]
-    metadata = [{"evidenceRole": "manifest_declaration"}]
-    for fact in facts[:7]:
+    permissions = [
+        str(item)[:160] for item in (manifest.get("permissions") or [])
+        if isinstance(item, str)
+    ]
+    descriptors = [_permission_descriptor(item) for item in permissions]
+    declared_permission_families = sorted({
+        family for family, _target in descriptors if family != "unknown"
+    })
+    declared_behavior, denied_behavior = _declared_behavior_families(
+        str(manifest.get("description") or ""))
+    metadata = [{
+        "evidenceRole": "manifest_declaration",
+        "declaredPermissionFamilies": declared_permission_families[:12],
+        "declaredProcessTargets": sorted({
+            target for family, target in descriptors
+            if family == "process_execution" and target
+        })[:12],
+        "declaredCapabilityFamilies": sorted(set(
+            declared_permission_families + declared_behavior))[:12],
+        "deniedCapabilityFamilies": denied_behavior[:12],
+    }]
+    for fact in observed_facts[:7]:
         f = files.get(fact.get("artifactPath"))
         if f:
-            locations.append({"fileId": f["fileId"],
-                              "artifactPath": f["normalizedPath"],
-                              "fileDigest": f.get("contentDigest") or "",
-                              "sourceByteRange": {"start": 0,
-                                  "end": min(600, len(file_bytes.get(f["fileId"], b"")))},
-                              "locationSchemaVersion": "1"})
+            locations.append(_fact_location(f, fact, file_bytes))
+            family = _capability_family(
+                str(fact.get("category", "")),
+                str(fact.get("operation", "")))
+            target = str(fact.get("target", ""))[:80]
             metadata.append({
                 "evidenceRole": "capability_fact",
                 "capabilityCategory": str(fact.get("category", ""))[:80],
                 "capabilityOperation": str(fact.get("operation", ""))[:160],
+                "capabilityFamily": family,
+                "capabilityTarget": target,
+                "declaredBehaviorMatch": (
+                    family in declared_behavior
+                    and family not in denied_behavior),
+                "declaredPermissionMatch": _permission_matches(
+                    family, target, descriptors),
             })
     evs = _make_evidence_records(locations,
                                   snapshot_id=snap.get("snapshotId", ""),
                                   producer_id=producer_id,
                                   metadata_by_index=metadata)
-    source = {"declaredPermissionCount": len(manifest.get("permissions") or []),
-              "observedCapabilityCount": len(facts)}
+    source = {"declaredPermissionCount": len(permissions),
+              "observedCapabilityCount": len(observed_facts)}
     return [(source, [e["evidenceId"] for e in evs], evs)]
 
 
@@ -358,72 +997,118 @@ Extractor = Callable[[Dict[str, Any], Dict[str, bytes]],
                      List[Tuple[Dict[str, Any], List[str], List[Dict[str, Any]]]]]
 
 
+def _policy(*, applies, confirm, reject, insufficient):
+    return SemanticJudgmentPolicy(
+        appliesWhen=list(applies),
+        confirmWhen=list(confirm),
+        rejectWhen=list(reject),
+        insufficientWhen=list(insufficient),
+    )
+
+
 CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
 
     "semantic.prompt.instruction_conflict": (
         SemanticFindingType(
             findingType="semantic.prompt.instruction_conflict",
-            engine="prompt",
-            defaultSeverity="medium",
-            subjectFields=[
-                SemanticSubjectField("conflictKind", "enum",
-                                     enum=["contradictory_directive",
-                                           "conflicting_style",
-                                           "conflicting_scope"]),
-            ],
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "conflictKind", "enum",
+                enum=["contradictory_directive", "conflicting_style",
+                      "conflicting_scope"])],
             subjectKeyFields=["conflictKind"],
             falsificationQuestion=(
                 "Do the two cited prompt lines contain instructions that "
-                "the model cannot satisfy simultaneously without violating "
-                "either of them?"
-            ),
+                "cannot both be satisfied in their actual scopes?"),
             guidanceId="semantic.prompt.instruction_conflict",
-            owaspAst10=[],   # no honest AST10 mapping for prompt quality
-        ),
-        extract_instruction_conflict,
+            judgmentPolicy=_policy(
+                applies=[
+                    "At least two cited directives constrain the same response.",
+                    "Their target, stage, condition, and exception scopes can be compared.",
+                ],
+                confirm=[
+                    "The directives govern the same target and scope.",
+                    "Satisfying either directive necessarily violates the other.",
+                ],
+                reject=[
+                    "One directive governs an opening segment and the other a later segment.",
+                    "One rule governs an outer format and the other content inside a field.",
+                    "A stated exception or condition makes both directives satisfiable.",
+                ],
+                insufficient=[
+                    "Reject or mark insufficient when the shared target or scope is not evidenced.",
+                ]),
+            owaspAst10=[],
+        ), extract_instruction_conflict,
     ),
 
     "semantic.prompt.missing_output_contract": (
         SemanticFindingType(
             findingType="semantic.prompt.missing_output_contract",
-            engine="prompt",
-            defaultSeverity="low",
+            engine="prompt", defaultSeverity="low",
             subjectFields=[
-                SemanticSubjectField("expectedFormat", "enum",
-                                     enum=["json", "yaml", "structured_text"]),
+                SemanticSubjectField(
+                    "expectedFormat", "enum",
+                    enum=["json", "yaml", "structured_text"]),
+                SemanticSubjectField(
+                    "gapKind", "enum",
+                    enum=["missing_fields", "missing_types",
+                          "missing_requiredness", "missing_value_constraints"]),
             ],
             subjectKeyFields=["expectedFormat"],
             falsificationQuestion=(
-                "Does the prompt ask for a structured output (JSON / YAML "
-                "/ tabular) yet fail to state the required field names or "
-                "schema?"
-            ),
+                "Does the prompt request machine-structured output while "
+                "omitting a material field or schema contract?"),
             guidanceId="semantic.prompt.missing_output_contract",
-        ),
-        extract_missing_output_contract,
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt requests JSON, YAML, tabular, or another machine-structured result.",
+                ],
+                confirm=[
+                    "Only a container format is named and required fields or schema are absent.",
+                    "For direct downstream use, material types, requiredness, units, or value constraints are absent.",
+                ],
+                reject=[
+                    "Required fields and their usable structure are explicitly declared.",
+                    "The requested output is free-form prose for a human, not a machine contract.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the output consumer or cited schema reference is unavailable.",
+                ]),
+        ), extract_missing_output_contract,
     ),
 
     "semantic.skill.declared_behavior_mismatch": (
         SemanticFindingType(
             findingType="semantic.skill.declared_behavior_mismatch",
-            engine="skill",
-            defaultSeverity="medium",
-            subjectFields=[
-                SemanticSubjectField("mismatchKind", "enum",
-                                     enum=["capability_undeclared",
-                                           "declared_but_absent",
-                                           "scope_broader_than_declared"]),
-            ],
+            engine="skill", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "mismatchKind", "enum",
+                enum=["capability_undeclared", "declared_but_absent",
+                      "scope_broader_than_declared"])],
             subjectKeyFields=["mismatchKind"],
             falsificationQuestion=(
-                "Given the cited manifest declaration and implementation "
-                "capability evidence, is the stated behaviour materially "
-                "incompatible with what is statically observed?"
-            ),
+                "Is the manifest behavior materially incompatible with the "
+                "statically observed capability family?"),
             guidanceId="semantic.skill.declared_behavior_mismatch",
+            judgmentPolicy=_policy(
+                applies=[
+                    "A manifest behavior declaration and at least one implementation capability fact are cited.",
+                ],
+                confirm=[
+                    "An observed capability is denied or materially outside the declared behavior.",
+                    "The observed scope is materially broader than the declaration.",
+                ],
+                reject=[
+                    "The normalized declared capability family matches the observed family.",
+                    "A declaration to retrieve a public endpoint is compatible with observed network access.",
+                    "Different wording for the same narrow operation is not a mismatch.",
+                ],
+                insufficient=[
+                    "Static capability presence alone cannot prove a declared behavior is exercised.",
+                ]),
             owaspAst10=["OWASP-AST04"],
-        ),
-        extract_declared_behavior_mismatch,
+        ), extract_declared_behavior_mismatch,
     ),
 
     "semantic.prompt.trust_boundary_ambiguity": (
@@ -435,10 +1120,22 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                 enum=["user_input", "retrieved_content", "tool_output"])],
             subjectKeyFields=["boundaryKind"],
             falsificationQuestion=(
-                "Does the cited prompt fail to distinguish untrusted data "
-                "from trusted instructions, rather than already defining a "
-                "clear quoting, delimiting, or non-execution rule?"),
+                "Does untrusted content lack a clear data-only instruction boundary?"),
             guidanceId="semantic.prompt.trust_boundary_ambiguity",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt consumes user, retrieved, external, or tool-produced content.",
+                ],
+                confirm=[
+                    "That content can be interpreted as instructions and no data-only boundary is declared.",
+                ],
+                reject=[
+                    "The content is clearly delimited, quoted, or declared untrusted data.",
+                    "The prompt explicitly forbids following instructions found in that content.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the content insertion boundary is not shown.",
+                ]),
         ), extract_trust_boundary_ambiguity,
     ),
 
@@ -452,10 +1149,23 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                       "missing_approval_boundary"])],
             subjectKeyFields=["scopeKind"],
             falsificationQuestion=(
-                "Are the cited tools or permissions materially broader than "
-                "the stated task requires, after considering explicit "
-                "least-privilege and human-approval constraints?"),
+                "Are declared tools materially broader than the evidenced task requires?"),
             guidanceId="semantic.prompt.excessive_tool_scope",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt declares tools or permissions and states a task that permits necessity comparison.",
+                ],
+                confirm=[
+                    "A high-impact or unrelated capability is available but unnecessary for the task.",
+                    "A necessary capability is granted at materially broader scope without an approval boundary.",
+                ],
+                reject=[
+                    "Every cited capability is task-necessary and narrowly bounded.",
+                    "High-impact use is draft-only or requires explicit human approval.",
+                ],
+                insufficient=[
+                    "Mark insufficient when task scope or tool semantics are not evidenced.",
+                ]),
         ), extract_tool_necessity,
     ),
 
@@ -469,10 +1179,25 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                       "declared_capability_absent"])],
             subjectKeyFields=["mismatchKind"],
             falsificationQuestion=(
-                "Do the cited declared permissions and deterministic static "
-                "capability facts materially disagree, rather than merely "
-                "using different names for the same narrow capability?"),
+                "Do declared permissions and observed static capabilities "
+                "materially disagree after normalized family and target matching?"),
             guidanceId="semantic.skill.permission_capability_mismatch",
+            judgmentPolicy=_policy(
+                applies=[
+                    "A permission declaration and implementation capability fact are cited.",
+                ],
+                confirm=[
+                    "An observed capability family has no matching declared permission.",
+                    "A command-restricted permission names a different fixed command target.",
+                ],
+                reject=[
+                    "The normalized permission family matches the observed capability family.",
+                    "Bash(command:*) matches a fixed invocation of that same command.",
+                    "Different API names for the same narrow capability are equivalent.",
+                ],
+                insufficient=[
+                    "Mark insufficient when a dynamic command target cannot be resolved statically.",
+                ]),
             owaspAst10=["OWASP-AST03"],
         ), extract_permission_capability_mismatch,
     ),
@@ -487,12 +1212,242 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                       "missing_integrity_boundary"])],
             subjectKeyFields=["trustGapKind"],
             falsificationQuestion=(
-                "Does the cited Skill treat external material as executable "
-                "instructions without a clear provenance, integrity, "
-                "validation, or data-only boundary?"),
+                "Does the Skill treat external material as executable "
+                "instructions without provenance, integrity, or a data-only boundary?"),
             guidanceId="semantic.skill.external_instruction_trust_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The Skill declares an external instruction or content reference.",
+                ],
+                confirm=[
+                    "Remote material can alter instructions or behavior without integrity and trust controls.",
+                ],
+                reject=[
+                    "Content is digest-pinned or signature-verified and handled as data only.",
+                    "A reference is documentation for humans and is not fetched or followed at runtime.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the reference mode or trust controls are not evidenced.",
+                ]),
             owaspAst10=["OWASP-AST05"],
         ), extract_external_instruction_trust_gap,
+    ),
+
+    "semantic.prompt.output_budget_pressure": (
+        SemanticFindingType(
+            findingType="semantic.prompt.output_budget_pressure",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "pressureKind", "enum",
+                enum=["implicit_lower_bound", "missing_priority",
+                      "missing_continuation"])],
+            subjectKeyFields=["pressureKind"],
+            falsificationQuestion=(
+                "Are requested detail and output limits materially unlikely "
+                "to fit, or under-specified when trade-offs are required?"),
+            guidanceId="semantic.prompt.output_budget_pressure",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt combines a volume/detail obligation with an output limit.",
+                ],
+                confirm=[
+                    "The requested coverage is materially infeasible even though one lower bound is implicit.",
+                    "A real trade-off is required but no priority or continuation behavior is defined.",
+                ],
+                reject=[
+                    "The limit and requested content are plausibly compatible.",
+                    "Different limits govern different output segments.",
+                    "Priorities or a bounded continuation protocol resolve the pressure.",
+                ],
+                insufficient=[
+                    "Do not infer exact token conversions or average item sizes without evidence.",
+                ]),
+        ), extract_output_budget_pressure,
+    ),
+
+    "semantic.prompt.authority_boundary_ambiguity": (
+        SemanticFindingType(
+            findingType="semantic.prompt.authority_boundary_ambiguity",
+            engine="prompt", defaultSeverity="high",
+            subjectFields=[SemanticSubjectField(
+                "authorityKind", "enum",
+                enum=["external_side_effect", "delegated_decision",
+                      "approval_boundary"])],
+            subjectKeyFields=["authorityKind"],
+            falsificationQuestion=(
+                "Does a system prompt authorize consequential autonomous "
+                "action without a clear approval and scope boundary?"),
+            guidanceId="semantic.prompt.authority_boundary_ambiguity",
+            judgmentPolicy=_policy(
+                applies=[
+                    "A system prompt combines autonomous initiative with an external side effect or consequential decision.",
+                ],
+                confirm=[
+                    "The model may execute the action without identifying who approves it or where authority ends.",
+                ],
+                reject=[
+                    "The prompt permits analysis or drafting only.",
+                    "An explicit user or human approval is required before the side effect.",
+                    "Proactive low-impact information gathering alone is not consequential authority.",
+                ],
+                insufficient=[
+                    "Mark insufficient when enforcement may exist only in an unseen application layer.",
+                ]),
+        ), extract_authority_boundary_ambiguity,
+    ),
+
+    "semantic.prompt.failure_strategy_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.failure_strategy_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "gapKind", "enum",
+                enum=["timeout", "retry", "fallback", "empty_result",
+                      "malformed_input", "partial_failure"])],
+            subjectKeyFields=["gapKind"],
+            falsificationQuestion=(
+                "Does a required failure-prone operation lack a strategy for "
+                "a material failure or edge case?"),
+            guidanceId="semantic.prompt.failure_strategy_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt requires an external call, retrieval, parsing, database, or tool operation.",
+                ],
+                confirm=[
+                    "A material timeout, empty, malformed, or partial-failure path has no defined behavior.",
+                    "A strategy exists but applies to a different operation or failure mode.",
+                ],
+                reject=[
+                    "The cited operation has an explicit bounded failure, retry, fallback, or structured-error path.",
+                    "The operation is optional and its absence cannot invalidate the task result.",
+                ],
+                insufficient=[
+                    "Do not require every possible edge case; identify one material uncovered path.",
+                ]),
+        ), extract_failure_strategy_gap,
+    ),
+
+    "semantic.prompt.ambiguous_operational_criteria": (
+        SemanticFindingType(
+            findingType="semantic.prompt.ambiguous_operational_criteria",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "criterionKind", "enum",
+                enum=["vague_degree", "undefined_boundary",
+                      "ambiguous_referent"])],
+            subjectKeyFields=["criterionKind"],
+            falsificationQuestion=(
+                "Does a vague term control a material decision without a "
+                "usable threshold, referent, or decision rule?"),
+            guidanceId="semantic.prompt.ambiguous_operational_criteria",
+            judgmentPolicy=_policy(
+                applies=[
+                    "A vague degree, condition, or referent affects task behavior or output acceptance.",
+                ],
+                confirm=[
+                    "Reasonable implementations can make materially different decisions because no boundary is supplied.",
+                ],
+                reject=[
+                    "The term is locally defined by examples, thresholds, or an explicit decision rule.",
+                    "The term is a non-binding style preference with no material behavioral effect.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the surrounding definition is outside the cited evidence.",
+                ]),
+        ), extract_ambiguous_operational_criteria,
+    ),
+
+    "semantic.prompt.grounding_requirement_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.grounding_requirement_gap",
+            engine="prompt", defaultSeverity="high",
+            subjectFields=[SemanticSubjectField(
+                "groundingKind", "enum",
+                enum=["source_required", "uncertainty_required",
+                      "verification_required"])],
+            subjectKeyFields=["groundingKind"],
+            falsificationQuestion=(
+                "Does the prompt request consequential or verifiable claims "
+                "without proportionate grounding, uncertainty, or verification?"),
+            guidanceId="semantic.prompt.grounding_requirement_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The task requests legal, medical, financial, statistical, cited, or otherwise consequential factual claims.",
+                ],
+                confirm=[
+                    "It encourages exact claims while allowing unsupported invention or silent certainty.",
+                    "Sources or numbers are required but no reality/verification constraint is stated.",
+                ],
+                reject=[
+                    "The prompt requires attributable sources, uncertainty disclosure, and no guessing.",
+                    "The task is creative or subjective and does not claim factual authority.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the use case consequence or available source boundary is unknown.",
+                ]),
+        ), extract_grounding_requirement_gap,
+    ),
+
+    "semantic.prompt.sensitive_reasoning_exposure": (
+        SemanticFindingType(
+            findingType="semantic.prompt.sensitive_reasoning_exposure",
+            engine="prompt", defaultSeverity="high",
+            subjectFields=[SemanticSubjectField(
+                "exposureKind", "enum",
+                enum=["chain_of_thought", "internal_policy",
+                      "hidden_decision_rule"])],
+            subjectKeyFields=["exposureKind"],
+            falsificationQuestion=(
+                "Does the prompt require user-visible disclosure of hidden "
+                "reasoning or sensitive internal policy?"),
+            guidanceId="semantic.prompt.sensitive_reasoning_exposure",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt discusses chain-of-thought, scratchpads, internal policy, or hidden decision rules.",
+                ],
+                confirm=[
+                    "It requires that sensitive internal material be shown in user-visible output.",
+                ],
+                reject=[
+                    "It keeps internal reasoning private and asks only for the final result.",
+                    "A concise evidence-based rationale or audit summary is not hidden chain-of-thought.",
+                    "The cited policy is intentionally public and not sensitive.",
+                ],
+                insufficient=[
+                    "Mark insufficient when output visibility or policy sensitivity is not evidenced.",
+                ]),
+        ), extract_sensitive_reasoning_exposure,
+    ),
+
+    "semantic.prompt.verification_step_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.verification_step_gap",
+            engine="prompt", defaultSeverity="low",
+            subjectFields=[SemanticSubjectField(
+                "verificationKind", "enum",
+                enum=["required_fields", "constraint_consistency",
+                      "downstream_validity"])],
+            subjectKeyFields=["verificationKind"],
+            falsificationQuestion=(
+                "Does a materially constrained or consequential output lack "
+                "a concrete validation step where omission would be costly?"),
+            guidanceId="semantic.prompt.verification_step_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The output has multiple mandatory constraints, feeds automation, or supports a consequential decision.",
+                ],
+                confirm=[
+                    "No model-side or external validation step checks the material constraints before use.",
+                ],
+                reject=[
+                    "The task is simple or open-ended enough that an explicit self-check is unnecessary.",
+                    "A concrete checklist, schema validator, or downstream validation already covers the constraints.",
+                    "A generic request for quality alone does not make self-check mandatory.",
+                ],
+                insufficient=[
+                    "Mark insufficient when unseen downstream validation may own the check.",
+                ]),
+        ), extract_verification_step_gap,
     ),
 }
 

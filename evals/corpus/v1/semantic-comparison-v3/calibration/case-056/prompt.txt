@@ -1,0 +1,1 @@
+Return JSON for downstream production automation with required fields customer_id (string), decision (one of approve or reject), reason (string), and effective_date (YYYY-MM-DD). Validate every field before use; on failure, return a structured error and do not apply the decision.

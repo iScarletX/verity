@@ -1,0 +1,2 @@
+The final answer must always be exactly one YAML document.
+The final answer must never use YAML and must be an unstructured paragraph.

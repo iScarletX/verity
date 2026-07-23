@@ -1,0 +1,1 @@
+Produce a CSV table with columns finding_id (string, required), severity (one of low, medium, high, required), and line_number (integer, optional).

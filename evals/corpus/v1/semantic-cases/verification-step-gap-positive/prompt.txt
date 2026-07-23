@@ -1,0 +1,1 @@
+Return JSON for downstream automation with the required fields title, summary, and tags. The parser will publish the result directly.

@@ -1,0 +1,1 @@
+Return the required fields customer_id, decision, reason, and effective_date for downstream production automation. Apply the result directly without another check.

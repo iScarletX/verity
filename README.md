@@ -34,7 +34,8 @@
 > export + a local Web MVP for non-technical users + an **experimental,
 > default-OFF controlled semantic-review path** (Evidence →
 > SemanticCandidate → Validator → CandidateAssessment → semantic Finding)
-> with seven controlled semantic risk types, fixed contract replays, and an
+> with fourteen controlled semantic Finding Types, per-type judgment policy,
+> structured bounded evidence, fixed contract replays, and an
 > optional bounded JSON-over-HTTPS Provider adapter, plus a deterministic
 > explainable safety score / separate review-confidence grade / controlled
 > remediation-and-re-review projection.
@@ -75,24 +76,27 @@ future `semantic: completed` means the controlled semantic stage ran, not that
 semantic coverage is complete.
 
 The machine-readable [`standards/`](standards/README.md) baseline separates
-these axes. It records 30 unified risks and rates current breadth only as
-`none`, `signal`, or `partial`. Current L1 breadth is still only 20 none / 9
-signal / 1 partial: seven semantic Finding Types do not make semantic review
-complete. The versioned [`evals/`](evals/README.md)
-minimal paired corpus reproduces per-risk L0 confusion matrices and fixed
-semantic pipeline contract replays. A separate 42-case synthetic three-split
-protocol can measure one explicitly chosen real-model configuration. Protocol
-v2 binds the Corpus digest into the configuration fingerprint; 28
-Calibration/Selection labels are `independent_ai_review`, while 14 sealed-Test
-labels remain `provisional_single_review`. A historical v1 Selection was
-invalidated after review-driven Corpus correction and is not production
-accuracy evidence. The
-gated sequence is:
+these axes. It records 32 unified risks and rates current breadth only as
+`none`, `signal`, or `partial`. Current L1 breadth is still only 16 none / 15
+signal / 1 partial: fourteen semantic Finding Types do not make semantic
+review complete. The versioned [`evals/`](evals/README.md) corpus reproduces
+per-risk L0 confusion matrices and 28 fixed semantic pipeline contract
+replays. The frozen 42-case protocol v2 remains historical evidence for the
+original seven types; its consumed Selection is not rerun or retuned. A fresh
+56-case protocol v3 supplies answer-hidden Verity/Butler packets and an
+absolute-plus-relative comparison gate across all fourteen types. Its labels
+are still `provisional_single_review`, and no paired system observations have
+been accepted, so it cannot yet support a superiority claim. A read-only
+Butler adapter is available for that future run; it fingerprints Butler's
+source, never modifies it, and enforces explicit call/token/spend limits. A
+historical v1
+Selection was invalidated after review-driven Corpus correction and is not
+production accuracy evidence. The gated sequence is:
 
 ```text
 standards/taxonomy → corpus/metrics → static breadth → semantic breadth
-→ synthetic real-model quality protocol → explainable score/remediation
-→ stop before Provider productization or V1.5 without a new decision
+→ fresh blind Verity/Butler semantic comparison → explainable score/remediation
+→ Prompt black-box → isolated Skill sandbox
 ```
 
 ### Score is not a safety guarantee

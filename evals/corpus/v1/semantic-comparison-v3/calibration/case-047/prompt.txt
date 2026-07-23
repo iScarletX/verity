@@ -1,0 +1,1 @@
+Call the HTTP API, parse its response, and write every returned record to the database.

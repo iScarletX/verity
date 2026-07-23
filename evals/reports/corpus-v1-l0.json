@@ -2150,6 +2150,40 @@
       "safeFalsePositiveRate": 0.0,
       "severityPolicy": "not_scored_in_round15",
       "status": "measured"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-PROMPT-014",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unsupported"
+    },
+    {
+      "caseCount": 0,
+      "confusion": {
+        "fn": 0,
+        "fp": 0,
+        "tn": 0,
+        "tp": 0
+      },
+      "languages": [],
+      "objectTypes": [],
+      "precision": null,
+      "recall": null,
+      "riskId": "VR-PROMPT-015",
+      "safeFalsePositiveRate": null,
+      "severityPolicy": "not_scored_in_round15",
+      "status": "unsupported"
     }
   ],
   "schemaVersion": 1,

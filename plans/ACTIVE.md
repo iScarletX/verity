@@ -1,67 +1,85 @@
-# Active implementation round: Round 55 V1.5 Prompt black-box entry
+# Active implementation round: Round 55 semantic capability and Butler floor
 
-Status: **authorized, implementation not started**
+Status: **authorized, implementation in progress**
 Owner authorization: 2026-07-23
 
 ## Goal
 
-Build the first default-off, isolated V1.5 runner that executes a reviewed
-Prompt against an explicitly selected model and scores observable output
-behavior. This is a new dynamic capability, separate from both deterministic
-Findings and the experimental semantic-review judge.
+Make controlled semantic review the current product-development priority.
+Verity must cover the meaningful semantic problem classes represented by the
+read-only Butler reference, fix the known protocol-v2 model failure modes, and
+ship a neutral same-case comparison gate. Prompt black-box and Skill sandbox
+work begin only after the semantic gate is honestly ready.
+
+Butler output is a hypothesis and comparison baseline, never a label source.
+"Exceeds Butler" means Verity meets absolute quality thresholds and performs
+better on the same independently labelled cases; architecture size, Finding
+count, or a self-authored fixture score does not establish that claim.
 
 ## Required scope
 
-1. Define versioned `BlackboxRunConfig`, test-case, observation and result
-   schemas. Configuration must include a trusted Provider/model identity,
-   test-set digest, call/token/cost budget and recording location.
-2. Add an isolated Provider adapter with HTTPS-or-loopback transport,
-   redirect refusal, environment-variable credential resolution, strict
-   timeout/response-size/call budgets and payload audit. Reviewed content
-   must never choose the endpoint, model, key name or budget.
-3. Start with deterministic scorers whose truth can be inspected: JSON/schema
-   validity, required/forbidden output markers, length/finish reason and
-   repeated-run stability. Behavioral or model-judge scorers require their
-   own explicit evidence contract and may not silently become truth.
-4. Keep black-box observations and scores in a separate report section.
-   They must not mutate, suppress or manufacture deterministic Findings.
-   Reports must distinguish `not_enabled`, `provider_not_configured`,
-   `completed`, `failed` and `budget_exhausted`.
-5. Expose an explicit CLI entry point and a fake-Provider path for tests.
-   Ordinary `review` remains offline and must never trigger a black-box call.
-6. Add adversarial tests for configuration injection, credential leakage,
-   redirects, malformed responses, timeouts, budget exhaustion and partial
-   results. CI uses fake providers only.
-7. Update standards, architecture, README, progress, eval documentation and
-   machine gates only after the runtime contract is implemented and tested.
+1. Preserve the seven existing controlled Finding Types and add semantic
+   coverage for output-budget pressure, autonomous authority boundaries,
+   failure/edge handling, ambiguous operational criteria, grounding
+   requirements, sensitive-reasoning exposure, and verification-step gaps.
+   Broad absence claims must have an applicability test and safe
+   counterexamples.
+2. Replace the generic one-question judge input with catalog-controlled,
+   per-type applicability, confirmation, rejection, and insufficiency policy.
+   Reviewed content cannot alter this policy.
+3. Add bounded structured Evidence facts for output stages/contracts and
+   Skill declaration/capability equivalence. The Provider must receive the
+   exact cited source span plus only allowlisted metadata; absolute paths,
+   credentials, arbitrary metadata, and severity remain forbidden.
+4. Repair the four observed protocol-v2 failures without retrying its consumed
+   Selection: separate opening-summary from later-detail requirements, treat a
+   bare JSON/YAML container as no field contract, recognize declared network
+   behavior matching observed network access, and recognize a narrow
+   `Bash(command:*)` declaration matching that fixed command.
+5. Ensure the default semantic budget can attempt every applicable controlled
+   type that produces evidence, while retaining explicit hard call,
+   validation, response-size, timeout, and egress limits.
+6. Keep protocol v2 immutable and reproducible. Create a fresh protocol-v3
+   development/label-review path; never reuse consumed Selection as a new
+   Selection and never expose sealed Test labels.
+7. Add a scrubbed head-to-head comparator that accepts answer-free system
+   observations and independently reviewed labels. Verity passes the Butler
+   floor only when it meets absolute recall/false-positive/stability/error
+   thresholds and is non-inferior on recall with lower false positives on the
+   same cases.
 
-## First real-run gate
+## Real-run and claim gate
 
-Do not make a real model call until the operator has supplied and approved:
+No real Provider/model run occurs until trusted operator configuration names
+the provider, exact generator and validator models, credential environment
+variable, split, repetitions, call/token/spend budget, and local report path.
+No local model dependency or weight is installed in this round without the
+separate founder approval required by `AGENTS.md`.
 
-- the exact test set or test-set file;
-- a dated model/provider configuration;
-- maximum calls, output tokens, wall time and spend;
-- the local recording directory and retention choice.
+Round 55 may ship engineering capability and a ready comparison protocol
+without claiming semantic superiority. "Verity exceeds Butler" remains
+blocked until fresh labels and both systems' same-case observations pass the
+comparison gate.
 
-These values are trusted operator inputs and are never read from the reviewed
-Prompt. A dry run may validate the configuration without network access.
+## Explicitly out of scope until this gate passes
 
-## Explicitly out of scope
-
+- Prompt black-box execution.
 - Skill execution or V2 sandbox work.
-- Installing `torch`/`transformers` or downloading local model weights.
-- Reusing the semantic Candidate Generator/Validator result as a black-box
-  score.
-- Retrying the consumed protocol-v2 Selection or exposing sealed Test labels.
-- Automatic prompt rewriting or applying patches.
+- Automatic prompt/Skill rewriting.
+- Treating Butler findings, model consensus, or Verity output as ground truth.
+- Retuning or rerunning protocol-v2 Selection.
+- Inspecting or consuming protocol-v2 sealed Test.
 
 ## Exit criteria
 
-- Full pytest and `python3 tools/verify_repo.py` pass.
-- Default review paths prove zero black-box network calls.
-- Fake-Provider end-to-end tests produce a reproducible, schema-valid report.
-- One operator-approved real smoke run completes within its declared budget,
-  or the round remains honestly blocked at the first-real-run gate.
-- The capability matrix changes from `not_implemented` only when the shipped
-  runtime actually supports the stated status.
+- Every semantic Finding Type has positive and safe extractor/contract cases.
+- The fresh comparison corpus has at least 56 answer-hidden cases with two
+  positive and two safe artifacts for every controlled Finding Type.
+- Known v2 failure shapes have request-boundary regression tests.
+- Protocol v2 still loads and reproduces unchanged.
+- Protocol v3 refuses superiority/Selection claims while labels or paired
+  observations are provisional or missing.
+- Independent v3 labels are derived from two distinct stable answer-hidden
+  reviews; reviewer-name assertions alone are rejected.
+- Full pytest and `python3 tools/verify_repo.py --require-clean` pass.
+- Changes are committed, pushed, and GitHub CI is green.

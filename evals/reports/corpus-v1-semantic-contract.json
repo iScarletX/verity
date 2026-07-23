@@ -1,6 +1,6 @@
 {
   "aggregateSafetyScore": null,
-  "caseCount": 14,
+  "caseCount": 28,
   "caseResults": [
     {
       "caseId": "semantic-instruction-conflict-positive",
@@ -239,16 +239,254 @@
       },
       "riskId": "VR-SKILL-005",
       "stable": true
+    },
+    {
+      "caseId": "semantic-output-budget-pressure-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.prompt.output_budget_pressure",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.prompt.output_budget_pressure"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-011",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-output-budget-pressure-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.prompt.output_budget_pressure",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-011",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-authority-boundary-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.prompt.authority_boundary_ambiguity",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.prompt.authority_boundary_ambiguity"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-012",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-authority-boundary-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.prompt.authority_boundary_ambiguity",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-012",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-failure-strategy-gap-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.prompt.failure_strategy_gap",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.prompt.failure_strategy_gap"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-013",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-failure-strategy-gap-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.prompt.failure_strategy_gap",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-013",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-ambiguous-criteria-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.prompt.ambiguous_operational_criteria",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.prompt.ambiguous_operational_criteria"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-014",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-ambiguous-criteria-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.prompt.ambiguous_operational_criteria",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-014",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-grounding-gap-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.prompt.grounding_requirement_gap",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.prompt.grounding_requirement_gap"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-009",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-grounding-gap-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.prompt.grounding_requirement_gap",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-009",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-reasoning-exposure-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.prompt.sensitive_reasoning_exposure",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.prompt.sensitive_reasoning_exposure"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-015",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-reasoning-exposure-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.prompt.sensitive_reasoning_exposure",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-015",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-verification-step-gap-positive",
+      "contractCorrect": true,
+      "expectedAssessment": "confirmed",
+      "findingType": "semantic.prompt.verification_step_gap",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "confirmed",
+        "emittedFindingTypes": [
+          "semantic.prompt.verification_step_gap"
+        ],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-006",
+      "stable": true
+    },
+    {
+      "caseId": "semantic-verification-step-gap-safe",
+      "contractCorrect": true,
+      "expectedAssessment": "rejected",
+      "findingType": "semantic.prompt.verification_step_gap",
+      "labelStatus": "provisional_single_review",
+      "observed": {
+        "assessment": "rejected",
+        "emittedFindingTypes": [],
+        "generatorCalls": 1,
+        "semanticStatus": "completed",
+        "validatorCalls": 1
+      },
+      "riskId": "VR-PROMPT-006",
+      "stable": true
     }
   ],
-  "contractCorrectCases": 14,
+  "contractCorrectCases": 28,
   "disclaimer": "Fixed Provider replay validates semantic pipeline contracts only; it does not measure candidate generation or validator model quality.",
   "modelQualityMeasured": false,
   "replayClass": "semantic_contract_only",
   "schemaVersion": 1,
   "stability": {
     "rate": 1.0,
-    "stableCases": 14,
+    "stableCases": 28,
     "unstableCases": 0
   }
 }

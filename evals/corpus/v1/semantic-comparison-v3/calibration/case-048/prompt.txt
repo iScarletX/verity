@@ -1,0 +1,1 @@
+Call the HTTP API with a two-second timeout and two retries. If parsing fails or the result is empty, do not write to the database; return a structured error.

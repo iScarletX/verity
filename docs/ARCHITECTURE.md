@@ -22,8 +22,8 @@
        │  verity/engine.py    │             │  verity/semantic/       │
        │  verity/skill_rules  │             │  DEFAULT OFF            │
        │  verity/parser.py    │             │  Provider protocols +   │
-       │  verity/capabilities │             │  bounded HTTPS JSON     │
-       │  verity/gitleaks_*   │             │                         │
+       │  verity/capabilities │             │  policy + structured    │
+       │  verity/gitleaks_*   │             │  evidence + HTTPS JSON  │
        │  verity/bandit_*     │             └─────────┬───────────────┘
        │                      │                       │
        │  Rules → Evidence    │            Extractor  │
@@ -84,14 +84,18 @@
   Coverage/mapping failure. Review confidence and remediation are separate;
   neither changes Finding identity, severity, gate exit codes or dispositions.
 - `verity.corpus` reads an independent risk-id answer key and measures the
-  current L0 pipeline twice per case. Fourteen fixed semantic Provider replays
-  cover confirmed/rejected pairs for seven controlled Finding Types; they
-  exercise contracts only and explicitly do not measure model quality.
-  `verity.semantic_quality` separately validates a 42-case synthetic
-  calibration/selection/sealed-test protocol and may drive an eval-only
-  OpenAI-compatible adapter through the same SemanticOrchestrator. Its mutable
-  scrubbed reports are local research records, not deterministic CI baselines.
-  Neither path contains an aggregate safety score.
+  current L0 pipeline twice per case. Twenty-eight fixed semantic Provider
+  replays cover confirmed/rejected pairs for fourteen controlled Finding
+  Types; they exercise contracts only and explicitly do not measure model
+  quality. `verity.semantic_quality` keeps the consumed 42-case protocol v2
+  frozen for historical reproducibility.
+- `verity.semantic_benchmark` validates a fresh 56-case answer-hidden
+  Verity/Butler corpus, creates separately randomized system packets, validates
+  repeated scrubbed observations, and permits a scoped superiority claim only
+  after independent digest-bound labels and both absolute and relative gates
+  pass. Provisional labels, missing observations, or fewer than 56 cases
+  produce no claim. Mutable Provider records stay under gitignored
+  `.verity-data/`; no evaluation path contains an aggregate safety score.
 - `verity.closure` (policy v2.0.0) computes a scoped V1 release decision. The
   `decision` covers only the deterministic static auditor and is
   `release_candidate` on green engineering acceptance, with no evaluated-
@@ -116,9 +120,25 @@
 - **Reviewed artifact → Provider config**: forbidden. Provider config
   is only accepted from a trusted caller / env var name / CLI arg.
 - **Eval-only Provider**: `semantic/eval_provider.py` is reachable only from
-  `tools/run_semantic_model_eval.py`, accepts only the versioned synthetic
-  corpus, has a whole-run call-budget preflight, and is not wired into product
-  CLI/Web review. It stores no raw Provider request or response.
+  explicit evaluation tools, accepts only versioned synthetic corpora, has a
+  whole-run call-budget preflight, and is not wired into product CLI/Web
+  review. It stores no raw Provider request or response.
+- **Comparison labels → system runs**: answer keys remain outside both
+  Verity and Butler packets. Alias maps are local, system-specific, and never
+  sent as reviewed content. Each map row is bound to its exact packet item
+  digest. Independent labels are derived from two distinct, stable, agreeing
+  answer-hidden reviewer observation sets; a caller cannot establish
+  independence by supplying reviewer names alone. The comparator canonicalizes
+  both system mappings and refuses a claim unless the derived attestation
+  covers the same payload digests.
+- **Read-only Butler reference**: the eval CLI builds a temporary Node bundle
+  from an explicitly supplied Butler source tree and existing dependencies.
+  It reuses Butler's profiler, static checker, selected LLM checks and vote
+  aggregator without writing to Butler. A source/configuration fingerprint and
+  conservative call/token/spend reservations bind the observations. Final
+  Butler consolidation/deduplication is excluded and disclosed because it can
+  contact a separate embeddings endpoint and add findings beyond the packet's
+  single target risk.
 - **Provider payload**: passes through the egress gate
   (`verity/semantic/egress.py`) which drops sensitive Evidence, caps
   string lengths, and records only sizes + SHA-256 in the payload

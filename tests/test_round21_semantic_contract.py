@@ -39,11 +39,12 @@ def test_contradictory_or_empty_validator_reasons_are_rejected():
 
 def test_eval_validator_prompt_states_materiality_and_coherence_boundary():
     prompt = _system_prompt("validator")
-    assert EVAL_ROLE_PROMPT_VERSION == "2.0.0"
+    assert EVAL_ROLE_PROMPT_VERSION == "3.0.0"
     assert "materially supports" in prompt
     assert "keyword overlap" in prompt
-    assert "task-necessary" in prompt
-    assert "same narrow capability" in prompt
+    assert "applicability first" in prompt
+    assert "rejection condition defeats" in prompt
+    assert "match booleans" in prompt
     assert "Decision and reasonCodes must agree" in prompt
 
 
@@ -58,7 +59,7 @@ def test_role_prompt_version_is_reported_and_changes_fingerprint(monkeypatch):
     kwargs["validator"] = Validator(decisions_for_split("calibration", 2))
     second = evaluate_semantic_model_quality(
         **kwargs, role_prompt_version=EVAL_ROLE_PROMPT_VERSION)
-    assert second["configuration"]["rolePromptVersion"] == "2.0.0"
+    assert second["configuration"]["rolePromptVersion"] == "3.0.0"
     assert len(second["configuration"]["corpusFingerprint"]) == 64
     assert (first["configuration"]["configurationFingerprint"]
             != second["configuration"]["configurationFingerprint"])

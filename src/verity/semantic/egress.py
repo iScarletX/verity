@@ -72,6 +72,112 @@ def _location_view(loc: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _small_int(value: Any, maximum: int = 128) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return min(max(value, 0), maximum)
+
+
+def _string_list(value: Any, *, maximum: int = 12) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    return [_capped(item) for item in value if isinstance(item, str)][:maximum]
+
+
+def _metadata_view(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """Project extractor metadata through a role-specific strict allowlist."""
+    role = metadata.get("evidenceRole")
+    if role == "prompt_constraint":
+        return {
+            "evidenceRole": role,
+            "lineIndex": _small_int(metadata.get("lineIndex"), 100000),
+            "outputStages": _string_list(metadata.get("outputStages"), maximum=3),
+            "contentTargets": _string_list(
+                metadata.get("contentTargets"), maximum=4),
+            "constraintSignals": _string_list(
+                metadata.get("constraintSignals"), maximum=4),
+        }
+    if role == "output_contract":
+        return {
+            "evidenceRole": role,
+            "requestedFormats": _string_list(
+                metadata.get("requestedFormats"), maximum=4),
+            "namedFieldSignalCount": _small_int(
+                metadata.get("namedFieldSignalCount"), 32),
+            "typeMarkerCount": _small_int(metadata.get("typeMarkerCount"), 32),
+            "requirednessMarkerCount": _small_int(
+                metadata.get("requirednessMarkerCount"), 32),
+            "enumMarkerCount": _small_int(metadata.get("enumMarkerCount"), 32),
+            "unitMarkerCount": _small_int(metadata.get("unitMarkerCount"), 32),
+        }
+    if role == "prompt_analysis":
+        allowed_counts = (
+            "sourceSignalCount", "mitigationSignalCount",
+            "toolDeclarationCount", "approvalSignalCount",
+            "pressureSignalCount", "limitSignalCount",
+            "prioritySignalCount", "continuationSignalCount",
+            "autonomySignalCount", "sideEffectSignalCount",
+            "operationSignalCount", "strategySignalCount",
+            "vagueCriterionCount", "boundaryMarkerCount",
+            "groundingSignalCount", "reasoningSignalCount",
+            "exposureSignalCount", "containmentSignalCount",
+            "requirementSignalCount", "verificationSignalCount",
+            "downstreamSignalCount",
+        )
+        view = {
+            "evidenceRole": role,
+            "signalFamilies": _string_list(
+                metadata.get("signalFamilies"), maximum=12),
+            "operationKinds": _string_list(
+                metadata.get("operationKinds"), maximum=12),
+            "strategyKinds": _string_list(
+                metadata.get("strategyKinds"), maximum=12),
+        }
+        for key in allowed_counts:
+            if key in metadata:
+                view[key] = _small_int(metadata.get(key))
+        return view
+    if role == "manifest_declaration":
+        return {
+            "evidenceRole": role,
+            "declaredPermissionFamilies": _string_list(
+                metadata.get("declaredPermissionFamilies"), maximum=12),
+            "declaredProcessTargets": _string_list(
+                metadata.get("declaredProcessTargets"), maximum=12),
+            "declaredCapabilityFamilies": _string_list(
+                metadata.get("declaredCapabilityFamilies"), maximum=12),
+            "deniedCapabilityFamilies": _string_list(
+                metadata.get("deniedCapabilityFamilies"), maximum=12),
+        }
+    if role == "capability_fact":
+        view = {
+            "evidenceRole": role,
+            "capabilityCategory": _capped(
+                metadata.get("capabilityCategory", "")),
+            "capabilityOperation": _capped(
+                metadata.get("capabilityOperation", "")),
+        }
+        for key in ("capabilityFamily", "capabilityTarget"):
+            if key in metadata:
+                view[key] = _capped(metadata.get(key, ""))
+        for key in ("declaredBehaviorMatch", "declaredPermissionMatch"):
+            if key in metadata:
+                view[key] = bool(metadata.get(key))
+        return view
+    return {}
+
+
+def _judgment_policy_view(policy: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    value = policy or {}
+    return {
+        "appliesWhen": _string_list(value.get("appliesWhen"), maximum=8),
+        "confirmWhen": _string_list(value.get("confirmWhen"), maximum=8),
+        "rejectWhen": _string_list(value.get("rejectWhen"), maximum=8),
+        "insufficientWhen": _string_list(
+            value.get("insufficientWhen"), maximum=8),
+    }
+
+
 def _evidence_view(ev: Dict[str, Any], *, egress_policy: str,
                    snippet_bytes: bytes = b"") -> Optional[Dict[str, Any]]:
     """Whitelisted evidence view. Returns None if this evidence is
@@ -89,16 +195,7 @@ def _evidence_view(ev: Dict[str, Any], *, egress_policy: str,
     }
     # Only controlled extractor facts cross the boundary. Arbitrary Evidence
     # metadata is never forwarded.
-    metadata = ev.get("metadata") or {}
-    safe_metadata = {}
-    if metadata.get("evidenceRole") in {
-            "manifest_declaration", "capability_fact"}:
-        safe_metadata["evidenceRole"] = metadata["evidenceRole"]
-    if safe_metadata.get("evidenceRole") == "capability_fact":
-        safe_metadata["capabilityCategory"] = _capped(
-            metadata.get("capabilityCategory", ""))
-        safe_metadata["capabilityOperation"] = _capped(
-            metadata.get("capabilityOperation", ""))
+    safe_metadata = _metadata_view(ev.get("metadata") or {})
     if safe_metadata:
         view["metadata"] = safe_metadata
     if egress_policy == "redacted_evidence":
@@ -123,6 +220,7 @@ def build_generator_request(
     subject_taxonomy: Dict[str, Any],
     max_evidence: int,
     prompt_kind: Optional[str] = None,
+    judgment_policy: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Assemble the JSON body a Candidate Generator will see.
 
@@ -155,13 +253,15 @@ def build_generator_request(
         "findingType": _capped(finding_type),
         "egressPolicy": egress_policy,
         "subjectTaxonomy": subject_taxonomy,     # already schema-shaped
+        "judgmentPolicy": _judgment_policy_view(judgment_policy),
         "evidence": ev_views,
         "promptKind": _capped(prompt_kind or ""),
         "instruction": (
+            "Apply the catalog-owned judgmentPolicy to the cited evidence. "
             "You may only propose semantic candidates whose evidence "
-            "references are drawn from the list above. Do not invent "
-            "new evidence, do not set severity or ruleId. Return JSON "
-            "matching the candidate response schema."
+            "references are drawn from the list above. Do not invent new "
+            "evidence, do not set severity or ruleId. Return JSON matching "
+            "the candidate response schema."
         ),
     }
 
@@ -174,6 +274,7 @@ def build_validator_request(
     file_bytes: Dict[str, bytes],
     egress_policy: str,
     falsification_question: str,
+    judgment_policy: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Assemble the JSON body a Validator sees. It contains a single
     candidate identity and the subset of Evidence that the generator
@@ -207,11 +308,13 @@ def build_validator_request(
         },
         "evidence": ev_views,
         "falsificationQuestion": _capped(falsification_question),
+        "judgmentPolicy": _judgment_policy_view(judgment_policy),
         "egressPolicy": egress_policy,
         "instruction": (
-            "You MUST NOT modify the candidate, invent new evidence, "
-            "change the finding type, set severity, or return a "
-            "different candidateId. Reply with decision in "
+            "Apply judgmentPolicy in order: applicability, rejection, "
+            "confirmation, then insufficiency. You MUST NOT modify the "
+            "candidate, invent new evidence, change the finding type, set "
+            "severity, or return a different candidateId. Reply with decision in "
             "{confirmed, rejected, insufficient_evidence}."
         ),
     }

@@ -1,0 +1,1 @@
+Fetch the customer record from the API with a five-second timeout and one retry. If the response is empty or malformed JSON, return a structured error and do not invent an account summary.

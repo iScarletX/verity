@@ -22,15 +22,29 @@ def _call_name(node: ast.AST) -> str:
     return ""
 
 
-def _add(facts: Set[Tuple[str, str, str, str]], category: str, operation: str,
-         path: str, source: str) -> None:
+def _literal_process_target(node: ast.Call) -> str:
+    if not node.args:
+        return ""
+    value = node.args[0]
+    if isinstance(value, (ast.List, ast.Tuple)) and value.elts:
+        value = value.elts[0]
+    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+        token = value.value.strip().split(None, 1)[0] if value.value.strip() else ""
+        return token.rsplit("/", 1)[-1][:80]
+    return ""
+
+
+def _add(facts: Set[Tuple[str, str, str, str, int, str]],
+         category: str, operation: str, path: str, source: str,
+         source_line: int = 0, target: str = "") -> None:
     if len(facts) < MAX_FACTS:
-        facts.add((category, operation, path, source))
+        facts.add((category, operation, path, source,
+                   max(int(source_line), 0), target[:80]))
 
 
 def extract_capability_facts(snapshot, file_bytes: Dict[str, bytes],
                              manifest: Dict[str, Any] | None) -> Dict[str, Any]:
-    facts: Set[Tuple[str, str, str, str]] = set()
+    facts: Set[Tuple[str, str, str, str, int, str]] = set()
     if manifest:
         for tool in manifest.get("permissions") or []:
             if isinstance(tool, str) and tool.strip():
@@ -63,12 +77,14 @@ def extract_capability_facts(snapshot, file_bytes: Dict[str, bytes],
                          else [node.module or ""])
                 if any(n.split(".")[0] in {"requests", "urllib", "httpx", "socket"}
                        for n in names):
-                    _add(facts, "network", "network_library", path, "python_ast")
+                    _add(facts, "network", "network_library", path, "python_ast",
+                         getattr(node, "lineno", 0))
             if not isinstance(node, ast.Call):
                 continue
             name = _call_name(node.func)
             if name.startswith("subprocess.") or name in {"os.system", "os.popen"}:
-                _add(facts, "process", name, path, "python_ast")
+                _add(facts, "process", name, path, "python_ast",
+                     getattr(node, "lineno", 0), _literal_process_target(node))
             file_calls = {"open", "io.open", "pathlib.Path.open", "Path.open",
                           "pathlib.Path.read_text", "Path.read_text",
                           "pathlib.Path.write_text", "Path.write_text",
@@ -82,19 +98,26 @@ def extract_capability_facts(snapshot, file_bytes: Dict[str, bytes],
                                        "read_bytes", "write_bytes"}
             )
             if name in file_calls or path_constructor_call:
-                _add(facts, "file", name, path, "python_ast")
+                _add(facts, "file", name, path, "python_ast",
+                     getattr(node, "lineno", 0))
             if name in {"os.getenv", "os.environ.get"}:
-                _add(facts, "credential", "environment_access", path, "python_ast")
+                _add(facts, "credential", "environment_access", path, "python_ast",
+                     getattr(node, "lineno", 0))
             if (name.startswith("requests.") or name.startswith("httpx.")
                     or name in {"urllib.request.urlopen", "socket.socket"}):
-                _add(facts, "network", name, path, "python_ast")
+                _add(facts, "network", name, path, "python_ast",
+                     getattr(node, "lineno", 0))
 
     return {
         "schemaVersion": CAPABILITY_FACT_SCHEMA,
         "facts": [
-            {"category": c, "operation": o, "artifactPath": p,
-             "sourceKind": s}
-            for c, o, p, s in sorted(facts)
+            {
+                "category": c, "operation": o, "artifactPath": p,
+                "sourceKind": s,
+                **({"sourceLine": line} if line else {}),
+                **({"target": target} if target else {}),
+            }
+            for c, o, p, s, line, target in sorted(facts)
         ],
         "limitations": [
             "python_ast_and_manifest_only",

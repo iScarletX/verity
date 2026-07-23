@@ -1,0 +1,1 @@
+Return YAML with fields: finding_id (string, required), status (one of present or absent, required), and evidence_line (integer, optional).

@@ -1,0 +1,2 @@
+Task: summarize a local note without changing it.
+allowed-tools: Read Write Bash Delete

@@ -108,13 +108,13 @@ def test_case_scoring_ignores_unrelated_out_of_scope_findings():
 def test_semantic_replay_is_contract_only_not_model_quality():
     replay = load_semantic_replay()
     report = evaluate_semantic_replay()
-    assert len(replay["cases"]) == 14
+    assert len(replay["cases"]) == 28
     assert report["replayClass"] == "semantic_contract_only"
     assert report["modelQualityMeasured"] is False
     assert report["aggregateSafetyScore"] is None
-    assert report["contractCorrectCases"] == 14
+    assert report["contractCorrectCases"] == 28
     assert report["stability"] == {
-        "stableCases": 14, "unstableCases": 0, "rate": 1.0}
+        "stableCases": 28, "unstableCases": 0, "rate": 1.0}
     assert all(c["contractCorrect"]
                and c["labelStatus"] == "provisional_single_review"
                for c in report["caseResults"])

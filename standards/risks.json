@@ -373,19 +373,19 @@
       ],
       "layerBoundaries": {
         "L0_static": "Can identify only explicit absence/presence of supported verification clauses; absence alone is not proof of unsafe behavior.",
-        "L1_semantic": "May assess whether verification requirements are appropriate to stated consequential claims.",
+        "L1_semantic": "May assess whether verification, attribution and uncertainty requirements are proportionate to stated consequential claims.",
         "V1_5_blackbox": "May measure unsupported claims against a controlled factual set.",
         "V2_sandbox": "Not applicable."
       },
       "currentCoverage": {
         "L0_static": "none",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
         "V2_sandbox": "none"
       },
       "knownGaps": [
-        "No consequential-domain classification",
-        "No grounding contract",
+        "Trigger-level consequential-domain classification only",
+        "No full grounding-contract parser",
         "No factuality evaluation"
       ],
       "evaluationReference": null
@@ -1267,19 +1267,20 @@
       ],
       "layerBoundaries": {
         "L0_static": "May prove same-unit arithmetic contradictions when count, per-item minimum, and total maximum are all explicit.",
-        "L1_semantic": "May judge likely budget pressure when one or more lower bounds are implicit; this is not implemented.",
+        "L1_semantic": "May judge likely budget pressure when one or more lower bounds are implicit and assess declared priority/continuation behavior.",
         "V1_5_blackbox": "May measure truncation, omitted items, and contract noncompliance under the configured model budget.",
         "V2_sandbox": "Not applicable."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
         "V2_sandbox": "none"
       },
       "knownGaps": [
         "No token/word/character conversion is attempted",
-        "No inferred average item size or task-complexity estimate",
+        "No deterministic inferred average item size or task-complexity estimate",
+        "Semantic pressure judgment remains model-dependent and advisory",
         "No model-specific tokenizer or black-box truncation measurement"
       ],
       "evaluationReference": null
@@ -1302,19 +1303,20 @@
       ],
       "layerBoundaries": {
         "L0_static": "May signal explicit autonomy language combined with a closed list of high-impact action phrases and no approval boundary.",
-        "L1_semantic": "May judge broader role, initiative, and delegated-authority ambiguity; this is not implemented.",
+        "L1_semantic": "May judge broader role, initiative, delegated-authority and approval-boundary ambiguity in system prompts.",
         "V1_5_blackbox": "May probe whether the model performs or proposes side effects without seeking approval.",
         "V2_sandbox": "May observe attempted side effects only inside the future isolated Skill sandbox."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
         "V2_sandbox": "none"
       },
       "knownGaps": [
         "Closed action vocabulary; no general authority graph",
         "Cannot prove whether an external application enforces approval",
+        "Semantic authority judgment remains model-dependent and advisory",
         "Helpful proactive analysis without side effects is deliberately excluded"
       ],
       "evaluationReference": null
@@ -1338,20 +1340,99 @@
       ],
       "layerBoundaries": {
         "L0_static": "May signal supported operation phrases when the whole prompt contains no supported failure-strategy marker.",
-        "L1_semantic": "May judge whether a declared strategy covers each operation and material edge case; this is not implemented.",
+        "L1_semantic": "May judge whether a declared strategy covers each cited operation and material edge case.",
         "V1_5_blackbox": "May inject timeouts, malformed responses, and empty results and score the observed behavior.",
         "V2_sandbox": "May observe runtime failure handling for Skills inside isolation."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
         "V2_sandbox": "none"
       },
       "knownGaps": [
         "Closed operation and strategy vocabularies",
         "A strategy anywhere in the prompt suppresses the signal even if it covers a different operation",
+        "Semantic operation-to-strategy matching remains model-dependent and advisory",
         "No fault injection or malformed-response execution"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-014",
+      "title": "Operational criteria are materially ambiguous",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A vague degree, condition, boundary, or referent controls a material behavior without a usable threshold or decision rule.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION",
+            "INFORMATION-INTEGRITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate a closed vocabulary of vague criteria but cannot decide whether they materially affect behavior or are locally defined.",
+        "L1_semantic": "May judge material ambiguity after considering nearby thresholds, examples and decision rules.",
+        "V1_5_blackbox": "May measure output divergence near an ambiguous decision boundary.",
+        "V2_sandbox": "Not applicable."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Trigger vocabulary is not a complete ambiguity parser",
+        "No referent graph across sections",
+        "Semantic materiality judgment remains model-dependent and advisory"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-015",
+      "title": "Sensitive reasoning or internal policy is exposed",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A prompt requires user-visible disclosure of hidden chain-of-thought, scratchpad content, internal policy, or a sensitive decision rule.",
+      "sourceRefs": [
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM07"
+          ]
+        },
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "INFORMATION-SECURITY",
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate explicit reasoning/policy and disclosure terms but cannot establish visibility or sensitivity.",
+        "L1_semantic": "May distinguish hidden-reasoning disclosure from a concise evidence-based rationale or intentionally public policy.",
+        "V1_5_blackbox": "May probe whether configured hidden material appears in observable output.",
+        "V2_sandbox": "Not applicable."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No policy-sensitivity classifier",
+        "No distinction between provider-hidden and application-owned reasoning at runtime",
+        "No black-box leakage measurement"
       ],
       "evaluationReference": null
     }

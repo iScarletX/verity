@@ -1,0 +1,3 @@
+Task: read a local note and save the requested corrected copy.
+allowed-tools: Read Write
+Use Write only after the user approves the exact destination and diff.

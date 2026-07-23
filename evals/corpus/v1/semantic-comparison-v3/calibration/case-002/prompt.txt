@@ -1,0 +1,2 @@
+Start with a plain-text heading of at most five words.
+Then return the records as a JSON array under that heading.

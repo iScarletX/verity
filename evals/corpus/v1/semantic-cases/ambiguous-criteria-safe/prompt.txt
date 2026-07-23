@@ -1,0 +1,1 @@
+If the content is long, defined here as more than 500 words, provide exactly three examples. Otherwise provide one example. Keep each example under 40 words.

@@ -27,6 +27,15 @@ from .standards import load_detector_mappings, load_risks
 
 QUALITY_MANIFEST_PATH = CORPUS_DIR / "semantic_quality.json"
 SPLITS = ("calibration", "selection", "test")
+PROTOCOL_V2_FINDING_TYPES = frozenset({
+    "semantic.prompt.instruction_conflict",
+    "semantic.prompt.missing_output_contract",
+    "semantic.skill.declared_behavior_mismatch",
+    "semantic.prompt.trust_boundary_ambiguity",
+    "semantic.prompt.excessive_tool_scope",
+    "semantic.skill.permission_capability_mismatch",
+    "semantic.skill.external_instruction_trust_gap",
+})
 
 
 def _load_strict_json(path: Path) -> Dict[str, Any]:
@@ -62,6 +71,7 @@ def load_semantic_quality_manifest(path: Path = QUALITY_MANIFEST_PATH
             or value.get("provenance") != "verity_synthetic"
             or value.get("labelStatus") != "mixed_independent_ai_and_provisional"):
         raise CorpusError("semantic quality manifest provenance/version invalid")
+    protocol_finding_types = PROTOCOL_V2_FINDING_TYPES
     if not isinstance(value.get("description"), str) or not value["description"].strip():
         raise CorpusError("semantic quality description required")
     policy = value.get("splitPolicy")
@@ -108,7 +118,8 @@ def load_semantic_quality_manifest(path: Path = QUALITY_MANIFEST_PATH
                 "user_prompt", "system_prompt"}:
             raise CorpusError(f"semantic quality case {cid} prompt kind invalid")
         ft = case.get("findingType")
-        if ft not in CATALOG or CATALOG[ft][0].engine != obj:
+        if (ft not in protocol_finding_types or ft not in CATALOG
+                or CATALOG[ft][0].engine != obj):
             raise CorpusError(f"semantic quality case {cid} finding type invalid")
         mapping = mappings.get(("semantic_finding_type", ft))
         if not mapping or case.get("riskId") not in mapping["riskIds"]:
@@ -148,9 +159,9 @@ def load_semantic_quality_manifest(path: Path = QUALITY_MANIFEST_PATH
     # with both an unsafe and a safe case. Calibration is allowed to evolve but
     # v1 currently follows the same stronger shape.
     for split in SPLITS:
-        if set(coverage[split]) != set(CATALOG):
+        if set(coverage[split]) != set(protocol_finding_types):
             raise CorpusError(f"semantic quality split lacks finding types: {split}")
-        for ft in CATALOG:
+        for ft in protocol_finding_types:
             if coverage[split][ft] != {"confirmed", "rejected"}:
                 raise CorpusError(f"semantic quality split lacks pair: {split}/{ft}")
     return value
@@ -250,7 +261,10 @@ def _config_fingerprint(generator: ProviderConfig, validator: ProviderConfig,
         "temperature": temperature, "maxOutputTokens": max_output_tokens,
         "repetitions": repetitions, "egressPolicy": "redacted_evidence",
         "rolePromptVersion": role_prompt_version,
-        "catalog": sorted(CATALOG), "protocolVersion": protocol_version,
+        "catalog": sorted(
+            PROTOCOL_V2_FINDING_TYPES
+            if protocol_version == "2.0.0" else CATALOG),
+        "protocolVersion": protocol_version,
         "corpusFingerprint": corpus_fingerprint,
     }
     raw = json.dumps(safe, ensure_ascii=False, sort_keys=True,

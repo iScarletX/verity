@@ -1,0 +1,1 @@
+Return JSON for downstream automation with required fields title (string), summary (string), and tags (array of strings). Before publishing, validate the result against the named schema and stop with a structured error if validation fails.

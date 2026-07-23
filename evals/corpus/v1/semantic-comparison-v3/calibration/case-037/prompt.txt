@@ -1,0 +1,2 @@
+Task: classify the pasted text without changing any file.
+allowed-tools: Read Write Bash Delete

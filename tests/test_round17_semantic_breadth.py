@@ -10,7 +10,7 @@ from verity.semantic.egress import (build_generator_request,
                                     scan_payload_for_leaks)
 
 
-def test_catalog_expands_to_seven_controlled_types():
+def test_catalog_expands_to_fourteen_controlled_types():
     assert set(CATALOG) == {
         "semantic.prompt.instruction_conflict",
         "semantic.prompt.missing_output_contract",
@@ -19,6 +19,13 @@ def test_catalog_expands_to_seven_controlled_types():
         "semantic.prompt.excessive_tool_scope",
         "semantic.skill.permission_capability_mismatch",
         "semantic.skill.external_instruction_trust_gap",
+        "semantic.prompt.output_budget_pressure",
+        "semantic.prompt.authority_boundary_ambiguity",
+        "semantic.prompt.failure_strategy_gap",
+        "semantic.prompt.ambiguous_operational_criteria",
+        "semantic.prompt.grounding_requirement_gap",
+        "semantic.prompt.sensitive_reasoning_exposure",
+        "semantic.prompt.verification_step_gap",
     }
     assert CATALOG["semantic.skill.external_instruction_trust_gap"][0].defaultSeverity == "high"
 
@@ -142,8 +149,8 @@ def test_all_semantic_types_have_confirmed_and_rejected_replays():
     assert set(by_type) == set(CATALOG)
     assert all(x == {"confirmed", "rejected"} for x in by_type.values())
     report = evaluate_semantic_replay()
-    assert report["caseCount"] == 14
-    assert report["contractCorrectCases"] == 14
+    assert report["caseCount"] == 28
+    assert report["contractCorrectCases"] == 28
     assert report["modelQualityMeasured"] is False
     assert report["stability"]["unstableCases"] == 0
 
@@ -174,8 +181,13 @@ def test_new_extractors_expose_only_relative_paths_and_normal_evidence(tmp_path)
     metadata = [ev.get("metadata") for ev in request["evidence"]]
     assert {m.get("evidenceRole") for m in metadata if m} >= {
         "manifest_declaration", "capability_fact"}
-    assert all(set(m) <= {"evidenceRole", "capabilityCategory",
-                          "capabilityOperation"} for m in metadata if m)
+    assert all(set(m) <= {
+        "evidenceRole", "capabilityCategory", "capabilityOperation",
+        "capabilityFamily", "capabilityTarget", "declaredBehaviorMatch",
+        "declaredPermissionMatch", "declaredPermissionFamilies",
+        "declaredProcessTargets", "declaredCapabilityFamilies",
+        "deniedCapabilityFamilies",
+    } for m in metadata if m)
 
 
 def test_egress_drops_arbitrary_capability_metadata():

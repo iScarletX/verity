@@ -164,6 +164,7 @@ REQUIRED_FILES = [
     "evals/corpus/v1/manifest.json",
     "evals/corpus/v1/semantic_replay.json",
     "evals/corpus/v1/semantic_quality.json",
+    "evals/corpus/v1/semantic_comparison_v3.json",
     "evals/reports/corpus-v1-l0.json",
     "evals/reports/corpus-v1-semantic-contract.json",
     "evals/reports/v1-closure.json",
@@ -171,6 +172,9 @@ REQUIRED_FILES = [
     "evals/reviews/semantic-selection-v1-invalidation.json",
     "tools/run_corpus.py",
     "tools/run_v1_closure.py",
+    "tools/semantic_head_to_head.py",
+    "tools/butler_reference_entry.ts",
+    "tools/butler_reference.vite.config.mjs",
 ]
 
 
@@ -479,7 +483,7 @@ def check_corpus_baselines(rep: VerifyReport) -> None:
         rep.append_fail("corpus_baselines", detail)
         return
     rep.append_ok("corpus_baselines",
-                  "80 L0 cases + 14 semantic contract replays reproducible")
+                  "80 L0 cases + 28 semantic contract replays reproducible")
 
 
 def check_v1_closure_baseline(rep: VerifyReport) -> None:
@@ -570,6 +574,56 @@ def check_semantic_quality_protocol(rep: VerifyReport) -> None:
         f"{checked} synthetic eligible cases; splits={counts}; no model called")
 
 
+def check_semantic_comparison_protocol(rep: VerifyReport) -> None:
+    """Validate answer-hidden v3 calibration and superiority-claim refusal."""
+    try:
+        sys.path.insert(0, str(REPO / "src"))
+        from verity.semantic_benchmark import (
+            build_semantic_comparison_packet,
+            compare_semantic_systems,
+            load_semantic_comparison_manifest,
+            validate_semantic_comparison_seed_coverage)
+        manifest = load_semantic_comparison_manifest()
+        checked = validate_semantic_comparison_seed_coverage()
+        verity_packet, verity_map = build_semantic_comparison_packet(
+            system_id="verity", seed="verify-repo-verity-seed")
+        butler_packet, butler_map = build_semantic_comparison_packet(
+            system_id="butler", seed="verify-repo-butler-seed")
+
+        def observations(packet):
+            return {
+                "schemaVersion": 1,
+                "protocolId": packet["protocolId"],
+                "protocolVersion": packet["protocolVersion"],
+                "systemId": packet["systemId"],
+                "configurationFingerprint": "0" * 64,
+                "corpusFingerprint": packet["corpusFingerprint"],
+                "repetitions": 2,
+                "observations": [
+                    {"itemId": item["itemId"],
+                     "runs": ["inconclusive", "inconclusive"]}
+                    for item in packet["items"]
+                ],
+            }
+        report = compare_semantic_systems(
+            verity_packet=verity_packet, verity_mapping=verity_map,
+            verity_observations=observations(verity_packet),
+            butler_packet=butler_packet, butler_mapping=butler_map,
+            butler_observations=observations(butler_packet),
+            label_attestation=None)
+        if (len(manifest["cases"]) != 56 or checked != 56
+                or report.get("status") != "not_eligible"
+                or report.get("claim") is not None):
+            raise ValueError("semantic comparison development gate mismatch")
+    except Exception as exc:
+        rep.append_fail("semantic_comparison_protocol", str(exc)[:500])
+        return
+    rep.append_ok(
+        "semantic_comparison_protocol",
+        "56 fresh paired calibration cases; labels provisional; "
+        "superiority claim refused; no model called")
+
+
 def check_scoring_policy(rep: VerifyReport) -> None:
     """Smoke-test user-facing score invariants independently of UI tests."""
     try:
@@ -649,6 +703,7 @@ def run_all(*, require_clean: bool = False,
     check_v1_closure_baseline(rep)
     check_independent_review_evidence(rep)
     check_semantic_quality_protocol(rep)
+    check_semantic_comparison_protocol(rep)
     check_scoring_policy(rep)
     if require_clean:
         check_working_tree_clean(rep)

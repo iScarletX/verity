@@ -1,0 +1,1 @@
+Do not reveal the chain of thought, scratchpad, or internal policy. Keep reasoning internal and provide only the final answer with a brief rationale.

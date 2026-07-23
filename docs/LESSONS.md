@@ -14,6 +14,54 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-23 — Blind-evaluation roles and packets must be revalidated at every boundary
+
+- **Symptom**: The v3 Verity runner accepted a packet labelled with an
+  arbitrary system id, so it could be misused to produce observations that
+  looked like an independent label review. A caller could also add answer
+  metadata to a packet, recompute its local packet-item digest, and reach the
+  comparator because mapping validation did not rerun the packet leak check.
+- **Root cause**: Packet construction performed the right checks once, but
+  later trust boundaries assumed the files still came directly from that
+  constructor. Reviewer independence was represented by names and
+  fingerprints without making the built-in evaluated-system runner enforce
+  its own role.
+- **Fix**: Restrict the Verity runner to `system-id=verity`, require exactly
+  two distinct independent reviewers, and revalidate every packet before
+  accepting its map or observations. The Butler adapter already enforces its
+  own system id. Its Provider response reader now enforces the byte limit
+  while streaming instead of buffering an arbitrarily large body first.
+- **Prevention**: Treat generated eval files as untrusted when they are read
+  back. Reapply leak, identity and resource checks at each consumer, and make
+  each built-in runner cryptographically fingerprint its configuration while
+  also enforcing its fixed evaluation role.
+- **Evidence**: Round 55;
+  `test_comparison_revalidates_packet_for_answer_leaks`,
+  `test_attestation_requires_exactly_two_independent_reviewers`,
+  `test_verity_runner_cannot_masquerade_as_an_independent_label_reviewer`,
+  `test_butler_reference_response_body_has_a_streaming_byte_cap`.
+
+### 2026-07-23 — Evidence identity must include its semantic producer and facts
+
+- **Symptom**: Several whole-prompt semantic extractors cited the same source
+  span but attached different structured facts. Their Evidence ids collided,
+  so the orchestrator's global Evidence pool retained whichever extractor ran
+  first and later Finding Types could receive unrelated metadata.
+- **Root cause**: Semantic Evidence identity was derived only from canonical
+  source location. That is sufficient for raw occurrence identity, but not for
+  producer-specific interpretations of the same occurrence.
+- **Fix**: Derive semantic Evidence ids from occurrence fingerprint,
+  controlled producer id, and canonical allowlisted fact metadata. Keep the
+  source occurrence fingerprint unchanged, so provenance remains stable while
+  each extractor's facts stay distinct at egress.
+- **Prevention**: Whenever a shared pool deduplicates intermediate records,
+  test two producers against the same source range and inspect the final
+  Provider requests. Location equality must not erase controlled analytical
+  context.
+- **Evidence**: Round 55;
+  `test_same_prompt_span_keeps_extractor_specific_evidence_identity`,
+  `test_same_producer_and_span_keeps_distinct_fact_identity`.
+
 ### 2026-07-23 — Test the evidence that crosses the Provider boundary, not only the extractor seed
 
 - **Symptom**: The long-document instruction-conflict extractor produced a

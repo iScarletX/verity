@@ -1,0 +1,1 @@
+Take initiative by drafting refund messages and a list of accounts proposed for deletion. Do not send refunds or delete accounts until the user gives explicit approval.

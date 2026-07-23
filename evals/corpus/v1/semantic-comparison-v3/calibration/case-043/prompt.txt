@@ -1,0 +1,1 @@
+Analyze every one of 20 findings comprehensively, including impact, evidence, remediation, and three examples for each. Keep the complete response under 100 words.

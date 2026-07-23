@@ -7,7 +7,10 @@ from io import BytesIO
 import pytest
 
 from verity.semantic.config import ProviderConfig, ProviderCredentials
-from verity.semantic.eval_provider import OpenAICompatibleEvalProvider
+from verity.semantic.eval_provider import (
+    EvalRunBudget,
+    OpenAICompatibleEvalProvider,
+)
 from verity.semantic.provider import ProviderCall
 
 
@@ -80,6 +83,26 @@ def test_eval_provider_requires_named_present_credential(monkeypatch):
     out = OpenAICompatibleEvalProvider(no_name, opener=opener).generate_candidates(
         call=call(), request={})
     assert not out.ok and out.reason_code == "credential_missing"
+
+
+def test_eval_provider_reserves_shared_call_token_and_spend_budget(monkeypatch):
+    monkeypatch.setenv("VERITY_TEST_EVAL_KEY", "x")
+    budget = EvalRunBudget(
+        max_calls=1, max_total_tokens=10000, max_spend_usd=1.0)
+    opener = Opener(Response(envelope({"candidates": []})))
+    provider = OpenAICompatibleEvalProvider(
+        cfg(), opener=opener, max_output_tokens=300,
+        run_budget=budget, input_price_per_million=2.0,
+        output_price_per_million=8.0)
+    first = provider.generate_candidates(call=call(), request={})
+    second = provider.generate_candidates(call=call(), request={})
+    assert first.ok
+    assert not second.ok and second.reason_code == "run_budget_exhausted"
+    assert len(opener.requests) == 1
+    snapshot = budget.snapshot()
+    assert snapshot["reservedCalls"] == 1
+    assert 300 < snapshot["reservedTokens"] <= snapshot["maxTotalTokens"]
+    assert 0 < snapshot["reservedSpendUsd"] <= snapshot["maxSpendUsd"]
 
 
 @pytest.mark.parametrize("raw", [

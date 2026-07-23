@@ -251,6 +251,12 @@ class SemanticOrchestrator:
                 },
                 max_evidence=cfg.budget.max_evidence_per_candidate,
                 prompt_kind=(review_dict.get("snapshot") or {}).get("promptKind"),
+                judgment_policy={
+                    "appliesWhen": ft.judgmentPolicy.appliesWhen,
+                    "confirmWhen": ft.judgmentPolicy.confirmWhen,
+                    "rejectWhen": ft.judgmentPolicy.rejectWhen,
+                    "insufficientWhen": ft.judgmentPolicy.insufficientWhen,
+                },
             )
             body_bytes = len(json.dumps(req).encode())
             provider_call = ProviderCall(
@@ -345,6 +351,12 @@ class SemanticOrchestrator:
                 file_bytes=file_bytes,
                 egress_policy=cfg.egress_policy,
                 falsification_question=ft.falsificationQuestion,
+                judgment_policy={
+                    "appliesWhen": ft.judgmentPolicy.appliesWhen,
+                    "confirmWhen": ft.judgmentPolicy.confirmWhen,
+                    "rejectWhen": ft.judgmentPolicy.rejectWhen,
+                    "insufficientWhen": ft.judgmentPolicy.insufficientWhen,
+                },
             )
             provider_call = ProviderCall(
                 review_id=review_id,

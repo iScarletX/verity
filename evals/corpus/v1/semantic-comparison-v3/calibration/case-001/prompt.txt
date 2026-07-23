@@ -1,0 +1,2 @@
+The final response must always be a single JSON object.
+The final response must never contain JSON and must be plain prose.

@@ -112,7 +112,10 @@ class SemanticBudget:
     """Hard limits per Review. Reaching any of these ends semantic
     processing with an explicit reason code; deterministic results are
     unaffected."""
-    max_candidate_generation_calls: int = 4
+    # One call per applicable Finding Type that produced a deterministic
+    # seed. Keep this above the controlled catalog size so the default does
+    # not silently skip later types; the bound still caps future expansion.
+    max_candidate_generation_calls: int = 16
     max_validation_calls_per_candidate: int = 1
     max_total_validation_calls: int = 32
     max_candidates_per_extractor: int = 20

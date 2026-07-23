@@ -1,0 +1,1 @@
+Provide a detailed analysis for every one of 20 findings, including evidence, impact, and remediation. Keep the entire response concise and under 100 words.

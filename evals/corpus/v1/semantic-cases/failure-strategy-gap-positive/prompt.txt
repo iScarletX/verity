@@ -1,0 +1,1 @@
+Fetch the customer record from the API, parse the JSON response, and return the account summary.

@@ -1,0 +1,1 @@
+"Appropriate detail" means a summary of at most 120 words. If the input has more than five items, include exactly two examples; otherwise include one.

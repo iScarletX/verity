@@ -12,10 +12,10 @@ from pathlib import Path
 import pytest
 
 from verity.corpus import CorpusError
-from verity.semantic.catalog import CATALOG
 from verity.semantic.config import ProviderConfig, ProviderCredentials
 from verity.semantic.provider import ProviderResponse
 from verity.semantic_quality import (QUALITY_MANIFEST_PATH,
+                                     PROTOCOL_V2_FINDING_TYPES,
                                      evaluate_semantic_model_quality,
                                      load_semantic_quality_manifest,
                                      validate_semantic_quality_seed_coverage)
@@ -98,7 +98,7 @@ def test_manifest_has_disjoint_complete_three_split_pairs():
             assert case["caseId"] not in ids; ids.add(case["caseId"])
             assert case["payloadDigest"] not in digests; digests.add(case["payloadDigest"])
             by_type.setdefault(case["findingType"], set()).add(case["expectedAssessment"])
-        assert set(by_type) == set(CATALOG)
+        assert set(by_type) == set(PROTOCOL_V2_FINDING_TYPES)
         assert all(x == {"confirmed", "rejected"} for x in by_type.values())
 
 

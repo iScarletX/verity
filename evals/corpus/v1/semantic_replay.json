@@ -278,6 +278,286 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-output-budget-pressure-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/output-budget-pressure-positive/prompt.txt",
+      "findingType": "semantic.prompt.output_budget_pressure",
+      "riskId": "VR-PROMPT-011",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "pressureKind": "implicit_lower_bound"
+      },
+      "claim": "The requested detail is materially infeasible within the total limit.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-output-budget-pressure-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/output-budget-pressure-safe/prompt.txt",
+      "findingType": "semantic.prompt.output_budget_pressure",
+      "riskId": "VR-PROMPT-011",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "pressureKind": "implicit_lower_bound"
+      },
+      "claim": "The requested detail is materially infeasible within the total limit.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-authority-boundary-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/authority-boundary-positive/prompt.txt",
+      "findingType": "semantic.prompt.authority_boundary_ambiguity",
+      "riskId": "VR-PROMPT-012",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "authorityKind": "external_side_effect"
+      },
+      "claim": "Consequential autonomous actions have no approval boundary.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-authority-boundary-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/authority-boundary-safe/prompt.txt",
+      "findingType": "semantic.prompt.authority_boundary_ambiguity",
+      "riskId": "VR-PROMPT-012",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "authorityKind": "external_side_effect"
+      },
+      "claim": "Consequential autonomous actions have no approval boundary.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-failure-strategy-gap-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/failure-strategy-gap-positive/prompt.txt",
+      "findingType": "semantic.prompt.failure_strategy_gap",
+      "riskId": "VR-PROMPT-013",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "gapKind": "malformed_input"
+      },
+      "claim": "The required API and parsing path has no material failure behavior.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-failure-strategy-gap-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/failure-strategy-gap-safe/prompt.txt",
+      "findingType": "semantic.prompt.failure_strategy_gap",
+      "riskId": "VR-PROMPT-013",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "gapKind": "malformed_input"
+      },
+      "claim": "The required API and parsing path has no material failure behavior.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-ambiguous-criteria-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/ambiguous-criteria-positive/prompt.txt",
+      "findingType": "semantic.prompt.ambiguous_operational_criteria",
+      "riskId": "VR-PROMPT-014",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "criterionKind": "undefined_boundary"
+      },
+      "claim": "Material output decisions depend on undefined subjective boundaries.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-ambiguous-criteria-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/ambiguous-criteria-safe/prompt.txt",
+      "findingType": "semantic.prompt.ambiguous_operational_criteria",
+      "riskId": "VR-PROMPT-014",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "criterionKind": "undefined_boundary"
+      },
+      "claim": "Material output decisions depend on undefined subjective boundaries.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-grounding-gap-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/grounding-gap-positive/prompt.txt",
+      "findingType": "semantic.prompt.grounding_requirement_gap",
+      "riskId": "VR-PROMPT-009",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "groundingKind": "verification_required"
+      },
+      "claim": "Consequential legal claims lack verification and uncertainty controls.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-grounding-gap-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/grounding-gap-safe/prompt.txt",
+      "findingType": "semantic.prompt.grounding_requirement_gap",
+      "riskId": "VR-PROMPT-009",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "groundingKind": "verification_required"
+      },
+      "claim": "Consequential legal claims lack verification and uncertainty controls.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-reasoning-exposure-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/reasoning-exposure-positive/prompt.txt",
+      "findingType": "semantic.prompt.sensitive_reasoning_exposure",
+      "riskId": "VR-PROMPT-015",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "exposureKind": "chain_of_thought"
+      },
+      "claim": "The prompt requires disclosure of hidden reasoning and policy.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-reasoning-exposure-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/reasoning-exposure-safe/prompt.txt",
+      "findingType": "semantic.prompt.sensitive_reasoning_exposure",
+      "riskId": "VR-PROMPT-015",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "exposureKind": "chain_of_thought"
+      },
+      "claim": "The prompt requires disclosure of hidden reasoning and policy.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-verification-step-gap-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/verification-step-gap-positive/prompt.txt",
+      "findingType": "semantic.prompt.verification_step_gap",
+      "riskId": "VR-PROMPT-006",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "verificationKind": "downstream_validity"
+      },
+      "claim": "Directly published structured output has no validation step.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-verification-step-gap-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/verification-step-gap-safe/prompt.txt",
+      "findingType": "semantic.prompt.verification_step_gap",
+      "riskId": "VR-PROMPT-006",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "verificationKind": "downstream_validity"
+      },
+      "claim": "Directly published structured output has no validation step.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
     }
   ]
 }

@@ -1,0 +1,2 @@
+Start with a one-sentence plain-text summary.
+Then provide the records as a YAML document below the summary.

@@ -573,6 +573,90 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
             "把外部内容按数据解析，不允许其改变工具、权限或系统指令。",
         ], priority="P0",
     ),
+    "semantic.prompt.output_budget_pressure": Guidance(
+        id="semantic.prompt.output_budget_pressure",
+        plainTitle="输出体量与篇幅限制可能无法兼容",
+        whyItMatters=(
+            "要求覆盖大量内容、逐项详述，同时又要求极短输出，会迫使模型随机省略字段、"
+            "截断内容或违反格式。该判断会区分不同输出阶段，不把“先摘要、后详述”误报为冲突。"
+        ),
+        whatToDo=[
+            "把总篇幅、条目数和每项最低内容量调整到可同时满足。",
+            "写明空间不足时的字段优先级，或提供有界的分段继续协议。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.authority_boundary_ambiguity": Guidance(
+        id="semantic.prompt.authority_boundary_ambiguity",
+        plainTitle="自主行动的权限与批准边界不清楚",
+        whyItMatters=(
+            "发送、删除、部署、转账或账户决策等外部副作用如果没有明确批准人和执行边界，"
+            "模型可能把“主动协助”理解成“直接执行”。"
+        ),
+        whatToDo=[
+            "把分析、起草与真正执行分开，默认只允许前两者。",
+            "对每类高影响动作写明由谁、在什么时点确认后才能执行。",
+        ], priority="P0",
+    ),
+    "semantic.prompt.failure_strategy_gap": Guidance(
+        id="semantic.prompt.failure_strategy_gap",
+        plainTitle="外部调用或解析步骤缺少关键失败处理",
+        whyItMatters=(
+            "接口超时、空结果、格式损坏或部分失败没有明确处理方式时，模型容易继续编造、"
+            "重复执行副作用，或产出下游无法识别的半成品。"
+        ),
+        whatToDo=[
+            "为证据中实际出现的操作补上超时、有限重试、回退或结构化错误。",
+            "明确空结果和格式错误时不得猜测数据，也不得继续执行后续副作用。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.ambiguous_operational_criteria": Guidance(
+        id="semantic.prompt.ambiguous_operational_criteria",
+        plainTitle="关键行为依赖没有边界的模糊标准",
+        whyItMatters=(
+            "“适当”“较长”“必要时”等词如果决定条目数、分支或风险动作，却没有阈值，"
+            "不同模型和不同轮次会作出实质不同的选择。"
+        ),
+        whatToDo=[
+            "把模糊程度词替换成数值范围、可观察条件或明确决策表。",
+            "如果必须保留主观判断，补充正反例和无法判定时的默认路径。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.grounding_requirement_gap": Guidance(
+        id="semantic.prompt.grounding_requirement_gap",
+        plainTitle="高后果事实输出缺少来源、核实或不确定性约束",
+        whyItMatters=(
+            "法律、医疗、金融、统计或引用类答案若被要求“准确”却允许无依据补全，"
+            "会把流畅表达误当作事实，造成难以察觉的错误决策。"
+        ),
+        whatToDo=[
+            "要求每个关键事实对应可追溯来源，并在无法核实时明确停止或降级。",
+            "规定不确定性表达和人工复核条件，禁止编造法条、数字或引用。",
+        ], priority="P0",
+    ),
+    "semantic.prompt.sensitive_reasoning_exposure": Guidance(
+        id="semantic.prompt.sensitive_reasoning_exposure",
+        plainTitle="Prompt 要求暴露隐藏推理或内部策略",
+        whyItMatters=(
+            "完整思维链、草稿和内部决策规则可能包含安全边界、敏感业务逻辑或可被利用的"
+            "审查细节。简短、可核验的结论依据不等于隐藏推理。"
+        ),
+        whatToDo=[
+            "只输出最终结论和必要的可核验证据，不要求完整思维链或草稿。",
+            "把内部策略与面向用户的公开规则分开，并明确禁止在最终输出中泄露。",
+        ], priority="P0",
+    ),
+    "semantic.prompt.verification_step_gap": Guidance(
+        id="semantic.prompt.verification_step_gap",
+        plainTitle="高约束输出缺少实际可执行的校验步骤",
+        whyItMatters=(
+            "多字段结果直接进入自动化或高后果决策时，仅要求“高质量”不能发现缺字段、"
+            "格式错误或约束冲突。简单开放式任务不需要被强制添加自检。"
+        ),
+        whatToDo=[
+            "列出输出前必须核对的具体约束，或指定外部 Schema/规则校验器。",
+            "规定校验失败时停止交付并返回结构化错误，而不是带错继续。",
+        ], priority="P2",
+    ),
 }
 
 

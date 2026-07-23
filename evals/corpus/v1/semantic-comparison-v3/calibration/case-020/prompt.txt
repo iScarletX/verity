@@ -1,0 +1,1 @@
+Search the external service with a three-second timeout and one retry. If records are empty or malformed, skip the database write and return a structured error.

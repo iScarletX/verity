@@ -1,0 +1,1 @@
+Keep the scratchpad, chain of thought, and internal policy private. Give the final decision and a short evidence-based rationale only.
