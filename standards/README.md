@@ -32,7 +32,7 @@ coverage remains only `signal` or `partial`.
 unknown controls, unmapped runtime detectors, layer/schema drift, or unsupported
 pre-corpus coverage claims.
 
-## Round-14 baseline
+## Current baseline
 
 The first baseline contained 25 unified risks and 36 mapped detectors. Round
 16 added one official Agent Skills field Rule and one non-Finding capability
@@ -40,10 +40,10 @@ fact extractor; the exact current count is enforced from runtime registries.
 
 | Layer | none | signal | partial | substantial | evaluated |
 |---|---:|---:|---:|---:|---:|
-| L0 static | 6 | 17 | 9 | 0 | 0 |
-| L1 semantic | 16 | 15 | 1 | 0 | 0 |
-| V1.5 black-box | 32 | 0 | 0 | 0 | 0 |
-| V2 sandbox | 32 | 0 | 0 | 0 | 0 |
+| L0 static | 10 | 18 | 9 | 0 | 0 |
+| L1 semantic | 16 | 20 | 1 | 0 | 0 |
+| V1.5 black-box | 37 | 0 | 0 | 0 | 0 |
+| V2 sandbox | 37 | 0 | 0 | 0 | 0 |
 
 These counts are a prioritization baseline, **not a safety score**. Round 15
 added the versioned minimal paired corpus under `evals/corpus/v1/` and

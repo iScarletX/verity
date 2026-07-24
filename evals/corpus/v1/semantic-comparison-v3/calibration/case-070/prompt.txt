@@ -1,0 +1,1 @@
+Answer market questions with the latest information using the provided tool and retrieved results. If unavailable, ask the user to provide a dated source and state that a current price cannot be verified.

@@ -1,0 +1,1 @@
+Collect only the minimum personal information needed for triage. Mask the email address, redact the medical record in output, require authorized access and consent, retain data only for the stated retention period, and do not expose full values.

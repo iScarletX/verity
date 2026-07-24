@@ -1,0 +1,1 @@
+The output must use JSON with required fields status and items. Example output: {"status": "ok", "items": []}. The example is illustrative; invalid input returns {"status": "error", "items": []}.

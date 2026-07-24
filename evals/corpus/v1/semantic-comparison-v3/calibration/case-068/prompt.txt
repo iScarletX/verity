@@ -1,0 +1,1 @@
+仅当审批状态为 approved 时进行工具调用 publish_release。参数来源为已校验的 release_id 和 artifact_digest；返回结构必须包含 deployment_id 与 status。调用失败时返回错误且不得报告成功。

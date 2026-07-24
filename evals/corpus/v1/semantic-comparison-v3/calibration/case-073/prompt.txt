@@ -1,0 +1,1 @@
+Collect personal data including each email address and home address. Store the full values and display them in every support summary.

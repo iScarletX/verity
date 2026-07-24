@@ -1,0 +1,1 @@
+Create an invoice by making a function call. Invoke the tool and use its response to confirm completion.

@@ -26,12 +26,14 @@ from .standards import load_detector_mappings, load_risks
 
 
 COMPARISON_MANIFEST_PATH = CORPUS_DIR / "semantic_comparison_v3.json"
+BUTLER_CROSSWALK_PATH = (
+    CORPUS_DIR.parents[1] / "reference" / "butler_crosswalk.json")
 COMPARISON_PROTOCOL_ID = "verity-butler-semantic-head-to-head"
 COMPARISON_PROTOCOL_VERSION = "3.0.0"
 OBSERVATIONS = {"present", "absent", "inconclusive", "error"}
 INDEPENDENT_LABEL_STATUS = "independent_ai_review"
-DEFAULT_COMPARISON_MAX_TOTAL_CALLS = 240
-BUTLER_REFERENCE_SKILL_MAP_VERSION = "1.0.0"
+DEFAULT_COMPARISON_MAX_TOTAL_CALLS = 340
+BUTLER_REFERENCE_SKILL_MAP_VERSION = "2.0.0"
 
 # Read-only Butler v6 reference mapping. These are comparison routes, not
 # Verity labels and not claims that Butler fully covers the associated risk.
@@ -69,11 +71,25 @@ BUTLER_REFERENCE_SKILLS = {
         "05_robustness_secret_leak"),
     "semantic.prompt.verification_step_gap": (
         "06_quality_self_check",),
+    "semantic.prompt.input_and_default_contract_gap": (
+        "02_contract_input_completeness",
+        "05_robustness_abnormal_input"),
+    "semantic.prompt.example_contract_mismatch": (
+        "01_clarity_example_consistency",
+        "06_quality_few_shot"),
+    "semantic.prompt.tool_call_contract_gap": (
+        "03_resource_function_call_contract",),
+    "semantic.prompt.capability_dependency_gap": (
+        "04_interop_portability",
+        "06_quality_model_capability"),
+    "semantic.prompt.sensitive_data_handling_gap": (
+        "07_compliance_privacy",),
 }
 
 COMPARISON_THRESHOLDS = {
-    "minimumCaseCount": 56,
-    "minimumRiskCount": 14,
+    "minimumCaseCount": 76,
+    "minimumRiskCount": 18,
+    "minimumFindingTypeCount": 19,
     "minimumRepetitions": 2,
     "minimumRecall": 0.90,
     "maximumSafeFalsePositiveRate": 0.20,
@@ -83,7 +99,8 @@ COMPARISON_THRESHOLDS = {
 }
 
 
-def _strict_json(path: Path) -> Dict[str, Any]:
+def _strict_json(path: Path, *,
+                 label: str = "semantic comparison manifest") -> Dict[str, Any]:
     def no_duplicates(pairs):
         value = {}
         for key, item in pairs:
@@ -97,10 +114,113 @@ def _strict_json(path: Path) -> Dict[str, Any]:
     except CorpusError:
         raise
     except Exception as exc:
-        raise CorpusError("cannot read semantic comparison manifest") from exc
+        raise CorpusError(f"cannot read {label}") from exc
     if not isinstance(value, dict):
-        raise CorpusError("semantic comparison manifest must be an object")
+        raise CorpusError(f"{label} must be an object")
     return value
+
+
+def _validate_butler_crosswalk(value: Dict[str, Any]) -> Dict[str, Any]:
+    if set(value) != {
+            "schemaVersion", "referenceSystem", "referenceCommit",
+            "referenceSourceFingerprint", "inventorySource",
+            "inventoryCount", "policy", "entries"}:
+        raise CorpusError("Butler crosswalk schema invalid")
+    if (value.get("schemaVersion") != 1
+            or value.get("referenceSystem") != "butler"
+            or not isinstance(value.get("referenceCommit"), str)
+            or not re.fullmatch(r"[0-9a-f]{40}", value["referenceCommit"])
+            or not isinstance(value.get("referenceSourceFingerprint"), str)
+            or not re.fullmatch(
+                r"[0-9a-f]{64}", value["referenceSourceFingerprint"])
+            or value.get("inventorySource")
+            != "src/core/skillLoader/loadBuiltinSkills.ts"):
+        raise CorpusError("Butler crosswalk identity invalid")
+    count = value.get("inventoryCount")
+    entries = value.get("entries")
+    if (not isinstance(count, int) or isinstance(count, bool) or count != 45
+            or not isinstance(entries, list) or len(entries) != count):
+        raise CorpusError("Butler crosswalk inventory invalid")
+    policy = value.get("policy")
+    if (not isinstance(policy, dict) or set(policy) != {
+            "claimRequiresNoOpenGaps", "maximumNotAdopted",
+            "coveredDefinition"}
+            or policy.get("claimRequiresNoOpenGaps") is not True
+            or not isinstance(policy.get("maximumNotAdopted"), int)
+            or isinstance(policy.get("maximumNotAdopted"), bool)
+            or not 0 <= policy["maximumNotAdopted"] <= 5
+            or not isinstance(policy.get("coveredDefinition"), str)
+            or not 40 <= len(policy["coveredDefinition"]) <= 300):
+        raise CorpusError("Butler crosswalk policy invalid")
+
+    known = {
+        detector_id
+        for detector_type, detector_id in load_detector_mappings(load_risks())
+        if detector_type in {"deterministic_rule", "semantic_finding_type"}
+    }
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict) or set(entry) != {
+                "butlerSkillId", "status", "verityFindingTypes",
+                "plannedFindingType", "rationale"}:
+            raise CorpusError("Butler crosswalk entry schema invalid")
+        skill_id = entry.get("butlerSkillId")
+        status = entry.get("status")
+        finding_types = entry.get("verityFindingTypes")
+        planned = entry.get("plannedFindingType")
+        rationale = entry.get("rationale")
+        if (not isinstance(skill_id, str)
+                or not re.fullmatch(r"\d{2}_[a-z0-9_]{3,80}", skill_id)
+                or skill_id in seen
+                or status not in {"covered", "not_adopted", "open_gap"}
+                or not isinstance(finding_types, list)
+                or len(finding_types) != len(set(finding_types))
+                or any(item not in known for item in finding_types)
+                or not isinstance(rationale, str) or len(rationale) < 24
+                or len(rationale) > 500):
+            raise CorpusError("Butler crosswalk entry invalid")
+        if status == "covered":
+            if not finding_types or planned is not None:
+                raise CorpusError("covered Butler entry lacks Verity coverage")
+        elif status == "open_gap":
+            if (not isinstance(planned, str)
+                    or not re.fullmatch(
+                        r"(?:semantic\.)?(?:prompt|skill)\.[a-z0-9_.]{3,100}",
+                        planned)):
+                raise CorpusError("open Butler gap lacks a planned Finding Type")
+        elif finding_types or planned is not None:
+            raise CorpusError("not-adopted Butler entry cannot claim coverage")
+        seen.add(skill_id)
+    return value
+
+
+def load_butler_crosswalk(
+        path: Path = BUTLER_CROSSWALK_PATH) -> Dict[str, Any]:
+    return _validate_butler_crosswalk(_strict_json(
+        path, label="Butler reference crosswalk"))
+
+
+def butler_breadth_summary(
+        crosswalk: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    value = _validate_butler_crosswalk(
+        crosswalk) if crosswalk is not None else load_butler_crosswalk()
+    counts = {
+        status: sum(entry["status"] == status for entry in value["entries"])
+        for status in ("covered", "not_adopted", "open_gap")
+    }
+    claim_ready = (
+        counts["open_gap"] == 0
+        and counts["not_adopted"] <= value["policy"]["maximumNotAdopted"]
+    )
+    return {
+        "referenceCommit": value["referenceCommit"],
+        "referenceSourceFingerprint": value["referenceSourceFingerprint"],
+        "inventoryCount": value["inventoryCount"],
+        "coveredCount": counts["covered"],
+        "notAdoptedCount": counts["not_adopted"],
+        "openGapCount": counts["open_gap"],
+        "claimReady": claim_ready,
+    }
 
 
 def load_semantic_comparison_manifest(
@@ -837,7 +957,8 @@ def compare_semantic_systems(
         verity_observations: Dict[str, Any],
         butler_packet: Dict[str, Any], butler_mapping: Dict[str, Any],
         butler_observations: Dict[str, Any],
-        label_attestation: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        label_attestation: Optional[Dict[str, Any]],
+        butler_crosswalk: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     _validate_mapping(verity_mapping, verity_packet)
     _validate_mapping(butler_mapping, butler_packet)
     validate_observations(verity_observations, verity_packet)
@@ -850,18 +971,25 @@ def compare_semantic_systems(
             != butler_packet["corpusFingerprint"]):
         raise CorpusError("semantic comparison corpora differ")
 
+    breadth = butler_breadth_summary(butler_crosswalk)
     status, canonical_labels = _label_map(
         label_attestation, mapping=verity_mapping)
+    eligibility_reasons = []
+    if not breadth["claimReady"]:
+        eligibility_reasons.append("butler_breadth_gaps_open")
     if status != "independent":
+        eligibility_reasons.append(
+            "labels_missing" if status == "missing"
+            else "labels_not_independently_reviewed")
+    if eligibility_reasons:
         return {
             "schemaVersion": 1,
             "protocolId": COMPARISON_PROTOCOL_ID,
             "protocolVersion": COMPARISON_PROTOCOL_VERSION,
             "status": "not_eligible",
-            "reasonCodes": [
-                "labels_missing" if status == "missing"
-                else "labels_not_independently_reviewed"],
+            "reasonCodes": eligibility_reasons,
             "claim": None,
+            "butlerBreadth": breadth,
         }
 
     verity_cases = {
@@ -901,11 +1029,17 @@ def compare_semantic_systems(
     risk_count = len({
         metadata["riskId"] for metadata in verity_mapping["aliases"].values()
     })
+    finding_type_count = len({
+        metadata["findingType"]
+        for metadata in verity_mapping["aliases"].values()
+    })
     thresholds = COMPARISON_THRESHOLDS
     absolute_checks = {
         "minimumCaseCount": len(canonical_labels)
         >= thresholds["minimumCaseCount"],
         "minimumRiskCount": risk_count >= thresholds["minimumRiskCount"],
+        "minimumFindingTypeCount": (
+            finding_type_count >= thresholds["minimumFindingTypeCount"]),
         "minimumRepetitions": (
             verity_observations["repetitions"]
             >= thresholds["minimumRepetitions"]),
@@ -957,6 +1091,8 @@ def compare_semantic_systems(
             if passed else None),
         "thresholds": dict(thresholds),
         "riskCount": risk_count,
+        "findingTypeCount": finding_type_count,
+        "butlerBreadth": breadth,
         "verity": verity_metrics,
         "butler": butler_metrics,
         "absoluteChecks": absolute_checks,

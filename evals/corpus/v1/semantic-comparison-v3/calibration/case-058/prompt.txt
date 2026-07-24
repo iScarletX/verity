@@ -1,0 +1,1 @@
+Create the monthly account report. Required input fields are account_id and report_month; locale is optional and defaults to en-US. If a required value is missing, ask the user. Validate every value and return a structured error for invalid input.

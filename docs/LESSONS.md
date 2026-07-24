@@ -14,6 +14,26 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-24 — A reference comparison needs a complete inventory and an achievable gate
+
+- **Symptom**: The first Verity/Butler comparison routed only a selected subset
+  of Butler checks, while its minimum-risk threshold was numerically impossible
+  for the real corpus: 19 semantic Finding Types map to 18 distinct risk ids.
+- **Root cause**: Benchmark case coverage and reference-product breadth were
+  treated as the same dimension, and type count was approximated with unique
+  risk count even though the detector map is many-to-one.
+- **Fix**: Freeze all 45 Butler built-ins in a commit-bound crosswalk, block
+  claims while any inventory gap is open, and require 19 Finding Types plus 18
+  risk ids as separate absolute checks.
+- **Prevention**: Before trusting a comparative gate, enumerate the entire
+  reference surface and prove every numeric threshold is reachable by the
+  canonical manifest. Test perfect scores against both a complete synthetic
+  crosswalk and the real incomplete crosswalk.
+- **Evidence**: Round 56;
+  `test_butler_crosswalk_accounts_for_all_45_checks_and_blocks_claim`,
+  `test_real_crosswalk_refuses_claim_even_with_perfect_synthetic_scores`,
+  `test_v3_development_manifest_is_fresh_paired_and_seeded`.
+
 ### 2026-07-23 — Blind-evaluation roles and packets must be revalidated at every boundary
 
 - **Symptom**: The v3 Verity runner accepted a packet labelled with an

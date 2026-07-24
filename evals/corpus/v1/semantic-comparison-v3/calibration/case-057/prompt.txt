@@ -1,0 +1,1 @@
+Create the monthly account report. The user provides input fields account_id and report_month. Start the report immediately from whatever values appear.

@@ -1,0 +1,1 @@
+Using the supplied retrieved results from the provided browser tool, report the latest information and current price. If unavailable, state that it is unavailable and ask the user to provide a source.

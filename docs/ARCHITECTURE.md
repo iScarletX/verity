@@ -84,17 +84,19 @@
   Coverage/mapping failure. Review confidence and remediation are separate;
   neither changes Finding identity, severity, gate exit codes or dispositions.
 - `verity.corpus` reads an independent risk-id answer key and measures the
-  current L0 pipeline twice per case. Twenty-eight fixed semantic Provider
-  replays cover confirmed/rejected pairs for fourteen controlled Finding
+  current L0 pipeline twice per case. Thirty-eight fixed semantic Provider
+  replays cover confirmed/rejected pairs for nineteen controlled Finding
   Types; they exercise contracts only and explicitly do not measure model
   quality. `verity.semantic_quality` keeps the consumed 42-case protocol v2
   frozen for historical reproducibility.
-- `verity.semantic_benchmark` validates a fresh 56-case answer-hidden
+- `verity.semantic_benchmark` validates a fresh 76-case answer-hidden
   Verity/Butler corpus, creates separately randomized system packets, validates
   repeated scrubbed observations, and permits a scoped superiority claim only
   after independent digest-bound labels and both absolute and relative gates
-  pass. Provisional labels, missing observations, or fewer than 56 cases
-  produce no claim. Mutable Provider records stay under gitignored
+  pass. It also requires all nineteen controlled Finding Types, at least
+  eighteen mapped risk ids, and a 45-item pinned Butler crosswalk with no open
+  gaps. Provisional labels, missing observations, fewer than 76 cases, or any
+  breadth gap produce no claim. Mutable Provider records stay under gitignored
   `.verity-data/`; no evaluation path contains an aggregate safety score.
 - `verity.closure` (policy v2.0.0) computes a scoped V1 release decision. The
   `decision` covers only the deterministic static auditor and is

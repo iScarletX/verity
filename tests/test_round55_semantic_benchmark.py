@@ -1,4 +1,6 @@
 """Round 55 answer-hidden Verity/Butler comparison protocol."""
+from copy import deepcopy
+import hashlib
 import json
 import os
 import subprocess
@@ -7,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from tools import semantic_head_to_head
 from verity.corpus import CorpusError
 from verity.semantic.catalog import CATALOG
 from verity.semantic_benchmark import (
@@ -14,12 +17,15 @@ from verity.semantic_benchmark import (
     BUTLER_REFERENCE_SKILL_MAP_VERSION,
     COMPARISON_PROTOCOL_ID,
     COMPARISON_PROTOCOL_VERSION,
+    COMPARISON_THRESHOLDS,
     DEFAULT_COMPARISON_MAX_TOTAL_CALLS,
     _packet_item_digest,
+    butler_breadth_summary,
     build_independent_label_attestation,
     build_semantic_comparison_packet,
     compare_semantic_systems,
     evaluate_verity_comparison_observations,
+    load_butler_crosswalk,
     load_semantic_comparison_manifest,
     validate_observations,
     validate_semantic_comparison_seed_coverage,
@@ -56,6 +62,16 @@ SUBJECTS = {
         "exposureKind": "chain_of_thought"},
     "semantic.prompt.verification_step_gap": {
         "verificationKind": "downstream_validity"},
+    "semantic.prompt.input_and_default_contract_gap": {
+        "gapKind": "missing_input"},
+    "semantic.prompt.example_contract_mismatch": {
+        "exampleGapKind": "rule_mismatch"},
+    "semantic.prompt.tool_call_contract_gap": {
+        "contractGapKind": "parameter_provenance"},
+    "semantic.prompt.capability_dependency_gap": {
+        "dependencyKind": "web_access"},
+    "semantic.prompt.sensitive_data_handling_gap": {
+        "dataPolicyKind": "redaction"},
 }
 
 
@@ -76,12 +92,23 @@ def _observations(packet, runs_by_item, repetitions=2):
     }
 
 
+def _complete_butler_crosswalk():
+    """Synthetic all-covered inventory used only to isolate metric tests."""
+    crosswalk = deepcopy(load_butler_crosswalk())
+    for entry in crosswalk["entries"]:
+        entry["status"] = "covered"
+        entry["verityFindingTypes"] = [
+            "semantic.prompt.instruction_conflict"]
+        entry["plannedFindingType"] = None
+    return crosswalk
+
+
 def test_v3_development_manifest_is_fresh_paired_and_seeded():
     manifest = load_semantic_comparison_manifest()
     assert manifest["protocolVersion"] == "3.0.0"
     assert manifest["status"] == "development_calibration"
     assert manifest["labelStatus"] == "provisional_single_review"
-    assert len(manifest["cases"]) == 56
+    assert len(manifest["cases"]) == 76
     by_type = {}
     for case in manifest["cases"]:
         by_type.setdefault(case["findingType"], []).append(
@@ -92,12 +119,15 @@ def test_v3_development_manifest_is_fresh_paired_and_seeded():
     assert all(
         sorted(states) == ["absent", "absent", "present", "present"]
         for states in by_type.values())
-    assert validate_semantic_comparison_seed_coverage() == 56
-    assert DEFAULT_COMPARISON_MAX_TOTAL_CALLS >= 56 * 2 * 2
+    assert len({case["riskId"] for case in manifest["cases"]}) == 18
+    assert COMPARISON_THRESHOLDS["minimumRiskCount"] == 18
+    assert COMPARISON_THRESHOLDS["minimumFindingTypeCount"] == 19
+    assert validate_semantic_comparison_seed_coverage() == 76
+    assert DEFAULT_COMPARISON_MAX_TOTAL_CALLS >= 76 * 2 * 2
 
 
 def test_butler_reference_skill_map_covers_every_semantic_type():
-    assert BUTLER_REFERENCE_SKILL_MAP_VERSION == "1.0.0"
+    assert BUTLER_REFERENCE_SKILL_MAP_VERSION == "2.0.0"
     assert set(BUTLER_REFERENCE_SKILLS) == set(CATALOG)
     assert all(
         1 <= len(skill_ids) <= 2 and len(set(skill_ids)) == len(skill_ids)
@@ -108,12 +138,82 @@ def test_butler_reference_skill_map_covers_every_semantic_type():
         for skill_id in skill_ids)
 
 
+def test_butler_crosswalk_accounts_for_all_45_checks_and_blocks_claim():
+    crosswalk = load_butler_crosswalk()
+    summary = butler_breadth_summary(crosswalk)
+    inventory = {
+        entry["butlerSkillId"] for entry in crosswalk["entries"]}
+    routed = {
+        skill_id
+        for skill_ids in BUTLER_REFERENCE_SKILLS.values()
+        for skill_id in skill_ids
+    }
+    assert len(inventory) == 45
+    assert routed < inventory
+    assert summary == {
+        "referenceCommit": "20979b573107a29232bf95dcf56801e06504d801",
+        "referenceSourceFingerprint": (
+            "de147af7ce65e417c692115600076044"
+            "b0e4dc23b55c70b7930940138cf27737"),
+        "inventoryCount": 45,
+        "coveredCount": 32,
+        "notAdoptedCount": 0,
+        "openGapCount": 13,
+        "claimReady": False,
+    }
+
+
+def test_butler_source_fingerprint_binds_commit_inventory_and_bytes(
+        tmp_path, monkeypatch):
+    root = tmp_path / "butler"
+    registry_path = root / "src/core/skillLoader/loadBuiltinSkills.ts"
+    registry_path.parent.mkdir(parents=True)
+    crosswalk = deepcopy(load_butler_crosswalk())
+    registry_text = "\n".join(
+        f"{{ id: '{entry['butlerSkillId']}' }},"
+        for entry in crosswalk["entries"])
+    (root / "package.json").write_text(
+        '{"name":"butler"}', encoding="utf-8")
+    (root / "package-lock.json").write_text("{}", encoding="utf-8")
+    registry_path.write_text(registry_text, encoding="utf-8")
+
+    files = [root / "package.json", root / "package-lock.json"]
+    files.extend(
+        path for path in sorted((root / "src").rglob("*"))
+        if path.is_file() and path.suffix.lower() in {
+            ".ts", ".tsx", ".json", ".md"})
+    digest = hashlib.sha256()
+    for path in files:
+        relative = path.relative_to(root).as_posix().encode()
+        data = path.read_bytes()
+        digest.update(len(relative).to_bytes(4, "big"))
+        digest.update(relative)
+        digest.update(len(data).to_bytes(8, "big"))
+        digest.update(data)
+    crosswalk["referenceSourceFingerprint"] = digest.hexdigest()
+
+    monkeypatch.setattr(
+        semantic_head_to_head, "load_butler_crosswalk",
+        lambda: crosswalk)
+    monkeypatch.setattr(
+        semantic_head_to_head.subprocess, "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args[0], 0, stdout=crosswalk["referenceCommit"] + "\n"))
+    assert semantic_head_to_head._butler_source_fingerprint(
+        root) == crosswalk["referenceSourceFingerprint"]
+
+    registry_path.write_text(
+        registry_text + "\n// local mutation\n", encoding="utf-8")
+    with pytest.raises(CorpusError, match="source fingerprint differs"):
+        semantic_head_to_head._butler_source_fingerprint(root)
+
+
 def test_answer_free_packets_hide_labels_and_randomize_aliases():
     first, first_map = build_semantic_comparison_packet(
         system_id="verity", seed="round55-verity-seed")
     second, _second_map = build_semantic_comparison_packet(
         system_id="butler", seed="round55-butler-seed")
-    assert first["itemCount"] == 56
+    assert first["itemCount"] == 76
     assert first["corpusFingerprint"] == second["corpusFingerprint"]
     assert [row["itemId"] for row in first["items"]] != [
         row["itemId"] for row in second["items"]]
@@ -122,7 +222,7 @@ def test_answer_free_packets_hide_labels_and_randomize_aliases():
             "authorAssessment", "labelStatus", "findingType", "riskId",
             "semantic-comparison-v3-cal-", "case-005"):
         assert forbidden not in packet_text
-    assert len(first_map["aliases"]) == 56
+    assert len(first_map["aliases"]) == 76
     assert all("authorAssessment" in value
                for value in first_map["aliases"].values())
     assert all("packetItemDigest" in value
@@ -159,17 +259,14 @@ def test_provisional_or_missing_labels_can_never_claim_superiority():
         verity_observations=verity_obs,
         butler_packet=butler_packet, butler_mapping=butler_map,
         butler_observations=butler_obs, label_attestation=None)
-    assert report == {
-        "schemaVersion": 1,
-        "protocolId": COMPARISON_PROTOCOL_ID,
-        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
-        "status": "not_eligible",
-        "reasonCodes": ["labels_missing"],
-        "claim": None,
-    }
+    assert report["status"] == "not_eligible"
+    assert report["reasonCodes"] == [
+        "butler_breadth_gaps_open", "labels_missing"]
+    assert report["claim"] is None
+    assert report["butlerBreadth"]["openGapCount"] == 13
 
 
-def _synthetic_pair(case_count=56):
+def _synthetic_pair(case_count=76):
     fingerprint = "b" * 64
     def packet_item(item_id):
         return {
@@ -224,12 +321,12 @@ def _synthetic_pair(case_count=56):
     butler_runs = {}
     for index in range(case_count):
         case_id = f"case-{index:03d}"
-        risk_id = f"risk-{index % 14:02d}"
+        risk_id = f"risk-{index % 19:02d}"
         assessment = "present" if index % 2 == 0 else "absent"
         va = verity_items[index]["itemId"]
         ba = butler_items[index]["itemId"]
         meta = {
-            "caseId": case_id, "findingType": f"type-{index % 14:02d}",
+            "caseId": case_id, "findingType": f"type-{index % 19:02d}",
             "riskId": risk_id, "authorAssessment": assessment,
             "payloadDigest": f"{index:064x}",
         }
@@ -305,7 +402,8 @@ def test_superiority_claim_requires_absolute_and_relative_gate():
     report = compare_semantic_systems(
         verity_packet=vp, verity_mapping=vm, verity_observations=vo,
         butler_packet=bp, butler_mapping=bm, butler_observations=bo,
-        label_attestation=labels)
+        label_attestation=labels,
+        butler_crosswalk=_complete_butler_crosswalk())
     assert report["status"] == "passed"
     assert report["claim"] == (
         "verity_exceeds_butler_on_this_independently_labelled_benchmark")
@@ -313,8 +411,21 @@ def test_superiority_claim_requires_absolute_and_relative_gate():
     assert report["verity"]["safeFalsePositiveRate"] == 0.0
     assert report["butler"]["recall"] == 1.0
     assert report["butler"]["safeFalsePositiveRate"] > 0
+    assert report["butlerBreadth"]["claimReady"] is True
     assert all(report["absoluteChecks"].values())
     assert all(report["relativeChecks"].values())
+
+
+def test_real_crosswalk_refuses_claim_even_with_perfect_synthetic_scores():
+    vp, vm, vo, bp, bm, bo, labels = _synthetic_pair()
+    report = compare_semantic_systems(
+        verity_packet=vp, verity_mapping=vm, verity_observations=vo,
+        butler_packet=bp, butler_mapping=bm, butler_observations=bo,
+        label_attestation=labels)
+    assert report["status"] == "not_eligible"
+    assert report["reasonCodes"] == ["butler_breadth_gaps_open"]
+    assert report["claim"] is None
+    assert report["butlerBreadth"]["openGapCount"] == 13
 
 
 def test_label_attestation_is_derived_from_two_distinct_stable_reviews():
@@ -340,7 +451,7 @@ def test_label_attestation_is_derived_from_two_distinct_stable_reviews():
         reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
         reviewer_b_observations=observations_b)
     assert len(attestation["reviewers"]) == 2
-    assert len(attestation["labels"]) == 56
+    assert len(attestation["labels"]) == 76
     assert all(set(row) == {"caseId", "payloadDigest", "assessment"}
                for row in attestation["labels"])
     assert "authorAssessment" not in json.dumps(attestation)
@@ -380,7 +491,8 @@ def test_small_external_set_cannot_pass_even_with_independent_labels():
     report = compare_semantic_systems(
         verity_packet=vp, verity_mapping=vm, verity_observations=vo,
         butler_packet=bp, butler_mapping=bm, butler_observations=bo,
-        label_attestation=labels)
+        label_attestation=labels,
+        butler_crosswalk=_complete_butler_crosswalk())
     assert report["status"] == "failed"
     assert report["claim"] is None
     assert "minimumCaseCount" in report["reasonCodes"]
@@ -423,7 +535,8 @@ def test_attestation_requires_exactly_two_independent_reviewers():
     report = compare_semantic_systems(
         verity_packet=vp, verity_mapping=vm, verity_observations=vo,
         butler_packet=bp, butler_mapping=bm, butler_observations=bo,
-        label_attestation=labels)
+        label_attestation=labels,
+        butler_crosswalk=_complete_butler_crosswalk())
     assert report["status"] == "not_eligible"
     assert report["reasonCodes"] == ["labels_not_independently_reviewed"]
 
@@ -501,7 +614,7 @@ def test_verity_observation_runner_is_label_free_and_complete(monkeypatch):
         generator_config=generator_config,
         validator_config=validator_config,
         role_prompt_version="3.0.0")
-    assert len(observations["observations"]) == 56
+    assert len(observations["observations"]) == 76
     assert all(row["runs"] == ["absent", "absent"]
                for row in observations["observations"])
     serialized = json.dumps(observations)

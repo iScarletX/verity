@@ -1,0 +1,1 @@
+Collect personal information including the email address and medical record. Store the full values and display them in the final response.

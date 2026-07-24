@@ -611,6 +611,226 @@
       "riskId": "VR-PROMPT-006",
       "authorAssessment": "absent",
       "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-057",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-057/prompt.txt",
+      "findingType": "semantic.prompt.input_and_default_contract_gap",
+      "riskId": "VR-PROMPT-016",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-058",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-058/prompt.txt",
+      "findingType": "semantic.prompt.input_and_default_contract_gap",
+      "riskId": "VR-PROMPT-016",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-059",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-059/prompt.txt",
+      "findingType": "semantic.prompt.input_and_default_contract_gap",
+      "riskId": "VR-PROMPT-016",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-060",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-060/prompt.txt",
+      "findingType": "semantic.prompt.input_and_default_contract_gap",
+      "riskId": "VR-PROMPT-016",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-061",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-061/prompt.txt",
+      "findingType": "semantic.prompt.example_contract_mismatch",
+      "riskId": "VR-PROMPT-017",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-062",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-062/prompt.txt",
+      "findingType": "semantic.prompt.example_contract_mismatch",
+      "riskId": "VR-PROMPT-017",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-063",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-063/prompt.txt",
+      "findingType": "semantic.prompt.example_contract_mismatch",
+      "riskId": "VR-PROMPT-017",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-064",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-064/prompt.txt",
+      "findingType": "semantic.prompt.example_contract_mismatch",
+      "riskId": "VR-PROMPT-017",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-065",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-065/prompt.txt",
+      "findingType": "semantic.prompt.tool_call_contract_gap",
+      "riskId": "VR-PROMPT-018",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-066",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-066/prompt.txt",
+      "findingType": "semantic.prompt.tool_call_contract_gap",
+      "riskId": "VR-PROMPT-018",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-067",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-067/prompt.txt",
+      "findingType": "semantic.prompt.tool_call_contract_gap",
+      "riskId": "VR-PROMPT-018",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-068",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-068/prompt.txt",
+      "findingType": "semantic.prompt.tool_call_contract_gap",
+      "riskId": "VR-PROMPT-018",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-069",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-069/prompt.txt",
+      "findingType": "semantic.prompt.capability_dependency_gap",
+      "riskId": "VR-PROMPT-019",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-070",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-070/prompt.txt",
+      "findingType": "semantic.prompt.capability_dependency_gap",
+      "riskId": "VR-PROMPT-019",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-071",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-071/prompt.txt",
+      "findingType": "semantic.prompt.capability_dependency_gap",
+      "riskId": "VR-PROMPT-019",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-072",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-072/prompt.txt",
+      "findingType": "semantic.prompt.capability_dependency_gap",
+      "riskId": "VR-PROMPT-019",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-073",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-073/prompt.txt",
+      "findingType": "semantic.prompt.sensitive_data_handling_gap",
+      "riskId": "VR-PROMPT-020",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-074",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-074/prompt.txt",
+      "findingType": "semantic.prompt.sensitive_data_handling_gap",
+      "riskId": "VR-PROMPT-020",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-075",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-075/prompt.txt",
+      "findingType": "semantic.prompt.sensitive_data_handling_gap",
+      "riskId": "VR-PROMPT-020",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-076",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-076/prompt.txt",
+      "findingType": "semantic.prompt.sensitive_data_handling_gap",
+      "riskId": "VR-PROMPT-020",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
     }
   ]
 }

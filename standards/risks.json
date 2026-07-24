@@ -1435,6 +1435,201 @@
         "No black-box leakage measurement"
       ],
       "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-016",
+      "title": "Input and default behavior contract is incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A task with explicit input dependencies omits a material requiredness, missing-input, invalid-input, or default behavior contract.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION",
+            "INFORMATION-INTEGRITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate explicit input vocabulary but cannot decide which inputs are operationally necessary or whether an upstream schema owns the contract.",
+        "L1_semantic": "May judge requiredness, missing/invalid input handling, and safe defaults for evidenced task dependencies.",
+        "V1_5_blackbox": "May inject missing, empty, malformed, oversized, and unsupported inputs and score the resulting behavior.",
+        "V2_sandbox": "May observe runtime validation only for a future isolated Skill execution."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Trigger vocabulary is not a complete input-schema parser",
+        "Cannot inspect an unseen application-owned request schema",
+        "Semantic materiality judgment remains model-dependent and advisory",
+        "No malformed-input execution"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-017",
+      "title": "Normative examples conflict with the declared contract",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "Examples presented as normative guidance contradict a declared rule or schema, or are relied upon to define behavior while omitting a material boundary or failure branch.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION",
+            "INFORMATION-INTEGRITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate repeated literals but cannot reliably associate normative rules with example fields and behavior.",
+        "L1_semantic": "May compare cited examples with required fields, enums, formats, language, boundaries, and failure behavior.",
+        "V1_5_blackbox": "May measure whether the configured model follows the conflicting rule or example.",
+        "V2_sandbox": "Not applicable."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No general parser for arbitrary few-shot formats",
+        "Illustrative versus exhaustive intent can remain ambiguous",
+        "Semantic comparison remains model-dependent and advisory"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-018",
+      "title": "Tool invocation contract is incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A required tool, function, or API invocation lacks a material invocation condition, parameter provenance, result schema, or bounded error contract.",
+      "sourceRefs": [
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM06"
+          ]
+        },
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "VALUE-CHAIN-COMPONENT-INTEGRATION",
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate tool-call vocabulary and some missing failure markers but cannot bind arguments, provenance, and result contracts.",
+        "L1_semantic": "May judge invocation conditions, argument sources, result shape, and material failure behavior against cited evidence.",
+        "V1_5_blackbox": "May run fake tools with malformed arguments and responses and score retries, validation, and side effects.",
+        "V2_sandbox": "May observe real Skill tool behavior only inside future isolation."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Cannot inspect a referenced but unseen registered tool schema",
+        "No execution-time argument or result validation",
+        "Semantic contract judgment remains model-dependent and advisory"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-019",
+      "title": "Required model or platform capability is undeclared",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A task materially depends on realtime data, web access, media understanding, persistent memory, context capacity, or a plugin without declaring how that capability is provided or how to degrade.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "VALUE-CHAIN-COMPONENT-INTEGRATION",
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May signal a pinned model or endpoint without fallback but cannot establish deployed capabilities.",
+        "L1_semantic": "May judge whether a non-intrinsic capability is required, explicitly provided, or safely degraded.",
+        "V1_5_blackbox": "May run with capabilities disabled and score hallucination, refusal, and fallback behavior.",
+        "V2_sandbox": "May expose only explicitly granted fake capabilities to an isolated Skill."
+      },
+      "currentCoverage": {
+        "L0_static": "signal",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Cannot infer trusted deployment configuration from the prompt alone",
+        "Capability vocabulary is not exhaustive",
+        "No configured-model capability registry",
+        "No black-box capability removal test"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-020",
+      "title": "Sensitive data handling policy is incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A prompt directs handling of personal, contact, medical, financial, or credential data while omitting a proportionate minimization, redaction, authorization, retention, or disclosure boundary.",
+      "sourceRefs": [
+        {
+          "sourceId": "OWASP-LLM-2025",
+          "controlIds": [
+            "LLM02"
+          ]
+        },
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "DATA-PRIVACY",
+            "INFORMATION-SECURITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May detect literal secrets but cannot establish data minimization, authorization, retention, or disclosure policy.",
+        "L1_semantic": "May judge whether declared sensitive-data actions have proportionate handling boundaries.",
+        "V1_5_blackbox": "May inject synthetic sensitive values and measure masking, refusal, and unauthorized disclosure.",
+        "V2_sandbox": "May use fake credentials and synthetic data to observe isolated Skill access and exfiltration attempts."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No legal-jurisdiction or organization-policy determination",
+        "Cannot inspect an unseen external authorization layer",
+        "Data-classification vocabulary is not exhaustive",
+        "No synthetic-data black-box measurement"
+      ],
+      "evaluationReference": null
     }
   ]
 }

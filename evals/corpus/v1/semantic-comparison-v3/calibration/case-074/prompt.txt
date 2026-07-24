@@ -1,0 +1,1 @@
+Collect only the email address needed for an authorized support case. Minimize collection, mask it in output, enforce access control, obtain consent, and delete it after the stated retention period.

@@ -165,6 +165,7 @@ REQUIRED_FILES = [
     "evals/corpus/v1/semantic_replay.json",
     "evals/corpus/v1/semantic_quality.json",
     "evals/corpus/v1/semantic_comparison_v3.json",
+    "evals/reference/butler_crosswalk.json",
     "evals/reports/corpus-v1-l0.json",
     "evals/reports/corpus-v1-semantic-contract.json",
     "evals/reports/v1-closure.json",
@@ -483,7 +484,7 @@ def check_corpus_baselines(rep: VerifyReport) -> None:
         rep.append_fail("corpus_baselines", detail)
         return
     rep.append_ok("corpus_baselines",
-                  "80 L0 cases + 28 semantic contract replays reproducible")
+                  "80 L0 cases + 38 semantic contract replays reproducible")
 
 
 def check_v1_closure_baseline(rep: VerifyReport) -> None:
@@ -579,12 +580,15 @@ def check_semantic_comparison_protocol(rep: VerifyReport) -> None:
     try:
         sys.path.insert(0, str(REPO / "src"))
         from verity.semantic_benchmark import (
+            butler_breadth_summary,
             build_semantic_comparison_packet,
             compare_semantic_systems,
+            load_butler_crosswalk,
             load_semantic_comparison_manifest,
             validate_semantic_comparison_seed_coverage)
         manifest = load_semantic_comparison_manifest()
         checked = validate_semantic_comparison_seed_coverage()
+        breadth = butler_breadth_summary(load_butler_crosswalk())
         verity_packet, verity_map = build_semantic_comparison_packet(
             system_id="verity", seed="verify-repo-verity-seed")
         butler_packet, butler_map = build_semantic_comparison_packet(
@@ -611,8 +615,13 @@ def check_semantic_comparison_protocol(rep: VerifyReport) -> None:
             butler_packet=butler_packet, butler_mapping=butler_map,
             butler_observations=observations(butler_packet),
             label_attestation=None)
-        if (len(manifest["cases"]) != 56 or checked != 56
+        if (len(manifest["cases"]) != 76 or checked != 76
+                or breadth.get("inventoryCount") != 45
+                or breadth.get("openGapCount") != 13
+                or breadth.get("claimReady") is not False
                 or report.get("status") != "not_eligible"
+                or "butler_breadth_gaps_open"
+                not in report.get("reasonCodes", [])
                 or report.get("claim") is not None):
             raise ValueError("semantic comparison development gate mismatch")
     except Exception as exc:
@@ -620,8 +629,9 @@ def check_semantic_comparison_protocol(rep: VerifyReport) -> None:
         return
     rep.append_ok(
         "semantic_comparison_protocol",
-        "56 fresh paired calibration cases; labels provisional; "
-        "superiority claim refused; no model called")
+        "76 fresh paired calibration cases; Butler inventory=45 with "
+        "13 open breadth gaps; labels provisional; superiority claim "
+        "refused; no model called")
 
 
 def check_scoring_policy(rep: VerifyReport) -> None:

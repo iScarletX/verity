@@ -123,6 +123,16 @@ def _metadata_view(metadata: Dict[str, Any]) -> Dict[str, Any]:
             "exposureSignalCount", "containmentSignalCount",
             "requirementSignalCount", "verificationSignalCount",
             "downstreamSignalCount",
+            "inputSignalCount", "requirednessSignalCount",
+            "defaultSignalCount", "invalidInputSignalCount",
+            "handlingSignalCount", "exampleSignalCount", "ruleSignalCount",
+            "boundaryExampleSignalCount", "failureExampleSignalCount",
+            "exampleQualitySignalCount",
+            "toolCallSignalCount", "invocationSignalCount",
+            "parameterSignalCount", "resultContractSignalCount",
+            "capabilitySignalCount", "provisionSignalCount",
+            "fallbackSignalCount", "sensitiveDataSignalCount",
+            "dataActionSignalCount", "dataControlSignalCount",
         )
         view = {
             "evidenceRole": role,

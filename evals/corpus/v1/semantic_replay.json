@@ -558,6 +558,206 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-input-contract-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/input-contract-positive/prompt.txt",
+      "findingType": "semantic.prompt.input_and_default_contract_gap",
+      "riskId": "VR-PROMPT-016",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "gapKind": "missing_input"
+      },
+      "claim": "The required input fields have no missing or invalid input behavior.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-input-contract-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/input-contract-safe/prompt.txt",
+      "findingType": "semantic.prompt.input_and_default_contract_gap",
+      "riskId": "VR-PROMPT-016",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "gapKind": "missing_input"
+      },
+      "claim": "The required input fields have no missing or invalid input behavior.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-example-contract-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/example-contract-positive/prompt.txt",
+      "findingType": "semantic.prompt.example_contract_mismatch",
+      "riskId": "VR-PROMPT-017",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "exampleGapKind": "schema_mismatch"
+      },
+      "claim": "The normative JSON example omits the required fields and uses a conflicting field.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-example-contract-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/example-contract-safe/prompt.txt",
+      "findingType": "semantic.prompt.example_contract_mismatch",
+      "riskId": "VR-PROMPT-017",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "exampleGapKind": "schema_mismatch"
+      },
+      "claim": "The normative JSON example omits the required fields and uses a conflicting field.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-tool-call-contract-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/tool-call-contract-positive/prompt.txt",
+      "findingType": "semantic.prompt.tool_call_contract_gap",
+      "riskId": "VR-PROMPT-018",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "contractGapKind": "parameter_provenance"
+      },
+      "claim": "The invoice function call lacks argument provenance, result shape, and bounded failure behavior.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-tool-call-contract-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/tool-call-contract-safe/prompt.txt",
+      "findingType": "semantic.prompt.tool_call_contract_gap",
+      "riskId": "VR-PROMPT-018",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "contractGapKind": "parameter_provenance"
+      },
+      "claim": "The invoice function call lacks argument provenance, result shape, and bounded failure behavior.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-capability-dependency-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/capability-dependency-positive/prompt.txt",
+      "findingType": "semantic.prompt.capability_dependency_gap",
+      "riskId": "VR-PROMPT-019",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "dependencyKind": "web_access"
+      },
+      "claim": "The task requires live web data without providing a browser or an unavailable-capability fallback.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-capability-dependency-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/capability-dependency-safe/prompt.txt",
+      "findingType": "semantic.prompt.capability_dependency_gap",
+      "riskId": "VR-PROMPT-019",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "dependencyKind": "web_access"
+      },
+      "claim": "The task requires live web data without providing a browser or an unavailable-capability fallback.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-sensitive-data-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/sensitive-data-positive/prompt.txt",
+      "findingType": "semantic.prompt.sensitive_data_handling_gap",
+      "riskId": "VR-PROMPT-020",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "dataPolicyKind": "disclosure"
+      },
+      "claim": "The system prompt stores and displays full personal and medical data without handling boundaries.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-sensitive-data-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/sensitive-data-safe/prompt.txt",
+      "findingType": "semantic.prompt.sensitive_data_handling_gap",
+      "riskId": "VR-PROMPT-020",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "dataPolicyKind": "disclosure"
+      },
+      "claim": "The system prompt stores and displays full personal and medical data without handling boundaries.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
     }
   ]
 }

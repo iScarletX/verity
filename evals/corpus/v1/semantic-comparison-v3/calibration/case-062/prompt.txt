@@ -1,0 +1,1 @@
+Return JSON. The id field is required and status must be one of queued or complete. Example output: {"id": "job-41", "status": "queued"}. For an invalid identifier, return {"error": "invalid_id"}.

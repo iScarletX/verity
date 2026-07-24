@@ -69,7 +69,7 @@ def test_detector_candidate_decisions_are_traceable_and_controlled():
 def test_every_runtime_detector_is_mapped_exactly_once():
     validate_runtime_detector_coverage()
     mappings = load_detector_mappings()
-    assert len(mappings) == 68  # 53 rules + 1 fact extractor + 14 semantic
+    assert len(mappings) == 73  # 53 rules + 1 fact extractor + 19 semantic
 
 
 def test_taxonomy_exposes_known_high_value_gaps():

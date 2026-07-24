@@ -61,7 +61,7 @@ def _skill_request(relative_path, finding_type):
 
 
 def test_every_semantic_type_has_a_falsifiable_judgment_policy():
-    assert len(CATALOG) == 14
+    assert len(CATALOG) == 19
     for finding_type, (definition, _extractor) in CATALOG.items():
         policy = definition.judgmentPolicy
         assert policy.appliesWhen, finding_type
@@ -274,6 +274,16 @@ def test_read_permission_does_not_match_fixed_process_target():
          "reasoning-exposure-positive", "reasoning-exposure-safe"),
         ("semantic.prompt.verification_step_gap",
          "verification-step-gap-positive", "verification-step-gap-safe"),
+        ("semantic.prompt.input_and_default_contract_gap",
+         "input-contract-positive", "input-contract-safe"),
+        ("semantic.prompt.example_contract_mismatch",
+         "example-contract-positive", "example-contract-safe"),
+        ("semantic.prompt.tool_call_contract_gap",
+         "tool-call-contract-positive", "tool-call-contract-safe"),
+        ("semantic.prompt.capability_dependency_gap",
+         "capability-dependency-positive", "capability-dependency-safe"),
+        ("semantic.prompt.sensitive_data_handling_gap",
+         "sensitive-data-positive", "sensitive-data-safe"),
     ],
 )
 def test_new_semantic_types_route_positive_and_safe_counterexamples(
@@ -285,3 +295,22 @@ def test_new_semantic_types_route_positive_and_safe_counterexamples(
         assert request["judgmentPolicy"]["rejectWhen"]
         assert request["evidence"][0]["metadata"]["evidenceRole"] in {
             "prompt_analysis", "output_contract", "prompt_constraint"}
+
+
+def test_example_quality_and_user_prompt_privacy_produce_bounded_evidence():
+    example_request = _prompt_request(
+        "These few-shot examples are representative of the real input "
+        "distribution, but contain only outdated English consumer records.",
+        "semantic.prompt.example_contract_mismatch")
+    assert (
+        example_request["evidence"][0]["metadata"]
+        ["exampleQualitySignalCount"] >= 3)
+
+    privacy_request = _prompt_request(
+        "Collect personal data and display each email address in the answer.",
+        "semantic.prompt.sensitive_data_handling_gap",
+        prompt_kind="user_prompt")
+    assert privacy_request["promptKind"] == "user_prompt"
+    assert (
+        privacy_request["evidence"][0]["metadata"]
+        ["sensitiveDataSignalCount"] >= 2)

@@ -1,0 +1,1 @@
+Use a function call to issue_refund only when an approved refund_id is present. The parameter source is the validated order record, and the JSON schema requires refund_id and amount. The result schema contains transaction_id and state. On tool failure, return a structured error and do not claim success.

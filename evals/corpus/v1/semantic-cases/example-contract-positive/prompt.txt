@@ -1,0 +1,1 @@
+The output must use JSON with required fields status and items. Example output: {"result": "ok"}.

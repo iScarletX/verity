@@ -613,10 +613,10 @@ def extract_failure_strategy_gap(review_dict, file_bytes):
 
 _VAGUE_CRITERIA_TERMS = (
     "appropriate", "reasonable", "as needed", "when necessary",
-    "sufficiently", "high quality", "brief", "concise", "complex",
+    "sufficiently", "high quality", "brief", "concise", "detailed",
+    "comprehensive", "complex",
     "long content", "content is long", "适当", "合理", "酌情", "必要时",
-    "尽量", "足够",
-    "高质量", "简洁", "复杂", "内容较长",
+    "尽量", "足够", "高质量", "简洁", "详细", "详尽", "复杂", "内容较长",
 )
 _BOUNDARY_CRITERIA_TERMS = (
     "at least", "at most", "exactly", "between ", "if ", "when ",
@@ -739,6 +739,243 @@ def extract_verification_step_gap(review_dict, file_bytes):
         review_dict, file_bytes, triggers=_VERIFICATION_TASK_TERMS,
         producer_id="extractor.prompt.verification_step_gap",
         metadata_builder=_verification_metadata)
+
+
+_INPUT_DEPENDENCY_TERMS = (
+    "required input", "input field", "input fields", "request parameter",
+    "user provides", "user-provided", "form field", "request body",
+    "必填输入", "输入字段", "请求参数", "用户提供", "表单字段", "请求体",
+)
+_INPUT_REQUIREDNESS_TERMS = (
+    "required", "optional", "must provide", "may omit", "必填", "选填",
+    "必须提供", "可以省略",
+)
+_INPUT_DEFAULT_TERMS = (
+    "default", "assume", "clarify", "ask the user", "if missing",
+    "use null", "reject the request", "默认", "假设", "追问", "询问用户",
+    "缺失时", "使用 null", "拒绝请求",
+)
+_INPUT_INVALID_TERMS = (
+    "empty", "malformed", "invalid", "oversized", "too long",
+    "unsupported", "空输入", "格式错误", "无效", "超长", "不支持",
+)
+_INPUT_HANDLING_TERMS = (
+    "return an error", "structured error", "request clarification",
+    "do not guess", "normalize", "validate", "返回错误", "结构化错误",
+    "请求补充", "不得猜测", "规范化", "校验",
+)
+
+
+def _input_contract_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["declared_input_dependency"],
+        inputSignalCount=sum(text.count(x) for x in _INPUT_DEPENDENCY_TERMS),
+        requirednessSignalCount=sum(
+            text.count(x) for x in _INPUT_REQUIREDNESS_TERMS),
+        defaultSignalCount=sum(text.count(x) for x in _INPUT_DEFAULT_TERMS),
+        invalidInputSignalCount=sum(
+            text.count(x) for x in _INPUT_INVALID_TERMS),
+        handlingSignalCount=sum(
+            text.count(x) for x in _INPUT_HANDLING_TERMS),
+    )
+
+
+def extract_input_and_default_contract_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_INPUT_DEPENDENCY_TERMS,
+        producer_id="extractor.prompt.input_and_default_contract_gap",
+        metadata_builder=_input_contract_metadata)
+
+
+_EXAMPLE_TERMS = (
+    "example", "examples", "few-shot", "few shot", "sample input",
+    "sample output", "示例", "样例", "输入样本", "输出样本",
+)
+_EXAMPLE_RULE_TERMS = (
+    "must", "required", "always", "never", "schema", "format",
+    "field", "enum", "必须", "应当", "始终", "不得", "结构", "格式",
+    "字段", "枚举",
+)
+_EXAMPLE_BOUNDARY_TERMS = (
+    "boundary", "edge case", "minimum", "maximum", "empty",
+    "边界", "极值", "最小", "最大", "空输入",
+)
+_EXAMPLE_FAILURE_TERMS = (
+    "error example", "failure example", "invalid example", "rejection example",
+    "错误示例", "失败示例", "无效示例", "拒绝示例",
+)
+_EXAMPLE_QUALITY_TERMS = (
+    "representative", "input distribution", "real distribution", "outdated",
+    "stale example", "positive example", "negative example", "counterexample",
+    "有代表性", "输入分布", "真实分布", "过时", "陈旧", "正例", "反例",
+)
+
+
+def _example_contract_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["normative_examples"],
+        exampleSignalCount=sum(text.count(x) for x in _EXAMPLE_TERMS),
+        ruleSignalCount=sum(text.count(x) for x in _EXAMPLE_RULE_TERMS),
+        boundaryExampleSignalCount=sum(
+            text.count(x) for x in _EXAMPLE_BOUNDARY_TERMS),
+        failureExampleSignalCount=sum(
+            text.count(x) for x in _EXAMPLE_FAILURE_TERMS),
+        exampleQualitySignalCount=sum(
+            text.count(x) for x in _EXAMPLE_QUALITY_TERMS),
+    )
+
+
+def extract_example_contract_mismatch(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes,
+        triggers=_EXAMPLE_TERMS,
+        producer_id="extractor.prompt.example_contract_mismatch",
+        metadata_builder=_example_contract_metadata)
+
+
+_TOOL_CALL_TERMS = (
+    "tool call", "function call", "call the api", "api call",
+    "invoke the tool", "invoke the function", "工具调用", "函数调用",
+    "调用 api", "调用工具", "调用函数",
+)
+_TOOL_INVOCATION_TERMS = (
+    "when to call", "call only when", "precondition", "trigger condition",
+    "何时调用", "仅当", "前置条件", "触发条件",
+)
+_TOOL_PARAMETER_TERMS = (
+    "parameter", "argument", "json schema", "parameter source",
+    "参数", "入参", "参数 schema", "参数来源",
+)
+_TOOL_RESULT_TERMS = (
+    "return schema", "result schema", "tool result", "response field",
+    "返回结构", "结果结构", "工具结果", "响应字段",
+)
+
+
+def _tool_contract_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["required_tool_invocation"],
+        toolCallSignalCount=sum(text.count(x) for x in _TOOL_CALL_TERMS),
+        invocationSignalCount=sum(
+            text.count(x) for x in _TOOL_INVOCATION_TERMS),
+        parameterSignalCount=sum(
+            text.count(x) for x in _TOOL_PARAMETER_TERMS),
+        resultContractSignalCount=sum(
+            text.count(x) for x in _TOOL_RESULT_TERMS),
+        strategySignalCount=sum(
+            text.count(x) for x in _FAILURE_STRATEGY_TERMS),
+    )
+
+
+def extract_tool_call_contract_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_TOOL_CALL_TERMS,
+        producer_id="extractor.prompt.tool_call_contract_gap",
+        metadata_builder=_tool_contract_metadata)
+
+
+_CAPABILITY_DEPENDENCY_TERMS = (
+    "real-time", "latest information", "current price", "browse the web",
+    "web access", "vision", "analyze the image", "audio input",
+    "persistent memory", "context window", "plugin", "browser tool",
+    "实时", "最新信息", "当前价格", "浏览网页", "联网", "视觉",
+    "分析图片", "音频输入", "持久记忆", "上下文窗口", "插件", "浏览器工具",
+)
+_CAPABILITY_PROVISION_TERMS = (
+    "provided tool", "tool is available", "using the supplied",
+    "input includes", "attached image", "retrieved results", "提供的工具",
+    "工具可用", "使用给定", "输入包含", "已附图片", "检索结果",
+)
+_CAPABILITY_FALLBACK_TERMS = (
+    "if unavailable", "fallback", "ask the user to provide",
+    "state that it is unavailable", "无法使用时", "回退", "请用户提供",
+    "说明无法获取",
+)
+
+
+def _capability_dependency_metadata(text):
+    kinds = [
+        name for name, terms in (
+            ("realtime", ("real-time", "latest information", "current price",
+                          "实时", "最新信息", "当前价格")),
+            ("web", ("browse the web", "web access", "browser tool",
+                     "浏览网页", "联网", "浏览器工具")),
+            ("vision", ("vision", "analyze the image", "视觉", "分析图片")),
+            ("audio", ("audio input", "音频输入")),
+            ("memory", ("persistent memory", "持久记忆")),
+            ("context", ("context window", "上下文窗口")),
+            ("plugin", ("plugin", "插件")),
+        ) if any(term in text for term in terms)
+    ]
+    return _prompt_analysis_metadata(
+        signal_families=["non_intrinsic_model_capability"],
+        operationKinds=kinds,
+        capabilitySignalCount=sum(
+            text.count(x) for x in _CAPABILITY_DEPENDENCY_TERMS),
+        provisionSignalCount=sum(
+            text.count(x) for x in _CAPABILITY_PROVISION_TERMS),
+        fallbackSignalCount=sum(
+            text.count(x) for x in _CAPABILITY_FALLBACK_TERMS),
+    )
+
+
+def extract_capability_dependency_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_CAPABILITY_DEPENDENCY_TERMS,
+        producer_id="extractor.prompt.capability_dependency_gap",
+        metadata_builder=_capability_dependency_metadata)
+
+
+_SENSITIVE_DATA_TERMS = (
+    "personal data", "personal information", "pii", "email address",
+    "phone number", "home address", "medical record", "financial account",
+    "credential", "api key", "个人数据", "个人信息", "邮箱地址", "电话号码",
+    "家庭住址", "医疗记录", "金融账户", "凭据", "密钥",
+)
+_SENSITIVE_DATA_ACTION_TERMS = (
+    "collect", "store", "retain", "send", "share", "display", "output",
+    "process", "summarize", "收集", "存储", "保留", "发送", "共享",
+    "展示", "输出", "处理", "总结",
+)
+_SENSITIVE_DATA_CONTROL_TERMS = (
+    "minimize", "redact", "mask", "consent", "authorized", "access control",
+    "retention period", "do not expose", "最小化", "脱敏", "掩码", "同意",
+    "授权", "访问控制", "保留期限", "不得泄露",
+)
+
+
+def _sensitive_data_metadata(text):
+    kinds = [
+        name for name, terms in (
+            ("identity", ("personal data", "personal information", "pii",
+                          "个人数据", "个人信息")),
+            ("contact", ("email address", "phone number", "home address",
+                         "邮箱地址", "电话号码", "家庭住址")),
+            ("medical", ("medical record", "医疗记录")),
+            ("financial", ("financial account", "金融账户")),
+            ("credential", ("credential", "api key", "凭据", "密钥")),
+        ) if any(term in text for term in terms)
+    ]
+    return _prompt_analysis_metadata(
+        signal_families=["sensitive_data_handling"],
+        operationKinds=kinds,
+        sensitiveDataSignalCount=sum(
+            text.count(x) for x in _SENSITIVE_DATA_TERMS),
+        dataActionSignalCount=sum(
+            text.count(x) for x in _SENSITIVE_DATA_ACTION_TERMS),
+        dataControlSignalCount=sum(
+            text.count(x) for x in _SENSITIVE_DATA_CONTROL_TERMS),
+    )
+
+
+def extract_sensitive_data_handling_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes,
+        triggers=_SENSITIVE_DATA_TERMS + _SENSITIVE_DATA_ACTION_TERMS,
+        require_all_groups=(_SENSITIVE_DATA_TERMS,
+                            _SENSITIVE_DATA_ACTION_TERMS),
+        producer_id="extractor.prompt.sensitive_data_handling_gap",
+        metadata_builder=_sensitive_data_metadata)
 
 
 def extract_trust_boundary_ambiguity(review_dict, file_bytes):
@@ -1448,6 +1685,176 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                     "Mark insufficient when unseen downstream validation may own the check.",
                 ]),
         ), extract_verification_step_gap,
+    ),
+
+    "semantic.prompt.input_and_default_contract_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.input_and_default_contract_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "gapKind", "enum",
+                enum=["requiredness", "missing_input", "invalid_input",
+                      "default_behavior"])],
+            subjectKeyFields=["gapKind"],
+            falsificationQuestion=(
+                "Does a task with explicit input dependencies omit a "
+                "material requiredness, missing-input, invalid-input, or "
+                "default behavior contract?"),
+            guidanceId="semantic.prompt.input_and_default_contract_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt names structured, required, or operationally necessary user inputs.",
+                    "The task can materially change or fail when such input is absent or invalid.",
+                ],
+                confirm=[
+                    "Necessary inputs are named but required versus optional status is materially unclear.",
+                    "A missing, empty, malformed, or unsupported input can occur and no clarification, safe default, validation, or refusal path is defined.",
+                ],
+                reject=[
+                    "The task accepts arbitrary conversational input and has no fixed input dependency.",
+                    "Requiredness, defaults, validation, and missing-input behavior are explicit for the material fields.",
+                    "A declared upstream schema owns the complete contract and the prompt names it unambiguously.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the required input schema exists only in an unseen application layer.",
+                ]),
+        ), extract_input_and_default_contract_gap,
+    ),
+
+    "semantic.prompt.example_contract_mismatch": (
+        SemanticFindingType(
+            findingType="semantic.prompt.example_contract_mismatch",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "exampleGapKind", "enum",
+                enum=["rule_mismatch", "schema_mismatch",
+                      "missing_boundary_example", "missing_failure_example",
+                      "stale_example", "distribution_mismatch"])],
+            subjectKeyFields=["exampleGapKind"],
+            falsificationQuestion=(
+                "Do normative examples materially contradict declared rules, "
+                "rely on stale assumptions, misrepresent the stated input "
+                "distribution, or omit a material boundary/failure branch?"),
+            guidanceId="semantic.prompt.example_contract_mismatch",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt contains examples that are presented as normative guidance or executable output shape.",
+                    "A rule, schema, boundary, failure behavior, temporal assumption, or declared input distribution can be compared with those examples.",
+                ],
+                confirm=[
+                    "An example violates a required field, enum, format, language, or behavioral rule.",
+                    "The prompt relies on examples to define behavior but covers only the happy path while a declared material boundary or failure branch remains undefined.",
+                    "An example relies on a materially stale fact, schema, capability, or policy assumption.",
+                    "Examples are presented as representative but materially exclude a declared input class or distribution segment.",
+                ],
+                reject=[
+                    "The example and rule are compatible after accounting for optional fields and stated variants.",
+                    "The example is explicitly illustrative rather than exhaustive.",
+                    "Boundary and failure behavior are defined textually even without a separate example.",
+                    "Examples are current and representative for the declared scope, or their limitations are explicit.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the cited evidence does not contain both the relevant rule and example.",
+                ]),
+        ), extract_example_contract_mismatch,
+    ),
+
+    "semantic.prompt.tool_call_contract_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.tool_call_contract_gap",
+            engine="prompt", defaultSeverity="high",
+            subjectFields=[SemanticSubjectField(
+                "contractGapKind", "enum",
+                enum=["invocation_condition", "parameter_provenance",
+                      "result_schema", "error_handling"])],
+            subjectKeyFields=["contractGapKind"],
+            falsificationQuestion=(
+                "Does a required tool or function invocation lack a material "
+                "condition, parameter provenance, result, or error contract?"),
+            guidanceId="semantic.prompt.tool_call_contract_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt directs the model to invoke a tool, function, or API rather than merely discuss one.",
+                ],
+                confirm=[
+                    "The invocation condition is materially ambiguous for a consequential or repeated call.",
+                    "Required arguments can be invented or sourced from untrusted text because provenance and validation are undefined.",
+                    "The result shape or failure behavior is required downstream but unspecified.",
+                ],
+                reject=[
+                    "A named registered schema explicitly owns arguments and result validation.",
+                    "Invocation conditions, argument sources, result shape, and bounded failure behavior are declared for the material call.",
+                    "The prompt only analyzes or drafts a possible call and cannot execute it.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the referenced tool schema is not present in evidence.",
+                ]),
+        ), extract_tool_call_contract_gap,
+    ),
+
+    "semantic.prompt.capability_dependency_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.capability_dependency_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "dependencyKind", "enum",
+                enum=["realtime_data", "web_access", "vision", "audio",
+                      "persistent_memory", "context_capacity", "plugin"])],
+            subjectKeyFields=["dependencyKind"],
+            falsificationQuestion=(
+                "Does the task require a non-intrinsic model capability "
+                "without declaring how it is provided or how to degrade?"),
+            guidanceId="semantic.prompt.capability_dependency_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The requested result materially depends on realtime data, web access, media understanding, persistent memory, unusually large context, or a plugin.",
+                ],
+                confirm=[
+                    "The capability is required but no tool, supplied input, target-platform guarantee, or fallback is declared.",
+                    "The prompt encourages fabricating the unavailable observation instead of stopping or requesting input.",
+                ],
+                reject=[
+                    "The target system explicitly provides the named capability or tool.",
+                    "The needed observation is supplied as input rather than fetched implicitly.",
+                    "A clear unavailable-capability fallback requests data or states the limitation.",
+                ],
+                insufficient=[
+                    "Mark insufficient when trusted deployment configuration may provide the capability but is not evidenced.",
+                ]),
+        ), extract_capability_dependency_gap,
+    ),
+
+    "semantic.prompt.sensitive_data_handling_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.sensitive_data_handling_gap",
+            engine="prompt", defaultSeverity="high",
+            subjectFields=[SemanticSubjectField(
+                "dataPolicyKind", "enum",
+                enum=["minimization", "redaction", "authorization",
+                      "retention", "disclosure"])],
+            subjectKeyFields=["dataPolicyKind"],
+            falsificationQuestion=(
+                "Does a prompt direct sensitive-data handling while "
+                "omitting a proportionate minimization, redaction, "
+                "authorization, retention, or disclosure boundary?"),
+            guidanceId="semantic.prompt.sensitive_data_handling_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt directs collection, storage, processing, sharing, or output of personal, medical, financial, contact, or credential data.",
+                ],
+                confirm=[
+                    "The action exposes or retains more sensitive data than the stated task requires.",
+                    "A material disclosure, authorization, redaction, or retention boundary is absent for the declared action.",
+                ],
+                reject=[
+                    "The prompt only warns against sensitive data and does not direct handling it.",
+                    "Collection is minimized and output is masked or redacted with explicit authorization and retention limits appropriate to the task.",
+                    "Only synthetic or already-public non-sensitive data is in scope.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the data classification or external access-control layer is not evidenced.",
+                ]),
+        ), extract_sensitive_data_handling_gap,
     ),
 }
 

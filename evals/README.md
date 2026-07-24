@@ -47,8 +47,8 @@ conflict, autonomy/approval boundary and failure-strategy pairs, remain
 `provisional_single_review`; they are intentionally excluded from the frozen
 attestation until a future review round covers them.
 
-`evals/corpus/v1/semantic_replay.json` contains 28 fixed Provider replay cases
-(confirmed/rejected pairs for all fourteen semantic Finding Types). These
+`evals/corpus/v1/semantic_replay.json` contains 38 fixed Provider replay cases
+(confirmed/rejected pairs for all nineteen semantic Finding Types). These
 measure only Candidate → Validation → Assessment contract behavior. They
 explicitly set `modelQualityMeasured: false` and do not call any external
 model.
@@ -153,13 +153,21 @@ consumed. Scrubbed reports live only in gitignored `.verity-data/model-evals/`.
 
 ## Fresh protocol-v3 Verity/Butler comparison
 
-`evals/corpus/v1/semantic_comparison_v3.json` contains 56 fresh cases: two
-unsafe and two safe counterexamples for each of the fourteen current semantic
+`evals/corpus/v1/semantic_comparison_v3.json` contains 76 fresh cases: two
+unsafe and two safe counterexamples for each of the nineteen current semantic
 Finding Types. Every case has a deterministic extractor seed, but all labels
 remain `provisional_single_review`. This committed development corpus therefore
 meets the minimum size for the comparison plumbing while remaining ineligible
 for a superiority claim until its payload-digest-bound labels are independently
 reviewed.
+
+`evals/reference/butler_crosswalk.json` freezes the complete 45-check Butler
+built-in inventory at the reference commit and classifies every item as
+covered, open, or deliberately not adopted. The current inventory has 32
+covered checks and 13 open gaps. The comparator refuses a superiority claim
+while any open gap remains, even if synthetic or real benchmark metrics pass.
+`covered` means at least one mapped detector materially addresses the check;
+it is not a complete-recall or evaluated-accuracy assertion.
 
 `tools/semantic_head_to_head.py` has five deliberately separate operations:
 
@@ -178,7 +186,7 @@ python3 tools/semantic_head_to_head.py run-verity \
   --api-key-env VERITY_EVAL_API_KEY \
   --repetitions 2 \
   --max-output-tokens 800 \
-  --max-total-calls 240 \
+  --max-total-calls 340 \
   --max-total-tokens '<approved-total-token-cap>' \
   --max-spend-usd '<approved-USD-cap>' \
   --generator-input-price-per-million '<provider-price>' \
@@ -237,9 +245,9 @@ to manufacture either independent review. Every review must be stable,
 decisive and unanimous across reviewers; names alone cannot establish
 independence. Every packet is rechecked for answer metadata when its alias map
 or observations cross a comparison boundary. The comparator requires at least
-56 cases, all fourteen risks, two repetitions, recall >=0.90, safe
-false-positive rate <=0.20, stability >=0.80, error rate <=0.05 and
-inconclusive rate <=0.10. It then additionally
+76 cases, all nineteen Finding Types, at least eighteen mapped risk ids, two
+repetitions, recall >=0.90, safe false-positive rate <=0.20, stability >=0.80,
+error rate <=0.05 and inconclusive rate <=0.10. It then additionally
 requires Verity recall to be non-inferior to Butler, Verity safe false
 positives to be strictly lower, and Verity errors to be no worse. Only that
 scoped, independently labelled benchmark may emit

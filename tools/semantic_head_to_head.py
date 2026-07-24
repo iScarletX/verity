@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from verity.semantic_benchmark import (
     build_semantic_comparison_packet,
     compare_semantic_systems,
     evaluate_verity_comparison_observations,
+    load_butler_crosswalk,
     validate_observations,
 )
 from verity.semantic.catalog import CATALOG
@@ -232,12 +234,23 @@ def _butler_source_fingerprint(root: Path) -> str:
     if not builtin_source.is_file():
         raise CorpusError("Butler built-in Skill registry missing")
     registry_text = builtin_source.read_text("utf-8")
-    for skill_ids in BUTLER_REFERENCE_SKILLS.values():
-        for skill_id in skill_ids:
-            if f"id: '{skill_id}'" not in registry_text:
-                raise CorpusError(
-                    f"Butler reference Skill missing: {skill_id}")
-    return digest.hexdigest()
+    crosswalk = load_butler_crosswalk()
+    expected_skill_ids = {
+        entry["butlerSkillId"] for entry in crosswalk["entries"]}
+    actual_skill_ids = set(re.findall(
+        r"\bid:\s*'([^']+)'", registry_text))
+    if actual_skill_ids != expected_skill_ids:
+        raise CorpusError("Butler built-in Skill inventory changed")
+    revision = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        capture_output=True, text=True, check=False, timeout=10)
+    if (revision.returncode != 0
+            or revision.stdout.strip() != crosswalk["referenceCommit"]):
+        raise CorpusError("Butler reference commit differs from crosswalk")
+    fingerprint = digest.hexdigest()
+    if fingerprint != crosswalk["referenceSourceFingerprint"]:
+        raise CorpusError("Butler source fingerprint differs from crosswalk")
+    return fingerprint
 
 
 def _run_butler(args) -> int:

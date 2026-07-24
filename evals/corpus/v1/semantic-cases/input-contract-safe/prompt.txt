@@ -1,0 +1,1 @@
+The user provides required input fields customer_id and date_range. Both are required. If missing, ask the user to provide them; validate malformed or invalid values, return a structured error, and do not guess. There is no default.

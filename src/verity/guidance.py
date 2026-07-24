@@ -657,6 +657,66 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
             "规定校验失败时停止交付并返回结构化错误，而不是带错继续。",
         ], priority="P2",
     ),
+    "semantic.prompt.input_and_default_contract_gap": Guidance(
+        id="semantic.prompt.input_and_default_contract_gap",
+        plainTitle="关键输入的必填、缺失或无效处理没有契约",
+        whyItMatters=(
+            "任务依赖固定输入，却没有说明哪些必填、缺失时追问还是采用默认值、"
+            "无效或超长时如何停止，会让模型静默猜测并产生不稳定结果。"
+        ),
+        whatToDo=[
+            "列出关键输入的必填/选填状态、类型、允许范围和默认值。",
+            "明确缺失、空值、格式错误和不支持值时的追问、拒绝或结构化错误路径。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.example_contract_mismatch": Guidance(
+        id="semantic.prompt.example_contract_mismatch",
+        plainTitle="示例与正文规则、结构或边界行为不一致",
+        whyItMatters=(
+            "模型通常会强烈模仿示例；示例缺字段、使用旧枚举或违反失败规则时，"
+            "即使正文正确，也可能把错误行为稳定地教给模型。"
+        ),
+        whatToDo=[
+            "逐项对照示例与字段、枚举、语言、长度和行为规则，删除旧版本写法。",
+            "若主要行为依赖示例定义，至少覆盖一个关键边界或失败分支。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.tool_call_contract_gap": Guidance(
+        id="semantic.prompt.tool_call_contract_gap",
+        plainTitle="工具调用缺少触发、参数来源、结果或失败契约",
+        whyItMatters=(
+            "模型若不知道何时调用、参数从哪里来、返回结构是什么，可能虚构参数、"
+            "重复产生副作用，或把失败响应当成成功结果继续处理。"
+        ),
+        whatToDo=[
+            "写明调用前置条件、参数 Schema、每个参数的可信来源和校验方式。",
+            "固定结果结构，并为超时、拒绝、空结果和格式错误声明有界处理。",
+        ], priority="P0",
+    ),
+    "semantic.prompt.capability_dependency_gap": Guidance(
+        id="semantic.prompt.capability_dependency_gap",
+        plainTitle="任务依赖未声明提供的模型或平台能力",
+        whyItMatters=(
+            "实时数据、联网、图片、音频、持久记忆或超长上下文若没有实际工具或输入，"
+            "模型容易假装已经观察到这些信息。"
+        ),
+        whatToDo=[
+            "把所需能力绑定到明确可用的工具、附件、检索结果或目标平台保证。",
+            "能力不可用时要求停止、说明限制或向用户索取输入，禁止凭空补全。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.sensitive_data_handling_gap": Guidance(
+        id="semantic.prompt.sensitive_data_handling_gap",
+        plainTitle="敏感数据处理缺少最小化、脱敏或授权边界",
+        whyItMatters=(
+            "个人、医疗、金融、联系方式或凭据数据若被无边界收集、保存或输出，"
+            "会造成不必要披露，并可能绕过应用层权限。"
+        ),
+        whatToDo=[
+            "只处理任务必需字段，输出前脱敏，并写明允许查看或共享的主体。",
+            "规定保留期限和删除方式；凭据与密钥不得进入模型可见内容或最终输出。",
+        ], priority="P0",
+    ),
 }
 
 

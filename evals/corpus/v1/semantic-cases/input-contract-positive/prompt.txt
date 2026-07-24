@@ -1,0 +1,1 @@
+The user provides required input fields customer_id and date_range. Process the request and return the result.

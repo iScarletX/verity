@@ -1,0 +1,1 @@
+Create an invoice with a function call only when the user confirms. The parameter source is the validated request and the parameters follow the registered JSON Schema. Validate the result schema with invoice_id and status. On timeout, return a structured error and do not retry the side effect.

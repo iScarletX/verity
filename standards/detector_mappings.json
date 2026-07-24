@@ -400,6 +400,46 @@
       "contribution": "signal"
     },
     {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.input_and_default_contract_gap",
+      "riskIds": [
+        "VR-PROMPT-016"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.example_contract_mismatch",
+      "riskIds": [
+        "VR-PROMPT-017"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.tool_call_contract_gap",
+      "riskIds": [
+        "VR-PROMPT-018"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.capability_dependency_gap",
+      "riskIds": [
+        "VR-PROMPT-019"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.sensitive_data_handling_gap",
+      "riskIds": [
+        "VR-PROMPT-020"
+      ],
+      "contribution": "signal"
+    },
+    {
       "detectorType": "deterministic_rule",
       "detectorId": "prompt.untrusted_input_boundary_undeclared",
       "riskIds": [

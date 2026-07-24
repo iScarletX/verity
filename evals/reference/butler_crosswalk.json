@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "referenceSystem": "butler",
+  "referenceCommit": "20979b573107a29232bf95dcf56801e06504d801",
+  "referenceSourceFingerprint": "de147af7ce65e417c692115600076044b0e4dc23b55c70b7930940138cf27737",
+  "inventorySource": "src/core/skillLoader/loadBuiltinSkills.ts",
+  "inventoryCount": 45,
+  "policy": {
+    "claimRequiresNoOpenGaps": true,
+    "maximumNotAdopted": 3,
+    "coveredDefinition": "At least one mapped Verity detector materially addresses the check; covered does not imply complete recall, evaluated accuracy, or universal superiority."
+  },
+  "entries": [
+    {
+      "butlerSkillId": "01_clarity_ambiguity",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.ambiguous_operational_criteria"],
+      "plannedFindingType": null,
+      "rationale": "Controlled semantic policy distinguishes undefined operational boundaries from harmless flexible wording."
+    },
+    {
+      "butlerSkillId": "01_clarity_contradiction",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.instruction_conflict", "prompt.output_format_conflict", "prompt.output_budget_conflict", "prompt.duplicate_numeric_assignment"],
+      "plannedFindingType": null,
+      "rationale": "Verity combines exact contradiction rules with a falsifying semantic conflict review."
+    },
+    {
+      "butlerSkillId": "01_clarity_missing_constraint",
+      "status": "open_gap",
+      "verityFindingTypes": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.ambiguous_operational_criteria", "semantic.prompt.input_and_default_contract_gap"],
+      "plannedFindingType": "semantic.prompt.multi_turn_state_gap",
+      "rationale": "Input and default behavior are covered, but inherited and mutable constraints across turns still lack a controlled policy."
+    },
+    {
+      "butlerSkillId": "01_clarity_role_positioning",
+      "status": "open_gap",
+      "verityFindingTypes": [],
+      "plannedFindingType": "semantic.prompt.role_scope_contract_gap",
+      "rationale": "Verity does not yet judge whether an operational role declares audience, duties, and exclusions."
+    },
+    {
+      "butlerSkillId": "01_clarity_task_boundary",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.authority_boundary_ambiguity"],
+      "plannedFindingType": null,
+      "rationale": "The authority-boundary policy checks consequential scope and explicit approval or refusal limits."
+    },
+    {
+      "butlerSkillId": "01_clarity_step_logic",
+      "status": "open_gap",
+      "verityFindingTypes": [],
+      "plannedFindingType": "semantic.prompt.workflow_dependency_gap",
+      "rationale": "No controlled review currently checks missing prerequisites, unused intermediate results, or reversed workflow dependencies."
+    },
+    {
+      "butlerSkillId": "01_clarity_redundancy",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.duplicate_content_line"],
+      "plannedFindingType": null,
+      "rationale": "Exact repeated content is detected deterministically without a subjective generic redundancy judge."
+    },
+    {
+      "butlerSkillId": "01_clarity_priority_unclear",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.instruction_conflict"],
+      "plannedFindingType": null,
+      "rationale": "Conflicting directives are reported with evidence and remediation requires an explicit precedence decision."
+    },
+    {
+      "butlerSkillId": "01_clarity_default_behavior",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.input_and_default_contract_gap"],
+      "plannedFindingType": null,
+      "rationale": "Verity separately reviews external-operation failure strategy and missing, invalid, or ambiguous input defaults."
+    },
+    {
+      "butlerSkillId": "01_clarity_overconstraint",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.output_budget_pressure", "semantic.prompt.instruction_conflict", "prompt.output_budget_conflict"],
+      "plannedFindingType": null,
+      "rationale": "Exact impossibility and semantic pressure are separated, with safe tradeoff counterexamples."
+    },
+    {
+      "butlerSkillId": "01_clarity_example_consistency",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.instruction_conflict", "semantic.prompt.example_contract_mismatch"],
+      "plannedFindingType": null,
+      "rationale": "Normative examples are compared with declared fields, formats, language, and behavioral rules using structured evidence."
+    },
+    {
+      "butlerSkillId": "02_contract_output_format",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.missing_output_contract", "prompt.output_format_conflict"],
+      "plannedFindingType": null,
+      "rationale": "Verity distinguishes a missing parseable contract from an explicit incompatible-format conflict."
+    },
+    {
+      "butlerSkillId": "02_contract_output_precision",
+      "status": "open_gap",
+      "verityFindingTypes": ["semantic.prompt.missing_output_contract"],
+      "plannedFindingType": "semantic.prompt.field_constraint_gap",
+      "rationale": "Overall output shape is covered, but applicable numeric, date, enum, unit, and precision constraints are not independently judged."
+    },
+    {
+      "butlerSkillId": "02_contract_format_consistency",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.instruction_conflict", "prompt.output_format_conflict"],
+      "plannedFindingType": null,
+      "rationale": "Cross-section incompatible formats are handled by exact and semantic conflict checks."
+    },
+    {
+      "butlerSkillId": "02_contract_input_completeness",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.input_and_default_contract_gap"],
+      "plannedFindingType": null,
+      "rationale": "Requiredness, defaults, validation, and missing-input behavior have an applicability-gated semantic contract."
+    },
+    {
+      "butlerSkillId": "02_contract_error_response",
+      "status": "open_gap",
+      "verityFindingTypes": ["semantic.prompt.failure_strategy_gap"],
+      "plannedFindingType": "semantic.prompt.error_response_contract_gap",
+      "rationale": "Recovery strategy is covered, but stable machine-readable refusal and error output is not."
+    },
+    {
+      "butlerSkillId": "02_contract_reference_integrity",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.grounding_requirement_gap"],
+      "plannedFindingType": null,
+      "rationale": "Consequential claims and source requirements are reviewed with explicit grounding and abstention policy."
+    },
+    {
+      "butlerSkillId": "02_contract_dangling_reference",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.dangling_section_reference", "prompt.named_dangling_reference"],
+      "plannedFindingType": null,
+      "rationale": "Section and named-reference targets are resolved deterministically."
+    },
+    {
+      "butlerSkillId": "02_contract_section_structure",
+      "status": "open_gap",
+      "verityFindingTypes": ["prompt.duplicate_content_line"],
+      "plannedFindingType": "semantic.prompt.attention_dilution",
+      "rationale": "Exact duplication is covered, but buried critical rules and incoherent long-document organization are not."
+    },
+    {
+      "butlerSkillId": "02_contract_placeholder_use",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.unfilled_placeholder", "prompt.untrusted_input_boundary_undeclared"],
+      "plannedFindingType": null,
+      "rationale": "Unresolved placeholders and untrusted interpolation boundaries are handled separately."
+    },
+    {
+      "butlerSkillId": "03_resource_token_budget",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.output_budget_conflict", "semantic.prompt.output_budget_pressure"],
+      "plannedFindingType": null,
+      "rationale": "Verity separates proven arithmetic impossibility from contextual output pressure."
+    },
+    {
+      "butlerSkillId": "03_resource_reasoning_isolation",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.sensitive_reasoning_exposure"],
+      "plannedFindingType": null,
+      "rationale": "The semantic policy distinguishes private chain-of-thought demands from concise rationale requests."
+    },
+    {
+      "butlerSkillId": "03_resource_streaming_compat",
+      "status": "open_gap",
+      "verityFindingTypes": [],
+      "plannedFindingType": "semantic.prompt.streaming_recovery_gap",
+      "rationale": "No current type first tests streaming applicability and then checks framing, completion, and resume behavior."
+    },
+    {
+      "butlerSkillId": "03_resource_function_call_contract",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.excessive_tool_scope", "semantic.prompt.tool_call_contract_gap"],
+      "plannedFindingType": null,
+      "rationale": "Invocation conditions, parameter provenance, result schema, failure handling, and tool necessity are reviewed independently."
+    },
+    {
+      "butlerSkillId": "03_resource_prompt_length",
+      "status": "open_gap",
+      "verityFindingTypes": ["prompt.duplicate_content_line"],
+      "plannedFindingType": "semantic.prompt.attention_dilution",
+      "rationale": "Exact duplication alone cannot establish that key instructions are buried by excessive context."
+    },
+    {
+      "butlerSkillId": "04_interop_symbol_conflict",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.embedded_system_role_marker", "prompt.control_character"],
+      "plannedFindingType": null,
+      "rationale": "Control-role markers and unsafe control bytes are detected deterministically."
+    },
+    {
+      "butlerSkillId": "04_interop_quote_mix",
+      "status": "open_gap",
+      "verityFindingTypes": ["prompt.fullwidth_mixed"],
+      "plannedFindingType": "prompt.structured_quote_inconsistency",
+      "rationale": "Full-width mixing is covered, but parse-breaking quote and backtick inconsistency in structured fragments is not."
+    },
+    {
+      "butlerSkillId": "04_interop_width_mix",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.fullwidth_mixed"],
+      "plannedFindingType": null,
+      "rationale": "Mixed full-width and half-width syntax is detected deterministically."
+    },
+    {
+      "butlerSkillId": "04_interop_portability",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.model_endpoint_no_fallback", "semantic.prompt.capability_dependency_gap"],
+      "plannedFindingType": null,
+      "rationale": "Pinned endpoints and non-intrinsic realtime, web, media, memory, context, or plugin dependencies require provision or fallback."
+    },
+    {
+      "butlerSkillId": "04_interop_nested_system_tag",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.embedded_system_role_marker", "prompt.instruction_override_marker"],
+      "plannedFindingType": null,
+      "rationale": "Nested authority markers and instruction-override phrases are deterministic findings."
+    },
+    {
+      "butlerSkillId": "05_robustness_injection_defense",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.untrusted_input_boundary_undeclared", "prompt.encoded_injection_payload", "semantic.prompt.trust_boundary_ambiguity"],
+      "plannedFindingType": null,
+      "rationale": "Verity combines deterministic boundary and encoded-payload checks with a semantic trust-boundary review."
+    },
+    {
+      "butlerSkillId": "05_robustness_hallucination_control",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.grounding_requirement_gap"],
+      "plannedFindingType": null,
+      "rationale": "Grounding, uncertainty, source, and abstention requirements are judged only when factual authority is applicable."
+    },
+    {
+      "butlerSkillId": "05_robustness_abnormal_input",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.input_and_default_contract_gap"],
+      "plannedFindingType": null,
+      "rationale": "Empty, malformed, unsupported, and ambiguous material input requires validation, clarification, safe default, or refusal behavior."
+    },
+    {
+      "butlerSkillId": "05_robustness_boundary_values",
+      "status": "open_gap",
+      "verityFindingTypes": ["semantic.prompt.ambiguous_operational_criteria", "semantic.prompt.missing_output_contract"],
+      "plannedFindingType": "semantic.prompt.field_constraint_gap",
+      "rationale": "General ambiguity and output shape do not fully cover applicable extrema, empty values, duplicates, and rollover behavior."
+    },
+    {
+      "butlerSkillId": "05_robustness_multi_turn_stability",
+      "status": "open_gap",
+      "verityFindingTypes": [],
+      "plannedFindingType": "semantic.prompt.multi_turn_state_gap",
+      "rationale": "No current type checks state inheritance, mutable preferences, reset rules, and non-overridable constraints across turns."
+    },
+    {
+      "butlerSkillId": "05_robustness_safety_policy",
+      "status": "open_gap",
+      "verityFindingTypes": ["semantic.prompt.authority_boundary_ambiguity"],
+      "plannedFindingType": "semantic.prompt.safety_policy_gap",
+      "rationale": "Approval boundaries cover consequential actions, but applicable dangerous-content refusal and safe alternatives remain incomplete."
+    },
+    {
+      "butlerSkillId": "06_quality_self_check",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.verification_step_gap"],
+      "plannedFindingType": null,
+      "rationale": "Downstream-sensitive output requires a bounded verification step without exposing private reasoning."
+    },
+    {
+      "butlerSkillId": "06_quality_few_shot",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.example_contract_mismatch"],
+      "plannedFindingType": null,
+      "rationale": "Normative examples are checked for rule mismatch, stale assumptions, distribution mismatch, and material normal, boundary, or failure coverage."
+    },
+    {
+      "butlerSkillId": "06_quality_style_consistency",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.instruction_conflict", "semantic.prompt.example_contract_mismatch"],
+      "plannedFindingType": null,
+      "rationale": "Explicit style conflicts and rule-to-example language or tone mismatches use separate controlled semantic policies."
+    },
+    {
+      "butlerSkillId": "06_quality_length_control",
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.output_budget_pressure", "prompt.output_budget_conflict"],
+      "plannedFindingType": null,
+      "rationale": "Contextual pressure and exact arithmetic impossibility are measured separately."
+    },
+    {
+      "butlerSkillId": "06_quality_model_capability",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.model_endpoint_no_fallback", "semantic.prompt.capability_dependency_gap"],
+      "plannedFindingType": null,
+      "rationale": "Model and deployment dependencies cover realtime, vision, audio, memory, context, web, plugin, and pinned-endpoint fallback."
+    },
+    {
+      "butlerSkillId": "07_compliance_privacy",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.system_hardcoded_secret", "semantic.prompt.sensitive_data_handling_gap"],
+      "plannedFindingType": null,
+      "rationale": "Literal secrets and prompt-directed data handling are checked for minimization, redaction, retention, authorization, and disclosure boundaries."
+    },
+    {
+      "butlerSkillId": "07_compliance_copyright_source",
+      "status": "open_gap",
+      "verityFindingTypes": ["semantic.prompt.grounding_requirement_gap"],
+      "plannedFindingType": "semantic.prompt.source_use_policy_gap",
+      "rationale": "Factual source grounding does not cover applicable long-form reproduction, attribution, or transformation limits."
+    },
+    {
+      "butlerSkillId": "05_robustness_secret_leak",
+      "status": "covered",
+      "verityFindingTypes": ["prompt.system_hardcoded_secret", "skill.gitleaks_finding"],
+      "plannedFindingType": null,
+      "rationale": "Prompt literals and Skill repositories use separate deterministic secret detectors."
+    },
+    {
+      "butlerSkillId": "05_robustness_skill_dangerous_pattern",
+      "status": "covered",
+      "verityFindingTypes": ["skill.dangerous_shell_pattern", "skill.sensitive_path_access", "skill.python_subprocess_shell_true", "semantic.skill.permission_capability_mismatch", "semantic.skill.declared_behavior_mismatch"],
+      "plannedFindingType": null,
+      "rationale": "Dangerous syntax, sensitive paths, shell execution, declared behavior, and least privilege are independently checked."
+    }
+  ]
+}
