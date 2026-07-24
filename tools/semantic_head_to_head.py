@@ -104,6 +104,14 @@ def _compare(args) -> int:
 
 
 def _attest_labels(args) -> int:
+    reviewer_c = (
+        args.reviewer_c_packet,
+        args.reviewer_c_map,
+        args.reviewer_c_observations,
+    )
+    if any(reviewer_c) and not all(reviewer_c):
+        raise CorpusError(
+            "third independent label reviewer inputs are incomplete")
     attestation = build_independent_label_attestation(
         reviewer_a_packet=_read(args.reviewer_a_packet),
         reviewer_a_mapping=_read(args.reviewer_a_map),
@@ -111,6 +119,13 @@ def _attest_labels(args) -> int:
         reviewer_b_packet=_read(args.reviewer_b_packet),
         reviewer_b_mapping=_read(args.reviewer_b_map),
         reviewer_b_observations=_read(args.reviewer_b_observations),
+        reviewer_c_packet=(
+            _read(args.reviewer_c_packet) if args.reviewer_c_packet else None),
+        reviewer_c_mapping=(
+            _read(args.reviewer_c_map) if args.reviewer_c_map else None),
+        reviewer_c_observations=(
+            _read(args.reviewer_c_observations)
+            if args.reviewer_c_observations else None),
     )
     output = _output_path(args.output, "independent-label-attestation.json")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -229,12 +244,14 @@ def _run_label_reviewer(args) -> int:
         reviewer_config=reviewer_config, temperature=args.temperature,
         max_output_tokens=args.max_output_tokens,
         max_total_calls=args.max_total_calls,
+        max_attempts_per_repetition=args.max_attempts_per_repetition,
         role_prompt_version=LABEL_REVIEW_PROMPT_VERSION)
     frozen_limits = {
         "maxTotalCalls": args.max_total_calls,
         "maxTotalTokens": args.max_total_tokens,
         "maxSpendUsd": args.max_spend_usd,
         "maxOutputTokens": args.max_output_tokens,
+        "maxAttemptsPerRepetition": args.max_attempts_per_repetition,
         "inputPricePerMillion": args.input_price_per_million,
         "outputPricePerMillion": args.output_price_per_million,
     }
@@ -356,6 +373,8 @@ def _run_butler(args) -> int:
         raise CorpusError("Butler repetitions must be 2..10")
     if not 64 <= args.max_output_tokens <= 4096:
         raise CorpusError("Butler max output tokens must be 64..4096")
+    if not 1 <= args.max_concurrency <= 8:
+        raise CorpusError("Butler max concurrency must be 1..8")
     if not 1 <= args.wall_timeout_seconds <= 86400:
         raise CorpusError("Butler wall timeout must be 1..86400 seconds")
     EvalRunBudget(
@@ -394,6 +413,7 @@ def _run_butler(args) -> int:
         "maxTotalTokens": args.max_total_tokens,
         "maxSpendUsd": args.max_spend_usd,
         "maxOutputTokens": args.max_output_tokens,
+        "maxConcurrency": args.max_concurrency,
         "requestTimeoutSeconds": args.timeout,
         "wallTimeoutSeconds": args.wall_timeout_seconds,
         "inputPricePerMillion": list(args.input_price_per_million),
@@ -443,6 +463,7 @@ def _run_butler(args) -> int:
             ],
             "repetitions": args.repetitions,
             "maxOutputTokens": args.max_output_tokens,
+            "maxConcurrency": args.max_concurrency,
             "maxTotalCalls": args.max_total_calls,
             "maxTotalTokens": args.max_total_tokens,
             "maxSpendUsd": args.max_spend_usd,
@@ -562,6 +583,8 @@ def main(argv=None) -> int:
     run_reviewer.add_argument("--temperature", type=float, default=0.0)
     run_reviewer.add_argument("--max-output-tokens", type=int, required=True)
     run_reviewer.add_argument("--max-total-calls", type=int, required=True)
+    run_reviewer.add_argument(
+        "--max-attempts-per-repetition", type=int, default=1)
     run_reviewer.add_argument("--max-total-tokens", type=int, required=True)
     run_reviewer.add_argument("--max-spend-usd", type=float, required=True)
     run_reviewer.add_argument(
@@ -589,6 +612,7 @@ def main(argv=None) -> int:
         required=True)
     run_butler.add_argument("--api-key-env", required=True)
     run_butler.add_argument("--max-output-tokens", type=int, required=True)
+    run_butler.add_argument("--max-concurrency", type=int, default=1)
     run_butler.add_argument("--max-total-calls", type=int, required=True)
     run_butler.add_argument("--max-total-tokens", type=int, required=True)
     run_butler.add_argument("--max-spend-usd", type=float, required=True)
@@ -600,13 +624,17 @@ def main(argv=None) -> int:
 
     attest = sub.add_parser(
         "attest-labels",
-        help="derive labels from two stable agreeing answer-hidden reviews")
+        help=("derive labels from two error-free, two-thirds-consensus "
+              "answer-hidden reviews"))
     attest.add_argument("--reviewer-a-packet", required=True)
     attest.add_argument("--reviewer-a-map", required=True)
     attest.add_argument("--reviewer-a-observations", required=True)
     attest.add_argument("--reviewer-b-packet", required=True)
     attest.add_argument("--reviewer-b-map", required=True)
     attest.add_argument("--reviewer-b-observations", required=True)
+    attest.add_argument("--reviewer-c-packet")
+    attest.add_argument("--reviewer-c-map")
+    attest.add_argument("--reviewer-c-observations")
     attest.add_argument("--output", default="")
     attest.set_defaults(handler=_attest_labels)
 

@@ -36,6 +36,7 @@ interface RunnerConfig {
   }>
   repetitions: number
   maxOutputTokens: number
+  maxConcurrency: number
   maxTotalCalls: number
   maxTotalTokens: number
   maxSpendUsd: number
@@ -287,6 +288,9 @@ async function main() {
     || config.models.length < 2
     || config.models.length > 3
     || config.repetitions < 2
+    || !Number.isInteger(config.maxConcurrency)
+    || config.maxConcurrency < 1
+    || config.maxConcurrency > 8
   ) {
     throw new Error('Butler reference runner configuration is invalid')
   }
@@ -296,14 +300,35 @@ async function main() {
   const skillsById = new Map(
     loadBuiltinSkills().map((skill) => [skill.id, skill]),
   )
-  const observations = []
-  for (const item of packet.items) {
-    const runs: Observation[] = []
-    for (let repetition = 0; repetition < config.repetitions; repetition += 1) {
-      runs.push(await evaluateItem(item, skillsById, config, apiKey))
+  const observations = packet.items.map((item) => ({
+    itemId: item.itemId,
+    runs: Array<Observation>(config.repetitions),
+  }))
+  const tasks = packet.items.flatMap((item, itemIndex) =>
+    Array.from({ length: config.repetitions }, (_, repetition) => ({
+      item,
+      itemIndex,
+      repetition,
+    })))
+  let nextTask = 0
+  async function worker() {
+    while (nextTask < tasks.length) {
+      const task = tasks[nextTask]
+      nextTask += 1
+      observations[task.itemIndex].runs[task.repetition] = await evaluateItem(
+        task.item,
+        skillsById,
+        config,
+        apiKey,
+      )
     }
-    observations.push({ itemId: item.itemId, runs })
   }
+  await Promise.all(
+    Array.from(
+      { length: Math.min(config.maxConcurrency, tasks.length) },
+      () => worker(),
+    ),
+  )
   const output = {
     observations: {
       schemaVersion: 1,

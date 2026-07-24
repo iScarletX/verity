@@ -128,8 +128,16 @@
 - **Comparison labels → system runs**: answer keys remain outside both
   Verity and Butler packets. Alias maps are local, system-specific, and never
   sent as reviewed content. Each map row is bound to its exact packet item
-  digest. Independent labels are derived from two distinct, stable, agreeing
-  answer-hidden reviewer observation sets; a caller cannot establish
+  digest. Independent labels are derived from two or three distinct,
+  independently repeated answer-hidden reviewer observation sets. Each set
+  must use an odd repetition count of at least three and reach two-thirds
+  decisive consensus across all planned repetitions. Provider errors and
+  inconclusive results never contribute a vote, so two explicit matching
+  decisions plus one error pass while a split decision plus one error fails.
+  Two reviewers must agree exactly; three reviewers use a per-case majority.
+  The runner may retry an invalid or failed Provider response only under a
+  fingerprinted per-repetition attempt limit and a worst-case whole-run call
+  budget. A caller cannot establish
   independence by supplying reviewer names alone. The comparator canonicalizes
   both system mappings and refuses a claim unless the derived attestation
   covers the same payload digests.
@@ -137,7 +145,9 @@
   from an explicitly supplied Butler source tree and existing dependencies.
   It reuses Butler's profiler, static checker, selected LLM checks and vote
   aggregator without writing to Butler. A source/configuration fingerprint and
-  conservative call/token/spend reservations bind the observations. Final
+  conservative call/token/spend reservations bind the observations. Independent
+  item/repetition tasks may use a fingerprinted concurrency limit of at most
+  eight; reservations occur synchronously before every network call. Final
   Butler consolidation/deduplication is excluded and disclosed because it can
   contact a separate embeddings endpoint and add findings beyond the packet's
   single target risk.

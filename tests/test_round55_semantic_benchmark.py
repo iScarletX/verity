@@ -447,21 +447,21 @@ def test_real_crosswalk_allows_claim_when_metrics_and_labels_pass():
     assert report["butlerBreadth"]["openGapCount"] == 0
 
 
-def test_label_attestation_is_derived_from_two_distinct_stable_reviews():
+def test_label_attestation_is_derived_from_two_distinct_consensus_reviews():
     packet_a, map_a = build_semantic_comparison_packet(
         system_id="label-reviewer-a", seed="round55-label-reviewer-a")
     packet_b, map_b = build_semantic_comparison_packet(
         system_id="label-reviewer-b", seed="round55-label-reviewer-b")
     observations_a = _observations(
         packet_a, {
-            alias: [metadata["authorAssessment"]] * 2
+            alias: [metadata["authorAssessment"]] * 3
             for alias, metadata in map_a["aliases"].items()
-        })
+        }, repetitions=3)
     observations_b = _observations(
         packet_b, {
-            alias: [metadata["authorAssessment"]] * 2
+            alias: [metadata["authorAssessment"]] * 3
             for alias, metadata in map_b["aliases"].items()
-        })
+        }, repetitions=3)
     observations_a["configurationFingerprint"] = "1" * 64
     observations_b["configurationFingerprint"] = "2" * 64
     attestation = build_independent_label_attestation(
@@ -476,6 +476,133 @@ def test_label_attestation_is_derived_from_two_distinct_stable_reviews():
     assert "authorAssessment" not in json.dumps(attestation)
 
 
+def test_label_attestation_accepts_error_free_two_thirds_consensus():
+    packet_a, map_a = build_semantic_comparison_packet(
+        system_id="label-reviewer-a", seed="round59-label-majority-a")
+    packet_b, map_b = build_semantic_comparison_packet(
+        system_id="label-reviewer-b", seed="round59-label-majority-b")
+    observations_a = _observations(
+        packet_a, {
+            alias: [metadata["authorAssessment"]] * 3
+            for alias, metadata in map_a["aliases"].items()
+        }, repetitions=3)
+    observations_b = _observations(
+        packet_b, {
+            alias: [metadata["authorAssessment"]] * 3
+            for alias, metadata in map_b["aliases"].items()
+        }, repetitions=3)
+    observations_a["configurationFingerprint"] = "1" * 64
+    observations_b["configurationFingerprint"] = "2" * 64
+    first_a = observations_a["observations"][0]["runs"]
+    first_b = observations_b["observations"][0]["runs"]
+    first_a[0] = "absent" if first_a[0] == "present" else "present"
+    first_b[1] = "absent" if first_b[1] == "present" else "present"
+
+    attestation = build_independent_label_attestation(
+        reviewer_a_packet=packet_a, reviewer_a_mapping=map_a,
+        reviewer_a_observations=observations_a,
+        reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
+        reviewer_b_observations=observations_b)
+
+    assert len(attestation["labels"]) == 112
+
+
+def test_label_attestation_accepts_three_reviewer_majority():
+    packet_a, map_a = build_semantic_comparison_packet(
+        system_id="label-reviewer-a", seed="round59-label-three-a")
+    packet_b, map_b = build_semantic_comparison_packet(
+        system_id="label-reviewer-b", seed="round59-label-three-b")
+    packet_c, map_c = build_semantic_comparison_packet(
+        system_id="label-reviewer-c", seed="round59-label-three-c")
+
+    def reviewed(packet, mapping, fingerprint):
+        observations = _observations(
+            packet, {
+                alias: [metadata["authorAssessment"]] * 3
+                for alias, metadata in mapping["aliases"].items()
+            }, repetitions=3)
+        observations["configurationFingerprint"] = fingerprint
+        return observations
+
+    observations_a = reviewed(packet_a, map_a, "1" * 64)
+    observations_b = reviewed(packet_b, map_b, "2" * 64)
+    observations_c = reviewed(packet_c, map_c, "3" * 64)
+    first_b = observations_b["observations"][0]["runs"]
+    first_b[:] = [
+        "absent" if first_b[0] == "present" else "present"
+    ] * 3
+
+    attestation = build_independent_label_attestation(
+        reviewer_a_packet=packet_a, reviewer_a_mapping=map_a,
+        reviewer_a_observations=observations_a,
+        reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
+        reviewer_b_observations=observations_b,
+        reviewer_c_packet=packet_c, reviewer_c_mapping=map_c,
+        reviewer_c_observations=observations_c)
+
+    assert len(attestation["reviewers"]) == 3
+    assert len(attestation["labels"]) == 112
+
+
+def test_label_attestation_allows_one_nonvoting_error_with_two_thirds_consensus():
+    packet_a, map_a = build_semantic_comparison_packet(
+        system_id="label-reviewer-a", seed="round59-label-error-a")
+    packet_b, map_b = build_semantic_comparison_packet(
+        system_id="label-reviewer-b", seed="round59-label-error-b")
+    observations_a = _observations(
+        packet_a, {
+            alias: [metadata["authorAssessment"]] * 3
+            for alias, metadata in map_a["aliases"].items()
+        }, repetitions=3)
+    observations_b = _observations(
+        packet_b, {
+            alias: [metadata["authorAssessment"]] * 3
+            for alias, metadata in map_b["aliases"].items()
+        }, repetitions=3)
+    observations_a["configurationFingerprint"] = "1" * 64
+    observations_b["configurationFingerprint"] = "2" * 64
+    observations_a["observations"][0]["runs"][0] = "error"
+
+    attestation = build_independent_label_attestation(
+        reviewer_a_packet=packet_a, reviewer_a_mapping=map_a,
+        reviewer_a_observations=observations_a,
+        reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
+        reviewer_b_observations=observations_b)
+    assert len(attestation["labels"]) == 112
+
+
+def test_label_attestation_refuses_split_decisions_with_provider_error():
+    packet_a, map_a = build_semantic_comparison_packet(
+        system_id="label-reviewer-a", seed="round59-label-split-error-a")
+    packet_b, map_b = build_semantic_comparison_packet(
+        system_id="label-reviewer-b", seed="round59-label-split-error-b")
+    observations_a = _observations(
+        packet_a, {
+            alias: [metadata["authorAssessment"]] * 3
+            for alias, metadata in map_a["aliases"].items()
+        }, repetitions=3)
+    observations_b = _observations(
+        packet_b, {
+            alias: [metadata["authorAssessment"]] * 3
+            for alias, metadata in map_b["aliases"].items()
+        }, repetitions=3)
+    observations_a["configurationFingerprint"] = "1" * 64
+    observations_b["configurationFingerprint"] = "2" * 64
+    first = observations_a["observations"][0]["runs"][0]
+    observations_a["observations"][0]["runs"] = [
+        first,
+        "absent" if first == "present" else "present",
+        "error",
+    ]
+
+    with pytest.raises(CorpusError, match="two-thirds decisive consensus"):
+        build_independent_label_attestation(
+            reviewer_a_packet=packet_a, reviewer_a_mapping=map_a,
+            reviewer_a_observations=observations_a,
+            reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
+            reviewer_b_observations=observations_b)
+
+
 def test_label_attestation_refuses_reviewer_disagreement():
     packet_a, map_a = build_semantic_comparison_packet(
         system_id="label-reviewer-a", seed="round55-label-disagree-a")
@@ -483,20 +610,20 @@ def test_label_attestation_refuses_reviewer_disagreement():
         system_id="label-reviewer-b", seed="round55-label-disagree-b")
     observations_a = _observations(
         packet_a, {
-            alias: [metadata["authorAssessment"]] * 2
+            alias: [metadata["authorAssessment"]] * 3
             for alias, metadata in map_a["aliases"].items()
-        })
+        }, repetitions=3)
     observations_b = _observations(
         packet_b, {
-            alias: [metadata["authorAssessment"]] * 2
+            alias: [metadata["authorAssessment"]] * 3
             for alias, metadata in map_b["aliases"].items()
-        })
+        }, repetitions=3)
     observations_a["configurationFingerprint"] = "3" * 64
     observations_b["configurationFingerprint"] = "4" * 64
     observations_b["observations"][0]["runs"] = [
         "absent" if observations_b["observations"][0]["runs"][0] == "present"
         else "present"
-    ] * 2
+    ] * 3
     with pytest.raises(CorpusError, match="reviewers disagree"):
         build_independent_label_attestation(
             reviewer_a_packet=packet_a, reviewer_a_mapping=map_a,
@@ -543,13 +670,37 @@ def test_comparison_revalidates_packet_for_answer_leaks():
             label_attestation=labels)
 
 
-def test_attestation_requires_exactly_two_independent_reviewers():
+def test_attestation_refuses_more_than_three_independent_reviewers():
     vp, vm, vo, bp, bm, bo, labels = _synthetic_pair()
     labels["reviewers"].append({
         "reviewerId": "reviewer-c",
         "systemId": "label-reviewer-c",
         "configurationFingerprint": "1" * 64,
         "reviewArtifactDigest": "2" * 64,
+    })
+    labels["reviewers"].append({
+        "reviewerId": "reviewer-d",
+        "systemId": "label-reviewer-d",
+        "configurationFingerprint": "3" * 64,
+        "reviewArtifactDigest": "4" * 64,
+    })
+    report = compare_semantic_systems(
+        verity_packet=vp, verity_mapping=vm, verity_observations=vo,
+        butler_packet=bp, butler_mapping=bm, butler_observations=bo,
+        label_attestation=labels,
+        butler_crosswalk=_complete_butler_crosswalk())
+    assert report["status"] == "not_eligible"
+    assert report["reasonCodes"] == ["labels_not_independently_reviewed"]
+
+
+def test_three_reviewer_attestation_requires_all_configurations_distinct():
+    vp, vm, vo, bp, bm, bo, labels = _synthetic_pair()
+    labels["reviewers"].append({
+        "reviewerId": "reviewer-c",
+        "systemId": "label-reviewer-c",
+        "configurationFingerprint": (
+            labels["reviewers"][0]["configurationFingerprint"]),
+        "reviewArtifactDigest": "1" * 64,
     })
     report = compare_semantic_systems(
         verity_packet=vp, verity_mapping=vm, verity_observations=vo,
@@ -625,6 +776,15 @@ class _LabelReviewer:
             ok=True, payload={"assessment": self.assessment})
 
 
+class _TransientLabelReviewer(_LabelReviewer):
+    def review_label(self, *, call, request):
+        self.calls.append((call, request))
+        if len(self.calls) == 1:
+            return ProviderResponse(ok=False, reason_code="provider_timeout")
+        return ProviderResponse(
+            ok=True, payload={"assessment": self.assessment})
+
+
 def test_verity_observation_runner_is_label_free_and_complete(monkeypatch):
     packet, mapping = build_semantic_comparison_packet(
         system_id="verity", seed="round55-runner-seed")
@@ -680,16 +840,16 @@ def test_independent_label_runner_is_answer_hidden_and_complete(monkeypatch):
     monkeypatch.setenv("VERITY_TEST_HEAD_TO_HEAD_KEY", "local-test-value")
     reviewer = _LabelReviewer()
     observations = evaluate_independent_label_reviewer_observations(
-        packet=packet, mapping=mapping, repetitions=2, reviewer=reviewer,
+        packet=packet, mapping=mapping, repetitions=3, reviewer=reviewer,
         reviewer_config=ProviderConfig(
             role="label_reviewer", provider_id="independent-test",
             model_id="fixed-reviewer", base_url="https://example.invalid/v1",
             credentials=ProviderCredentials("VERITY_TEST_HEAD_TO_HEAD_KEY")),
         role_prompt_version="1.0.0")
     assert len(observations["observations"]) == 112
-    assert all(row["runs"] == ["absent", "absent"]
+    assert all(row["runs"] == ["absent", "absent", "absent"]
                for row in observations["observations"])
-    assert len(reviewer.calls) == 224
+    assert len(reviewer.calls) == 336
     assert all(call.call_role == "label_reviewer"
                and call.egress_policy == "answer_hidden_label_review"
                for call, _request in reviewer.calls)
@@ -699,6 +859,27 @@ def test_independent_label_runner_is_answer_hidden_and_complete(monkeypatch):
     assert "findingType" not in serialised_requests
     assert "payloadDigest" not in serialised_requests
     assert "local-test-value" not in serialised_requests
+
+
+def test_independent_label_runner_retries_transient_failure(monkeypatch):
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="label-reviewer-a", seed="round59-label-retry")
+    monkeypatch.setenv("VERITY_TEST_HEAD_TO_HEAD_KEY", "local-test-value")
+    reviewer = _TransientLabelReviewer()
+    observations = evaluate_independent_label_reviewer_observations(
+        packet=packet, mapping=mapping, repetitions=3, reviewer=reviewer,
+        reviewer_config=ProviderConfig(
+            role="label_reviewer", provider_id="independent-test",
+            model_id="fixed-reviewer", base_url="https://example.invalid/v1",
+            credentials=ProviderCredentials("VERITY_TEST_HEAD_TO_HEAD_KEY")),
+        max_total_calls=672, max_attempts_per_repetition=2,
+        role_prompt_version="1.0.0")
+
+    assert all(row["runs"] == ["absent", "absent", "absent"]
+               for row in observations["observations"])
+    assert len(reviewer.calls) == 337
+    assert reviewer.calls[0][0].call_id.endswith("-attempt-1")
+    assert reviewer.calls[1][0].call_id.endswith("-attempt-2")
 
 
 def test_independent_label_runner_refuses_evaluated_system_id(monkeypatch):
@@ -713,6 +894,23 @@ def test_independent_label_runner_refuses_evaluated_system_id(monkeypatch):
                 role="label_reviewer", provider_id="independent-test",
                 model_id="fixed-reviewer", base_url="https://example.invalid/v1",
                 credentials=ProviderCredentials("VERITY_TEST_HEAD_TO_HEAD_KEY")),
+            role_prompt_version="1.0.0")
+
+
+def test_independent_label_runner_requires_odd_repetition_count(monkeypatch):
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="label-reviewer-a", seed="round59-label-repetitions")
+    monkeypatch.setenv("VERITY_TEST_HEAD_TO_HEAD_KEY", "local-test-value")
+    with pytest.raises(CorpusError, match="must be odd and 3..9"):
+        evaluate_independent_label_reviewer_observations(
+            packet=packet, mapping=mapping, repetitions=2,
+            reviewer=_LabelReviewer(),
+            reviewer_config=ProviderConfig(
+                role="label_reviewer", provider_id="independent-test",
+                model_id="fixed-reviewer",
+                base_url="https://example.invalid/v1",
+                credentials=ProviderCredentials(
+                    "VERITY_TEST_HEAD_TO_HEAD_KEY")),
             role_prompt_version="1.0.0")
 
 

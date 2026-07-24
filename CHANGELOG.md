@@ -26,12 +26,22 @@ and this project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Independent answer-hidden label reviews now require two or three distinct
+  configurations, an odd repetition count of at least three, and two-thirds
+  decisive within-reviewer agreement across all planned runs. Non-decisive
+  Provider results never contribute a vote.
+  Two reviewers must agree; three reviewers use per-case majority
+  adjudication. Transient Provider failures may be retried only under
+  fingerprinted per-repetition and worst-case whole-run call limits.
 - The pinned 45-check Butler crosswalk now has material Verity coverage for
   every item and no open breadth gaps.
 - The taxonomy now contains 46 risks and 83 runtime mappings. The comparison
   gate requires 112 cases, 28 Finding Types, and 27 distinct risk ids.
 - The comparison gate now rejects a purported independent reviewer whose
   frozen configuration matches Verity or Butler.
+- The read-only Butler comparison adapter can run independent item/repetition
+  tasks with a fingerprinted concurrency limit while retaining synchronous
+  per-call budget reservation.
 
 ### Security
 

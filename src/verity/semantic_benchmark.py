@@ -36,6 +36,9 @@ INDEPENDENT_LABEL_STATUS = "independent_ai_review"
 DEFAULT_COMPARISON_MAX_TOTAL_CALLS = 500
 BUTLER_REFERENCE_SKILL_MAP_VERSION = "3.0.0"
 LABEL_REVIEW_EGRESS_POLICY = "answer_hidden_label_review"
+LABEL_REVIEW_MIN_REPETITIONS = 3
+LABEL_REVIEW_CONSENSUS_NUMERATOR = 2
+LABEL_REVIEW_CONSENSUS_DENOMINATOR = 3
 
 # Read-only Butler v6 reference mapping. These are comparison routes, not
 # Verity labels and not claims that Butler fully covers the associated risk.
@@ -695,53 +698,74 @@ def build_independent_label_attestation(
         reviewer_a_observations: Dict[str, Any],
         reviewer_b_packet: Dict[str, Any],
         reviewer_b_mapping: Dict[str, Any],
-        reviewer_b_observations: Dict[str, Any]) -> Dict[str, Any]:
-    """Derive labels only from two stable, agreeing answer-hidden reviews."""
-    reviewer_rows = (
+        reviewer_b_observations: Dict[str, Any],
+        reviewer_c_packet: Optional[Dict[str, Any]] = None,
+        reviewer_c_mapping: Optional[Dict[str, Any]] = None,
+        reviewer_c_observations: Optional[Dict[str, Any]] = None,
+        ) -> Dict[str, Any]:
+    """Derive labels from two agreeing or three majority reviewers."""
+    reviewer_rows = [
         (reviewer_a_packet, reviewer_a_mapping, reviewer_a_observations),
         (reviewer_b_packet, reviewer_b_mapping, reviewer_b_observations),
-    )
+    ]
+    reviewer_c = (
+        reviewer_c_packet, reviewer_c_mapping, reviewer_c_observations)
+    if any(value is not None for value in reviewer_c):
+        if any(value is None for value in reviewer_c):
+            raise CorpusError(
+                "third independent label reviewer inputs are incomplete")
+        reviewer_rows.append(reviewer_c)
     for packet, mapping, observations in reviewer_rows:
         _validate_mapping(mapping, packet)
         validate_observations(observations, packet)
-    if (reviewer_a_packet.get("corpusFingerprint")
-            != reviewer_b_packet.get("corpusFingerprint")):
+    if len({
+            packet.get("corpusFingerprint")
+            for packet, _mapping, _observations in reviewer_rows
+            }) != 1:
         raise CorpusError("independent reviewers used different corpora")
     system_ids = [
-        reviewer_a_packet.get("systemId"), reviewer_b_packet.get("systemId")]
-    if (len(set(system_ids)) != 2
+        packet.get("systemId")
+        for packet, _mapping, _observations in reviewer_rows]
+    if (len(system_ids) not in {2, 3}
+            or len(set(system_ids)) != len(system_ids)
             or any(not isinstance(item, str) or not item for item in system_ids)
             or set(system_ids) & {"verity", "butler"}):
         raise CorpusError("label reviewers must be distinct from evaluated systems")
     fingerprints = [
-        reviewer_a_observations["configurationFingerprint"],
-        reviewer_b_observations["configurationFingerprint"],
+        observations["configurationFingerprint"]
+        for _packet, _mapping, observations in reviewer_rows
     ]
-    if len(set(fingerprints)) != 2:
+    if len(set(fingerprints)) != len(fingerprints):
         raise CorpusError("label reviewer configurations must be distinct")
-    metadata_a = _canonical_case_metadata(reviewer_a_mapping)
-    metadata_b = _canonical_case_metadata(reviewer_b_mapping)
-    if metadata_a != metadata_b:
+    canonical_metadata = [
+        _canonical_case_metadata(mapping)
+        for _packet, mapping, _observations in reviewer_rows
+    ]
+    metadata_a = canonical_metadata[0]
+    if any(metadata != metadata_a for metadata in canonical_metadata[1:]):
         raise CorpusError("independent reviewer canonical metadata differs")
-    runs_a = _canonical_runs(
-        reviewer_a_mapping, reviewer_a_observations)
-    runs_b = _canonical_runs(
-        reviewer_b_mapping, reviewer_b_observations)
+    canonical_runs = [
+        _canonical_runs(mapping, observations)
+        for _packet, mapping, observations in reviewer_rows
+    ]
+    reviewer_majority = len(reviewer_rows) // 2 + 1
     labels = []
     for case_id in sorted(metadata_a):
-        left = runs_a[case_id]
-        right = runs_b[case_id]
-        if (not left or not right
-                or any(value not in {"present", "absent"} for value in left + right)
-                or len(set(left)) != 1 or len(set(right)) != 1):
-            raise CorpusError(
-                "independent label review must be decisive and stable")
-        if left[0] != right[0]:
+        assessments = [
+            _independent_review_consensus(runs[case_id])
+            for runs in canonical_runs
+        ]
+        counts = {
+            value: assessments.count(value)
+            for value in ("present", "absent")
+        }
+        assessment, count = max(counts.items(), key=lambda item: item[1])
+        if count < reviewer_majority:
             raise CorpusError("independent label reviewers disagree")
         labels.append({
             "caseId": case_id,
             "payloadDigest": metadata_a[case_id]["payloadDigest"],
-            "assessment": left[0],
+            "assessment": assessment,
         })
     attestation = {
         "schemaVersion": 1,
@@ -767,6 +791,25 @@ def build_independent_label_attestation(
     if status != "independent":
         raise CorpusError("independent label attestation construction failed")
     return attestation
+
+
+def _independent_review_consensus(runs: List[str]) -> str:
+    """Return a two-thirds label; non-decisive runs never contribute."""
+    if (len(runs) < LABEL_REVIEW_MIN_REPETITIONS
+            or len(runs) % 2 == 0):
+        raise CorpusError(
+            "independent label review requires an odd repetition count "
+            "of at least three")
+    required = (
+        LABEL_REVIEW_CONSENSUS_NUMERATOR * len(runs)
+        + LABEL_REVIEW_CONSENSUS_DENOMINATOR - 1
+    ) // LABEL_REVIEW_CONSENSUS_DENOMINATOR
+    counts = {value: runs.count(value) for value in ("present", "absent")}
+    winner, count = max(counts.items(), key=lambda item: item[1])
+    if count < required:
+        raise CorpusError(
+            "independent label review must reach two-thirds decisive consensus")
+    return winner
 
 
 def evaluate_verity_comparison_observations(
@@ -861,6 +904,7 @@ def evaluate_verity_comparison_observations(
 def _label_reviewer_config_fingerprint(
         reviewer: ProviderConfig, *, temperature: float,
         max_output_tokens: int, repetitions: int,
+        max_attempts_per_repetition: int,
         role_prompt_version: str, corpus_fingerprint: str) -> str:
     """Fingerprint only public, quality-relevant label-review configuration."""
     safe = {
@@ -873,6 +917,7 @@ def _label_reviewer_config_fingerprint(
         "temperature": temperature,
         "maxOutputTokens": max_output_tokens,
         "repetitions": repetitions,
+        "maxAttemptsPerRepetition": max_attempts_per_repetition,
         "egressPolicy": LABEL_REVIEW_EGRESS_POLICY,
         "rolePromptVersion": role_prompt_version,
         "protocolVersion": COMPARISON_PROTOCOL_VERSION,
@@ -888,6 +933,7 @@ def evaluate_independent_label_reviewer_observations(
         repetitions: int, reviewer, reviewer_config: ProviderConfig,
         temperature: float = 0.0, max_output_tokens: int = 800,
         max_total_calls: int = DEFAULT_COMPARISON_MAX_TOTAL_CALLS,
+        max_attempts_per_repetition: int = 1,
         role_prompt_version: str = "unspecified",
         manifest_path: Path = COMPARISON_MANIFEST_PATH) -> Dict[str, Any]:
     """Run one independent answer-hidden reviewer without loading labels.
@@ -905,8 +951,14 @@ def evaluate_independent_label_reviewer_observations(
             "independent label runner requires a non-evaluated system id")
     _validate_mapping(mapping, packet)
     if (not isinstance(repetitions, int) or isinstance(repetitions, bool)
-            or not 2 <= repetitions <= 10):
-        raise CorpusError("independent label review repetitions invalid")
+            or not 3 <= repetitions <= 9 or repetitions % 2 == 0):
+        raise CorpusError(
+            "independent label review repetitions must be odd and 3..9")
+    if (not isinstance(max_attempts_per_repetition, int)
+            or isinstance(max_attempts_per_repetition, bool)
+            or not 1 <= max_attempts_per_repetition <= 3):
+        raise CorpusError(
+            "independent label review attempts must be 1..3")
     if reviewer_config.role != "label_reviewer":
         raise CorpusError("independent label review Provider role invalid")
     if not reviewer_config.credentials.resolve():
@@ -915,7 +967,8 @@ def evaluate_independent_label_reviewer_observations(
     manifest = load_semantic_comparison_manifest(manifest_path)
     if packet.get("corpusFingerprint") != _corpus_fingerprint(manifest):
         raise CorpusError("semantic comparison packet corpus is stale")
-    required_calls = len(packet["items"]) * repetitions
+    required_calls = (
+        len(packet["items"]) * repetitions * max_attempts_per_repetition)
     if (not isinstance(max_total_calls, int) or max_total_calls < required_calls):
         raise CorpusError(
             f"independent label review call budget requires at least "
@@ -931,20 +984,27 @@ def evaluate_independent_label_reviewer_observations(
             separators=(",", ":")).encode("utf-8")
         runs = []
         for repetition in range(repetitions):
-            call = ProviderCall(
-                review_id="semantic-comparison-label-review",
-                egress_policy=LABEL_REVIEW_EGRESS_POLICY,
-                call_role="label_reviewer",
-                call_id=(f"label-{item['itemId']}-{repetition + 1}"),
-                request_bytes=len(raw_request),
-                request_digest_sha256=hashlib.sha256(raw_request).hexdigest(),
-            )
-            response = reviewer.review_label(call=call, request=request)
-            assessment = (
-                response.payload.get("assessment")
-                if response.ok and isinstance(response.payload, dict)
-                and set(response.payload) == {"assessment"}
-                else None)
+            assessment = None
+            for attempt in range(max_attempts_per_repetition):
+                call = ProviderCall(
+                    review_id="semantic-comparison-label-review",
+                    egress_policy=LABEL_REVIEW_EGRESS_POLICY,
+                    call_role="label_reviewer",
+                    call_id=(
+                        f"label-{item['itemId']}-{repetition + 1}"
+                        f"-attempt-{attempt + 1}"),
+                    request_bytes=len(raw_request),
+                    request_digest_sha256=hashlib.sha256(
+                        raw_request).hexdigest(),
+                )
+                response = reviewer.review_label(call=call, request=request)
+                assessment = (
+                    response.payload.get("assessment")
+                    if response.ok and isinstance(response.payload, dict)
+                    and set(response.payload) == {"assessment"}
+                    else None)
+                if assessment in {"present", "absent"}:
+                    break
             runs.append(
                 assessment if assessment in {"present", "absent"} else "error")
         rows.append({"itemId": item["itemId"], "runs": runs})
@@ -957,6 +1017,7 @@ def evaluate_independent_label_reviewer_observations(
         "configurationFingerprint": _label_reviewer_config_fingerprint(
             reviewer_config, temperature=temperature,
             max_output_tokens=max_output_tokens, repetitions=repetitions,
+            max_attempts_per_repetition=max_attempts_per_repetition,
             role_prompt_version=role_prompt_version,
             corpus_fingerprint=packet["corpusFingerprint"]),
         "corpusFingerprint": packet["corpusFingerprint"],
@@ -984,7 +1045,8 @@ def _label_map(label_attestation: Optional[Dict[str, Any]],
     status = label_attestation.get("labelStatus")
     reviewers = label_attestation.get("reviewers")
     if (status != INDEPENDENT_LABEL_STATUS
-            or not isinstance(reviewers, list) or len(reviewers) != 2):
+            or not isinstance(reviewers, list)
+            or len(reviewers) not in {2, 3}):
         return "not_independent", {}
     reviewer_ids = set()
     system_ids = set()
@@ -1011,9 +1073,11 @@ def _label_map(label_attestation: Optional[Dict[str, Any]],
         system_ids.add(system_id)
         configuration_fingerprints.add(config)
         artifact_digests.add(artifact)
-    if min(
-            len(reviewer_ids), len(system_ids),
-            len(configuration_fingerprints), len(artifact_digests)) < 2:
+    if any(
+            len(values) != len(reviewers)
+            for values in (
+                reviewer_ids, system_ids,
+                configuration_fingerprints, artifact_digests)):
         return "not_independent", {}
     labels = label_attestation.get("labels")
     if not isinstance(labels, list):

@@ -14,6 +14,38 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-24 — Repeated label review needs consensus and independent adjudication
+
+- **Symptom**: The first real answer-hidden label pass had one unstable case
+  for reviewer A and three for reviewer B, including one Provider error.
+  Among the 108 cases where both reviewers were stable and error-free, five
+  still had different labels. Requiring two unanimous repetitions and exact
+  agreement between two models made the whole 112-case attestation brittle.
+- **Root cause**: The protocol treated stochastic within-model variation,
+  transport failures, and legitimate cross-model judgment differences as the
+  same condition. It had no controlled adjudication route, so one transient
+  response or one defensible model disagreement invalidated every label.
+- **Fix**: Require each reviewer to run an odd count of at least three
+  repetitions and derive a label only when two-thirds of all planned runs
+  return the same decisive assessment. Provider errors never vote: two
+  matching decisions plus one error pass, while a split plus one error fails.
+  Preserve exact agreement for a
+  two-reviewer attestation, while allowing a third independently configured
+  reviewer to decide each case by majority. Require all reviewer ids, system
+  ids, configuration fingerprints, and review-artifact digests to be unique.
+- **Prevention**: Exercise label provenance with real Provider observations
+  before freezing a claim protocol. Keep failed attempts as local audit
+  evidence, define retry criteria before looking at labels, and never repair
+  an observation file by hand.
+- **Evidence**: Round 59;
+  `test_label_attestation_accepts_error_free_two_thirds_consensus`,
+  `test_label_attestation_accepts_three_reviewer_majority`,
+  `test_label_attestation_allows_one_nonvoting_error_with_two_thirds_consensus`,
+  `test_label_attestation_refuses_split_decisions_with_provider_error`,
+  `test_three_reviewer_attestation_requires_all_configurations_distinct`.
+
+---
+
 ### 2026-07-24 — Independent labels need a controlled runner and configuration separation
 
 - **Symptom**: Protocol v3 could build answer-hidden reviewer packets and
