@@ -1,6 +1,6 @@
 # Active implementation: semantic breadth and Butler superiority gate
 
-Status: **breadth tranche complete; authorized real-run configuration pending**
+Status: **breadth and blind-runner infrastructure complete; authorized real-run configuration pending**
 Owner authorization: 2026-07-23
 
 ## Goal
@@ -54,6 +54,14 @@ protocol without claiming semantic superiority. The crosswalk now has no open
 gaps. "Verity exceeds Butler" remains blocked until fresh labels plus both
 systems' same-case observations pass the comparison gate.
 
+Round 58 closes an operational gap in the evidence path: two explicitly
+separate, answer-hidden label-reviewer packets can now each be run through a
+bounded eval-only runner that emits validated observations plus a budget audit.
+The runner will not accept the `verity` or `butler` identities, sends no local
+alias map or author labels, and the comparator rejects a reviewer configuration
+that matches either evaluated system. This does not run a model or produce an
+accepted label set by itself; trusted real-run authorization remains required.
+
 ## Explicitly out of scope until this gate passes
 
 - Prompt black-box execution.
@@ -74,6 +82,9 @@ systems' same-case observations pass the comparison gate.
 - Protocol v2 still loads and reproduces unchanged.
 - Protocol v3 refuses superiority while independent labels or paired
   observations are missing.
+- Two independent label-reviewer runs can be produced from answer-hidden
+  packets without hand-authoring observation files, and cannot reuse the
+  evaluated systems' configuration fingerprints.
 - Full pytest and `python3 tools/verify_repo.py --require-clean` pass.
 - Round 57 is committed and pushed; GitHub CI run 30066597051 is green.
 

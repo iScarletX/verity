@@ -20,6 +20,9 @@ and this project uses [Semantic Versioning](https://semver.org/).
   negative-example guards.
 - Fifty-six fixed semantic contract replays and a 112-case answer-hidden
   Verity/Butler comparison corpus spanning all 28 semantic Finding Types.
+- An eval-only `run-label-reviewer` operation that produces scrubbed,
+  answer-hidden independent-review observations and a conservative budget
+  audit for each shuffled reviewer packet.
 
 ### Changed
 
@@ -27,6 +30,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
   every item and no open breadth gaps.
 - The taxonomy now contains 46 risks and 83 runtime mappings. The comparison
   gate requires 112 cases, 28 Finding Types, and 27 distinct risk ids.
+- The comparison gate now rejects a purported independent reviewer whose
+  frozen configuration matches Verity or Butler.
 
 ### Security
 

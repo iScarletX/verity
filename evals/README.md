@@ -169,13 +169,41 @@ paired real observations still block a superiority claim.
 `covered` means at least one mapped detector materially addresses the check;
 it is not a complete-recall or evaluated-accuracy assertion.
 
-`tools/semantic_head_to_head.py` has five deliberately separate operations:
+`tools/semantic_head_to_head.py` has six deliberately separate operations:
 
 ```bash
 export VERITY_COMPARISON_SEED='<private random seed>'
 python3 tools/semantic_head_to_head.py packet \
   --system-id verity \
   --seed-env VERITY_COMPARISON_SEED
+
+# Build separately shuffled, answer-hidden packets for the two label reviewers.
+export VERITY_LABEL_REVIEWER_A_SEED='<private random seed>'
+export VERITY_LABEL_REVIEWER_B_SEED='<different private random seed>'
+python3 tools/semantic_head_to_head.py packet \
+  --system-id label-reviewer-a \
+  --seed-env VERITY_LABEL_REVIEWER_A_SEED
+python3 tools/semantic_head_to_head.py packet \
+  --system-id label-reviewer-b \
+  --seed-env VERITY_LABEL_REVIEWER_B_SEED
+
+python3 tools/semantic_head_to_head.py run-label-reviewer \
+  --packet .verity-data/semantic-comparison/label-reviewer-a/packet.json \
+  --alias-map .verity-data/semantic-comparison/label-reviewer-a/alias-map.json \
+  --base-url https://trusted-provider.example/v1 \
+  --model '<pinned-independent-reviewer-a>' \
+  --api-key-env VERITY_EVAL_API_KEY \
+  --repetitions 2 \
+  --max-output-tokens 256 \
+  --max-total-calls 300 \
+  --max-total-tokens '<approved-total-token-cap>' \
+  --max-spend-usd '<approved-USD-cap>' \
+  --input-price-per-million '<provider-price>' \
+  --output-price-per-million '<provider-price>' \
+  --output .verity-data/semantic-comparison/label-reviewer-a/observations.json
+
+# Repeat with label-reviewer-b's packet, a distinct frozen configuration,
+# and a second approved run budget before deriving the attestation.
 
 python3 tools/semantic_head_to_head.py run-verity \
   --packet .verity-data/semantic-comparison/verity/packet.json \
@@ -237,14 +265,18 @@ python3 tools/semantic_head_to_head.py compare \
 Packet output contains artifacts and one target-risk definition, but no case
 id, Finding Type, risk id, author answer, label status, source path, or payload
 digest. Verity, Butler and the two label reviewers receive separately shuffled
-aliases; each local map row is bound to its packet-item digest. `attest-labels`
-requires exactly two reviewer systems and configuration fingerprints distinct
-from each other and from the evaluated systems. The built-in `run-verity`
-command accepts only a `system-id=verity` packet and therefore cannot be used
-to manufacture either independent review. Every review must be stable,
-decisive and unanimous across reviewers; names alone cannot establish
-independence. Every packet is rechecked for answer metadata when its alias map
-or observations cross a comparison boundary. The comparator requires at least
+aliases; each local map row is bound to its packet-item digest.
+`run-label-reviewer` accepts only a non-`verity`/non-`butler` packet, sends its
+packet rather than its local map, and writes a scrubbed observation plus a
+budget audit. `attest-labels` requires exactly two reviewer systems and
+configuration fingerprints distinct from each other. The comparator also
+refuses an otherwise valid attestation when either reviewer configuration
+matches Verity or Butler. The built-in `run-verity` command accepts only a
+`system-id=verity` packet and therefore cannot be used to manufacture either
+independent review. Every review must be stable, decisive and unanimous across
+reviewers; names alone cannot establish independence. Every packet is
+rechecked for answer metadata when its alias map or observations cross a
+comparison boundary. The comparator requires at least
 112 cases, all twenty-eight Finding Types, at least twenty-seven mapped risk ids, two
 repetitions, recall >=0.90, safe false-positive rate <=0.20, stability >=0.80,
 error rate <=0.05 and inconclusive rate <=0.10. It then additionally

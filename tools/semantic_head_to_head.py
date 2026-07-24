@@ -26,6 +26,7 @@ from verity.semantic_benchmark import (
     build_independent_label_attestation,
     build_semantic_comparison_packet,
     compare_semantic_systems,
+    evaluate_independent_label_reviewer_observations,
     evaluate_verity_comparison_observations,
     load_butler_crosswalk,
     validate_observations,
@@ -35,6 +36,7 @@ from verity.semantic.config import ProviderConfig, ProviderCredentials
 from verity.semantic.eval_provider import (
     EVAL_ROLE_PROMPT_VERSION,
     EvalRunBudget,
+    LABEL_REVIEW_PROMPT_VERSION,
     OpenAICompatibleEvalProvider,
 )
 
@@ -199,6 +201,68 @@ def _run_verity(args) -> int:
     print(f"wrote conservative budget audit: {budget_output}")
     print("labels sent to Provider: false")
     print("claim eligible: false (comparison not yet performed)")
+    return 0
+
+
+def _run_label_reviewer(args) -> int:
+    credentials = ProviderCredentials(args.api_key_env)
+    if not credentials.resolve():
+        raise CorpusError(
+            f"credential environment variable {args.api_key_env!r} is missing or empty")
+    reviewer_config = ProviderConfig(
+        role="label_reviewer", provider_id="openai-compatible-label-review",
+        model_id=args.model, base_url=args.base_url, credentials=credentials,
+        timeout_seconds=args.timeout, max_request_bytes=200 * 1024,
+        max_response_bytes=128 * 1024)
+    run_budget = EvalRunBudget(
+        max_calls=args.max_total_calls,
+        max_total_tokens=args.max_total_tokens,
+        max_spend_usd=args.max_spend_usd)
+    reviewer = OpenAICompatibleEvalProvider(
+        reviewer_config, temperature=args.temperature,
+        max_output_tokens=args.max_output_tokens, run_budget=run_budget,
+        input_price_per_million=args.input_price_per_million,
+        output_price_per_million=args.output_price_per_million)
+    observations = evaluate_independent_label_reviewer_observations(
+        packet=_read(args.packet), mapping=_read(args.alias_map),
+        repetitions=args.repetitions, reviewer=reviewer,
+        reviewer_config=reviewer_config, temperature=args.temperature,
+        max_output_tokens=args.max_output_tokens,
+        max_total_calls=args.max_total_calls,
+        role_prompt_version=LABEL_REVIEW_PROMPT_VERSION)
+    frozen_limits = {
+        "maxTotalCalls": args.max_total_calls,
+        "maxTotalTokens": args.max_total_tokens,
+        "maxSpendUsd": args.max_spend_usd,
+        "maxOutputTokens": args.max_output_tokens,
+        "inputPricePerMillion": args.input_price_per_million,
+        "outputPricePerMillion": args.output_price_per_million,
+    }
+    bound_fingerprint = hashlib.sha256(json.dumps(
+        {
+            "baseConfigurationFingerprint": observations[
+                "configurationFingerprint"],
+            "runLimits": frozen_limits,
+        }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    observations = {
+        **observations, "configurationFingerprint": bound_fingerprint}
+    output = _output_path(args.output, "label-reviewer-observations.json")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(canonical_report_json(observations), encoding="utf-8")
+    budget_output = output.with_name(output.stem + "-budget.json")
+    budget_output.write_text(canonical_report_json({
+        "schemaVersion": 1,
+        "protocolId": observations["protocolId"],
+        "protocolVersion": observations["protocolVersion"],
+        "systemId": observations["systemId"],
+        "configurationFingerprint": bound_fingerprint,
+        "limits": frozen_limits,
+        "reservation": run_budget.snapshot(),
+    }), encoding="utf-8")
+    print(f"wrote scrubbed label-review observations: {output}")
+    print(f"wrote conservative budget audit: {budget_output}")
+    print("author labels sent to Provider: false")
+    print("claim eligible: false (second independent reviewer required)")
     return 0
 
 
@@ -485,6 +549,28 @@ def main(argv=None) -> int:
     run_verity.add_argument("--timeout", type=float, default=30.0)
     run_verity.add_argument("--output", required=True)
     run_verity.set_defaults(handler=_run_verity)
+
+    run_reviewer = sub.add_parser(
+        "run-label-reviewer",
+        help="run one independent answer-hidden label reviewer on its packet")
+    run_reviewer.add_argument("--packet", required=True)
+    run_reviewer.add_argument("--alias-map", required=True)
+    run_reviewer.add_argument("--repetitions", type=int, required=True)
+    run_reviewer.add_argument("--base-url", required=True)
+    run_reviewer.add_argument("--model", required=True)
+    run_reviewer.add_argument("--api-key-env", required=True)
+    run_reviewer.add_argument("--temperature", type=float, default=0.0)
+    run_reviewer.add_argument("--max-output-tokens", type=int, required=True)
+    run_reviewer.add_argument("--max-total-calls", type=int, required=True)
+    run_reviewer.add_argument("--max-total-tokens", type=int, required=True)
+    run_reviewer.add_argument("--max-spend-usd", type=float, required=True)
+    run_reviewer.add_argument(
+        "--input-price-per-million", type=float, required=True)
+    run_reviewer.add_argument(
+        "--output-price-per-million", type=float, required=True)
+    run_reviewer.add_argument("--timeout", type=float, default=30.0)
+    run_reviewer.add_argument("--output", required=True)
+    run_reviewer.set_defaults(handler=_run_label_reviewer)
 
     run_butler = sub.add_parser(
         "run-butler",

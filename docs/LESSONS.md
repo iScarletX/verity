@@ -14,6 +14,32 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-24 — Independent labels need a controlled runner and configuration separation
+
+- **Symptom**: Protocol v3 could build answer-hidden reviewer packets and
+  attest their observation files, but supplied no controlled way to run a
+  reviewer without manually constructing JSON. It also checked only that the
+  two reviewer configurations differed from each other, not from Verity or
+  Butler.
+- **Root cause**: The comparison pipeline had separate packet and attestation
+  boundaries but no first-class eval-only reviewer role; the comparator held
+  both evaluated configuration fingerprints but did not compare them with the
+  attestation.
+- **Fix**: Add an eval-only `label_reviewer` role and bounded
+  `run-label-reviewer` command that receives the answer-hidden packet only,
+  writes scrubbed observations plus budget audit, and rejects evaluated-system
+  identities. Reject the comparison when a label-reviewer configuration equals
+  either evaluated system.
+- **Prevention**: Treat provenance of an independent label as executable
+  protocol state, not an operator promise. Test both provider egress and every
+  configuration-identity boundary before accepting a comparison claim.
+- **Evidence**: Round 58;
+  `test_independent_label_runner_is_answer_hidden_and_complete`,
+  `test_independent_label_runner_refuses_evaluated_system_id`,
+  `test_comparator_refuses_reviewer_configuration_used_by_system`.
+
+---
+
 ### 2026-07-24 — Breadth completion is a prerequisite, not an accuracy result
 
 - **Symptom**: Closing every item in a reference-product inventory can sound

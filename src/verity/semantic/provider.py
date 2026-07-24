@@ -23,7 +23,7 @@ class ProviderCall:
     """
     review_id: str
     egress_policy: str
-    call_role: Literal["candidate_generator", "validator"]
+    call_role: Literal["candidate_generator", "validator", "label_reviewer"]
     call_id: str
     request_bytes: int
     request_digest_sha256: str

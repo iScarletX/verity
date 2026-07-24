@@ -57,14 +57,17 @@ class ProviderCredentials:
 class ProviderConfig:
     """Trusted per-role provider configuration.
 
-    - ``role``: ``candidate_generator`` or ``validator``. The two roles
-      are always instantiated as separate provider objects even when
-      pointing at the same underlying model, so that Candidate and
-      Validator sides can never share state via a shared client.
+    - ``role``: ``candidate_generator`` or ``validator`` for product
+      semantic review. ``label_reviewer`` is eval-only and is used only by
+      the answer-hidden comparison protocol. The product orchestrator never
+      reads that role. Product roles are always instantiated as separate
+      provider objects even when pointing at the same underlying model, so
+      that Candidate and Validator sides can never share state via a shared
+      client.
     - ``base_url``: only ``https://`` URLs and localhost are allowed.
       Enforced at construction time.
     """
-    role: Literal["candidate_generator", "validator"]
+    role: Literal["candidate_generator", "validator", "label_reviewer"]
     provider_id: str
     model_id: str
     base_url: str = ""
@@ -74,7 +77,8 @@ class ProviderConfig:
     max_response_bytes: int = 128 * 1024
 
     def __post_init__(self) -> None:
-        if self.role not in ("candidate_generator", "validator"):
+        if self.role not in (
+                "candidate_generator", "validator", "label_reviewer"):
             raise ValueError(f"unknown role: {self.role!r}")
         if not self.provider_id or len(self.provider_id) > 80:
             raise ValueError("provider_id is required and must be at most 80 characters")

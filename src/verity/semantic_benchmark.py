@@ -22,6 +22,7 @@ from .report import review_to_dict
 from .review import ReviewInputs, run_review
 from .semantic.catalog import CATALOG
 from .semantic.config import ProviderConfig
+from .semantic.provider import ProviderCall
 from .standards import load_detector_mappings, load_risks
 
 
@@ -34,6 +35,7 @@ OBSERVATIONS = {"present", "absent", "inconclusive", "error"}
 INDEPENDENT_LABEL_STATUS = "independent_ai_review"
 DEFAULT_COMPARISON_MAX_TOTAL_CALLS = 500
 BUTLER_REFERENCE_SKILL_MAP_VERSION = "3.0.0"
+LABEL_REVIEW_EGRESS_POLICY = "answer_hidden_label_review"
 
 # Read-only Butler v6 reference mapping. These are comparison routes, not
 # Verity labels and not claims that Butler fully covers the associated risk.
@@ -856,6 +858,114 @@ def evaluate_verity_comparison_observations(
     return validate_observations(observations, packet)
 
 
+def _label_reviewer_config_fingerprint(
+        reviewer: ProviderConfig, *, temperature: float,
+        max_output_tokens: int, repetitions: int,
+        role_prompt_version: str, corpus_fingerprint: str) -> str:
+    """Fingerprint only public, quality-relevant label-review configuration."""
+    safe = {
+        "labelReviewer": {
+            "providerId": reviewer.provider_id,
+            "modelId": reviewer.model_id,
+            "endpointSha256": hashlib.sha256(
+                reviewer.base_url.encode()).hexdigest(),
+        },
+        "temperature": temperature,
+        "maxOutputTokens": max_output_tokens,
+        "repetitions": repetitions,
+        "egressPolicy": LABEL_REVIEW_EGRESS_POLICY,
+        "rolePromptVersion": role_prompt_version,
+        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+        "corpusFingerprint": corpus_fingerprint,
+    }
+    raw = json.dumps(safe, ensure_ascii=False, sort_keys=True,
+                     separators=(",", ":")).encode()
+    return hashlib.sha256(raw).hexdigest()
+
+
+def evaluate_independent_label_reviewer_observations(
+        *, packet: Dict[str, Any], mapping: Dict[str, Any],
+        repetitions: int, reviewer, reviewer_config: ProviderConfig,
+        temperature: float = 0.0, max_output_tokens: int = 800,
+        max_total_calls: int = DEFAULT_COMPARISON_MAX_TOTAL_CALLS,
+        role_prompt_version: str = "unspecified",
+        manifest_path: Path = COMPARISON_MANIFEST_PATH) -> Dict[str, Any]:
+    """Run one independent answer-hidden reviewer without loading labels.
+
+    This eval-only route has a separate ``label_reviewer`` Provider role. It
+    receives the packet's one target-risk definition and artifact, never the
+    local alias map, author assessment, Verity output, or Butler output.
+    """
+    if (packet.get("systemId") != mapping.get("systemId")
+            or packet.get("corpusFingerprint")
+            != mapping.get("corpusFingerprint")):
+        raise CorpusError("semantic comparison packet/map identity mismatch")
+    if packet.get("systemId") in {"verity", "butler"}:
+        raise CorpusError(
+            "independent label runner requires a non-evaluated system id")
+    _validate_mapping(mapping, packet)
+    if (not isinstance(repetitions, int) or isinstance(repetitions, bool)
+            or not 2 <= repetitions <= 10):
+        raise CorpusError("independent label review repetitions invalid")
+    if reviewer_config.role != "label_reviewer":
+        raise CorpusError("independent label review Provider role invalid")
+    if not reviewer_config.credentials.resolve():
+        raise CorpusError(
+            "independent label review credentials missing before run")
+    manifest = load_semantic_comparison_manifest(manifest_path)
+    if packet.get("corpusFingerprint") != _corpus_fingerprint(manifest):
+        raise CorpusError("semantic comparison packet corpus is stale")
+    required_calls = len(packet["items"]) * repetitions
+    if (not isinstance(max_total_calls, int) or max_total_calls < required_calls):
+        raise CorpusError(
+            f"independent label review call budget requires at least "
+            f"{required_calls}, configured {max_total_calls}")
+
+    rows = []
+    for item in packet["items"]:
+        # The packet has already been checked for answer fields. Keep the
+        # local mapping out of this request path entirely.
+        request = {"item": item, "reviewProtocol": packet["instructions"]}
+        raw_request = json.dumps(
+            request, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":")).encode("utf-8")
+        runs = []
+        for repetition in range(repetitions):
+            call = ProviderCall(
+                review_id="semantic-comparison-label-review",
+                egress_policy=LABEL_REVIEW_EGRESS_POLICY,
+                call_role="label_reviewer",
+                call_id=(f"label-{item['itemId']}-{repetition + 1}"),
+                request_bytes=len(raw_request),
+                request_digest_sha256=hashlib.sha256(raw_request).hexdigest(),
+            )
+            response = reviewer.review_label(call=call, request=request)
+            assessment = (
+                response.payload.get("assessment")
+                if response.ok and isinstance(response.payload, dict)
+                and set(response.payload) == {"assessment"}
+                else None)
+            runs.append(
+                assessment if assessment in {"present", "absent"} else "error")
+        rows.append({"itemId": item["itemId"], "runs": runs})
+
+    observations = {
+        "schemaVersion": 1,
+        "protocolId": COMPARISON_PROTOCOL_ID,
+        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+        "systemId": packet["systemId"],
+        "configurationFingerprint": _label_reviewer_config_fingerprint(
+            reviewer_config, temperature=temperature,
+            max_output_tokens=max_output_tokens, repetitions=repetitions,
+            role_prompt_version=role_prompt_version,
+            corpus_fingerprint=packet["corpusFingerprint"]),
+        "corpusFingerprint": packet["corpusFingerprint"],
+        "repetitions": repetitions,
+        "observations": rows,
+    }
+    return validate_observations(observations, packet)
+
+
 def _label_map(label_attestation: Optional[Dict[str, Any]],
                *, mapping: Dict[str, Any]) -> Tuple[str, Dict[str, str]]:
     if label_attestation is None:
@@ -1002,6 +1112,18 @@ def compare_semantic_systems(
         eligibility_reasons.append(
             "labels_missing" if status == "missing"
             else "labels_not_independently_reviewed")
+    elif label_attestation is not None:
+        reviewer_configurations = {
+            reviewer["configurationFingerprint"]
+            for reviewer in label_attestation["reviewers"]
+        }
+        evaluated_configurations = {
+            verity_observations["configurationFingerprint"],
+            butler_observations["configurationFingerprint"],
+        }
+        if reviewer_configurations & evaluated_configurations:
+            eligibility_reasons.append(
+                "label_reviewer_configuration_not_independent")
     if eligibility_reasons:
         return {
             "schemaVersion": 1,

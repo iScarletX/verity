@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "93e8574"
-  tests_collected: 658
-  tests_passed: 658
+  commit: "3201e865"
+  tests_collected: 662
+  tests_passed: 662
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -33,11 +33,35 @@ Strings below MUST match the runtime literals.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, and the new protocol-v3 Butler comparison has neither independently derived labels nor paired real observations. No claim that Verity equals or exceeds Butler is currently authorized. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
-**Next step.** Obtain two genuinely independent reviewer configurations and the exact trusted real-run authorization required by `AGENTS.md`: provider, dated models, key environment variable, v3 split, repetitions, call/token/spend limits and report path. Derive digest-bound labels from answer-hidden reviewer packets, run Verity and the read-only Butler adapter on the same 112 cases, then require the absolute quality gates plus non-inferior recall/error and strictly lower safe false-positive rate. The 45-check Butler breadth prerequisite is now complete, but that is not an accuracy result. Prompt black-box and Skill sandbox work remain blocked until the full semantic gate passes. This authorization does not expose the sealed v2 Test split, retry consumed v2 Selection, or install a local model.
+**Next step.** Obtain two genuinely independent reviewer configurations and the exact trusted real-run authorization required by `AGENTS.md`: provider, dated models, key environment variable, v3 split, repetitions, call/token/spend limits and report path. Use the two answer-hidden label-reviewer runners to derive digest-bound labels, then run Verity and the read-only Butler adapter on the same 112 cases and require the absolute quality gates plus non-inferior recall/error and strictly lower safe false-positive rate. The 45-check Butler breadth prerequisite is now complete, but that is not an accuracy result. Prompt black-box and Skill sandbox work remain blocked until the full semantic gate passes. This authorization does not expose the sealed v2 Test split, retry consumed v2 Selection, or install a local model.
 
-**What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, and a default-OFF experimental semantic pipeline with 28 controlled Finding Types, catalog-owned judgment policies, structured evidence and a bounded JSON-over-HTTPS Provider adapter. The repository also includes a fresh 112-case same-corpus comparison protocol, independently derived label attestation plumbing, strict run budgets, a read-only Butler source adapter, and a complete pinned Butler inventory crosswalk. Standalone CLI/Web review and trusted Web-first Skill project history remain available. Confirmed Findings from completed stages use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
+**What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, and a default-OFF experimental semantic pipeline with 28 controlled Finding Types, catalog-owned judgment policies, structured evidence and a bounded JSON-over-HTTPS Provider adapter. The repository also includes a fresh 112-case same-corpus comparison protocol, two eval-only answer-hidden label-reviewer runners with scrubbed budget audits, independently derived label attestation plumbing, strict run budgets, a read-only Butler source adapter, and a complete pinned Butler inventory crosswalk. Standalone CLI/Web review and trusted Web-first Skill project history remain available. Confirmed Findings from completed stages use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
 **Deliberately absent.** No accepted semantic quality result, no v3 real observation report, no independently attested v3 label set, and no claim that Verity equals or exceeds Butler. The breadth crosswalk is complete, but independent labels and paired real observations still block that claim. There is no automatic remediation/PatchSet apply. The Web UI has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
+
+---
+
+## Round 58 (2026-07-24) → make independent blind labels runnable and enforce configuration independence
+
+- Added an eval-only `label_reviewer` Provider role and a bounded
+  `run-label-reviewer` operation. Each independently shuffled answer-hidden
+  packet can now produce a validated observation file plus a conservative
+  budget audit without hand-authoring observation JSON. The runner rejects the
+  evaluated `verity` and `butler` identities and sends the packet item only;
+  its local alias map and all author labels remain outside the Provider path.
+- The new closed JSON contract permits only `{"assessment":"present|absent"}`.
+  Invalid, inconclusive, or transport responses become explicit observation
+  errors, so label attestation still requires both reviewers to be decisive,
+  stable, and unanimous across repetitions.
+- Fixed an integrity gap in the comparator: two reviewer configurations could
+  differ from each other yet one could equal the frozen Verity or Butler
+  configuration. Such a run now returns `not_eligible` with
+  `label_reviewer_configuration_not_independent`.
+- No external Provider/model call was made, no local model dependency or
+  weight was installed, and Butler remained read-only. Full suite: 662 passed,
+  0 skipped. A real v3 label attestation and paired observations still require
+  the trusted provider/model/budget authorization, so Verity has not claimed
+  superiority and Prompt black-box / Skill sandbox work remain gated.
 
 ---
 

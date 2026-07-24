@@ -24,6 +24,7 @@ from verity.semantic_benchmark import (
     build_independent_label_attestation,
     build_semantic_comparison_packet,
     compare_semantic_systems,
+    evaluate_independent_label_reviewer_observations,
     evaluate_verity_comparison_observations,
     load_butler_crosswalk,
     load_semantic_comparison_manifest,
@@ -613,6 +614,17 @@ class _RejectingValidator:
         })
 
 
+class _LabelReviewer:
+    def __init__(self, assessment="absent"):
+        self.assessment = assessment
+        self.calls = []
+
+    def review_label(self, *, call, request):
+        self.calls.append((call, request))
+        return ProviderResponse(
+            ok=True, payload={"assessment": self.assessment})
+
+
 def test_verity_observation_runner_is_label_free_and_complete(monkeypatch):
     packet, mapping = build_semantic_comparison_packet(
         system_id="verity", seed="round55-runner-seed")
@@ -660,6 +672,61 @@ def test_verity_runner_cannot_masquerade_as_an_independent_label_reviewer(
                 role="candidate_generator", **common),
             validator_config=ProviderConfig(role="validator", **common),
             role_prompt_version="3.0.0")
+
+
+def test_independent_label_runner_is_answer_hidden_and_complete(monkeypatch):
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="label-reviewer-a", seed="round57-label-runner-seed")
+    monkeypatch.setenv("VERITY_TEST_HEAD_TO_HEAD_KEY", "local-test-value")
+    reviewer = _LabelReviewer()
+    observations = evaluate_independent_label_reviewer_observations(
+        packet=packet, mapping=mapping, repetitions=2, reviewer=reviewer,
+        reviewer_config=ProviderConfig(
+            role="label_reviewer", provider_id="independent-test",
+            model_id="fixed-reviewer", base_url="https://example.invalid/v1",
+            credentials=ProviderCredentials("VERITY_TEST_HEAD_TO_HEAD_KEY")),
+        role_prompt_version="1.0.0")
+    assert len(observations["observations"]) == 112
+    assert all(row["runs"] == ["absent", "absent"]
+               for row in observations["observations"])
+    assert len(reviewer.calls) == 224
+    assert all(call.call_role == "label_reviewer"
+               and call.egress_policy == "answer_hidden_label_review"
+               for call, _request in reviewer.calls)
+    serialised_requests = json.dumps(
+        [request for _call, request in reviewer.calls])
+    assert "authorAssessment" not in serialised_requests
+    assert "findingType" not in serialised_requests
+    assert "payloadDigest" not in serialised_requests
+    assert "local-test-value" not in serialised_requests
+
+
+def test_independent_label_runner_refuses_evaluated_system_id(monkeypatch):
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="verity", seed="round57-label-runner-boundary")
+    monkeypatch.setenv("VERITY_TEST_HEAD_TO_HEAD_KEY", "local-test-value")
+    with pytest.raises(CorpusError, match="non-evaluated system id"):
+        evaluate_independent_label_reviewer_observations(
+            packet=packet, mapping=mapping, repetitions=2,
+            reviewer=_LabelReviewer(),
+            reviewer_config=ProviderConfig(
+                role="label_reviewer", provider_id="independent-test",
+                model_id="fixed-reviewer", base_url="https://example.invalid/v1",
+                credentials=ProviderCredentials("VERITY_TEST_HEAD_TO_HEAD_KEY")),
+            role_prompt_version="1.0.0")
+
+
+def test_comparator_refuses_reviewer_configuration_used_by_system():
+    vp, vm, vo, bp, bm, bo, labels = _synthetic_pair()
+    labels["reviewers"][0]["configurationFingerprint"] = (
+        vo["configurationFingerprint"])
+    report = compare_semantic_systems(
+        verity_packet=vp, verity_mapping=vm, verity_observations=vo,
+        butler_packet=bp, butler_mapping=bm, butler_observations=bo,
+        label_attestation=labels, butler_crosswalk=_complete_butler_crosswalk())
+    assert report["status"] == "not_eligible"
+    assert report["reasonCodes"] == [
+        "label_reviewer_configuration_not_independent"]
 
 
 def test_butler_reference_response_body_has_a_streaming_byte_cap():

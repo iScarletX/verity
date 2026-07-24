@@ -71,6 +71,23 @@ def test_eval_provider_sends_closed_no_tool_json_request(monkeypatch):
     assert timeout == cfg().timeout_seconds
 
 
+def test_eval_provider_label_reviewer_uses_closed_binary_contract(monkeypatch):
+    monkeypatch.setenv("VERITY_TEST_EVAL_KEY", "x")
+    opener = Opener(Response(envelope({"assessment": "absent"})))
+    provider = OpenAICompatibleEvalProvider(
+        cfg(role="label_reviewer"), opener=opener, max_output_tokens=300)
+    response = provider.review_label(
+        call=call("label_reviewer"), request={
+            "item": {"itemId": "SC-001-abcdef"},
+            "reviewProtocol": {"question": "present or absent"},
+        })
+    assert response.ok and response.payload == {"assessment": "absent"}
+    wire = json.loads(opener.requests[0][0].data)
+    assert "answer-hidden benchmark label reviewer" in wire[
+        "messages"][0]["content"]
+    assert wire["response_format"] == {"type": "json_object"}
+
+
 def test_eval_provider_requires_named_present_credential(monkeypatch):
     monkeypatch.delenv("VERITY_TEST_EVAL_KEY", raising=False)
     opener = Opener()
@@ -136,5 +153,12 @@ def test_role_and_parameter_bounds(monkeypatch):
                                        opener=Opener(Response(envelope({}))))
     assert val.generate_candidates(call=call(), request={}).reason_code == "provider_role_mismatch"
     assert val.validate_candidate(call=call("validator"), request={}).ok
+    label = OpenAICompatibleEvalProvider(
+        cfg(role="label_reviewer"), opener=Opener(
+            Response(envelope({"assessment": "absent"}))))
+    assert label.generate_candidates(
+        call=call(), request={}).reason_code == "provider_role_mismatch"
+    assert label.review_label(
+        call=call("label_reviewer"), request={}).ok
     with pytest.raises(ValueError): OpenAICompatibleEvalProvider(cfg(), temperature=1.1)
     with pytest.raises(ValueError): OpenAICompatibleEvalProvider(cfg(), max_output_tokens=10)

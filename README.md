@@ -90,6 +90,10 @@ are still `provisional_single_review`, and no paired system observations have
 been accepted, so it cannot yet support a superiority claim. A read-only
 Butler adapter is available for that future run; it fingerprints Butler's
 source, never modifies it, and enforces explicit call/token/spend limits. A
+separate eval-only label-reviewer runner can produce each of two shuffled,
+answer-hidden reviews under its own frozen model configuration and budget; the
+comparison gate refuses reviewer configurations shared with either evaluated
+system. A
 no-cherry-picking crosswalk inventories all 45 Butler built-in checks at the
 pinned reference commit: all 45 now have material Verity coverage and no item
 is open. Here `covered` means a mapped Verity detector materially addresses

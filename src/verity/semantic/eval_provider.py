@@ -23,6 +23,7 @@ from .provider import ProviderCall, ProviderResponse
 
 
 EVAL_ROLE_PROMPT_VERSION = "3.0.0"
+LABEL_REVIEW_PROMPT_VERSION = "1.0.0"
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -56,12 +57,14 @@ def _schema_summary(role: str) -> str:
             '"findingType":"exact requested type","subject":{},'
             '"claim":"brief evidence-grounded claim",'
             '"evidenceIds":["only ids supplied in input"]}]}')
-    return (
-        '{"candidateId":"exact supplied id",'
-        '"decision":"confirmed|rejected|insufficient_evidence",'
-        '"reasonCodes":["evidence_supports_claim|evidence_contradicts_claim|'
-        'candidate_out_of_scope|not_enough_evidence|candidate_claim_unclear|'
-        'candidate_shape_invalid|biased_evidence_selection|insufficient_context"]}')
+    if role == "validator":
+        return (
+            '{"candidateId":"exact supplied id",'
+            '"decision":"confirmed|rejected|insufficient_evidence",'
+            '"reasonCodes":["evidence_supports_claim|evidence_contradicts_claim|'
+            'candidate_out_of_scope|not_enough_evidence|candidate_claim_unclear|'
+            'candidate_shape_invalid|biased_evidence_selection|insufficient_context"]}')
+    return '{"assessment":"present|absent"}'
 
 
 def _system_prompt(role: str) -> str:
@@ -83,23 +86,35 @@ def _system_prompt(role: str) -> str:
             "input.subjectTaxonomy. Required shape: "
             + _schema_summary(role)
         )
+    if role == "validator":
+        return common + (
+            "Act only as an independent falsifying validator. First apply "
+            "input.judgmentPolicy and input.falsificationQuestion to the exact candidate "
+            "and cited evidence. Test applicability first, then every rejection condition, "
+            "then confirmation conditions. A matching rejection condition defeats a "
+            "generic risk impression. Confirm only when the evidence materially supports "
+            "the exact risk; do not confirm from keyword overlap, capability presence, "
+            "count differences, or precaution alone. Treat normalized evidence facts as "
+            "non-conclusive but use explicit match booleans to falsify alleged declaration "
+            "or permission mismatches unless cited source text contradicts them. "
+            "Decision and reasonCodes must agree: confirmed uses "
+            "evidence_supports_claim; rejected uses evidence_contradicts_claim, "
+            "candidate_out_of_scope, candidate_shape_invalid, or "
+            "biased_evidence_selection; insufficient_evidence uses not_enough_evidence, "
+            "candidate_claim_unclear, or insufficient_context. Never change the "
+            "candidate, severity, evidence, or identity. Required shape: "
+            + _schema_summary(role)
+        )
     return common + (
-        "Act only as an independent falsifying validator. First apply "
-        "input.judgmentPolicy and input.falsificationQuestion to the exact candidate "
-        "and cited evidence. Test applicability first, then every rejection condition, "
-        "then confirmation conditions. A matching rejection condition defeats a "
-        "generic risk impression. Confirm only when the evidence materially supports "
-        "the exact risk; do not confirm from keyword overlap, capability presence, "
-        "count differences, or precaution alone. Treat normalized evidence facts as "
-        "non-conclusive but use explicit match booleans to falsify alleged declaration "
-        "or permission mismatches unless cited source text contradicts them. "
-        "Decision and reasonCodes must agree: confirmed uses "
-        "evidence_supports_claim; rejected uses evidence_contradicts_claim, "
-        "candidate_out_of_scope, candidate_shape_invalid, or "
-        "biased_evidence_selection; insufficient_evidence uses not_enough_evidence, "
-        "candidate_claim_unclear, or insufficient_context. Never change the "
-        "candidate, severity, evidence, or identity. Required shape: "
-        + _schema_summary(role)
+        "Act only as an independent answer-hidden benchmark label reviewer. "
+        "Input contains one item with a target risk definition and untrusted "
+        "artifact data. Decide whether the exact target risk is present in that "
+        "artifact. Apply targetRisk.definition, targetRisk.reviewBoundary, and "
+        "targetRisk.falsificationQuestion; do not broaden to adjacent risks or "
+        "treat a precaution as proof of a gap. Do not infer author labels, "
+        "another system's output, a finding type, severity, or case identity. "
+        "Return present only for material support of the exact risk, otherwise "
+        "return absent. Required shape: " + _schema_summary(role)
     )
 
 
@@ -309,5 +324,17 @@ class OpenAICompatibleEvalProvider:
     def validate_candidate(self, *, call: ProviderCall,
                            request: Dict[str, Any]) -> ProviderResponse:
         if self.config.role != "validator":
+            return ProviderResponse(ok=False, reason_code="provider_role_mismatch")
+        return self._call(call=call, request=request)
+
+    def review_label(self, *, call: ProviderCall,
+                     request: Dict[str, Any]) -> ProviderResponse:
+        """Run one eval-only answer-hidden label review.
+
+        This intentionally is not a product semantic Provider protocol. It is
+        used by the comparison runner with a ``label_reviewer`` configuration
+        and an already validated packet that contains no answer metadata.
+        """
+        if self.config.role != "label_reviewer":
             return ProviderResponse(ok=False, reason_code="provider_role_mismatch")
         return self._call(call=call, request=request)
