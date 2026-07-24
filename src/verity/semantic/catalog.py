@@ -978,6 +978,358 @@ def extract_sensitive_data_handling_gap(review_dict, file_bytes):
         metadata_builder=_sensitive_data_metadata)
 
 
+_ROLE_IDENTITY_TERMS = (
+    "you are", "act as", "your role", "persona", "assistant for",
+    "你是", "作为", "你的角色", "角色身份", "助手",
+)
+_ROLE_AUDIENCE_TERMS = (
+    "audience", "serve", "for users", "customer", "operator",
+    "面向", "服务对象", "用户", "客户", "操作员",
+)
+_ROLE_DUTY_TERMS = (
+    "responsible for", "duties", "responsibility", "can help", "must handle",
+    "负责", "职责", "责任", "可以帮助", "必须处理",
+)
+_ROLE_EXCLUSION_TERMS = (
+    "out of scope", "cannot", "must not", "do not", "refuse", "escalate",
+    "范围外", "不能", "不得", "不要", "拒绝", "转交",
+)
+
+
+def _role_scope_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["operational_role"],
+        roleSignalCount=sum(text.count(x) for x in _ROLE_IDENTITY_TERMS),
+        audienceSignalCount=sum(text.count(x) for x in _ROLE_AUDIENCE_TERMS),
+        dutySignalCount=sum(text.count(x) for x in _ROLE_DUTY_TERMS),
+        exclusionSignalCount=sum(
+            text.count(x) for x in _ROLE_EXCLUSION_TERMS),
+    )
+
+
+def extract_role_scope_contract_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_ROLE_IDENTITY_TERMS,
+        producer_id="extractor.prompt.role_scope_contract_gap",
+        metadata_builder=_role_scope_metadata)
+
+
+_WORKFLOW_TERMS = (
+    "step 1", "step one", "first,", "then ", "finally", "workflow",
+    "process", "pipeline", "步骤 1", "第一步", "首先", "然后", "最后",
+    "流程", "工作流",
+)
+_WORKFLOW_DEPENDENCY_TERMS = (
+    "before", "after", "depends on", "requires", "prerequisite",
+    "using the result", "前置", "之前", "之后", "依赖", "需要", "使用结果",
+)
+_WORKFLOW_RESULT_TERMS = (
+    "intermediate result", "pass to", "feed into", "use the output",
+    "中间结果", "传递给", "输入下一步", "使用输出",
+)
+_WORKFLOW_BRANCH_TERMS = (
+    "otherwise", "if it fails", "skip", "stop", "else",
+    "否则", "失败时", "跳过", "停止",
+)
+
+
+def _workflow_dependency_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["multi_step_workflow"],
+        workflowSignalCount=sum(text.count(x) for x in _WORKFLOW_TERMS),
+        dependencySignalCount=sum(
+            text.count(x) for x in _WORKFLOW_DEPENDENCY_TERMS),
+        intermediateResultSignalCount=sum(
+            text.count(x) for x in _WORKFLOW_RESULT_TERMS),
+        workflowBranchSignalCount=sum(
+            text.count(x) for x in _WORKFLOW_BRANCH_TERMS),
+    )
+
+
+def extract_workflow_dependency_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_WORKFLOW_TERMS,
+        producer_id="extractor.prompt.workflow_dependency_gap",
+        metadata_builder=_workflow_dependency_metadata)
+
+
+_FIELD_CONTRACT_TERMS = (
+    "field", "fields", "amount", "date", "timestamp", "status", "enum",
+    "integer", "decimal", "字段", "金额", "日期", "时间戳", "状态",
+    "枚举", "整数", "小数",
+)
+_FIELD_TYPE_TERMS = (
+    "string", "number", "integer", "boolean", "type", "类型", "字符串",
+    "数字", "整数", "布尔",
+)
+_FIELD_UNIT_PRECISION_TERMS = (
+    "unit", "precision", "decimal places", "currency", "timezone",
+    "单位", "精度", "小数位", "币种", "时区",
+)
+_FIELD_RANGE_TERMS = (
+    "range", "minimum", "maximum", "between", "one of", "enum",
+    "范围", "最小", "最大", "介于", "取值", "枚举",
+)
+_FIELD_BOUNDARY_TERMS = (
+    "empty", "null", "duplicate", "rollover", "overflow", "zero",
+    "空值", "空输入", "重复", "跨日", "溢出", "零",
+)
+
+
+def _field_constraint_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["typed_or_bounded_field"],
+        fieldSignalCount=sum(text.count(x) for x in _FIELD_CONTRACT_TERMS),
+        fieldTypeSignalCount=sum(text.count(x) for x in _FIELD_TYPE_TERMS),
+        unitPrecisionSignalCount=sum(
+            text.count(x) for x in _FIELD_UNIT_PRECISION_TERMS),
+        rangeSignalCount=sum(text.count(x) for x in _FIELD_RANGE_TERMS),
+        boundaryValueSignalCount=sum(
+            text.count(x) for x in _FIELD_BOUNDARY_TERMS),
+    )
+
+
+def extract_field_constraint_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_FIELD_CONTRACT_TERMS,
+        producer_id="extractor.prompt.field_constraint_gap",
+        metadata_builder=_field_constraint_metadata)
+
+
+_ERROR_RESPONSE_TERMS = (
+    "error response", "on error", "if invalid", "cannot complete",
+    "permission denied", "refuse", "failure response", "错误响应", "出错时",
+    "无效时", "无法完成", "权限不足", "拒绝", "失败响应",
+)
+_ERROR_SCHEMA_TERMS = (
+    "error code", "reason field", "error field", "json error", "schema",
+    "错误码", "原因字段", "error 字段", "错误结构",
+)
+_ERROR_RECOVERY_TERMS = (
+    "retry", "recover", "next action", "request clarification",
+    "重试", "恢复", "下一步", "请求补充",
+)
+_ERROR_FORMAT_TERMS = (
+    "same format", "consistent format", "uniform", "stable format",
+    "相同格式", "一致格式", "统一", "稳定格式",
+)
+
+
+def _error_response_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["declared_failure_response"],
+        errorResponseSignalCount=sum(
+            text.count(x) for x in _ERROR_RESPONSE_TERMS),
+        errorSchemaSignalCount=sum(text.count(x) for x in _ERROR_SCHEMA_TERMS),
+        recoverySignalCount=sum(text.count(x) for x in _ERROR_RECOVERY_TERMS),
+        errorFormatSignalCount=sum(text.count(x) for x in _ERROR_FORMAT_TERMS),
+    )
+
+
+def extract_error_response_contract_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_ERROR_RESPONSE_TERMS,
+        producer_id="extractor.prompt.error_response_contract_gap",
+        metadata_builder=_error_response_metadata)
+
+
+_ATTENTION_STRUCTURE_TERMS = (
+    "## background", "## appendix", "background material", "appendix",
+    "long prompt", "reference material", "critical rule", "背景材料",
+    "附录", "长提示词", "参考资料", "关键规则",
+)
+_ATTENTION_HIERARCHY_TERMS = (
+    "summary", "priority", "must follow", "non-negotiable", "摘要", "优先级",
+    "必须遵守", "不可覆盖",
+)
+_ATTENTION_REPETITION_TERMS = (
+    "repeated", "duplicate", "again", "重复", "反复", "再次",
+)
+
+
+def _attention_dilution_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["long_or_multi_section_prompt"],
+        structureSignalCount=sum(
+            text.count(x) for x in _ATTENTION_STRUCTURE_TERMS),
+        hierarchySignalCount=sum(
+            text.count(x) for x in _ATTENTION_HIERARCHY_TERMS),
+        repetitionSignalCount=sum(
+            text.count(x) for x in _ATTENTION_REPETITION_TERMS),
+        promptLineCount=text.count("\n") + 1,
+        promptCharacterCount=len(text),
+    )
+
+
+def extract_attention_dilution(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_ATTENTION_STRUCTURE_TERMS,
+        producer_id="extractor.prompt.attention_dilution",
+        metadata_builder=_attention_dilution_metadata)
+
+
+_STREAMING_TERMS = (
+    "streaming", "streamed", "stream response", "incremental", "chunked",
+    "resume", "server-sent events", "sse", "流式", "增量", "分块",
+    "断点续传",
+)
+_STREAM_FRAMING_TERMS = (
+    "frame", "delimiter", "sequence number", "event type", "分帧", "分隔符",
+    "序号", "事件类型",
+)
+_STREAM_COMPLETION_TERMS = (
+    "completion marker", "done event", "end marker", "完成标记", "结束标记",
+)
+_STREAM_RESUME_TERMS = (
+    "resume token", "cursor", "checkpoint", "last event id", "恢复令牌",
+    "游标", "检查点", "最后事件",
+)
+_STREAM_PARTIAL_TERMS = (
+    "partial", "interrupted", "truncated", "parse partial", "部分", "中断",
+    "截断", "解析不完整",
+)
+
+
+def _streaming_recovery_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["streaming_output"],
+        streamingSignalCount=sum(text.count(x) for x in _STREAMING_TERMS),
+        framingSignalCount=sum(text.count(x) for x in _STREAM_FRAMING_TERMS),
+        completionSignalCount=sum(
+            text.count(x) for x in _STREAM_COMPLETION_TERMS),
+        resumeSignalCount=sum(text.count(x) for x in _STREAM_RESUME_TERMS),
+        partialStreamSignalCount=sum(
+            text.count(x) for x in _STREAM_PARTIAL_TERMS),
+    )
+
+
+def extract_streaming_recovery_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_STREAMING_TERMS,
+        producer_id="extractor.prompt.streaming_recovery_gap",
+        metadata_builder=_streaming_recovery_metadata)
+
+
+_MULTI_TURN_TERMS = (
+    "multi-turn", "multiple turns", "conversation", "session",
+    "previous turn", "conversation memory", "多轮", "多次对话", "会话",
+    "上一轮", "对话记忆",
+)
+_STATE_INHERITANCE_TERMS = (
+    "inherit", "carry forward", "persist", "remember", "继承", "沿用",
+    "保持", "记住",
+)
+_STATE_UPDATE_TERMS = (
+    "update preference", "change preference", "override", "latest request",
+    "更新偏好", "修改偏好", "覆盖", "最新请求",
+)
+_STATE_RESET_TERMS = (
+    "reset", "new session", "forget", "clear state", "重置", "新会话",
+    "忘记", "清除状态",
+)
+_STATE_INVARIANT_TERMS = (
+    "cannot be overridden", "must always", "non-overridable", "system rule",
+    "不可覆盖", "始终必须", "系统规则",
+)
+
+
+def _multi_turn_state_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["multi_turn_state"],
+        multiTurnSignalCount=sum(text.count(x) for x in _MULTI_TURN_TERMS),
+        stateInheritanceSignalCount=sum(
+            text.count(x) for x in _STATE_INHERITANCE_TERMS),
+        stateUpdateSignalCount=sum(text.count(x) for x in _STATE_UPDATE_TERMS),
+        stateResetSignalCount=sum(text.count(x) for x in _STATE_RESET_TERMS),
+        stateInvariantSignalCount=sum(
+            text.count(x) for x in _STATE_INVARIANT_TERMS),
+    )
+
+
+def extract_multi_turn_state_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_MULTI_TURN_TERMS,
+        producer_id="extractor.prompt.multi_turn_state_gap",
+        metadata_builder=_multi_turn_state_metadata)
+
+
+_SAFETY_DOMAIN_TERMS = (
+    "dangerous", "high-risk", "illegal", "self-harm", "weapon", "malware",
+    "violence", "explosive", "危险", "高风险", "违法", "自残", "武器",
+    "恶意软件", "暴力", "爆炸物",
+)
+_SAFETY_REFUSAL_TERMS = (
+    "refuse", "do not provide", "decline", "block", "拒绝", "不得提供",
+    "不予回答", "阻止",
+)
+_SAFETY_ALTERNATIVE_TERMS = (
+    "safe alternative", "safer help", "benign", "安全替代", "安全帮助",
+    "无害",
+)
+_SAFETY_ESCALATION_TERMS = (
+    "emergency", "professional help", "escalate", "human review", "紧急",
+    "专业帮助", "转交", "人工复核",
+)
+
+
+def _safety_policy_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["high_risk_content_or_action"],
+        safetyDomainSignalCount=sum(
+            text.count(x) for x in _SAFETY_DOMAIN_TERMS),
+        refusalSignalCount=sum(text.count(x) for x in _SAFETY_REFUSAL_TERMS),
+        safeAlternativeSignalCount=sum(
+            text.count(x) for x in _SAFETY_ALTERNATIVE_TERMS),
+        escalationSignalCount=sum(
+            text.count(x) for x in _SAFETY_ESCALATION_TERMS),
+    )
+
+
+def extract_safety_policy_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_SAFETY_DOMAIN_TERMS,
+        producer_id="extractor.prompt.safety_policy_gap",
+        metadata_builder=_safety_policy_metadata)
+
+
+_SOURCE_USE_TERMS = (
+    "copyright", "licensed", "source text", "article", "book", "long passage",
+    "quote", "reproduce", "copy", "verbatim", "版权", "许可", "来源文本",
+    "文章", "书籍", "长段落", "引用", "复刻", "复制", "逐字",
+)
+_SOURCE_ATTRIBUTION_TERMS = (
+    "attribute", "citation", "credit", "name the source", "标注来源", "引用",
+    "署名", "出处",
+)
+_SOURCE_TRANSFORMATION_TERMS = (
+    "summarize", "transform", "paraphrase", "extract", "摘要", "转换", "改写",
+    "提取",
+)
+_SOURCE_LIMIT_TERMS = (
+    "short excerpt", "limit quotation", "do not reproduce", "public domain",
+    "user-provided", "短摘录", "限制引用", "不得复刻", "公版", "用户提供",
+)
+
+
+def _source_use_policy_metadata(text):
+    return _prompt_analysis_metadata(
+        signal_families=["third_party_source_use"],
+        sourceUseSignalCount=sum(text.count(x) for x in _SOURCE_USE_TERMS),
+        attributionSignalCount=sum(
+            text.count(x) for x in _SOURCE_ATTRIBUTION_TERMS),
+        transformationSignalCount=sum(
+            text.count(x) for x in _SOURCE_TRANSFORMATION_TERMS),
+        sourceLimitSignalCount=sum(text.count(x) for x in _SOURCE_LIMIT_TERMS),
+    )
+
+
+def extract_source_use_policy_gap(review_dict, file_bytes):
+    return _whole_prompt_seed(
+        review_dict, file_bytes, triggers=_SOURCE_USE_TERMS,
+        producer_id="extractor.prompt.source_use_policy_gap",
+        metadata_builder=_source_use_policy_metadata)
+
+
 def extract_trust_boundary_ambiguity(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes,
@@ -1855,6 +2207,295 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                     "Mark insufficient when the data classification or external access-control layer is not evidenced.",
                 ]),
         ), extract_sensitive_data_handling_gap,
+    ),
+
+    "semantic.prompt.role_scope_contract_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.role_scope_contract_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "roleGapKind", "enum",
+                enum=["audience", "duties", "exclusions",
+                      "capability_claim"])],
+            subjectKeyFields=["roleGapKind"],
+            falsificationQuestion=(
+                "Does an operational role omit a material audience, duty, "
+                "exclusion, or capability boundary needed to route requests?"),
+            guidanceId="semantic.prompt.role_scope_contract_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt establishes a persistent operational role or persona that changes how requests are handled.",
+                ],
+                confirm=[
+                    "The role is only a title or personality and leaves its intended audience or material duties unclear.",
+                    "The role claims expertise or authority without stating a necessary exclusion, escalation, or out-of-scope boundary.",
+                ],
+                reject=[
+                    "The prompt is a one-off task and does not need a persistent role contract.",
+                    "Audience, duties, capabilities, and material exclusions are explicit enough to route in-scope and out-of-scope requests.",
+                ],
+                insufficient=[
+                    "Mark insufficient when a referenced role definition exists only outside the reviewed artifact.",
+                ]),
+        ), extract_role_scope_contract_gap,
+    ),
+
+    "semantic.prompt.workflow_dependency_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.workflow_dependency_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "dependencyGapKind", "enum",
+                enum=["missing_prerequisite", "reversed_order",
+                      "unused_intermediate", "unreachable_step"])],
+            subjectKeyFields=["dependencyGapKind"],
+            falsificationQuestion=(
+                "Does a multi-step workflow omit or contradict a material "
+                "prerequisite, ordering edge, intermediate use, or branch?"),
+            guidanceId="semantic.prompt.workflow_dependency_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt defines multiple dependent steps rather than an unordered checklist.",
+                ],
+                confirm=[
+                    "A step consumes information that no prior step or input produces.",
+                    "A required validation or transformation occurs after the action that depends on it.",
+                    "A material intermediate result is produced but never used, or a branch cannot be reached under the declared conditions.",
+                ],
+                reject=[
+                    "The steps are intentionally independent and may run in any order.",
+                    "Prerequisites, produced results, consumers, and conditional branches form a coherent sequence.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the workflow references an unseen orchestrator that may own the dependency.",
+                ]),
+        ), extract_workflow_dependency_gap,
+    ),
+
+    "semantic.prompt.field_constraint_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.field_constraint_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "fieldGapKind", "enum",
+                enum=["type_or_unit", "precision", "enum_or_range",
+                      "boundary_behavior"])],
+            subjectKeyFields=["fieldGapKind"],
+            falsificationQuestion=(
+                "Does a machine-consumed or materially bounded field omit a "
+                "type, unit, precision, range, enum, or boundary behavior?"),
+            guidanceId="semantic.prompt.field_constraint_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt names a field whose value is machine-consumed, compared, calculated, or constrained.",
+                ],
+                confirm=[
+                    "A numeric, monetary, temporal, or status field lacks a material type, unit, precision, timezone, enum, or range.",
+                    "Empty, null, duplicate, overflow, rollover, or extrema behavior can change the result and is undefined.",
+                ],
+                reject=[
+                    "The field is free-form prose with no material machine constraint.",
+                    "A complete cited schema owns the type and value constraints.",
+                    "Types, units, ranges, enums, and applicable boundary behavior are explicit.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the field schema is referenced but not available as evidence.",
+                ]),
+        ), extract_field_constraint_gap,
+    ),
+
+    "semantic.prompt.error_response_contract_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.error_response_contract_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "errorGapKind", "enum",
+                enum=["schema", "reason_code", "recoverability",
+                      "format_consistency"])],
+            subjectKeyFields=["errorGapKind"],
+            falsificationQuestion=(
+                "Does an applicable failure or refusal path lack a stable "
+                "response schema, reason, recoverability, or format contract?"),
+            guidanceId="semantic.prompt.error_response_contract_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt defines failure, refusal, invalid-input, missing-information, or permission-denied behavior whose output is consumed or displayed.",
+                ],
+                confirm=[
+                    "Failure classes can emit incompatible or unspecified shapes where a stable consumer contract is required.",
+                    "The response omits a material reason/code or whether the caller may retry, clarify, or stop.",
+                ],
+                reject=[
+                    "A conversational refusal needs no machine-readable error schema.",
+                    "The declared error schema, reason, and recovery action consistently cover the material failure classes.",
+                    "A named external protocol unambiguously owns the error contract.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the consumer or external error schema is not evidenced.",
+                ]),
+        ), extract_error_response_contract_gap,
+    ),
+
+    "semantic.prompt.attention_dilution": (
+        SemanticFindingType(
+            findingType="semantic.prompt.attention_dilution",
+            engine="prompt", defaultSeverity="low",
+            subjectFields=[SemanticSubjectField(
+                "dilutionKind", "enum",
+                enum=["buried_critical_rule", "redundant_context",
+                      "section_disorder"])],
+            subjectKeyFields=["dilutionKind"],
+            falsificationQuestion=(
+                "Does a long or multi-section prompt materially bury a "
+                "critical rule, repeat low-value context, or obscure hierarchy?"),
+            guidanceId="semantic.prompt.attention_dilution",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt is long or multi-section enough that placement, hierarchy, and repetition can affect instruction salience.",
+                ],
+                confirm=[
+                    "A critical safety, output, or authority rule appears only after extensive unrelated background without an authoritative summary or reference.",
+                    "Repeated background, examples, or requirements add no decision-relevant information and materially obscure the operative instructions.",
+                    "Responsibilities, inputs, workflow, output, and safety rules are interleaved so their precedence or ownership is unclear.",
+                ],
+                reject=[
+                    "The prompt is short or has a clear authoritative summary and navigable hierarchy.",
+                    "Long reference material is explicitly data and is separated from operative instructions.",
+                    "Repeated text is a bounded summary or intentional cross-reference rather than duplicate instruction weight.",
+                ],
+                insufficient=[
+                    "Mark insufficient when only an excerpt of the prompt is available.",
+                ]),
+        ), extract_attention_dilution,
+    ),
+
+    "semantic.prompt.streaming_recovery_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.streaming_recovery_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "streamingGapKind", "enum",
+                enum=["framing", "completion", "resume",
+                      "partial_parse"])],
+            subjectKeyFields=["streamingGapKind"],
+            falsificationQuestion=(
+                "Does an explicitly streamed or incremental result omit a "
+                "material framing, completion, resume, or partial-parse rule?"),
+            guidanceId="semantic.prompt.streaming_recovery_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt explicitly requires streaming, incremental, chunked, resumable, or event-based output.",
+                ],
+                confirm=[
+                    "Chunks lack a stable delimiter, event type, sequence, or independently parseable frame where the consumer needs one.",
+                    "Completion, interruption, duplicate delivery, partial parse, or resume behavior is materially undefined.",
+                ],
+                reject=[
+                    "The prompt requests one complete non-streamed response.",
+                    "Framing, ordering, completion, interruption, and resume behavior are explicit for the consumer.",
+                    "The transport protocol named by the prompt fully owns these semantics.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the referenced transport contract is unavailable.",
+                ]),
+        ), extract_streaming_recovery_gap,
+    ),
+
+    "semantic.prompt.multi_turn_state_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.multi_turn_state_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "stateGapKind", "enum",
+                enum=["inheritance", "update", "reset",
+                      "non_overridable_rule"])],
+            subjectKeyFields=["stateGapKind"],
+            falsificationQuestion=(
+                "Does a multi-turn task omit a material state inheritance, "
+                "update, reset, or non-overridable-rule contract?"),
+            guidanceId="semantic.prompt.multi_turn_state_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt expects behavior or data to persist or change across conversation turns or sessions.",
+                ],
+                confirm=[
+                    "It is unclear which prior facts, preferences, decisions, or constraints carry forward.",
+                    "Conflicting later requests have no update precedence, reset rule, or protected invariant.",
+                    "Session boundaries or requests to forget state have no defined effect.",
+                ],
+                reject=[
+                    "The task is stateless or intentionally handles only the current message.",
+                    "Inherited state, mutable preferences, reset behavior, and non-overridable rules are explicit.",
+                ],
+                insufficient=[
+                    "Mark insufficient when state is owned by an unseen application layer.",
+                ]),
+        ), extract_multi_turn_state_gap,
+    ),
+
+    "semantic.prompt.safety_policy_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.safety_policy_gap",
+            engine="prompt", defaultSeverity="high",
+            subjectFields=[SemanticSubjectField(
+                "safetyGapKind", "enum",
+                enum=["refusal_boundary", "safe_alternative",
+                      "escalation", "allowed_scope"])],
+            subjectKeyFields=["safetyGapKind"],
+            falsificationQuestion=(
+                "Does a prompt handling a declared high-risk domain omit a "
+                "material refusal, allowed-scope, alternative, or escalation rule?"),
+            guidanceId="semantic.prompt.safety_policy_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt explicitly handles dangerous, illegal, self-harm, weapon, malware, violence, explosive, or comparably high-risk requests.",
+                ],
+                confirm=[
+                    "It authorizes actionable harmful assistance without a clear allowed-versus-refused boundary.",
+                    "A refusal is required but no safe alternative, emergency path, or escalation behavior is defined where materially appropriate.",
+                ],
+                reject=[
+                    "The prompt only discusses safety policy or benign prevention at a high level.",
+                    "Allowed scope, refusal boundary, safe alternatives, and applicable escalation are explicit.",
+                    "A cited enforced policy owns these boundaries and is available in evidence.",
+                ],
+                insufficient=[
+                    "Mark insufficient when the governing safety policy is referenced but absent.",
+                ]),
+        ), extract_safety_policy_gap,
+    ),
+
+    "semantic.prompt.source_use_policy_gap": (
+        SemanticFindingType(
+            findingType="semantic.prompt.source_use_policy_gap",
+            engine="prompt", defaultSeverity="medium",
+            subjectFields=[SemanticSubjectField(
+                "sourceGapKind", "enum",
+                enum=["attribution", "reproduction_limit",
+                      "transformation", "ownership_status"])],
+            subjectKeyFields=["sourceGapKind"],
+            falsificationQuestion=(
+                "Does a task using third-party source material omit a material "
+                "attribution, reproduction, transformation, or ownership rule?"),
+            guidanceId="semantic.prompt.source_use_policy_gap",
+            judgmentPolicy=_policy(
+                applies=[
+                    "The prompt directs quoting, copying, reproducing, summarizing, or transforming identifiable source material.",
+                ],
+                confirm=[
+                    "It requests extensive or verbatim reproduction without a bounded excerpt, summary, transformation, or unavailable-content fallback.",
+                    "Attribution or source identity is required by the task but omitted.",
+                    "Ownership, license, public-domain, or user-provided status materially changes what may be reproduced and is unresolved.",
+                ],
+                reject=[
+                    "The task uses user-owned, public-domain, or explicitly licensed material within the declared permission.",
+                    "It requests a bounded short excerpt, facts, summary, or transformation with appropriate source attribution.",
+                    "The prompt only creates original material inspired by high-level concepts.",
+                ],
+                insufficient=[
+                    "Mark insufficient when ownership or license status cannot be established from evidence.",
+                ]),
+        ), extract_source_use_policy_gap,
     ),
 }
 

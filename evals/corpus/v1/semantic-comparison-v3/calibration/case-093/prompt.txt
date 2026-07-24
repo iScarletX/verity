@@ -1,0 +1,19 @@
+## Background
+The newsroom once used weekly spreadsheets.
+The first template had twelve columns.
+The second template added an owner column.
+Archive files use the old naming convention.
+Reference material lists retired desk names.
+Morning reports arrive before noon.
+Evening reports arrive after six.
+The migration retained historical aliases.
+Some aliases appear in old examples.
+The appendix preserves those examples.
+Again, archive files use the old naming convention.
+Again, retired desk names are informational.
+## Appendix
+Legacy desk A was renamed North.
+Legacy desk B was renamed South.
+Legacy desk C was removed.
+Background material above is useful for historical searches.
+Critical rule: never publish a named source until consent is verified.

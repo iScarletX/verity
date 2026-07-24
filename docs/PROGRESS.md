@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "d70f56d"
-  tests_collected: 635
-  tests_passed: 635
+  commit: "93e8574"
+  tests_collected: 658
+  tests_passed: 658
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -27,19 +27,51 @@ Strings below MUST match the runtime literals.
 | V1.5 Prompt black-box               | `not_implemented` |
 | V2 Skill isolated sandbox           | `not_implemented` |
 
-**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 37 unified risks, 73 mapped runtime components (53 deterministic rules + 1 capability extractor + 19 semantic finding types) and four mature-tool decisions. Current L0 breadth: 10 none / 18 signal / 9 partial. Current L1 breadth: 16 none / 20 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
+**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 46 unified risks, 83 mapped runtime components (54 deterministic rules + 1 capability extractor + 28 semantic finding types) and four mature-tool decisions. Current L0 breadth: 19 none / 18 signal / 9 partial. Current L1 breadth: 16 none / 29 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 80 synthetic L0 cases across 24 risks, 38 fixed semantic contract replays, and frozen semantic-quality protocol v2 with 42 cases (14 calibration / 14 consumed selection / 14 sealed test). Fresh protocol v3 adds 76 development-comparison cases covering all 19 semantic types, with two positive and two safe cases per type; its manifest labels remain `provisional_single_review` and cannot support a superiority claim. 26 L0 and 28 non-Test v2 semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. The other 54 L0 cases are `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 38 fixed contract labels and 14 sealed-Test labels remain provisional. Fixed reports remain reproducible and score-free; contract replay is 38/38 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 80 synthetic L0 cases across 24 risks, 56 fixed semantic contract replays, and frozen semantic-quality protocol v2 with 42 cases (14 calibration / 14 consumed selection / 14 sealed test). Fresh protocol v3 adds 112 development-comparison cases covering all 28 semantic types, with two positive and two safe cases per type; its manifest labels remain `provisional_single_review` and cannot support a superiority claim. 26 L0 and 28 non-Test v2 semantic-quality labels have digest-bound `independent_ai_review`; this is cross-model blind AI review, not human expertise. The other 54 L0 cases are `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 56 fixed contract labels and 14 sealed-Test labels remain provisional. Fixed reports remain reproducible and score-free; contract replay is 56/56 and `modelQualityMeasured=false`.
 
 **V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection (`openai/gpt-4o-2024-11-20`, both roles) returned `not_eligible` (recall 0.857 <0.90; safe FP 0.429 >0.20 vs gate v1.0.0), 14 sealed labels remain provisional/unconsumed, and the new protocol-v3 Butler comparison has neither independently derived labels nor paired real observations. No claim that Verity equals or exceeds Butler is currently authorized. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
-**Next step.** Close the 13 remaining items in the pinned 45-check Butler crosswalk without cherry-picking. Then obtain two genuinely independent reviewer configurations and the exact trusted real-run authorization required by `AGENTS.md`: provider, dated models, key environment variable, v3 split, repetitions, call/token/spend limits and report path. Derive digest-bound labels from answer-hidden reviewer packets, run Verity and the read-only Butler adapter on the same 76 cases, then require the absolute quality gates plus non-inferior recall/error and strictly lower safe false-positive rate. Prompt black-box and Skill sandbox work remain blocked until this semantic gate passes. This authorization does not expose the sealed v2 Test split, retry consumed v2 Selection, or install a local model.
+**Next step.** Obtain two genuinely independent reviewer configurations and the exact trusted real-run authorization required by `AGENTS.md`: provider, dated models, key environment variable, v3 split, repetitions, call/token/spend limits and report path. Derive digest-bound labels from answer-hidden reviewer packets, run Verity and the read-only Butler adapter on the same 112 cases, then require the absolute quality gates plus non-inferior recall/error and strictly lower safe false-positive rate. The 45-check Butler breadth prerequisite is now complete, but that is not an accuracy result. Prompt black-box and Skill sandbox work remain blocked until the full semantic gate passes. This authorization does not expose the sealed v2 Test split, retry consumed v2 Selection, or install a local model.
 
-**What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, and a default-OFF experimental semantic pipeline with 19 controlled Finding Types, catalog-owned judgment policies, structured evidence and a bounded JSON-over-HTTPS Provider adapter. The repository also includes a fresh 76-case same-corpus comparison protocol, independently derived label attestation plumbing, strict run budgets, a read-only Butler source adapter, and a complete pinned Butler inventory crosswalk. Standalone CLI/Web review and trusted Web-first Skill project history remain available. Confirmed Findings from completed stages use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
+**What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, and a default-OFF experimental semantic pipeline with 28 controlled Finding Types, catalog-owned judgment policies, structured evidence and a bounded JSON-over-HTTPS Provider adapter. The repository also includes a fresh 112-case same-corpus comparison protocol, independently derived label attestation plumbing, strict run budgets, a read-only Butler source adapter, and a complete pinned Butler inventory crosswalk. Standalone CLI/Web review and trusted Web-first Skill project history remain available. Confirmed Findings from completed stages use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
 
-**Deliberately absent.** No accepted semantic quality result, no v3 real observation report, no independently attested v3 label set, and no claim that Verity equals or exceeds Butler. Thirteen Butler breadth gaps remain open and independently block that claim. There is no automatic remediation/PatchSet apply. The Web UI has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
+**Deliberately absent.** No accepted semantic quality result, no v3 real observation report, no independently attested v3 label set, and no claim that Verity equals or exceeds Butler. The breadth crosswalk is complete, but independent labels and paired real observations still block that claim. There is no automatic remediation/PatchSet apply. The Web UI has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its quality gate). Local Calibration reports are research evidence only. No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 57 (2026-07-24) → close Butler breadth and expand semantic contracts
+
+- Closed the 13 remaining items in the pinned Butler inventory without
+  weakening the crosswalk definition. Nine controlled Prompt Finding Types
+  now cover operational role scope, workflow dependencies, field constraints
+  and boundary values, error-response contracts, attention dilution, streaming
+  recovery, multi-turn state, dangerous-domain safety policy, and third-party
+  source-use policy. All 45 Butler checks now have a material mapped Verity
+  detector; zero are open or not adopted.
+- Added the deterministic `prompt.structured_quote_inconsistency` rule for
+  parse-breaking smart, single-quoted, or backtick JSON keys. It requires
+  nearby explicit JSON context, preserves exact source spans, and rejects
+  instructional invalid examples and ordinary Python dictionaries.
+- Added nine unified risks and ten runtime mappings. The current standards
+  baseline is 46 risks and 83 mappings; L0 breadth is 19 none / 18 signal / 9
+  partial and L1 breadth is 16 none / 29 signal / 1 partial.
+- Expanded fixed contract replay from 38 to 56 cases and protocol v3 from 76
+  to 112 fresh cases. Every one of the 28 semantic Finding Types has two
+  positive and two safe counterexamples, with English and Chinese coverage for
+  the new Prompt types. Contract replay is 56/56 and model quality remains
+  explicitly unmeasured.
+- Raised the comparator's independent absolute prerequisites to 112 cases, 28
+  Finding Types and 27 distinct risks, while retaining independent digest-bound
+  labels, repeated same-corpus observations, absolute quality thresholds and
+  strictly lower safe false-positive rate as mandatory claim conditions.
+- No external Provider/model call was made, no local model dependency or
+  weight was installed, and Butler remained read-only. Full suite: 658 passed,
+  0 skipped; three loopback-server tests required the permitted non-sandboxed
+  rerun after the filesystem sandbox denied socket binding. Verity still has
+  **not** proved it exceeds Butler because independent v3 labels and paired
+  real observations do not yet exist.
 
 ## Round 56 (2026-07-24) → complete Butler inventory gate and five semantic contracts
 

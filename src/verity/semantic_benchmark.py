@@ -32,8 +32,8 @@ COMPARISON_PROTOCOL_ID = "verity-butler-semantic-head-to-head"
 COMPARISON_PROTOCOL_VERSION = "3.0.0"
 OBSERVATIONS = {"present", "absent", "inconclusive", "error"}
 INDEPENDENT_LABEL_STATUS = "independent_ai_review"
-DEFAULT_COMPARISON_MAX_TOTAL_CALLS = 340
-BUTLER_REFERENCE_SKILL_MAP_VERSION = "2.0.0"
+DEFAULT_COMPARISON_MAX_TOTAL_CALLS = 500
+BUTLER_REFERENCE_SKILL_MAP_VERSION = "3.0.0"
 
 # Read-only Butler v6 reference mapping. These are comparison routes, not
 # Verity labels and not claims that Butler fully covers the associated risk.
@@ -84,12 +84,33 @@ BUTLER_REFERENCE_SKILLS = {
         "06_quality_model_capability"),
     "semantic.prompt.sensitive_data_handling_gap": (
         "07_compliance_privacy",),
+    "semantic.prompt.role_scope_contract_gap": (
+        "01_clarity_role_positioning",),
+    "semantic.prompt.workflow_dependency_gap": (
+        "01_clarity_step_logic",),
+    "semantic.prompt.field_constraint_gap": (
+        "02_contract_output_precision",
+        "05_robustness_boundary_values"),
+    "semantic.prompt.error_response_contract_gap": (
+        "02_contract_error_response",),
+    "semantic.prompt.attention_dilution": (
+        "02_contract_section_structure",
+        "03_resource_prompt_length"),
+    "semantic.prompt.streaming_recovery_gap": (
+        "03_resource_streaming_compat",),
+    "semantic.prompt.multi_turn_state_gap": (
+        "01_clarity_missing_constraint",
+        "05_robustness_multi_turn_stability"),
+    "semantic.prompt.safety_policy_gap": (
+        "05_robustness_safety_policy",),
+    "semantic.prompt.source_use_policy_gap": (
+        "07_compliance_copyright_source",),
 }
 
 COMPARISON_THRESHOLDS = {
-    "minimumCaseCount": 76,
-    "minimumRiskCount": 18,
-    "minimumFindingTypeCount": 19,
+    "minimumCaseCount": 112,
+    "minimumRiskCount": 27,
+    "minimumFindingTypeCount": 28,
     "minimumRepetitions": 2,
     "minimumRecall": 0.90,
     "maximumSafeFalsePositiveRate": 0.20,

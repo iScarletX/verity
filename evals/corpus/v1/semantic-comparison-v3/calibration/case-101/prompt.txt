@@ -1,0 +1,2 @@
+Use conversation memory throughout this multi-turn travel-planning session.
+Apply details from each previous turn to later recommendations.

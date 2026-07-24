@@ -1,0 +1,4 @@
+Validate the request and always return the same JSON schema.
+On error, set ok=false and include an error code, reason field, and next action.
+Set retry=true only for recoverable failures and request clarification for missing input.
+Use this stable format for validation errors, permission denied, and refusal responses.

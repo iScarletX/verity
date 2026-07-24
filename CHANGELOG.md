@@ -7,6 +7,32 @@ engineering record lives in `docs/PROGRESS.md`, and code history lives in git.
 The format is loosely based on [Keep a Changelog](https://keepachangelog.com/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- Nine controlled semantic Prompt checks covering role scope, workflow
+  dependencies, field and boundary constraints, error responses, attention
+  dilution, streaming recovery, multi-turn state, dangerous-domain safety,
+  and third-party source use.
+- A deterministic structured-quote check for parse-breaking smart,
+  single-quoted, or backtick JSON keys with explicit JSON-context and
+  negative-example guards.
+- Fifty-six fixed semantic contract replays and a 112-case answer-hidden
+  Verity/Butler comparison corpus spanning all 28 semantic Finding Types.
+
+### Changed
+
+- The pinned 45-check Butler crosswalk now has material Verity coverage for
+  every item and no open breadth gaps.
+- The taxonomy now contains 46 risks and 83 runtime mappings. The comparison
+  gate requires 112 cases, 28 Finding Types, and 27 distinct risk ids.
+
+### Security
+
+- A superiority claim remains impossible without two independent digest-bound
+  label reviews and accepted repeated real observations for both systems.
+
 ## [0.1.0] — 2026-07-22 — Engineering preview (deterministic static auditor)
 
 First tagged release. **Scope of this release: the deterministic static

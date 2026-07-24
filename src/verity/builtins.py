@@ -199,6 +199,22 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         requiredEvidenceKinds=["source_span"],
     ))
     ftr.register(FindingTypeDefinition(
+        findingType="prompt.structured_quote_inconsistency",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path",
+                         "file.normalizedPath"),
+            SubjectField(
+                "quoteCategory", "literal_enum",
+                allowedValues=[
+                    "smart_quote_json_key", "single_quote_json_key",
+                    "backtick_json_key"]),
+        ],
+        subjectKeyFields=["artifactPath", "quoteCategory"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    ftr.register(FindingTypeDefinition(
         findingType="prompt.topic_splice",
         engine="prompt",
         subjectFields=[
@@ -700,6 +716,21 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
                "break exact field-name/JSON parsing."),
         findingType="prompt.fullwidth_mixed",
         implementationId="impl.prompt.fullwidth_mixed.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low",
+        controlIds=["quality.consistency"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.structured_quote_inconsistency",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=(
+            "A fragment explicitly described as JSON uses smart quotes, "
+            "single-quoted keys, or backtick keys, so it is not valid JSON."),
+        findingType="prompt.structured_quote_inconsistency",
+        implementationId="impl.prompt.structured_quote_inconsistency.v1",
         applicableKinds=["prompt"],
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="low",

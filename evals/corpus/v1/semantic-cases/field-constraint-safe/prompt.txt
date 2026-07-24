@@ -1,0 +1,5 @@
+Return JSON fields with these contracts:
+- amount: decimal number in USD, precision of two decimal places, minimum zero.
+- transaction_date: ISO 8601 string in the UTC timezone.
+- payment_status: enum, one of pending, paid, or failed.
+Use null for an empty optional date, reject duplicate identifiers, and reject overflow.

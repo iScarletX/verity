@@ -1,0 +1,2 @@
+Maintain conversation memory during this multi-turn support session.
+Use previous turn details when responding to later questions.

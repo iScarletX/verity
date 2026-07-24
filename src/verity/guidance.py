@@ -240,6 +240,19 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P2",
     ),
+    "prompt.structured_quote_inconsistency": Guidance(
+        id="prompt.structured_quote_inconsistency",
+        plainTitle="声明为 JSON 的片段使用了智能引号、单引号或反引号键",
+        whyItMatters=(
+            "JSON 只接受双引号字符串。中文智能引号、单引号或反引号键看起来相似，"
+            "但严格解析器会直接拒绝，示例还会诱导模型重复输出无效结构。"
+        ),
+        whatToDo=[
+            "把 JSON 键和值统一为半角双引号，并用严格解析器验证示例。",
+            "若片段其实是 Python/JavaScript 对象，明确更名，不要标为 JSON。",
+        ],
+        priority="P2",
+    ),
     "prompt.topic_splice": Guidance(
         id="prompt.topic_splice",
         plainTitle="开头像是图像画风描述，与后面的 Agent 系统提示词主题不符",
@@ -716,6 +729,114 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
             "只处理任务必需字段，输出前脱敏，并写明允许查看或共享的主体。",
             "规定保留期限和删除方式；凭据与密钥不得进入模型可见内容或最终输出。",
         ], priority="P0",
+    ),
+    "semantic.prompt.role_scope_contract_gap": Guidance(
+        id="semantic.prompt.role_scope_contract_gap",
+        plainTitle="角色只写了人设，服务对象、职责或边界不清",
+        whyItMatters=(
+            "持久角色若没有明确面向谁、负责什么和何时拒绝或转交，"
+            "同类请求会被不同模型路由到不同任务与权限范围。"
+        ),
+        whatToDo=[
+            "写明服务对象、核心职责、可用能力以及明确不承担的事项。",
+            "为范围外或超出专业能力的请求规定拒绝、澄清或转交路径。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.workflow_dependency_gap": Guidance(
+        id="semantic.prompt.workflow_dependency_gap",
+        plainTitle="流程步骤缺少前置条件、顺序或中间结果承接",
+        whyItMatters=(
+            "步骤写全不代表流程可执行；先执行后校验、依赖未产生的结果，"
+            "或生成中间结果却无人使用，都会让执行在关键节点失效。"
+        ),
+        whatToDo=[
+            "为每一步标明输入来源、前置条件、产出和下一个消费者。",
+            "把校验放在依赖它的动作之前，并补齐条件分支与停止条件。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.field_constraint_gap": Guidance(
+        id="semantic.prompt.field_constraint_gap",
+        plainTitle="关键字段缺少类型、单位、精度、范围或边界规则",
+        whyItMatters=(
+            "金额、日期、状态等字段若没有固定单位、时区、枚举或极值处理，"
+            "看似合法的输出也可能被下游错误解析或计算。"
+        ),
+        whatToDo=[
+            "为机器字段声明类型、单位、精度、时区、枚举和允许范围。",
+            "明确空值、重复、零值、极值、溢出和跨日等适用边界行为。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.error_response_contract_gap": Guidance(
+        id="semantic.prompt.error_response_contract_gap",
+        plainTitle="错误、拒绝或权限失败缺少稳定响应契约",
+        whyItMatters=(
+            "不同失败路径若返回不同结构或没有原因与恢复动作，"
+            "下游无法区分可重试、需补充信息和必须停止的情况。"
+        ),
+        whatToDo=[
+            "统一错误结构，至少声明错误码、原因和可恢复动作。",
+            "覆盖缺信息、无效输入、拒绝、权限不足和外部失败的格式一致性。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.attention_dilution": Guidance(
+        id="semantic.prompt.attention_dilution",
+        plainTitle="关键规则被长背景、重复内容或混乱章节稀释",
+        whyItMatters=(
+            "长提示词中没有层级和权威摘要时，模型可能忽略埋在附录后的安全、"
+            "权限或输出规则，也更容易受重复旧规则影响。"
+        ),
+        whatToDo=[
+            "前置不可覆盖的关键规则，并用稳定章节分离职责、输入、流程、输出和安全。",
+            "把长资料标记为数据或外部引用，合并无新增信息的重复段落。",
+        ], priority="P2",
+    ),
+    "semantic.prompt.streaming_recovery_gap": Guidance(
+        id="semantic.prompt.streaming_recovery_gap",
+        plainTitle="流式输出缺少分帧、完成、中断或续传规则",
+        whyItMatters=(
+            "流式 JSON、表格或事件若没有稳定边界与完成标记，"
+            "网络中断会留下不可解析半成品，重试还可能重复消费。"
+        ),
+        whatToDo=[
+            "声明分帧格式、事件类型、序号和明确的完成标记。",
+            "规定中断、重复、部分解析和从游标或检查点恢复的行为。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.multi_turn_state_gap": Guidance(
+        id="semantic.prompt.multi_turn_state_gap",
+        plainTitle="多轮状态的继承、更新、重置或不可覆盖规则不清",
+        whyItMatters=(
+            "模型若不知道哪些偏好与事实沿用、后续冲突如何更新、"
+            "何时清空状态，就会跨轮次悄悄改变行为或保留不该保留的信息。"
+        ),
+        whatToDo=[
+            "列出跨轮继承的事实、偏好和决策，以及最新请求的更新优先级。",
+            "定义新会话/重置语义，并明确安全与权限规则不得被后续用户覆盖。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.safety_policy_gap": Guidance(
+        id="semantic.prompt.safety_policy_gap",
+        plainTitle="高风险请求缺少拒绝边界、安全替代或升级路径",
+        whyItMatters=(
+            "危险、违法、自残、武器或恶意软件场景若只有泛化的“注意安全”，"
+            "模型仍可能给出可执行伤害步骤，或在紧急情形下没有正确升级。"
+        ),
+        whatToDo=[
+            "按风险类别写明允许与拒绝的边界，禁止提供可执行伤害细节。",
+            "提供适当的安全替代帮助，并在紧急或高后果场景规定人工/专业升级。",
+        ], priority="P0",
+    ),
+    "semantic.prompt.source_use_policy_gap": Guidance(
+        id="semantic.prompt.source_use_policy_gap",
+        plainTitle="第三方来源缺少署名、复刻限制或转换规则",
+        whyItMatters=(
+            "要求逐字复制文章、书籍或其它来源而不区分授权与公版状态，"
+            "会让模型输出不必要的大段原文并丢失来源可追溯性。"
+        ),
+        whatToDo=[
+            "优先摘要、改写或提取事实；只在必要时使用有界短摘录并标注来源。",
+            "声明用户自有、已许可、公版和未知权利状态各自允许的处理方式。",
+        ], priority="P1",
     ),
 }
 

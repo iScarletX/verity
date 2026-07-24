@@ -10,7 +10,7 @@ from verity.semantic.egress import (build_generator_request,
                                     scan_payload_for_leaks)
 
 
-def test_catalog_expands_to_nineteen_controlled_types():
+def test_catalog_expands_to_twenty_eight_controlled_types():
     assert set(CATALOG) == {
         "semantic.prompt.instruction_conflict",
         "semantic.prompt.missing_output_contract",
@@ -31,6 +31,15 @@ def test_catalog_expands_to_nineteen_controlled_types():
         "semantic.prompt.tool_call_contract_gap",
         "semantic.prompt.capability_dependency_gap",
         "semantic.prompt.sensitive_data_handling_gap",
+        "semantic.prompt.role_scope_contract_gap",
+        "semantic.prompt.workflow_dependency_gap",
+        "semantic.prompt.field_constraint_gap",
+        "semantic.prompt.error_response_contract_gap",
+        "semantic.prompt.attention_dilution",
+        "semantic.prompt.streaming_recovery_gap",
+        "semantic.prompt.multi_turn_state_gap",
+        "semantic.prompt.safety_policy_gap",
+        "semantic.prompt.source_use_policy_gap",
     }
     assert CATALOG["semantic.skill.external_instruction_trust_gap"][0].defaultSeverity == "high"
 
@@ -154,8 +163,8 @@ def test_all_semantic_types_have_confirmed_and_rejected_replays():
     assert set(by_type) == set(CATALOG)
     assert all(x == {"confirmed", "rejected"} for x in by_type.values())
     report = evaluate_semantic_replay()
-    assert report["caseCount"] == 38
-    assert report["contractCorrectCases"] == 38
+    assert report["caseCount"] == 56
+    assert report["contractCorrectCases"] == 56
     assert report["modelQualityMeasured"] is False
     assert report["stability"]["unstableCases"] == 0
 

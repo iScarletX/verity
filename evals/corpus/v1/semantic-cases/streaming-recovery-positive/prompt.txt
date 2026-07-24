@@ -1,0 +1,2 @@
+Return each matching record as a streaming JSON response.
+Send the records incrementally in chunked output so the client can display them.

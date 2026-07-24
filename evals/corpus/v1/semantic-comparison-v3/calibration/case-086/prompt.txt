@@ -1,0 +1,5 @@
+Return these JSON fields for the alerting service:
+- temperature: decimal number in degrees Celsius with precision of one decimal place, range -50 to 150.
+- measured_at: RFC 3339 string in the UTC timezone.
+- sensor_status: enum, one of normal, warning, or failed.
+Reject null temperature, duplicate sensor ids, and overflow values.

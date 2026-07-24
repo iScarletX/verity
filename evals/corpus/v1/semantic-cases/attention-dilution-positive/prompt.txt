@@ -1,0 +1,20 @@
+## Background
+The service began as a spreadsheet import.
+It later added a queue.
+Several teams renamed the queue.
+The old queue used a blue icon.
+The new queue uses a green icon.
+The migration happened in two phases.
+The first phase copied historical rows.
+The second phase enabled live writes.
+Reference material says older clients may retry.
+Reference material says reports are generated nightly.
+The appendix lists internal project nicknames.
+## Appendix
+Alpha was the prototype.
+Beta was the migration.
+Gamma is the current release.
+Legacy examples below are retained for context.
+Again, the old queue used a blue icon.
+Again, reports are generated nightly.
+Critical rule: never publish a record until its authorization signature is verified.

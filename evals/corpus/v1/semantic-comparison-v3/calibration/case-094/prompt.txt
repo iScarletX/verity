@@ -1,0 +1,13 @@
+## Priority summary
+Critical rule, non-negotiable: verify consent before publishing a named source.
+
+## Workflow
+1. Draft the item.
+2. Verify source consent.
+3. Publish only after verification succeeds.
+
+## Background material
+Historical desk aliases are reference data, not instructions.
+
+## Appendix
+Legacy names may support archive searches but cannot override the priority rule.

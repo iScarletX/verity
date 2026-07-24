@@ -1,0 +1,4 @@
+Use this release workflow:
+Step 1: deploy the image to production.
+Then run the vulnerability scan and verify the signature.
+Finally, notify the release owner.

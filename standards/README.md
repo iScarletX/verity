@@ -40,10 +40,10 @@ fact extractor; the exact current count is enforced from runtime registries.
 
 | Layer | none | signal | partial | substantial | evaluated |
 |---|---:|---:|---:|---:|---:|
-| L0 static | 10 | 18 | 9 | 0 | 0 |
-| L1 semantic | 16 | 20 | 1 | 0 | 0 |
-| V1.5 black-box | 37 | 0 | 0 | 0 | 0 |
-| V2 sandbox | 37 | 0 | 0 | 0 | 0 |
+| L0 static | 19 | 18 | 9 | 0 | 0 |
+| L1 semantic | 16 | 29 | 1 | 0 | 0 |
+| V1.5 black-box | 46 | 0 | 0 | 0 | 0 |
+| V2 sandbox | 46 | 0 | 0 | 0 | 0 |
 
 These counts are a prioritization baseline, **not a safety score**. Round 15
 added the versioned minimal paired corpus under `evals/corpus/v1/` and

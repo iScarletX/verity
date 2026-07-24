@@ -61,7 +61,7 @@ def _skill_request(relative_path, finding_type):
 
 
 def test_every_semantic_type_has_a_falsifiable_judgment_policy():
-    assert len(CATALOG) == 19
+    assert len(CATALOG) == 28
     for finding_type, (definition, _extractor) in CATALOG.items():
         policy = definition.judgmentPolicy
         assert policy.appliesWhen, finding_type
@@ -284,6 +284,24 @@ def test_read_permission_does_not_match_fixed_process_target():
          "capability-dependency-positive", "capability-dependency-safe"),
         ("semantic.prompt.sensitive_data_handling_gap",
          "sensitive-data-positive", "sensitive-data-safe"),
+        ("semantic.prompt.role_scope_contract_gap",
+         "role-scope-positive", "role-scope-safe"),
+        ("semantic.prompt.workflow_dependency_gap",
+         "workflow-dependency-positive", "workflow-dependency-safe"),
+        ("semantic.prompt.field_constraint_gap",
+         "field-constraint-positive", "field-constraint-safe"),
+        ("semantic.prompt.error_response_contract_gap",
+         "error-response-positive", "error-response-safe"),
+        ("semantic.prompt.attention_dilution",
+         "attention-dilution-positive", "attention-dilution-safe"),
+        ("semantic.prompt.streaming_recovery_gap",
+         "streaming-recovery-positive", "streaming-recovery-safe"),
+        ("semantic.prompt.multi_turn_state_gap",
+         "multi-turn-state-positive", "multi-turn-state-safe"),
+        ("semantic.prompt.safety_policy_gap",
+         "safety-policy-positive", "safety-policy-safe"),
+        ("semantic.prompt.source_use_policy_gap",
+         "source-use-positive", "source-use-safe"),
     ],
 )
 def test_new_semantic_types_route_positive_and_safe_counterexamples(
@@ -295,6 +313,49 @@ def test_new_semantic_types_route_positive_and_safe_counterexamples(
         assert request["judgmentPolicy"]["rejectWhen"]
         assert request["evidence"][0]["metadata"]["evidenceRole"] in {
             "prompt_analysis", "output_contract", "prompt_constraint"}
+
+
+@pytest.mark.parametrize(
+    "finding_type, safe_path, required_control_signals",
+    [
+        ("semantic.prompt.role_scope_contract_gap", "role-scope-safe",
+         ("audienceSignalCount", "dutySignalCount", "exclusionSignalCount")),
+        ("semantic.prompt.workflow_dependency_gap",
+         "workflow-dependency-safe",
+         ("dependencySignalCount", "intermediateResultSignalCount",
+          "workflowBranchSignalCount")),
+        ("semantic.prompt.field_constraint_gap", "field-constraint-safe",
+         ("fieldTypeSignalCount", "unitPrecisionSignalCount",
+          "rangeSignalCount", "boundaryValueSignalCount")),
+        ("semantic.prompt.error_response_contract_gap",
+         "error-response-safe",
+         ("errorSchemaSignalCount", "recoverySignalCount",
+          "errorFormatSignalCount")),
+        ("semantic.prompt.attention_dilution", "attention-dilution-safe",
+         ("hierarchySignalCount",)),
+        ("semantic.prompt.streaming_recovery_gap",
+         "streaming-recovery-safe",
+         ("framingSignalCount", "completionSignalCount",
+          "resumeSignalCount", "partialStreamSignalCount")),
+        ("semantic.prompt.multi_turn_state_gap", "multi-turn-state-safe",
+         ("stateInheritanceSignalCount", "stateUpdateSignalCount",
+          "stateResetSignalCount", "stateInvariantSignalCount")),
+        ("semantic.prompt.safety_policy_gap", "safety-policy-safe",
+         ("refusalSignalCount", "safeAlternativeSignalCount",
+          "escalationSignalCount")),
+        ("semantic.prompt.source_use_policy_gap", "source-use-safe",
+         ("attributionSignalCount", "transformationSignalCount",
+          "sourceLimitSignalCount")),
+    ],
+)
+def test_new_safe_counterexamples_preserve_falsifying_control_signals(
+        finding_type, safe_path, required_control_signals):
+    path = (
+        ROOT / "evals/corpus/v1/semantic-cases"
+        / safe_path / "prompt.txt")
+    request = _prompt_request(path.read_text("utf-8"), finding_type)
+    metadata = request["evidence"][0]["metadata"]
+    assert all(metadata[key] >= 1 for key in required_control_signals)
 
 
 def test_example_quality_and_user_prompt_privacy_produce_bounded_evidence():

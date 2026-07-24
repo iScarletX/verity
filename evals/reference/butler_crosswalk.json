@@ -27,17 +27,17 @@
     },
     {
       "butlerSkillId": "01_clarity_missing_constraint",
-      "status": "open_gap",
-      "verityFindingTypes": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.ambiguous_operational_criteria", "semantic.prompt.input_and_default_contract_gap"],
-      "plannedFindingType": "semantic.prompt.multi_turn_state_gap",
-      "rationale": "Input and default behavior are covered, but inherited and mutable constraints across turns still lack a controlled policy."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.ambiguous_operational_criteria", "semantic.prompt.input_and_default_contract_gap", "semantic.prompt.multi_turn_state_gap"],
+      "plannedFindingType": null,
+      "rationale": "Input, default, operational-boundary, and multi-turn state policies materially cover missing constraints without treating every optional detail as a defect."
     },
     {
       "butlerSkillId": "01_clarity_role_positioning",
-      "status": "open_gap",
-      "verityFindingTypes": [],
-      "plannedFindingType": "semantic.prompt.role_scope_contract_gap",
-      "rationale": "Verity does not yet judge whether an operational role declares audience, duties, and exclusions."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.role_scope_contract_gap"],
+      "plannedFindingType": null,
+      "rationale": "The controlled role policy judges material audience, duty, exclusion, and capability boundaries only when an operational role is applicable."
     },
     {
       "butlerSkillId": "01_clarity_task_boundary",
@@ -48,10 +48,10 @@
     },
     {
       "butlerSkillId": "01_clarity_step_logic",
-      "status": "open_gap",
-      "verityFindingTypes": [],
-      "plannedFindingType": "semantic.prompt.workflow_dependency_gap",
-      "rationale": "No controlled review currently checks missing prerequisites, unused intermediate results, or reversed workflow dependencies."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.workflow_dependency_gap"],
+      "plannedFindingType": null,
+      "rationale": "The workflow policy checks material prerequisites, reversed ordering, unused intermediate results, and unreachable required branches."
     },
     {
       "butlerSkillId": "01_clarity_redundancy",
@@ -97,10 +97,10 @@
     },
     {
       "butlerSkillId": "02_contract_output_precision",
-      "status": "open_gap",
-      "verityFindingTypes": ["semantic.prompt.missing_output_contract"],
-      "plannedFindingType": "semantic.prompt.field_constraint_gap",
-      "rationale": "Overall output shape is covered, but applicable numeric, date, enum, unit, and precision constraints are not independently judged."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.missing_output_contract", "semantic.prompt.field_constraint_gap"],
+      "plannedFindingType": null,
+      "rationale": "Overall output shape and applicable field type, unit, precision, enum, range, and boundary constraints are judged separately."
     },
     {
       "butlerSkillId": "02_contract_format_consistency",
@@ -118,10 +118,10 @@
     },
     {
       "butlerSkillId": "02_contract_error_response",
-      "status": "open_gap",
-      "verityFindingTypes": ["semantic.prompt.failure_strategy_gap"],
-      "plannedFindingType": "semantic.prompt.error_response_contract_gap",
-      "rationale": "Recovery strategy is covered, but stable machine-readable refusal and error output is not."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.error_response_contract_gap"],
+      "plannedFindingType": null,
+      "rationale": "Recovery behavior and stable error or refusal schema, reason code, recoverability, and format consistency are reviewed separately."
     },
     {
       "butlerSkillId": "02_contract_reference_integrity",
@@ -139,10 +139,10 @@
     },
     {
       "butlerSkillId": "02_contract_section_structure",
-      "status": "open_gap",
-      "verityFindingTypes": ["prompt.duplicate_content_line"],
-      "plannedFindingType": "semantic.prompt.attention_dilution",
-      "rationale": "Exact duplication is covered, but buried critical rules and incoherent long-document organization are not."
+      "status": "covered",
+      "verityFindingTypes": ["prompt.duplicate_content_line", "semantic.prompt.attention_dilution"],
+      "plannedFindingType": null,
+      "rationale": "Exact duplication is deterministic while the controlled attention policy checks materially buried rules, redundant context, and incoherent section order."
     },
     {
       "butlerSkillId": "02_contract_placeholder_use",
@@ -167,10 +167,10 @@
     },
     {
       "butlerSkillId": "03_resource_streaming_compat",
-      "status": "open_gap",
-      "verityFindingTypes": [],
-      "plannedFindingType": "semantic.prompt.streaming_recovery_gap",
-      "rationale": "No current type first tests streaming applicability and then checks framing, completion, and resume behavior."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.streaming_recovery_gap"],
+      "plannedFindingType": null,
+      "rationale": "The streaming policy first checks applicability and then reviews framing, ordering, completion, partial-output, and resume behavior."
     },
     {
       "butlerSkillId": "03_resource_function_call_contract",
@@ -181,10 +181,10 @@
     },
     {
       "butlerSkillId": "03_resource_prompt_length",
-      "status": "open_gap",
-      "verityFindingTypes": ["prompt.duplicate_content_line"],
-      "plannedFindingType": "semantic.prompt.attention_dilution",
-      "rationale": "Exact duplication alone cannot establish that key instructions are buried by excessive context."
+      "status": "covered",
+      "verityFindingTypes": ["prompt.duplicate_content_line", "semantic.prompt.attention_dilution"],
+      "plannedFindingType": null,
+      "rationale": "Length alone is not flagged; exact duplication and evidence that a critical rule is materially buried provide bounded coverage."
     },
     {
       "butlerSkillId": "04_interop_symbol_conflict",
@@ -195,10 +195,10 @@
     },
     {
       "butlerSkillId": "04_interop_quote_mix",
-      "status": "open_gap",
-      "verityFindingTypes": ["prompt.fullwidth_mixed"],
-      "plannedFindingType": "prompt.structured_quote_inconsistency",
-      "rationale": "Full-width mixing is covered, but parse-breaking quote and backtick inconsistency in structured fragments is not."
+      "status": "covered",
+      "verityFindingTypes": ["prompt.fullwidth_mixed", "prompt.structured_quote_inconsistency"],
+      "plannedFindingType": null,
+      "rationale": "Full-width syntax and parse-breaking smart, single-quoted, or backtick JSON keys are handled by separate source-spanned deterministic rules."
     },
     {
       "butlerSkillId": "04_interop_width_mix",
@@ -244,24 +244,24 @@
     },
     {
       "butlerSkillId": "05_robustness_boundary_values",
-      "status": "open_gap",
-      "verityFindingTypes": ["semantic.prompt.ambiguous_operational_criteria", "semantic.prompt.missing_output_contract"],
-      "plannedFindingType": "semantic.prompt.field_constraint_gap",
-      "rationale": "General ambiguity and output shape do not fully cover applicable extrema, empty values, duplicates, and rollover behavior."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.ambiguous_operational_criteria", "semantic.prompt.missing_output_contract", "semantic.prompt.field_constraint_gap"],
+      "plannedFindingType": null,
+      "rationale": "General criteria, output shape, and an applicability-gated field policy cover extrema, ranges, empty values, duplicates, and rollover behavior."
     },
     {
       "butlerSkillId": "05_robustness_multi_turn_stability",
-      "status": "open_gap",
-      "verityFindingTypes": [],
-      "plannedFindingType": "semantic.prompt.multi_turn_state_gap",
-      "rationale": "No current type checks state inheritance, mutable preferences, reset rules, and non-overridable constraints across turns."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.multi_turn_state_gap"],
+      "plannedFindingType": null,
+      "rationale": "The multi-turn policy checks state inheritance, mutable updates, reset rules, conflict resolution, and non-overridable constraints."
     },
     {
       "butlerSkillId": "05_robustness_safety_policy",
-      "status": "open_gap",
-      "verityFindingTypes": ["semantic.prompt.authority_boundary_ambiguity"],
-      "plannedFindingType": "semantic.prompt.safety_policy_gap",
-      "rationale": "Approval boundaries cover consequential actions, but applicable dangerous-content refusal and safe alternatives remain incomplete."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.authority_boundary_ambiguity", "semantic.prompt.safety_policy_gap"],
+      "plannedFindingType": null,
+      "rationale": "Consequential-action approval and applicable dangerous-content refusal, allowed scope, safe alternatives, and escalation are reviewed separately."
     },
     {
       "butlerSkillId": "06_quality_self_check",
@@ -307,10 +307,10 @@
     },
     {
       "butlerSkillId": "07_compliance_copyright_source",
-      "status": "open_gap",
-      "verityFindingTypes": ["semantic.prompt.grounding_requirement_gap"],
-      "plannedFindingType": "semantic.prompt.source_use_policy_gap",
-      "rationale": "Factual source grounding does not cover applicable long-form reproduction, attribution, or transformation limits."
+      "status": "covered",
+      "verityFindingTypes": ["semantic.prompt.grounding_requirement_gap", "semantic.prompt.source_use_policy_gap"],
+      "plannedFindingType": null,
+      "rationale": "Factual grounding and a non-legal source-use policy separately address attribution, reproduction limits, transformation, and ownership status."
     },
     {
       "butlerSkillId": "05_robustness_secret_leak",

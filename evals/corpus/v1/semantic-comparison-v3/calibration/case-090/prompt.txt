@@ -1,0 +1,4 @@
+Parse the upload and always return a consistent JSON schema.
+On error, include ok=false, an error code, a reason field, and a next action.
+Mark whether retry is allowed and request clarification for a missing column.
+Use the same stable format for invalid data, permission denied, and parser failure.

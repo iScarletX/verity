@@ -1,0 +1,5 @@
+Return a streaming response as newline-delimited JSON frames.
+Each frame has an event type and monotonic sequence number.
+Send a done event as the completion marker.
+If interrupted, the client supplies the last event id as a resume token.
+Never parse partial frames; after resume, repeat at most the final complete frame.

@@ -1,0 +1,4 @@
+Follow this workflow:
+Step 1: publish the generated release bundle.
+Then validate its checksums and run the acceptance tests.
+Finally, record the result.

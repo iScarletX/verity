@@ -1676,6 +1676,70 @@ def prompt_fullwidth_mixed(ctx: RuleContext) -> List[RuleHit]:
     return out
 
 
+_SMART_QUOTED_JSON_KEY = re.compile(
+    r"(?:\{|,)\s*(?:“[^”\n]{1,80}”|‘[^’\n]{1,80}’)\s*:")
+_SINGLE_QUOTED_JSON_KEY = re.compile(
+    r"(?:\{|,)\s*'[^'\n]{1,80}'\s*:")
+_BACKTICK_JSON_KEY = re.compile(
+    r"(?:\{|,)\s*`[^`\n]{1,80}`\s*:")
+_NEGATED_JSON_EXAMPLE_TERMS = (
+    "invalid json", "bad json", "incorrect json", "do not use json",
+    "错误 json", "无效 json", "不要使用 json",
+)
+
+
+def prompt_structured_quote_inconsistency(
+        ctx: RuleContext) -> List[RuleHit]:
+    """Detect non-JSON quote forms only inside an explicit JSON context."""
+    out: List[RuleHit] = []
+    prod = Producer(
+        componentId=ctx.rule.ruleId,
+        componentVersion=ctx.rule.ruleVersion,
+        executionId=ctx.execution_id)
+    patterns = (
+        (_SMART_QUOTED_JSON_KEY, "smart_quote_json_key"),
+        (_SINGLE_QUOTED_JSON_KEY, "single_quote_json_key"),
+        (_BACKTICK_JSON_KEY, "backtick_json_key"),
+    )
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        text = data.decode("utf-8", "ignore")
+        chosen = None
+        for pattern, category in patterns:
+            for match in pattern.finditer(text):
+                context = text[
+                    max(0, match.start() - 240):
+                    min(len(text), match.end() + 240)].lower()
+                if "json" not in context:
+                    continue
+                if any(term in context for term in
+                       _NEGATED_JSON_EXAMPLE_TERMS):
+                    continue
+                chosen = (match.start(), match.end(), category)
+                break
+            if chosen is not None:
+                break
+        if chosen is None:
+            continue
+        char_start, char_end, category = chosen
+        byte_start = len(text[:char_start].encode("utf-8"))
+        byte_end = len(text[:char_end].encode("utf-8"))
+        ev = make_source_span_evidence(
+            snapshot_id=ctx.snapshot.snapshotId,
+            file_id=f.fileId, artifact_path=f.normalizedPath,
+            file_digest=f.contentDigest or "",
+            byte_range=(byte_start, byte_end),
+            raw_bytes=data[byte_start:byte_end], producer=prod,
+        )
+        out.append(RuleHit(evidences=[ev], subject={
+            "artifactPath": f.normalizedPath,
+            "quoteCategory": category,
+        }))
+    return out
+
+
 # --- P17: head/body topic splice (Butler #1) ----------------------------
 #
 # Detects the specific, high-confidence splice Butler flagged on the
@@ -2375,6 +2439,8 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.named_dangling_reference.v1": prompt_named_dangling_reference,
     "impl.prompt.duplicate_content_line.v1": prompt_duplicate_content_line,
     "impl.prompt.fullwidth_mixed.v1": prompt_fullwidth_mixed,
+    "impl.prompt.structured_quote_inconsistency.v1":
+        prompt_structured_quote_inconsistency,
     "impl.prompt.topic_splice.v1": prompt_topic_splice,
     "impl.prompt.version_naming_inconsistent.v1": prompt_version_naming_inconsistent,
     "impl.prompt.model_endpoint_no_fallback.v1": prompt_model_endpoint_no_fallback,

@@ -115,7 +115,7 @@ class SemanticBudget:
     # One call per applicable Finding Type that produced a deterministic
     # seed. Keep this above the controlled catalog size so the default does
     # not silently skip later types; the bound still caps future expansion.
-    max_candidate_generation_calls: int = 24
+    max_candidate_generation_calls: int = 32
     max_validation_calls_per_candidate: int = 1
     max_total_validation_calls: int = 32
     max_candidates_per_extractor: int = 20

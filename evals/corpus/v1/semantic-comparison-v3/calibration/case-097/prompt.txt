@@ -1,0 +1,2 @@
+Send search matches as a streaming JSON response.
+Return each match incrementally in chunked output for immediate display.

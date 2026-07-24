@@ -72,6 +72,24 @@ SUBJECTS = {
         "dependencyKind": "web_access"},
     "semantic.prompt.sensitive_data_handling_gap": {
         "dataPolicyKind": "redaction"},
+    "semantic.prompt.role_scope_contract_gap": {
+        "roleGapKind": "exclusions"},
+    "semantic.prompt.workflow_dependency_gap": {
+        "dependencyGapKind": "reversed_order"},
+    "semantic.prompt.field_constraint_gap": {
+        "fieldGapKind": "type_or_unit"},
+    "semantic.prompt.error_response_contract_gap": {
+        "errorGapKind": "schema"},
+    "semantic.prompt.attention_dilution": {
+        "dilutionKind": "buried_critical_rule"},
+    "semantic.prompt.streaming_recovery_gap": {
+        "streamingGapKind": "framing"},
+    "semantic.prompt.multi_turn_state_gap": {
+        "stateGapKind": "reset"},
+    "semantic.prompt.safety_policy_gap": {
+        "safetyGapKind": "refusal_boundary"},
+    "semantic.prompt.source_use_policy_gap": {
+        "sourceGapKind": "reproduction_limit"},
 }
 
 
@@ -108,7 +126,7 @@ def test_v3_development_manifest_is_fresh_paired_and_seeded():
     assert manifest["protocolVersion"] == "3.0.0"
     assert manifest["status"] == "development_calibration"
     assert manifest["labelStatus"] == "provisional_single_review"
-    assert len(manifest["cases"]) == 76
+    assert len(manifest["cases"]) == 112
     by_type = {}
     for case in manifest["cases"]:
         by_type.setdefault(case["findingType"], []).append(
@@ -119,15 +137,15 @@ def test_v3_development_manifest_is_fresh_paired_and_seeded():
     assert all(
         sorted(states) == ["absent", "absent", "present", "present"]
         for states in by_type.values())
-    assert len({case["riskId"] for case in manifest["cases"]}) == 18
-    assert COMPARISON_THRESHOLDS["minimumRiskCount"] == 18
-    assert COMPARISON_THRESHOLDS["minimumFindingTypeCount"] == 19
-    assert validate_semantic_comparison_seed_coverage() == 76
-    assert DEFAULT_COMPARISON_MAX_TOTAL_CALLS >= 76 * 2 * 2
+    assert len({case["riskId"] for case in manifest["cases"]}) == 27
+    assert COMPARISON_THRESHOLDS["minimumRiskCount"] == 27
+    assert COMPARISON_THRESHOLDS["minimumFindingTypeCount"] == 28
+    assert validate_semantic_comparison_seed_coverage() == 112
+    assert DEFAULT_COMPARISON_MAX_TOTAL_CALLS >= 112 * 2 * 2
 
 
 def test_butler_reference_skill_map_covers_every_semantic_type():
-    assert BUTLER_REFERENCE_SKILL_MAP_VERSION == "2.0.0"
+    assert BUTLER_REFERENCE_SKILL_MAP_VERSION == "3.0.0"
     assert set(BUTLER_REFERENCE_SKILLS) == set(CATALOG)
     assert all(
         1 <= len(skill_ids) <= 2 and len(set(skill_ids)) == len(skill_ids)
@@ -138,7 +156,7 @@ def test_butler_reference_skill_map_covers_every_semantic_type():
         for skill_id in skill_ids)
 
 
-def test_butler_crosswalk_accounts_for_all_45_checks_and_blocks_claim():
+def test_butler_crosswalk_accounts_for_all_45_checks_without_open_gaps():
     crosswalk = load_butler_crosswalk()
     summary = butler_breadth_summary(crosswalk)
     inventory = {
@@ -156,10 +174,10 @@ def test_butler_crosswalk_accounts_for_all_45_checks_and_blocks_claim():
             "de147af7ce65e417c692115600076044"
             "b0e4dc23b55c70b7930940138cf27737"),
         "inventoryCount": 45,
-        "coveredCount": 32,
+        "coveredCount": 45,
         "notAdoptedCount": 0,
-        "openGapCount": 13,
-        "claimReady": False,
+        "openGapCount": 0,
+        "claimReady": True,
     }
 
 
@@ -213,7 +231,7 @@ def test_answer_free_packets_hide_labels_and_randomize_aliases():
         system_id="verity", seed="round55-verity-seed")
     second, _second_map = build_semantic_comparison_packet(
         system_id="butler", seed="round55-butler-seed")
-    assert first["itemCount"] == 76
+    assert first["itemCount"] == 112
     assert first["corpusFingerprint"] == second["corpusFingerprint"]
     assert [row["itemId"] for row in first["items"]] != [
         row["itemId"] for row in second["items"]]
@@ -222,7 +240,7 @@ def test_answer_free_packets_hide_labels_and_randomize_aliases():
             "authorAssessment", "labelStatus", "findingType", "riskId",
             "semantic-comparison-v3-cal-", "case-005"):
         assert forbidden not in packet_text
-    assert len(first_map["aliases"]) == 76
+    assert len(first_map["aliases"]) == 112
     assert all("authorAssessment" in value
                for value in first_map["aliases"].values())
     assert all("packetItemDigest" in value
@@ -260,13 +278,12 @@ def test_provisional_or_missing_labels_can_never_claim_superiority():
         butler_packet=butler_packet, butler_mapping=butler_map,
         butler_observations=butler_obs, label_attestation=None)
     assert report["status"] == "not_eligible"
-    assert report["reasonCodes"] == [
-        "butler_breadth_gaps_open", "labels_missing"]
+    assert report["reasonCodes"] == ["labels_missing"]
     assert report["claim"] is None
-    assert report["butlerBreadth"]["openGapCount"] == 13
+    assert report["butlerBreadth"]["openGapCount"] == 0
 
 
-def _synthetic_pair(case_count=76):
+def _synthetic_pair(case_count=112):
     fingerprint = "b" * 64
     def packet_item(item_id):
         return {
@@ -321,12 +338,12 @@ def _synthetic_pair(case_count=76):
     butler_runs = {}
     for index in range(case_count):
         case_id = f"case-{index:03d}"
-        risk_id = f"risk-{index % 19:02d}"
+        risk_id = f"risk-{index % 27:02d}"
         assessment = "present" if index % 2 == 0 else "absent"
         va = verity_items[index]["itemId"]
         ba = butler_items[index]["itemId"]
         meta = {
-            "caseId": case_id, "findingType": f"type-{index % 19:02d}",
+            "caseId": case_id, "findingType": f"type-{index % 28:02d}",
             "riskId": risk_id, "authorAssessment": assessment,
             "payloadDigest": f"{index:064x}",
         }
@@ -416,16 +433,17 @@ def test_superiority_claim_requires_absolute_and_relative_gate():
     assert all(report["relativeChecks"].values())
 
 
-def test_real_crosswalk_refuses_claim_even_with_perfect_synthetic_scores():
+def test_real_crosswalk_allows_claim_when_metrics_and_labels_pass():
     vp, vm, vo, bp, bm, bo, labels = _synthetic_pair()
     report = compare_semantic_systems(
         verity_packet=vp, verity_mapping=vm, verity_observations=vo,
         butler_packet=bp, butler_mapping=bm, butler_observations=bo,
         label_attestation=labels)
-    assert report["status"] == "not_eligible"
-    assert report["reasonCodes"] == ["butler_breadth_gaps_open"]
-    assert report["claim"] is None
-    assert report["butlerBreadth"]["openGapCount"] == 13
+    assert report["status"] == "passed"
+    assert report["reasonCodes"] == []
+    assert report["claim"] == (
+        "verity_exceeds_butler_on_this_independently_labelled_benchmark")
+    assert report["butlerBreadth"]["openGapCount"] == 0
 
 
 def test_label_attestation_is_derived_from_two_distinct_stable_reviews():
@@ -451,7 +469,7 @@ def test_label_attestation_is_derived_from_two_distinct_stable_reviews():
         reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
         reviewer_b_observations=observations_b)
     assert len(attestation["reviewers"]) == 2
-    assert len(attestation["labels"]) == 76
+    assert len(attestation["labels"]) == 112
     assert all(set(row) == {"caseId", "payloadDigest", "assessment"}
                for row in attestation["labels"])
     assert "authorAssessment" not in json.dumps(attestation)
@@ -614,7 +632,7 @@ def test_verity_observation_runner_is_label_free_and_complete(monkeypatch):
         generator_config=generator_config,
         validator_config=validator_config,
         role_prompt_version="3.0.0")
-    assert len(observations["observations"]) == 76
+    assert len(observations["observations"]) == 112
     assert all(row["runs"] == ["absent", "absent"]
                for row in observations["observations"])
     serialized = json.dumps(observations)

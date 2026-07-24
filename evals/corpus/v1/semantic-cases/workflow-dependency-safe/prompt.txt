@@ -1,0 +1,6 @@
+Follow this workflow:
+Step 1: build the release bundle.
+Then validate its checksums and run the acceptance tests before publication.
+Use the output from validation as the intermediate result; pass it to
+publication only when every check passes.
+Otherwise stop and record the failure; finally record the published digest.

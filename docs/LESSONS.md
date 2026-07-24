@@ -14,6 +14,25 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-24 — Breadth completion is a prerequisite, not an accuracy result
+
+- **Symptom**: Closing every item in a reference-product inventory can sound
+  like proof that the new system is already better, even though mappings and
+  synthetic contract replays measure neither real recall nor false positives.
+- **Root cause**: Detector-surface coverage, pipeline correctness, independent
+  labels, and paired system performance are distinct evidence layers.
+- **Fix**: Complete the 45-item crosswalk while keeping the comparator blocked
+  on independent digest-bound labels and repeated same-corpus observations.
+  Expand both positive and safe cases for every semantic type and keep all
+  author labels provisional.
+- **Prevention**: State inventory coverage, contract replay, and measured model
+  quality separately. Never promote `covered` or 56/56 replay correctness into
+  an accuracy or superiority claim.
+- **Evidence**: Round 57;
+  `test_butler_crosswalk_accounts_for_all_45_checks_without_open_gaps`,
+  `test_provisional_or_missing_labels_can_never_claim_superiority`,
+  `test_v3_development_manifest_is_fresh_paired_and_seeded`.
+
 ### 2026-07-24 — A reference comparison needs a complete inventory and an achievable gate
 
 - **Symptom**: The first Verity/Butler comparison routed only a selected subset

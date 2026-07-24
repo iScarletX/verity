@@ -758,6 +758,366 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-role-scope-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/role-scope-positive/prompt.txt",
+      "findingType": "semantic.prompt.role_scope_contract_gap",
+      "riskId": "VR-PROMPT-021",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "roleGapKind": "exclusions"
+      },
+      "claim": "The persistent support role omits material duties, exclusions, and escalation boundaries.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-role-scope-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/role-scope-safe/prompt.txt",
+      "findingType": "semantic.prompt.role_scope_contract_gap",
+      "riskId": "VR-PROMPT-021",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "roleGapKind": "exclusions"
+      },
+      "claim": "The persistent support role omits material duties, exclusions, and escalation boundaries.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-workflow-dependency-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/workflow-dependency-positive/prompt.txt",
+      "findingType": "semantic.prompt.workflow_dependency_gap",
+      "riskId": "VR-PROMPT-022",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "dependencyGapKind": "reversed_order"
+      },
+      "claim": "The workflow publishes the bundle before the validation on which publication depends.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-workflow-dependency-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/workflow-dependency-safe/prompt.txt",
+      "findingType": "semantic.prompt.workflow_dependency_gap",
+      "riskId": "VR-PROMPT-022",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "dependencyGapKind": "reversed_order"
+      },
+      "claim": "The workflow publishes the bundle before the validation on which publication depends.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-field-constraint-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/field-constraint-positive/prompt.txt",
+      "findingType": "semantic.prompt.field_constraint_gap",
+      "riskId": "VR-PROMPT-023",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "fieldGapKind": "type_or_unit"
+      },
+      "claim": "Machine-consumed amount, date, and status fields omit material type, unit, and value constraints.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-field-constraint-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/field-constraint-safe/prompt.txt",
+      "findingType": "semantic.prompt.field_constraint_gap",
+      "riskId": "VR-PROMPT-023",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "fieldGapKind": "type_or_unit"
+      },
+      "claim": "Machine-consumed amount, date, and status fields omit material type, unit, and value constraints.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-error-response-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/error-response-positive/prompt.txt",
+      "findingType": "semantic.prompt.error_response_contract_gap",
+      "riskId": "VR-PROMPT-024",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "errorGapKind": "schema"
+      },
+      "claim": "The machine-consumed failure path has no stable error schema, reason code, or recovery signal.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-error-response-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/error-response-safe/prompt.txt",
+      "findingType": "semantic.prompt.error_response_contract_gap",
+      "riskId": "VR-PROMPT-024",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "errorGapKind": "schema"
+      },
+      "claim": "The machine-consumed failure path has no stable error schema, reason code, or recovery signal.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-attention-dilution-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/attention-dilution-positive/prompt.txt",
+      "findingType": "semantic.prompt.attention_dilution",
+      "riskId": "VR-PROMPT-025",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "dilutionKind": "buried_critical_rule"
+      },
+      "claim": "The only critical authorization rule is buried after unrelated and repeated background material.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-attention-dilution-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/attention-dilution-safe/prompt.txt",
+      "findingType": "semantic.prompt.attention_dilution",
+      "riskId": "VR-PROMPT-025",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "dilutionKind": "buried_critical_rule"
+      },
+      "claim": "The only critical authorization rule is buried after unrelated and repeated background material.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-streaming-recovery-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/streaming-recovery-positive/prompt.txt",
+      "findingType": "semantic.prompt.streaming_recovery_gap",
+      "riskId": "VR-PROMPT-026",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "streamingGapKind": "framing"
+      },
+      "claim": "The streamed JSON result omits framing, completion, partial-output, and resume behavior.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-streaming-recovery-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/streaming-recovery-safe/prompt.txt",
+      "findingType": "semantic.prompt.streaming_recovery_gap",
+      "riskId": "VR-PROMPT-026",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "streamingGapKind": "framing"
+      },
+      "claim": "The streamed JSON result omits framing, completion, partial-output, and resume behavior.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-multi-turn-state-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/multi-turn-state-positive/prompt.txt",
+      "findingType": "semantic.prompt.multi_turn_state_gap",
+      "riskId": "VR-PROMPT-027",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "stateGapKind": "reset"
+      },
+      "claim": "The multi-turn memory contract omits update, reset, and protected-invariant behavior.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-multi-turn-state-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/multi-turn-state-safe/prompt.txt",
+      "findingType": "semantic.prompt.multi_turn_state_gap",
+      "riskId": "VR-PROMPT-027",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "stateGapKind": "reset"
+      },
+      "claim": "The multi-turn memory contract omits update, reset, and protected-invariant behavior.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-safety-policy-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/safety-policy-positive/prompt.txt",
+      "findingType": "semantic.prompt.safety_policy_gap",
+      "riskId": "VR-PROMPT-028",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "safetyGapKind": "refusal_boundary"
+      },
+      "claim": "The declared dangerous domain authorizes detailed harmful instructions without a refusal boundary.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-safety-policy-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/safety-policy-safe/prompt.txt",
+      "findingType": "semantic.prompt.safety_policy_gap",
+      "riskId": "VR-PROMPT-028",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "safetyGapKind": "refusal_boundary"
+      },
+      "claim": "The declared dangerous domain authorizes detailed harmful instructions without a refusal boundary.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-source-use-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/source-use-positive/prompt.txt",
+      "findingType": "semantic.prompt.source_use_policy_gap",
+      "riskId": "VR-PROMPT-029",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "sourceGapKind": "reproduction_limit"
+      },
+      "claim": "The task requests full verbatim third-party source reproduction without a bounded use policy.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-source-use-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/source-use-safe/prompt.txt",
+      "findingType": "semantic.prompt.source_use_policy_gap",
+      "riskId": "VR-PROMPT-029",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "sourceGapKind": "reproduction_limit"
+      },
+      "claim": "The task requests full verbatim third-party source reproduction without a bounded use policy.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
     }
   ]
 }

@@ -1,0 +1,5 @@
+Send search matches as a streaming response of newline-delimited JSON frames.
+Every frame has an event type and sequence number.
+Send a done event as the completion marker.
+After an interrupted stream, resume from the supplied cursor and ignore partial frames.
+Duplicate delivery of the final complete frame is allowed once.

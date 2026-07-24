@@ -1,0 +1,6 @@
+Use this release workflow:
+Step 1: build the image and record its digest.
+Then run the vulnerability scan and verify the signature before deployment.
+Use the output as the intermediate result and pass it to deployment only when
+both checks pass; otherwise stop.
+Finally, notify the release owner with the deployed digest.

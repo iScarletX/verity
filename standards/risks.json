@@ -1630,6 +1630,344 @@
         "No synthetic-data black-box measurement"
       ],
       "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-021",
+      "title": "Operational role scope is incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A prompt assigns an operational role without enough audience, duty, exclusion, or capability boundaries to distinguish intended work from adjacent unauthorized behavior.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate role vocabulary but cannot determine whether the declared audience, duties, exclusions, and capabilities are sufficient for the task.",
+        "L1_semantic": "May judge whether an applicable operational role has material audience, duty, exclusion, and capability boundaries.",
+        "V1_5_blackbox": "May probe adjacent and out-of-scope requests and score whether the configured model respects the declared role.",
+        "V2_sandbox": "May observe whether an isolated Skill attempts capabilities outside the role contract."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Role vocabulary is not exhaustive",
+        "Cannot infer organization-specific duties or authority that are not present in the artifact",
+        "Semantic sufficiency judgment remains model-dependent and advisory",
+        "No adjacent-scope black-box probing"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-022",
+      "title": "Workflow dependencies or ordering are incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A multi-step workflow omits a material prerequisite, reverses a dependency, leaves an intermediate result unused, or makes a required branch unreachable.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "INFORMATION-INTEGRITY",
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate numbered steps but cannot reliably infer data and control dependencies.",
+        "L1_semantic": "May judge explicit workflow prerequisites, ordering, intermediate-result use, and branch reachability against cited evidence.",
+        "V1_5_blackbox": "May execute representative branches with controlled tool responses and score ordering and result propagation.",
+        "V2_sandbox": "May observe an isolated Skill workflow with fake dependencies and bounded side effects."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No general workflow graph parser",
+        "Implicit domain prerequisites can remain unknown",
+        "Semantic dependency judgment remains model-dependent and advisory",
+        "No workflow execution"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-023",
+      "title": "Material field constraints or boundary behavior are incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "An applicable output or input field lacks a material type, unit, precision, enum, range, empty-value, duplicate, rollover, or boundary-value contract.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "INFORMATION-INTEGRITY",
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate field and numeric vocabulary but cannot decide which constraints are materially required.",
+        "L1_semantic": "May judge applicable field types, units, precision, enums, ranges, and boundary behavior against the declared task.",
+        "V1_5_blackbox": "May inject boundary, empty, duplicate, rollover, and out-of-range values and score the output contract.",
+        "V2_sandbox": "May observe runtime validation only for a future isolated Skill execution."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No general schema or unit-system parser",
+        "Cannot infer application-owned field constraints that are absent from the artifact",
+        "Semantic materiality judgment remains model-dependent and advisory",
+        "No boundary-value execution"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-024",
+      "title": "Error and refusal response contract is incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A task that can fail or refuse lacks a stable machine-readable error shape, reason code, recoverability signal, or format-consistency rule.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "INFORMATION-INTEGRITY",
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate error vocabulary but cannot establish whether the response contract is stable and actionable.",
+        "L1_semantic": "May judge whether applicable errors and refusals declare a stable schema, reason code, recoverability, and format consistency.",
+        "V1_5_blackbox": "May trigger controlled failures and refusals and score their actual output shape and recovery signal.",
+        "V2_sandbox": "May inject runtime failures into an isolated Skill and observe bounded error propagation."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Cannot inspect an unseen downstream error schema",
+        "Natural-language-only applications may not require every machine-readable field",
+        "Semantic applicability judgment remains model-dependent and advisory",
+        "No controlled failure execution"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-025",
+      "title": "Critical instructions are diluted by prompt structure",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A material rule is buried in excessive or redundant context, weak hierarchy, or incoherent section ordering such that attention and precedence are materially ambiguous.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION",
+            "INFORMATION-INTEGRITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May count lines, sections, or exact duplicates but cannot establish that a critical rule is materially diluted.",
+        "L1_semantic": "May judge whether critical rules are buried, redundant context is material, or section order obscures precedence.",
+        "V1_5_blackbox": "May compare instruction-following under controlled prompt layouts and context lengths.",
+        "V2_sandbox": "Not applicable."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Length alone is not treated as a defect",
+        "Model-specific attention behavior is not inferred from static text",
+        "Semantic materiality judgment remains model-dependent and advisory",
+        "No layout ablation experiment"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-026",
+      "title": "Streaming framing or recovery contract is incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A streaming task lacks a material frame delimiter, ordering or sequence contract, completion signal, partial-output rule, or resumable recovery mechanism.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "VALUE-CHAIN-COMPONENT-INTEGRATION",
+            "INFORMATION-INTEGRITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate streaming vocabulary but cannot judge protocol completeness.",
+        "L1_semantic": "May judge applicable framing, ordering, completion, partial-output, and resume requirements.",
+        "V1_5_blackbox": "May interrupt, truncate, reorder, and resume a configured stream and score parser-visible behavior.",
+        "V2_sandbox": "May observe isolated Skill stream handling with bounded fake transports."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Cannot inspect an unseen transport protocol",
+        "Not every user-visible token stream requires resumability",
+        "Semantic applicability judgment remains model-dependent and advisory",
+        "No interruption or resume execution"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-027",
+      "title": "Multi-turn state contract is incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A multi-turn task lacks a material rule for state inheritance, updates, reset, conflict resolution, or non-overridable constraints.",
+      "sourceRefs": [
+        {
+          "sourceId": "OWASP-AGENTIC-2025",
+          "controlIds": [
+            "THREAT-MEMORY-CONTEXT-POISONING"
+          ]
+        },
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION",
+            "INFORMATION-INTEGRITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate memory or conversation vocabulary but cannot establish correct state semantics.",
+        "L1_semantic": "May judge applicable inheritance, update, reset, conflict-resolution, and invariant rules across turns.",
+        "V1_5_blackbox": "May run adversarial turn sequences and score state carryover, reset, and invariant preservation.",
+        "V2_sandbox": "May observe isolated persistent state using synthetic conversations and storage."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Cannot inspect an unseen conversation or memory implementation",
+        "Session semantics vary by deployment",
+        "Semantic state judgment remains model-dependent and advisory",
+        "No adversarial multi-turn execution"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-028",
+      "title": "Applicable dangerous-content safety policy is incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A prompt operating in a materially dangerous domain lacks clear refusal boundaries, allowed safe scope, safe alternatives, or escalation behavior.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "HUMAN-AI-CONFIGURATION",
+            "INFORMATION-INTEGRITY"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate dangerous-domain terms but cannot determine the appropriate safety boundary.",
+        "L1_semantic": "May judge whether an applicable dangerous-domain task declares refusal boundaries, allowed scope, safe alternatives, and escalation.",
+        "V1_5_blackbox": "May probe allowed, borderline, and disallowed requests and score refusal and redirection behavior.",
+        "V2_sandbox": "May ensure dangerous tools and side effects are unavailable during isolated Skill tests."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "Does not replace provider or organization safety policy",
+        "Dangerous-domain vocabulary and jurisdictional requirements are not exhaustive",
+        "Semantic boundary judgment remains model-dependent and advisory",
+        "No red-team black-box probing"
+      ],
+      "evaluationReference": null
+    },
+    {
+      "riskId": "VR-PROMPT-029",
+      "title": "Third-party source use policy is incomplete",
+      "scopes": [
+        "prompt",
+        "system_prompt"
+      ],
+      "definition": "A task that reproduces or transforms third-party source material lacks a material attribution, excerpt limit, transformation boundary, or ownership and permission rule.",
+      "sourceRefs": [
+        {
+          "sourceId": "NIST-AI-600-1",
+          "controlIds": [
+            "INFORMATION-INTEGRITY",
+            "HUMAN-AI-CONFIGURATION"
+          ]
+        }
+      ],
+      "layerBoundaries": {
+        "L0_static": "May locate source and quotation vocabulary but cannot determine lawful or permitted use.",
+        "L1_semantic": "May identify missing declared attribution, reproduction limits, transformation boundaries, or ownership status without making a legal conclusion.",
+        "V1_5_blackbox": "May request bounded and excessive reproduction and score attribution, refusal, and transformation behavior.",
+        "V2_sandbox": "May restrict isolated source access and observe outbound reproduction attempts."
+      },
+      "currentCoverage": {
+        "L0_static": "none",
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "none",
+        "V2_sandbox": "none"
+      },
+      "knownGaps": [
+        "No legal conclusion about copyright, license, fair use, or ownership",
+        "Cannot inspect unseen licenses or permissions",
+        "Semantic applicability judgment remains model-dependent and advisory",
+        "No reproduction-limit black-box probing"
+      ],
+      "evaluationReference": null
     }
   ]
 }

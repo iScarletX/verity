@@ -706,6 +706,40 @@ class TestFullwidthMixed:
         assert self.ft not in _find_types(r)
 
 
+class TestStructuredQuoteInconsistency:
+    ft = "prompt.structured_quote_inconsistency"
+
+    def test_positive_smart_quoted_json_key(self):
+        r = _run(
+            'Return JSON using this schema: {“status”: "ok"}.\n',
+            kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_positive_single_quoted_json_key(self):
+        r = _run(
+            "Return JSON exactly like {'status': 'ok'}.\n",
+            kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_positive_backtick_json_key(self):
+        r = _run(
+            'Return JSON exactly like {`status`: "ok"}.\n',
+            kind="system_prompt")
+        assert self.ft in _find_types(r)
+
+    def test_negative_explicit_invalid_json_example(self):
+        r = _run(
+            "This is invalid JSON and must be rejected: {'status': 'ok'}.\n",
+            kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+    def test_negative_non_json_language_object(self):
+        r = _run(
+            "In this Python example, use {'status': 'ok'} as a dict.\n",
+            kind="system_prompt")
+        assert self.ft not in _find_types(r)
+
+
 # =========================================================================
 # Round 51: topic-splice (Butler #1) -- deterministic, dependency-free
 # =========================================================================

@@ -484,7 +484,7 @@ def check_corpus_baselines(rep: VerifyReport) -> None:
         rep.append_fail("corpus_baselines", detail)
         return
     rep.append_ok("corpus_baselines",
-                  "80 L0 cases + 38 semantic contract replays reproducible")
+                  "80 L0 cases + 56 semantic contract replays reproducible")
 
 
 def check_v1_closure_baseline(rep: VerifyReport) -> None:
@@ -576,7 +576,7 @@ def check_semantic_quality_protocol(rep: VerifyReport) -> None:
 
 
 def check_semantic_comparison_protocol(rep: VerifyReport) -> None:
-    """Validate answer-hidden v3 calibration and superiority-claim refusal."""
+    """Validate answer-hidden v3 calibration and claim prerequisites."""
     try:
         sys.path.insert(0, str(REPO / "src"))
         from verity.semantic_benchmark import (
@@ -615,13 +615,15 @@ def check_semantic_comparison_protocol(rep: VerifyReport) -> None:
             butler_packet=butler_packet, butler_mapping=butler_map,
             butler_observations=observations(butler_packet),
             label_attestation=None)
-        if (len(manifest["cases"]) != 76 or checked != 76
+        if (len(manifest["cases"]) != 112 or checked != 112
                 or breadth.get("inventoryCount") != 45
-                or breadth.get("openGapCount") != 13
-                or breadth.get("claimReady") is not False
+                or breadth.get("openGapCount") != 0
+                or breadth.get("claimReady") is not True
                 or report.get("status") != "not_eligible"
-                or "butler_breadth_gaps_open"
+                or "labels_missing"
                 not in report.get("reasonCodes", [])
+                or "butler_breadth_gaps_open"
+                in report.get("reasonCodes", [])
                 or report.get("claim") is not None):
             raise ValueError("semantic comparison development gate mismatch")
     except Exception as exc:
@@ -629,9 +631,9 @@ def check_semantic_comparison_protocol(rep: VerifyReport) -> None:
         return
     rep.append_ok(
         "semantic_comparison_protocol",
-        "76 fresh paired calibration cases; Butler inventory=45 with "
-        "13 open breadth gaps; labels provisional; superiority claim "
-        "refused; no model called")
+        "112 fresh paired calibration cases; Butler inventory=45 with "
+        "0 open breadth gaps; labels provisional; superiority claim "
+        "still refused; no model called")
 
 
 def check_scoring_policy(rep: VerifyReport) -> None:

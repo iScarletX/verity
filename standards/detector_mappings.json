@@ -590,6 +590,86 @@
         "VR-PROMPT-013"
       ],
       "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "prompt.structured_quote_inconsistency",
+      "riskIds": [
+        "VR-PROMPT-002"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.role_scope_contract_gap",
+      "riskIds": [
+        "VR-PROMPT-021"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.workflow_dependency_gap",
+      "riskIds": [
+        "VR-PROMPT-022"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.field_constraint_gap",
+      "riskIds": [
+        "VR-PROMPT-023"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.error_response_contract_gap",
+      "riskIds": [
+        "VR-PROMPT-024"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.attention_dilution",
+      "riskIds": [
+        "VR-PROMPT-025"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.streaming_recovery_gap",
+      "riskIds": [
+        "VR-PROMPT-026"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.multi_turn_state_gap",
+      "riskIds": [
+        "VR-PROMPT-027"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.safety_policy_gap",
+      "riskIds": [
+        "VR-PROMPT-028"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "semantic_finding_type",
+      "detectorId": "semantic.prompt.source_use_policy_gap",
+      "riskIds": [
+        "VR-PROMPT-029"
+      ],
+      "contribution": "signal"
     }
   ]
 }

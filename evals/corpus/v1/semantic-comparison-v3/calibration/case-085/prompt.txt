@@ -1,0 +1,2 @@
+Return JSON fields named temperature, measured_at, and sensor_status.
+The response is consumed by an alerting service.

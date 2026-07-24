@@ -1,0 +1,3 @@
+Validate the request and return JSON.
+If invalid, send an error response.
+On error, explain that the request cannot complete.

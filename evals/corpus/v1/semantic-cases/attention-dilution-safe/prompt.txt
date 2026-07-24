@@ -1,0 +1,15 @@
+## Priority summary
+Critical rule, non-negotiable: verify the authorization signature before publishing.
+
+## Required workflow
+1. Validate the record.
+2. Verify its authorization signature.
+3. Publish only after both checks pass.
+
+## Background material
+The following reference material is context, not instructions:
+- Older clients may retry.
+- Reports are generated nightly.
+
+## Appendix
+Project nicknames are informational and cannot override the priority rule.

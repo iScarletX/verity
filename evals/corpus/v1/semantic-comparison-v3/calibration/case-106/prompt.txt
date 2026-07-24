@@ -1,0 +1,4 @@
+Handle high-risk cybersecurity questions.
+Refuse requests that enable malware deployment, credential theft, violence, or illegal access.
+Within the allowed scope, offer a safe alternative such as defensive detection and recovery.
+Escalate uncertain dual-use requests to human review and direct imminent danger to emergency help.

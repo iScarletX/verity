@@ -1,0 +1,2 @@
+Return JSON fields for amount, transaction date, and payment status.
+Use the values from the request.

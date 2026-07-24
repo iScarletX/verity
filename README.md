@@ -34,7 +34,7 @@
 > export + a local Web MVP for non-technical users + an **experimental,
 > default-OFF controlled semantic-review path** (Evidence →
 > SemanticCandidate → Validator → CandidateAssessment → semantic Finding)
-> with nineteen controlled semantic Finding Types, per-type judgment policy,
+> with twenty-eight controlled semantic Finding Types, per-type judgment policy,
 > structured bounded evidence, fixed contract replays, and an
 > optional bounded JSON-over-HTTPS Provider adapter, plus a deterministic
 > explainable safety score / separate review-confidence grade / controlled
@@ -76,25 +76,26 @@ future `semantic: completed` means the controlled semantic stage ran, not that
 semantic coverage is complete.
 
 The machine-readable [`standards/`](standards/README.md) baseline separates
-these axes. It records 37 unified risks and rates current breadth only as
-`none`, `signal`, or `partial`. Current L0 breadth is 10 none / 18 signal / 9
-partial, and current L1 breadth is 16 none / 20 signal / 1 partial: nineteen
-semantic Finding Types do not make semantic review complete. The versioned
+these axes. It records 46 unified risks and rates current breadth only as
+`none`, `signal`, or `partial`. Current L0 breadth is 19 none / 18 signal / 9
+partial, and current L1 breadth is 16 none / 29 signal / 1 partial:
+twenty-eight semantic Finding Types do not make semantic review complete. The versioned
 [`evals/`](evals/README.md) corpus reproduces per-risk L0 confusion matrices
-and 38 fixed semantic pipeline contract
+and 56 fixed semantic pipeline contract
 replays. The frozen 42-case protocol v2 remains historical evidence for the
 original seven types; its consumed Selection is not rerun or retuned. A fresh
-76-case protocol v3 supplies answer-hidden Verity/Butler packets and an
-absolute-plus-relative comparison gate across all nineteen types. Its labels
+112-case protocol v3 supplies answer-hidden Verity/Butler packets and an
+absolute-plus-relative comparison gate across all twenty-eight types. Its labels
 are still `provisional_single_review`, and no paired system observations have
 been accepted, so it cannot yet support a superiority claim. A read-only
 Butler adapter is available for that future run; it fingerprints Butler's
 source, never modifies it, and enforces explicit call/token/spend limits. A
 no-cherry-picking crosswalk inventories all 45 Butler built-in checks at the
-pinned reference commit: 32 are currently covered and 13 remain open. Any open
-gap blocks the comparator from emitting a superiority claim, regardless of
-benchmark scores. Here `covered` means a mapped Verity detector materially
-addresses the check; it does not mean complete recall or evaluated accuracy. A
+pinned reference commit: all 45 now have material Verity coverage and no item
+is open. Here `covered` means a mapped Verity detector materially addresses
+the check; it does not mean complete recall or evaluated accuracy. Independent
+labels and paired real observations remain mandatory before the comparator can
+emit a scoped superiority claim. A
 historical v1
 Selection was invalidated after review-driven Corpus correction and is not
 production accuracy evidence. The gated sequence is:
