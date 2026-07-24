@@ -1,6 +1,6 @@
 # Active implementation: semantic breadth and Butler superiority gate
 
-Status: **authorized, implementation in progress**
+Status: **breadth tranche complete; authorized real-run configuration pending**
 Owner authorization: 2026-07-23
 
 ## Goal
@@ -21,11 +21,11 @@ count, or a self-authored fixture score does not establish that claim.
 1. Freeze Butler's complete 45-check built-in inventory at a pinned commit.
    Every item must be classified as covered, open, or explicitly not adopted;
    the comparison gate must reject any open gap.
-2. Preserve the fourteen Round-55 controlled Finding Types and add bounded
-   semantic policies for input/default behavior, normative examples, tool-call
-   contracts, non-intrinsic capabilities, and sensitive-data handling.
-   Continue closing the remaining crosswalk gaps in evidence-prioritized
-   tranches.
+2. Preserve the fourteen Round-55 controlled Finding Types and the five
+   Round-56 additions, then close the remaining inventory gaps with bounded
+   policies for role scope, workflow dependencies, field constraints, error
+   responses, attention dilution, streaming recovery, multi-turn state,
+   dangerous-domain safety, and source use.
 3. Give every type an applicability test, confirm/reject/insufficient policy,
    structured allowlisted Evidence, and positive plus safe counterexamples.
    Reviewed content cannot alter policy, severity, or Provider configuration.
@@ -49,10 +49,10 @@ variable, split, repetitions, call/token/spend budget, and local report path.
 No local model dependency or weight is installed in this round without the
 separate founder approval required by `AGENTS.md`.
 
-An engineering tranche may ship stronger controlled coverage and a ready
-comparison protocol without claiming semantic superiority. "Verity exceeds
-Butler" remains blocked until the crosswalk has no open gaps and fresh labels
-plus both systems' same-case observations pass the comparison gate.
+The breadth tranche shipped stronger controlled coverage and a ready comparison
+protocol without claiming semantic superiority. The crosswalk now has no open
+gaps. "Verity exceeds Butler" remains blocked until fresh labels plus both
+systems' same-case observations pass the comparison gate.
 
 ## Explicitly out of scope until this gate passes
 
@@ -65,17 +65,17 @@ plus both systems' same-case observations pass the comparison gate.
 
 ## Engineering-tranche exit criteria
 
-- The pinned crosswalk accounts for all 45 Butler checks and reports its open
-  gap count in every comparison.
-- All nineteen current semantic Finding Types have positive and safe
+- The pinned crosswalk accounts for all 45 Butler checks and has zero open or
+  not-adopted items.
+- All twenty-eight current semantic Finding Types have positive and safe
   extractor/contract cases.
-- Protocol v3 has 76 answer-hidden cases: two positive and two safe artifacts
+- Protocol v3 has 112 answer-hidden cases: two positive and two safe artifacts
   for every current Finding Type.
 - Protocol v2 still loads and reproduces unchanged.
-- Protocol v3 refuses superiority while breadth gaps, independent labels, or
-  paired observations are missing.
+- Protocol v3 refuses superiority while independent labels or paired
+  observations are missing.
 - Full pytest and `python3 tools/verify_repo.py --require-clean` pass.
-- Changes are committed, pushed, and GitHub CI is green.
+- Round 57 is committed and pushed; GitHub CI run 30066597051 is green.
 
 ## Superiority-milestone exit criteria
 
