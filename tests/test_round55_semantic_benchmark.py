@@ -6,11 +6,12 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from tools import semantic_head_to_head
-from verity.corpus import CorpusError
+from tools import build_semantic_holdout, semantic_head_to_head
+from verity.corpus import CORPUS_DIR, CorpusError
 from verity.semantic.catalog import CATALOG
 from verity.semantic_benchmark import (
     BUTLER_REFERENCE_SKILLS,
@@ -1090,6 +1091,328 @@ class _TransientLabelReviewer(_LabelReviewer):
             return ProviderResponse(ok=False, reason_code="provider_timeout")
         return ProviderResponse(
             ok=True, payload={"assessment": self.assessment})
+
+
+def _comparison_configs(monkeypatch):
+    monkeypatch.setenv(
+        "VERITY_TEST_HEAD_TO_HEAD_KEY", "local-test-value")
+    common = {
+        "provider_id": "test",
+        "model_id": "fixed",
+        "base_url": "https://example.invalid/v1",
+        "credentials": ProviderCredentials(
+            "VERITY_TEST_HEAD_TO_HEAD_KEY"),
+    }
+    return (
+        ProviderConfig(role="candidate_generator", **common),
+        ProviderConfig(role="validator", **common),
+    )
+
+
+def _recording_run_case(seen):
+    def run_case(case, **_kwargs):
+        path = CORPUS_DIR / case["path"]
+        if case["objectType"] == "prompt":
+            content = path.read_text("utf-8")
+        else:
+            content = "\n".join(
+                item.read_text("utf-8")
+                for item in sorted(path.rglob("*"))
+                if item.is_file()
+            )
+        seen.append({"case": dict(case), "content": content})
+        return "rejected", {
+            "semanticStatus": "completed",
+            "reasonCodes": [],
+            "candidateCount": 1,
+            "assessmentCount": 1,
+            "findingCount": 0,
+            "callCounts": {"generator": 1, "validator": 1},
+            "stageStats": {},
+        }
+    return run_case
+
+
+def test_verity_runner_consumes_packet_artifact_without_canonical_case_identity(
+        monkeypatch):
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="verity", seed="round66-packet-authority")
+    target_alias = next(
+        alias for alias, metadata in mapping["aliases"].items()
+        if metadata["findingType"]
+        == "semantic.prompt.instruction_conflict"
+    )
+    target_item = next(
+        item for item in packet["items"]
+        if item["itemId"] == target_alias
+    )
+    marker = "PACKET-CONTENT-IS-AUTHORITATIVE"
+    target_item["artifact"]["files"][0]["content"] = (
+        f"{marker}\nAlways return JSON.\nNever return JSON.\n"
+    )
+    mapping["aliases"][target_alias]["packetItemDigest"] = (
+        _packet_item_digest(target_item)
+    )
+    seen = []
+    monkeypatch.setattr(
+        "verity.semantic_quality._run_case", _recording_run_case(seen))
+    generator_config, validator_config = _comparison_configs(monkeypatch)
+
+    evaluate_verity_comparison_observations(
+        packet=packet,
+        mapping=mapping,
+        repetitions=2,
+        generator=_CandidateProvider(),
+        validator=_RejectingValidator(),
+        generator_config=generator_config,
+        validator_config=validator_config,
+        candidate_strategy="model_only",
+        role_prompt_version="3.0.0",
+    )
+
+    assert any(marker in row["content"] for row in seen)
+    assert all("caseId" not in row["case"] for row in seen)
+
+
+def test_verity_observation_fingerprint_binds_packet_and_alias_map(
+        monkeypatch):
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="verity", seed="round66-input-fingerprint")
+    changed_packet = deepcopy(packet)
+    changed_mapping = deepcopy(mapping)
+    changed_item = changed_packet["items"][0]
+    changed_item["artifact"]["files"][0]["content"] += (
+        "\nPacket-bound fingerprint marker.\n"
+    )
+    changed_mapping["aliases"][
+        changed_item["itemId"]]["packetItemDigest"] = (
+            _packet_item_digest(changed_item)
+        )
+    changed_map_only = deepcopy(mapping)
+    changed_alias = changed_packet["items"][0]["itemId"]
+    changed_map_only["aliases"][changed_alias]["authorAssessment"] = (
+        "absent"
+        if changed_map_only["aliases"][changed_alias]["authorAssessment"]
+        == "present"
+        else "present"
+    )
+    monkeypatch.setattr(
+        "verity.semantic_quality._run_case", _recording_run_case([]))
+    generator_config, validator_config = _comparison_configs(monkeypatch)
+
+    def evaluate(current_packet, current_mapping):
+        return evaluate_verity_comparison_observations(
+            packet=current_packet,
+            mapping=current_mapping,
+            repetitions=2,
+            generator=_CandidateProvider(),
+            validator=_RejectingValidator(),
+            generator_config=generator_config,
+            validator_config=validator_config,
+            candidate_strategy="model_only",
+            role_prompt_version="3.0.0",
+        )
+
+    original = evaluate(packet, mapping)
+    changed = evaluate(changed_packet, changed_mapping)
+    remapped = evaluate(packet, changed_map_only)
+    assert (
+        original["configurationFingerprint"]
+        != changed["configurationFingerprint"]
+    )
+    assert (
+        original["configurationFingerprint"]
+        != remapped["configurationFingerprint"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("protocol_version", "status"),
+    [
+        (COMPARISON_PROTOCOL_VERSION, "development_calibration"),
+        (COMPARISON_PROTOCOL_V4, "hidden_holdout"),
+        (COMPARISON_PROTOCOL_V5, "hidden_holdout"),
+    ],
+)
+def test_verity_packet_runner_preserves_v3_through_v5_compatibility(
+        tmp_path, monkeypatch, protocol_version, status):
+    source = json.loads(
+        (ROOT / "evals/corpus/v1/semantic_comparison_v3.json").read_text(
+            "utf-8"))
+    source["protocolVersion"] = protocol_version
+    source["status"] = status
+    if protocol_version == COMPARISON_PROTOCOL_V5:
+        source["evaluationPolicy"] = dict(PROTOCOL_V5_EVALUATION_POLICY)
+    manifest_path = tmp_path / f"manifest-{protocol_version}.json"
+    manifest_path.write_text(
+        json.dumps(source, ensure_ascii=False), encoding="utf-8")
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="verity",
+        seed=f"finding-six-compatibility-{protocol_version}",
+        manifest_path=manifest_path,
+    )
+    monkeypatch.setattr(
+        "verity.semantic_quality._run_case", _recording_run_case([]))
+    generator_config, validator_config = _comparison_configs(monkeypatch)
+
+    observations = evaluate_verity_comparison_observations(
+        packet=packet,
+        mapping=mapping,
+        repetitions=2,
+        generator=_CandidateProvider(),
+        validator=_RejectingValidator(),
+        generator_config=generator_config,
+        validator_config=validator_config,
+        candidate_strategy="catalog_first",
+        role_prompt_version=protocol_version,
+        manifest_path=manifest_path,
+    )
+
+    assert observations["protocolVersion"] == protocol_version
+    assert {
+        row["itemId"] for row in observations["observations"]
+    } == {
+        item["itemId"] for item in packet["items"]
+    }
+
+
+def test_holdout_freeze_binds_every_packet_and_alias_map_without_labels(
+        tmp_path, monkeypatch):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text('{"manifest":"fixture"}\n', encoding="utf-8")
+    output_root = tmp_path / "frozen"
+    manifest = {
+        "protocolVersion": COMPARISON_PROTOCOL_V5,
+        "cases": [{"caseId": "fixture-case"}],
+    }
+
+    monkeypatch.setattr(
+        build_semantic_holdout,
+        "load_semantic_comparison_manifest",
+        lambda _path: manifest,
+    )
+    monkeypatch.setattr(
+        build_semantic_holdout,
+        "validate_semantic_comparison_seed_coverage",
+        lambda _path: 1,
+    )
+    monkeypatch.setattr(
+        build_semantic_holdout,
+        "_catalog_contract_report",
+        lambda _manifest: {
+            "routeCounts": {"catalog_hypothesis_present": 1},
+        },
+    )
+    monkeypatch.setattr(
+        build_semantic_holdout,
+        "_require_frozen_catalog_contract",
+        lambda _report: None,
+    )
+    monkeypatch.setattr(
+        build_semantic_holdout,
+        "_assert_disjoint",
+        lambda _manifest_path, _comparison_paths: None,
+    )
+    monkeypatch.setattr(
+        build_semantic_holdout,
+        "_corpus_fingerprint",
+        lambda _manifest: "f" * 64,
+    )
+
+    def packet_pair(system_id, **_kwargs):
+        return (
+            {"systemId": system_id, "packet": "answer-hidden"},
+            {
+                "systemId": system_id,
+                "aliases": {
+                    "SC-001-000000": {
+                        "authorAssessment": "present",
+                    },
+                },
+            },
+        )
+
+    monkeypatch.setattr(
+        build_semantic_holdout,
+        "build_semantic_comparison_packet",
+        packet_pair,
+    )
+    args = SimpleNamespace(
+        manifest=str(manifest_path),
+        output_root=str(output_root),
+        disjoint_manifest=[],
+    )
+
+    assert build_semantic_holdout._freeze(args) == 0
+
+    freeze_path = output_root / "freeze.json"
+    freeze = json.loads(freeze_path.read_text("utf-8"))
+    assert freeze["schemaVersion"] == 2
+    assert set(freeze["packetMapSha256"]) == set(
+        build_semantic_holdout.SYSTEM_IDS
+    )
+    for system_id in build_semantic_holdout.SYSTEM_IDS:
+        system_root = output_root / system_id
+        assert freeze["packetMapSha256"][system_id] == {
+            "packetSha256": hashlib.sha256(
+                (system_root / "packet.json").read_bytes()
+            ).hexdigest(),
+            "aliasMapSha256": hashlib.sha256(
+                (system_root / "alias-map.json").read_bytes()
+            ).hexdigest(),
+        }
+    assert "authorAssessment" not in freeze_path.read_text("utf-8")
+
+
+def test_freeze_verifier_reports_legacy_v6_as_unbound_and_detects_tampering(
+        tmp_path):
+    output_root = tmp_path / "frozen"
+    expected = {}
+    for system_id in build_semantic_holdout.SYSTEM_IDS:
+        system_root = output_root / system_id
+        system_root.mkdir(parents=True)
+        packet_path = system_root / "packet.json"
+        map_path = system_root / "alias-map.json"
+        packet_path.write_text(
+            json.dumps({"systemId": system_id}) + "\n",
+            encoding="utf-8",
+        )
+        map_path.write_text(
+            json.dumps({
+                "systemId": system_id,
+                "authorAssessment": "present",
+            }) + "\n",
+            encoding="utf-8",
+        )
+        expected[system_id] = {
+            "packetSha256": hashlib.sha256(
+                packet_path.read_bytes()).hexdigest(),
+            "aliasMapSha256": hashlib.sha256(
+                map_path.read_bytes()).hexdigest(),
+        }
+
+    legacy = {"schemaVersion": 1}
+    legacy_before = deepcopy(legacy)
+    legacy_result = build_semantic_holdout._verify_frozen_packet_maps(
+        legacy, output_root)
+    assert legacy_result == {
+        "status": "legacy_unbound",
+        "packetMapHashesBound": False,
+        "computedPacketMapSha256": expected,
+    }
+    assert legacy == legacy_before
+
+    current = {
+        "schemaVersion": 2,
+        "packetMapSha256": expected,
+    }
+    assert build_semantic_holdout._verify_frozen_packet_maps(
+        current, output_root)["status"] == "verified"
+    (output_root / "verity/packet.json").write_text(
+        '{"systemId":"changed"}\n', encoding="utf-8")
+    with pytest.raises(CorpusError, match="packet/map hash mismatch"):
+        build_semantic_holdout._verify_frozen_packet_maps(
+            current, output_root)
 
 
 def test_verity_observation_runner_is_label_free_and_complete(monkeypatch):

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import tempfile
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .blind_review import _anonymous_identity, _safe_content_files
 from .corpus import (CASE_ID_RE, CORPUS_DIR, CorpusError,
+                     canonical_report_json,
                      _case_payload_digest, _safe_case_path)
 from .intake import IntakeBudget, intake_directory, intake_text
 from .report import review_to_dict
@@ -450,6 +452,12 @@ def _packet_item_digest(item: Dict[str, Any]) -> str:
         item, ensure_ascii=False, sort_keys=True,
         separators=(",", ":")).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def _canonical_document_sha256(value: Dict[str, Any]) -> str:
+    """Hash the canonical bytes used by packet/map writers."""
+    return hashlib.sha256(
+        canonical_report_json(value).encode("utf-8")).hexdigest()
 
 
 def build_semantic_comparison_packet(
@@ -938,6 +946,74 @@ def _independent_review_consensus(runs: List[str]) -> str:
     return winner
 
 
+def _stage_packet_runtime_cases(
+        packet: Dict[str, Any], mapping: Dict[str, Any],
+        staging_root: Path) -> List[Tuple[str, Dict[str, Any]]]:
+    """Materialize only validated packet artifacts for the existing runner."""
+    runtime_cases = []
+    risks = load_risks()
+    for item in packet["items"]:
+        item_id = item["itemId"]
+        metadata = mapping["aliases"][item_id]
+        finding_type = metadata["findingType"]
+        definition_and_extractor = CATALOG.get(finding_type)
+        if (definition_and_extractor is None
+                or definition_and_extractor[0].engine
+                != item["objectType"]):
+            raise CorpusError(
+                "semantic comparison alias finding type invalid")
+        try:
+            expected_target = _target_risk(
+                {
+                    "findingType": finding_type,
+                    "riskId": metadata["riskId"],
+                },
+                risks,
+                packet["protocolVersion"],
+            )
+        except KeyError as exc:
+            raise CorpusError(
+                "semantic comparison alias risk invalid") from exc
+        if item["targetRisk"] != expected_target:
+            raise CorpusError(
+                "semantic comparison alias target risk mismatch")
+
+        artifact = item["artifact"]
+        item_root = staging_root / item_id
+        if item["objectType"] == "prompt":
+            if (artifact["displayRootName"] is not None
+                    or len(artifact["files"]) != 1):
+                raise CorpusError(
+                    "semantic comparison prompt artifact invalid")
+            runtime_path = item_root / artifact["files"][0]["path"]
+        else:
+            display_root = artifact["displayRootName"]
+            if not isinstance(display_root, str) or not display_root:
+                raise CorpusError(
+                    "semantic comparison Skill display root invalid")
+            runtime_path = item_root / display_root
+
+        for file_info in artifact["files"]:
+            destination = (
+                runtime_path
+                if item["objectType"] == "prompt"
+                else runtime_path / file_info["path"]
+            )
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(file_info["content"], encoding="utf-8")
+
+        runtime_case = {
+            "objectType": item["objectType"],
+            "language": item["language"],
+            "path": runtime_path.relative_to(CORPUS_DIR).as_posix(),
+            "findingType": finding_type,
+        }
+        if item["objectType"] == "prompt":
+            runtime_case["promptKind"] = item["promptKind"]
+        runtime_cases.append((item_id, runtime_case))
+    return runtime_cases
+
+
 def evaluate_verity_comparison_observations(
         *, packet: Dict[str, Any], mapping: Dict[str, Any],
         repetitions: int, generator, validator,
@@ -986,37 +1062,15 @@ def evaluate_verity_comparison_observations(
         raise CorpusError("semantic comparison credentials missing before run")
     if packet.get("corpusFingerprint") != _corpus_fingerprint(manifest):
         raise CorpusError("semantic comparison packet corpus is stale")
-    required_calls = len(manifest["cases"]) * repetitions * 2
+    required_calls = len(packet["items"]) * repetitions * 2
     if (not isinstance(max_total_calls, int) or max_total_calls < required_calls):
         raise CorpusError(
             f"semantic comparison call budget requires {required_calls}, "
             f"configured {max_total_calls}")
-    case_by_id = {case["caseId"]: case for case in manifest["cases"]}
-    alias_by_case = {
-        metadata["caseId"]: alias
-        for alias, metadata in mapping["aliases"].items()
-    }
-    if set(alias_by_case) != set(case_by_id):
-        raise CorpusError("semantic comparison alias map is incomplete")
+    packet_sha256 = _canonical_document_sha256(packet)
+    alias_map_sha256 = _canonical_document_sha256(mapping)
 
-    sorted_case_ids = sorted(case_by_id)
-    rows = [
-        {"itemId": alias_by_case[case_id], "runs": ["error"] * repetitions}
-        for case_id in sorted_case_ids
-    ]
-    diagnostic_rows = [
-        {"itemId": alias_by_case[case_id], "runs": [None] * repetitions}
-        for case_id in sorted_case_ids
-    ]
-
-    def run_one(case_id: str) -> Tuple[str, Dict[str, Any]]:
-        case = case_by_id[case_id]
-        runtime_case = {
-            key: case[key] for key in (
-                "caseId", "objectType", "language", "path", "findingType")
-        }
-        if case["objectType"] == "prompt":
-            runtime_case["promptKind"] = case["promptKind"]
+    def run_one(runtime_case: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         observed, detail = _run_case(
             runtime_case, generator=generator, validator=validator,
             generator_config=generator_config,
@@ -1041,26 +1095,46 @@ def evaluate_verity_comparison_observations(
                 if len(stage_values) == 1 else None),
         })
 
-    tasks = []
-    with ThreadPoolExecutor(max_workers=max_concurrency) as pool:
-        for case_index, case_id in enumerate(sorted_case_ids):
-            for repetition in range(repetitions):
-                tasks.append((
-                    case_index,
-                    repetition,
-                    pool.submit(run_one, case_id),
-                ))
-        for case_index, repetition, future in tasks:
-            observed, diagnostic = future.result()
-            rows[case_index]["runs"][repetition] = observed
-            diagnostic_rows[case_index]["runs"][repetition] = diagnostic
-    fingerprint = _config_fingerprint(
+    with tempfile.TemporaryDirectory(
+            prefix=".semantic-comparison-packet-", dir=CORPUS_DIR) as raw_root:
+        runtime_cases = _stage_packet_runtime_cases(
+            packet, mapping, Path(raw_root))
+        rows = [
+            {"itemId": item_id, "runs": ["error"] * repetitions}
+            for item_id, _runtime_case in runtime_cases
+        ]
+        diagnostic_rows = [
+            {"itemId": item_id, "runs": [None] * repetitions}
+            for item_id, _runtime_case in runtime_cases
+        ]
+        tasks = []
+        with ThreadPoolExecutor(max_workers=max_concurrency) as pool:
+            for case_index, (_item_id, runtime_case) in enumerate(
+                    runtime_cases):
+                for repetition in range(repetitions):
+                    tasks.append((
+                        case_index,
+                        repetition,
+                        pool.submit(run_one, runtime_case),
+                    ))
+            for case_index, repetition, future in tasks:
+                observed, diagnostic = future.result()
+                rows[case_index]["runs"][repetition] = observed
+                diagnostic_rows[case_index]["runs"][repetition] = diagnostic
+    base_fingerprint = _config_fingerprint(
         generator_config, validator_config, temperature=temperature,
         max_output_tokens=max_output_tokens, repetitions=repetitions,
         role_prompt_version=role_prompt_version,
         protocol_version=packet["protocolVersion"],
         corpus_fingerprint=packet["corpusFingerprint"],
         candidate_strategy=candidate_strategy)
+    fingerprint = hashlib.sha256(json.dumps(
+        {
+            "baseConfigurationFingerprint": base_fingerprint,
+            "packetSha256": packet_sha256,
+            "aliasMapSha256": alias_map_sha256,
+        },
+        sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     observations = {
         "schemaVersion": 1,
         "protocolId": COMPARISON_PROTOCOL_ID,

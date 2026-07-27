@@ -14,6 +14,26 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-27 — A green suite does not cover an unasked concurrency boundary
+
+- **Symptom**: The full suite and repository gate passed, but pre-merge review
+  found races between Provider preferences and Keychain credentials, secret
+  source reconstruction in the browser, hidden transport retries, compact
+  Markdown cross-rule suppression, a green incomplete report, and an evaluator
+  that bypassed its anonymous packet.
+- **Root cause**: Existing tests covered the intended serial workflows and
+  schemas, not adversarial interleavings or agreement between each declared
+  safety boundary and the final consumer.
+- **Fix**: Add behavioral regressions at those boundaries, synchronize the
+  combined Provider store, preserve sensitivity through projection, account
+  for real outbound attempts, scope controls structurally, fail incomplete
+  reports non-green, and bind evaluation to fingerprinted anonymous packets.
+- **Prevention**: Before merging a security-sensitive workbench change, review
+  each secret, concurrency, budget, and evaluation-integrity boundary after
+  the normal tests pass. Do not merge merely because the reviewer is still
+  running.
+- **Evidence**: Round 66; 786-test gate.
+
 ### 2026-07-27 — Removing a control is not an enforcement boundary
 
 - **Symptom**: Refresh still showed egress-policy and Skill-profile selectors,

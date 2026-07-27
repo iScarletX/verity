@@ -480,6 +480,100 @@ class TestPayloadAudit:
             assert "content" not in a
             assert "payload" not in a
 
+    def test_http_retries_are_counted_as_real_calls_and_audit_records(
+            self, monkeypatch):
+        from io import BytesIO
+        import urllib.error
+
+        from verity.semantic.eval_provider import (
+            EvalRunBudget,
+            OpenAICompatibleEvalProvider,
+        )
+
+        class Response:
+            status = 200
+
+            def __init__(self, body):
+                self.body = BytesIO(body)
+
+            def read(self, n=-1):
+                return self.body.read(n)
+
+            def getcode(self):
+                return self.status
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+        class RetryThenSucceedOpener:
+            def __init__(self):
+                self.requests = []
+
+            def open(self, request, timeout):
+                self.requests.append((request, timeout))
+                if len(self.requests) == 1:
+                    raise urllib.error.URLError("synthetic transient failure")
+                wire = json.loads(request.data)
+                semantic_request = json.loads(
+                    wire["messages"][1]["content"])["input"]
+                payload = {
+                    "candidateId": semantic_request["candidate"]["candidateId"],
+                    "decision": "rejected",
+                    "reasonCodes": ["candidate_out_of_scope"],
+                }
+                body = json.dumps({
+                    "choices": [{
+                        "message": {"content": json.dumps(payload)},
+                    }],
+                }).encode()
+                return Response(body)
+
+        monkeypatch.setenv("VERITY_TEST_SEMANTIC_RETRY_KEY", "synthetic-key")
+        opener = RetryThenSucceedOpener()
+        validator = OpenAICompatibleEvalProvider(
+            config=ProviderConfig(
+                role="validator",
+                provider_id="test",
+                model_id="mock-1",
+                base_url="https://provider.example/v1",
+                credentials=ProviderCredentials(
+                    "VERITY_TEST_SEMANTIC_RETRY_KEY"),
+            ),
+            opener=opener,
+            retry_backoff_seconds=0.0,
+            run_budget=EvalRunBudget(
+                max_calls=2,
+                max_total_tokens=100_000,
+                max_spend_usd=0.0,
+            ),
+        )
+        cfg = _sem_config(
+            budget=SemanticBudget(
+                max_validation_calls_per_candidate=2,
+                max_total_validation_calls=2,
+            ),
+            finding_types=["semantic.prompt.instruction_conflict"],
+        )
+
+        review = _prompt_review(
+            "Return only JSON.\nAlso answer in prose, never JSON.",
+            sem_cfg=cfg,
+            gen=RecordingProvider(_confirming_gen),
+            val=validator,
+        )
+
+        validator_audit = [
+            item for item in review.semantic["payloadAudit"]
+            if item["call_role"] == "validator"
+        ]
+        assert len(opener.requests) == 2
+        assert review.semantic["callCounts"]["validator"] == 2
+        assert len(validator_audit) == 2
+        assert len({item["call_id"] for item in validator_audit}) == 2
+
 
 # ---------------------------------------------------------------- #
 # 7. Budget                                                         #
@@ -501,6 +595,71 @@ class TestBudget:
                             val=RecordingProvider(val_resp))
         assert r.semantic["callCounts"]["generator"] == 0
         assert r.semantic["status"] == "budget_exhausted"
+
+    def test_validation_call_limit_per_candidate_blocks_schema_retry(self):
+        cfg = _sem_config(
+            budget=SemanticBudget(
+                max_validation_calls_per_candidate=1,
+                max_total_validation_calls=3,
+            ),
+            finding_types=["semantic.prompt.instruction_conflict"],
+        )
+        validator = RecordingProvider(lambda req: ProviderResponse(
+            ok=True,
+            payload={
+                "candidateId": "wrong-candidate-id",
+                "decision": "confirmed",
+                "reasonCodes": ["evidence_supports_claim"],
+            },
+            response_bytes=1,
+        ))
+
+        review = _prompt_review(
+            "Return only JSON.\nAlso answer in prose, never JSON.",
+            sem_cfg=cfg,
+            gen=RecordingProvider(_confirming_gen),
+            val=validator,
+        )
+
+        assert len(validator.calls) == 1
+        assert review.semantic["callCounts"]["validator"] == 1
+        assert review.semantic["assessments"][0]["state"] == \
+            "validation_failed"
+
+    def test_validation_call_limit_per_candidate_keeps_one_schema_retry(self):
+        cfg = _sem_config(
+            finding_types=["semantic.prompt.instruction_conflict"],
+        )
+        responses = {"count": 0}
+
+        def validate(req):
+            responses["count"] += 1
+            candidate_id = (
+                "wrong-candidate-id"
+                if responses["count"] == 1
+                else req["candidate"]["candidateId"]
+            )
+            return ProviderResponse(
+                ok=True,
+                payload={
+                    "candidateId": candidate_id,
+                    "decision": "rejected",
+                    "reasonCodes": ["candidate_out_of_scope"],
+                },
+                response_bytes=1,
+            )
+
+        validator = RecordingProvider(validate)
+        review = _prompt_review(
+            "Return only JSON.\nAlso answer in prose, never JSON.",
+            sem_cfg=cfg,
+            gen=RecordingProvider(_confirming_gen),
+            val=validator,
+        )
+
+        assert len(validator.calls) == 2
+        assert review.semantic["callCounts"]["validator"] == 2
+        assert review.semantic["assessments"][0]["state"] == "rejected"
 
 
 # ---------------------------------------------------------------- #

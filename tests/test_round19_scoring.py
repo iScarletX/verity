@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 
 from verity.intake import intake_text
 from verity.report import review_to_dict
@@ -133,6 +134,28 @@ def test_confirmed_semantic_only_counts_when_semantic_completed():
     confidence = compute_confidence(report)
     assert confidence["grade"] == "D"
     assert "semantic_requested_but_failed" in confidence["limitations"]
+
+
+def test_incomplete_semantic_review_preserves_static_finding_verdict():
+    snap, data = intake_text("allowed_tools: *\n", prompt_kind="system_prompt")
+    review = run_review(ReviewInputs("prompt", snap, data))
+    assert any(f.severity == "high" for f in review.findings)
+
+    report = review_to_dict(replace(review, semantic={
+        "status": "failed",
+        "reasonCode": "network_error",
+        "findings": [],
+        "evidences": [],
+    }))
+
+    assert report["verdict"]["subject"] == {
+        "engine": "prompt",
+        "outcome": "needs_revision",
+    }
+    assert report["verdict"]["reasonCodes"] == [
+        "semantic_requested_but_incomplete",
+    ]
+    assert any(f["severity"] == "high" for f in report["findings"])
 
 
 def test_dispositions_cannot_change_raw_score():

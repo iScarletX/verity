@@ -157,6 +157,58 @@ class SemanticOrchestrator:
             status=status, reasonCode=reason,
         )
 
+    @staticmethod
+    def _set_provider_attempt_limit(
+            provider: Any, *, call_id: str, remaining_calls: int) -> None:
+        setter = getattr(provider, "set_call_attempt_limit", None)
+        if callable(setter):
+            setter(call_id=call_id, max_attempts=remaining_calls)
+
+    @staticmethod
+    def _record_provider_call(
+            result: SemanticRunResult, *,
+            call_id: str,
+            call_role: str,
+            egress_policy: str,
+            request_obj: Dict[str, Any],
+            response: Any,
+            exc_reason: Optional[str],
+            ) -> Tuple[int, str]:
+        """Record real adapter attempts, falling back to one logical call."""
+        attempts = tuple(getattr(response, "attempts", ()) or ())
+        count_key = (
+            "generator"
+            if call_role == "candidate_generator"
+            else "validator"
+        )
+        if attempts:
+            effective_call_id = call_id
+            for attempt in attempts:
+                effective_call_id = attempt.call_id
+                result.payloadAudit.append(audit_call(
+                    call_id=attempt.call_id,
+                    call_role=call_role,
+                    egress_policy=egress_policy,
+                    request_obj=request_obj,
+                    response_bytes=attempt.response_bytes,
+                    response_ok=attempt.response_ok,
+                    reason_code=attempt.reason_code,
+                ))
+            result.callCounts[count_key] += len(attempts)
+            return len(attempts), effective_call_id
+
+        result.callCounts[count_key] += 1
+        result.payloadAudit.append(audit_call(
+            call_id=call_id,
+            call_role=call_role,
+            egress_policy=egress_policy,
+            request_obj=request_obj,
+            response_bytes=(response.response_bytes if response else 0),
+            response_ok=bool(response and response.ok),
+            reason_code=(response.reason_code if response else exc_reason),
+        ))
+        return 1, call_id
+
     # -----------------------------------------------------------------
     # Public entry
     # -----------------------------------------------------------------
@@ -372,6 +424,14 @@ class SemanticOrchestrator:
                     json.dumps(req, sort_keys=True).encode()
                 ).hexdigest(),
             )
+            self._set_provider_attempt_limit(
+                generator,
+                call_id=call_id,
+                remaining_calls=(
+                    cfg.budget.max_candidate_generation_calls
+                    - result.callCounts["generator"]
+                ),
+            )
             try:
                 response = generator.generate_candidates(call=provider_call,
                                                           request=req)
@@ -381,15 +441,15 @@ class SemanticOrchestrator:
             else:
                 exc_reason = None
 
-            result.callCounts["generator"] += 1
-            audit = audit_call(
-                call_id=call_id, call_role="candidate_generator",
-                egress_policy=cfg.egress_policy, request_obj=req,
-                response_bytes=(response.response_bytes if response else 0),
-                response_ok=bool(response and response.ok),
-                reason_code=(response.reason_code if response else exc_reason),
+            self._record_provider_call(
+                result,
+                call_id=call_id,
+                call_role="candidate_generator",
+                egress_policy=cfg.egress_policy,
+                request_obj=req,
+                response=response,
+                exc_reason=exc_reason,
             )
-            result.payloadAudit.append(audit)
 
             if response is None or not response.ok:
                 result.planItems.append(self._plan_item(
@@ -520,6 +580,14 @@ class SemanticOrchestrator:
                         json.dumps(req, sort_keys=True).encode()
                     ).hexdigest(),
                 )
+                self._set_provider_attempt_limit(
+                    generator,
+                    call_id=call_id,
+                    remaining_calls=(
+                        cfg.budget.max_candidate_generation_calls
+                        - result.callCounts["generator"]
+                    ),
+                )
                 try:
                     response = generator.generate_candidates(
                         call=provider_call, request=req)
@@ -528,18 +596,15 @@ class SemanticOrchestrator:
                     exc_reason = f"provider_raised:{type(exc).__name__}"
                 else:
                     exc_reason = None
-                result.callCounts["generator"] += 1
-                result.payloadAudit.append(audit_call(
+                self._record_provider_call(
+                    result,
                     call_id=call_id,
                     call_role="candidate_generator",
                     egress_policy=cfg.egress_policy,
                     request_obj=req,
-                    response_bytes=(
-                        response.response_bytes if response else 0),
-                    response_ok=bool(response and response.ok),
-                    reason_code=(
-                        response.reason_code if response else exc_reason),
-                ))
+                    response=response,
+                    exc_reason=exc_reason,
+                )
 
                 if response is None or not response.ok:
                     reason = (
@@ -661,7 +726,10 @@ class SemanticOrchestrator:
 
         # Validate each candidate.
         for (cand, ft, ev_pool) in candidates_total:
-            if result.callCounts["validator"] >= cfg.budget.max_total_validation_calls:
+            validation_calls_for_candidate = 0
+            if (cfg.budget.max_validation_calls_per_candidate < 1
+                    or result.callCounts["validator"]
+                    >= cfg.budget.max_total_validation_calls):
                 result.assessments.append(SemanticAssessmentRecord(
                     candidateId=cand.candidateId, state="pending",
                     reasonCodes=["budget_validation_exhausted"],
@@ -702,6 +770,15 @@ class SemanticOrchestrator:
                 request_digest_sha256=hashlib.sha256(
                     json.dumps(req, sort_keys=True).encode()).hexdigest(),
             )
+            self._set_provider_attempt_limit(
+                validator,
+                call_id=call_id,
+                remaining_calls=min(
+                    cfg.budget.max_validation_calls_per_candidate,
+                    cfg.budget.max_total_validation_calls
+                    - result.callCounts["validator"],
+                ),
+            )
             try:
                 response = validator.validate_candidate(call=provider_call,
                                                          request=req)
@@ -710,15 +787,16 @@ class SemanticOrchestrator:
                 response = None
                 exc_reason = f"provider_raised:{type(e).__name__}"
 
-            result.callCounts["validator"] += 1
-            audit = audit_call(
-                call_id=call_id, call_role="validator",
-                egress_policy=cfg.egress_policy, request_obj=req,
-                response_bytes=(response.response_bytes if response else 0),
-                response_ok=bool(response and response.ok),
-                reason_code=(response.reason_code if response else exc_reason),
+            call_count, call_id = self._record_provider_call(
+                result,
+                call_id=call_id,
+                call_role="validator",
+                egress_policy=cfg.egress_policy,
+                request_obj=req,
+                response=response,
+                exc_reason=exc_reason,
             )
-            result.payloadAudit.append(audit)
+            validation_calls_for_candidate += call_count
 
             if response is None or not response.ok:
                 reason = ((response.reason_code if response else exc_reason)
@@ -731,7 +809,11 @@ class SemanticOrchestrator:
                 ))
                 result.stageStats[cand.findingType][
                     "validatorStates"]["validation_failed"] += 1
-                result.status = "failed"
+                result.status = (
+                    "budget_exhausted"
+                    if reason == "run_budget_exhausted"
+                    else "failed"
+                )
                 if result.reasonCode is None:
                     result.reasonCode = reason
                 continue
@@ -743,6 +825,8 @@ class SemanticOrchestrator:
                     and reasons
                     and reasons[0] in {"schema_violation",
                                        "candidateId_mismatch"}
+                    and validation_calls_for_candidate
+                    < cfg.budget.max_validation_calls_per_candidate
                     and result.callCounts["validator"]
                     < cfg.budget.max_total_validation_calls):
                 retry_call_id = f"vv-{uuid.uuid4().hex[:12]}"
@@ -754,6 +838,20 @@ class SemanticOrchestrator:
                     request_digest_sha256=hashlib.sha256(
                         json.dumps(req, sort_keys=True).encode()).hexdigest(),
                 )
+                self._set_provider_attempt_limit(
+                    validator,
+                    call_id=retry_call_id,
+                    remaining_calls=min(
+                        (
+                            cfg.budget.max_validation_calls_per_candidate
+                            - validation_calls_for_candidate
+                        ),
+                        (
+                            cfg.budget.max_total_validation_calls
+                            - result.callCounts["validator"]
+                        ),
+                    ),
+                )
                 try:
                     retry_response = validator.validate_candidate(
                         call=retry_provider_call, request=req)
@@ -762,33 +860,32 @@ class SemanticOrchestrator:
                     retry_response = None
                     retry_exc_reason = f"provider_raised:{type(e).__name__}"
 
-                result.callCounts["validator"] += 1
-                retry_audit = audit_call(
-                    call_id=retry_call_id, call_role="validator",
-                    egress_policy=cfg.egress_policy, request_obj=req,
-                    response_bytes=(
-                        retry_response.response_bytes
-                        if retry_response else 0),
-                    response_ok=bool(retry_response and retry_response.ok),
-                    reason_code=(
-                        retry_response.reason_code
-                        if retry_response else retry_exc_reason),
+                retry_call_count, effective_retry_call_id = (
+                    self._record_provider_call(
+                        result,
+                        call_id=retry_call_id,
+                        call_role="validator",
+                        egress_policy=cfg.egress_policy,
+                        request_obj=req,
+                        response=retry_response,
+                        exc_reason=retry_exc_reason,
+                    )
                 )
-                result.payloadAudit.append(retry_audit)
+                validation_calls_for_candidate += retry_call_count
                 if retry_response is None or not retry_response.ok:
                     state = "validation_failed"
                     reasons = [(
                         retry_response.reason_code
                         if retry_response else retry_exc_reason)
                         or "validator_error"]
-                    call_id = retry_call_id
+                    call_id = effective_retry_call_id
                 else:
                     retry_state, retry_reasons = (
                         self._parse_and_check_validation(
                             cand=cand, ft=ft, payload=retry_response.payload))
                     state = retry_state
                     reasons = retry_reasons
-                    call_id = retry_call_id
+                    call_id = effective_retry_call_id
             result.assessments.append(SemanticAssessmentRecord(
                 candidateId=cand.candidateId,
                 state=state, reasonCodes=reasons, validationCallId=call_id,

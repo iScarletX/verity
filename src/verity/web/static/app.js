@@ -393,6 +393,9 @@
   restoreProviderSettings();
 
   // ---------------- skill tab ----------------
+  var MAX_SKILL_FILES = 500;
+  var MAX_SKILL_FILE_BYTES = 512 * 1024;
+  var MAX_SKILL_TOTAL_BYTES = 8 * 1024 * 1024;
   var skillFiles = $("skill-files");
   var skillCount = $("skill-count");
   skillFiles.addEventListener("change", function () {
@@ -407,6 +410,11 @@
     var files = skillFiles.files || [];
     if (!files.length) {
       showError({ code: "no_files", message: "请先选择一个包含 SKILL.md 的文件夹。" });
+      return;
+    }
+    var preflightError = skillUploadPreflightError(files);
+    if (preflightError) {
+      showError(preflightError);
       return;
     }
     var fd = new FormData();
@@ -441,6 +449,23 @@
       .then(handleJson)
       .catch(handleFetchError)
       .finally(function () { disable(false); });
+  }
+
+  function skillUploadPreflightError(files) {
+    if (files.length > MAX_SKILL_FILES) {
+      return { code: "too_many_files", message: "too many files" };
+    }
+    var totalBytes = 0;
+    for (var i = 0; i < files.length; i++) {
+      if (files[i].size > MAX_SKILL_FILE_BYTES) {
+        return { code: "file_too_large", message: "file too large" };
+      }
+      totalBytes += files[i].size;
+      if (totalBytes > MAX_SKILL_TOTAL_BYTES) {
+        return { code: "total_too_large", message: "total too large" };
+      }
+    }
+    return null;
   }
 
   function disable(state) {
@@ -962,8 +987,14 @@
       item.appendChild(title);
       item.appendChild(mk("div", { className: "muted", text:
         (ev.artifactPath || "prompt.txt") + formatByteRange(ev) }));
-      var source = readSourceForEvidence(ev);
-      if (source) {
+      var source = ev.sensitivity === "normal"
+        ? readSourceForEvidence(ev) : "";
+      if (ev.sensitivity !== "normal") {
+        if (ev.redactedPreview) {
+          item.appendChild(mk("pre", { className: "source-snippet",
+            text: ev.redactedPreview }));
+        }
+      } else if (source) {
         var parts = sliceUtf8Range(source, ev.startByte, ev.endByte);
         var pre = mk("pre", { className: "source-snippet" });
         pre.appendChild(mk("span", { text: parts.before }));

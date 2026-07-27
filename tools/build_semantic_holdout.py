@@ -451,6 +451,65 @@ def _build(args) -> int:
     return 0
 
 
+def _packet_map_sha256(output_root: Path) -> Dict[str, Dict[str, str]]:
+    hashes = {}
+    for system_id in SYSTEM_IDS:
+        system_root = output_root / system_id
+        packet_path = system_root / "packet.json"
+        map_path = system_root / "alias-map.json"
+        if (not packet_path.is_file() or packet_path.is_symlink()
+                or not map_path.is_file() or map_path.is_symlink()):
+            raise CorpusError(
+                f"frozen packet/map missing or unsafe: {system_id}")
+        hashes[system_id] = {
+            "packetSha256": hashlib.sha256(
+                packet_path.read_bytes()).hexdigest(),
+            "aliasMapSha256": hashlib.sha256(
+                map_path.read_bytes()).hexdigest(),
+        }
+    return hashes
+
+
+def _verify_frozen_packet_maps(
+        freeze: Dict[str, Any], output_root: Path) -> Dict[str, Any]:
+    """Verify schema-2 bindings without rewriting legacy frozen evidence.
+
+    The already-frozen local v6 record is schema 1 and predates packet/map
+    hashes. Adding hashes to that record after the freeze would not prove what
+    bytes existed at freeze time, so compatibility must report it as
+    ``legacy_unbound`` rather than silently upgrading or claiming verification.
+    """
+    actual = _packet_map_sha256(output_root)
+    schema_version = freeze.get("schemaVersion")
+    if schema_version == 1 and "packetMapSha256" not in freeze:
+        return {
+            "status": "legacy_unbound",
+            "packetMapHashesBound": False,
+            "computedPacketMapSha256": actual,
+        }
+    if schema_version != 2:
+        raise CorpusError("freeze packet/map hash schema invalid")
+    expected = freeze.get("packetMapSha256")
+    if expected != actual:
+        raise CorpusError("frozen packet/map hash mismatch")
+    return {
+        "status": "verified",
+        "packetMapHashesBound": True,
+        "computedPacketMapSha256": actual,
+    }
+
+
+def _verify_freeze(args) -> int:
+    output_root = Path(args.output_root).expanduser().resolve()
+    freeze = _read_json(output_root / "freeze.json", "holdout freeze")
+    result = _verify_frozen_packet_maps(freeze, output_root)
+    print(f"packet/map verification: {result['status']}")
+    print(
+        "packet/map hashes bound: "
+        f"{str(result['packetMapHashesBound']).lower()}")
+    return 0
+
+
 def _freeze(args) -> int:
     manifest_path = Path(args.manifest).expanduser().resolve()
     output_root = Path(args.output_root).expanduser().resolve()
@@ -477,13 +536,16 @@ def _freeze(args) -> int:
             manifest_path=manifest_path)
         system_root = output_root / system_id
         system_root.mkdir()
-        (system_root / "packet.json").write_text(
+        packet_path = system_root / "packet.json"
+        map_path = system_root / "alias-map.json"
+        packet_path.write_text(
             canonical_report_json(packet), encoding="utf-8")
-        (system_root / "alias-map.json").write_text(
+        map_path.write_text(
             canonical_report_json(mapping), encoding="utf-8")
+    packet_map_sha256 = _packet_map_sha256(output_root)
     raw_manifest = manifest_path.read_bytes()
     freeze = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "protocolId": COMPARISON_PROTOCOL_ID,
         "protocolVersion": COMPARISON_PROTOCOL_V5,
         "phase": "frozen_before_first_remote_observation",
@@ -499,10 +561,12 @@ def _freeze(args) -> int:
             canonical_report_json(catalog_contract).encode()).hexdigest(),
         "corpusFingerprint": _corpus_fingerprint(manifest),
         "manifestSha256": hashlib.sha256(raw_manifest).hexdigest(),
+        "packetMapSha256": packet_map_sha256,
         "remotePayloadAuthorized": False,
         "remoteObservationsStarted": False,
         "frozenAtEpochSeconds": int(time.time()),
     }
+    _verify_frozen_packet_maps(freeze, output_root)
     freeze_path.write_text(
         canonical_report_json(freeze), encoding="utf-8")
     print(f"froze local holdout: {freeze_path}")
@@ -537,6 +601,9 @@ def main(argv=None) -> int:
     freeze.add_argument("--output-root", required=True)
     freeze.add_argument("--disjoint-manifest", action="append", default=[])
     freeze.set_defaults(handler=_freeze)
+    verify_freeze = sub.add_parser("verify-freeze")
+    verify_freeze.add_argument("--output-root", required=True)
+    verify_freeze.set_defaults(handler=_verify_freeze)
     args = parser.parse_args(argv)
     try:
         return args.handler(args)

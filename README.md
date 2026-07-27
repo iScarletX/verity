@@ -224,8 +224,8 @@ Open `http://127.0.0.1:8765/` in a browser. Two tabs:
 - **检查 Prompt**: paste a user or system prompt, choose the type,
   click “开始审查”.
 - **检查 Agent Skill**: pick a local folder (uses
-  `<input type="file" webkitdirectory>`), pick `standard` (with
-  gitleaks) or `minimal` (no secret scan; the UI explicitly warns).
+  `<input type="file" webkitdirectory>`); Web always runs the
+  gitleaks-enabled `standard` profile and does not offer `minimal`.
 
 The result page shows, in this order:
 

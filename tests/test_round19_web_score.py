@@ -46,6 +46,43 @@ def test_static_html_contains_explainable_score_and_proposal_only_remediation():
     assert "finding_absent_after_rerun" not in rendered  # label, not internal code
 
 
+def test_incomplete_semantic_review_with_static_high_is_not_green_in_html():
+    snap, data = intake_text("allowed_tools: *\n", prompt_kind="system_prompt")
+    r = run_review(ReviewInputs("prompt", snap, data))
+    static_finding_type = next(
+        f.findingType for f in r.findings if f.severity == "high")
+    r = replace(r, semantic={
+        "status": "failed",
+        "reasonCode": "network_error",
+        "findings": [],
+        "evidences": [],
+    })
+
+    rendered = to_html(r)
+
+    assert 'class="banner bad"' in rendered
+    assert "Subject outcome: NEEDS_REVISION" in rendered
+    assert "no known findings" not in rendered
+    assert static_finding_type in rendered
+
+
+def test_incomplete_semantic_review_without_static_findings_warns_in_html():
+    r = review("Summarize this paragraph in one sentence.")
+    assert not r.findings
+    r = replace(r, semantic={
+        "status": "failed",
+        "reasonCode": "network_error",
+        "findings": [],
+        "evidences": [],
+    })
+
+    rendered = to_html(r)
+
+    assert 'class="banner warn"' in rendered
+    assert "SEMANTIC REVIEW INCOMPLETE" in rendered
+    assert 'class="banner ok"' not in rendered
+
+
 def test_frontend_uses_textcontent_and_has_score_slots():
     from pathlib import Path
     root = Path(__file__).resolve().parents[1]

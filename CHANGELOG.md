@@ -41,6 +41,8 @@ and this project uses [Semantic Versioning](https://semver.org/).
   Validator counts without exposing source text or Provider responses.
 - Owner-only Web Provider preference persistence with API credentials stored
   in the current macOS user's Keychain and never returned to the browser.
+- Packet/map fingerprint binding for new hidden-holdout freezes and anonymous
+  packet-driven Verity evaluation.
 
 ### Changed
 
@@ -88,7 +90,12 @@ and this project uses [Semantic Versioning](https://semver.org/).
   risky operation, so an unrelated safe section cannot suppress a finding.
 - Requested semantic reviews that fail or remain incomplete no longer display
   a numeric score or pass verdict; semantic claims and source positions are
-  preserved in the workbench.
+  retained, static blocking outcomes remain visible, and HTML reports cannot
+  fall through to a green banner.
+- Web evidence rendering preserves sensitivity and never reconstructs secret
+  evidence from the selected local source. Provider URL/key resolution is
+  synchronized, and real HTTP retries are included in semantic budgets and
+  payload audit counts.
 - The Web workbench no longer exposes egress-policy or Skill-profile
   downgrade controls. Both standalone and project Skill reviews force the
   gitleaks-enabled `standard` profile, and semantic review forces bounded

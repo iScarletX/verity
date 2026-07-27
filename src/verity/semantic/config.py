@@ -122,7 +122,8 @@ class SemanticBudget:
     # seed. Keep this above the controlled catalog size so the default does
     # not silently skip later types; the bound still caps future expansion.
     max_candidate_generation_calls: int = 32
-    max_validation_calls_per_candidate: int = 1
+    # Initial validation plus one bounded schema/identity repair attempt.
+    max_validation_calls_per_candidate: int = 2
     max_total_validation_calls: int = 32
     max_candidates_per_extractor: int = 20
     max_candidates_total: int = 64

@@ -666,23 +666,96 @@ def _candidate_hint(subject: Dict[str, str], claim: str) -> Dict[str, Any]:
     return {"subject": dict(subject), "claim": claim}
 
 
+_MARKDOWN_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}(?:[ \t]+|$)")
+_MARKDOWN_LIST_ITEM_RE = re.compile(
+    r"^\s{0,3}(?:[-+*]|\d{1,3}[.)])[ \t]+")
+_LOCAL_RULE_MAX_LINES = 4
+_LOCAL_RULE_MAX_CHARS = 512
+_LOCAL_RULE_CHUNK_OVERLAP = 64
+
+
+def _local_rule_windows(text):
+    """Return bounded Markdown-aware windows for authored prompt rules."""
+    windows = []
+    current = []
+    current_kind = ""
+
+    def flush():
+        nonlocal current, current_kind
+        if current:
+            block = "\n".join(current)
+            step = _LOCAL_RULE_MAX_CHARS - _LOCAL_RULE_CHUNK_OVERLAP
+            for start in range(0, len(block), step):
+                window = block[start:start + _LOCAL_RULE_MAX_CHARS].strip()
+                if window:
+                    windows.append(window)
+                if start + _LOCAL_RULE_MAX_CHARS >= len(block):
+                    break
+        current = []
+        current_kind = ""
+
+    def can_append(line):
+        return (
+            len(current) < _LOCAL_RULE_MAX_LINES
+            and sum(len(item) for item in current) + len(current) + len(line)
+            <= _LOCAL_RULE_MAX_CHARS
+        )
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            flush()
+            continue
+
+        if _MARKDOWN_HEADING_RE.match(raw_line):
+            flush()
+            current = [line]
+            current_kind = "heading"
+            continue
+
+        if _MARKDOWN_LIST_ITEM_RE.match(raw_line):
+            if current_kind == "heading" and can_append(line):
+                current.append(line)
+                current_kind = "list"
+                continue
+            flush()
+            current = [line]
+            current_kind = "list"
+            continue
+
+        indented_continuation = (
+            raw_line.startswith("\t")
+            or len(raw_line) - len(raw_line.lstrip(" ")) >= 2
+        )
+        attach = (
+            current_kind == "heading"
+            or (current and indented_continuation)
+        )
+        if not attach or not can_append(line):
+            flush()
+            current = [line]
+        else:
+            current.append(line)
+        if current_kind == "heading":
+            current_kind = "rule"
+        elif not current_kind:
+            current_kind = "rule"
+
+    flush()
+    return windows
+
+
 def _scoped_gap_count(text, *, signal_groups, control_terms,
                       defeating_terms=()):
     """Count locally unsupported signal windows without cross-section vetoes.
 
     Whole-document counts are useful routing facts, but a control in one
-    paragraph must not silently cancel a risky operation in another. Treat a
-    paragraph as one authored rule block so a trailing exception, continuation
-    rule, or anti-invention clause can govern its preceding sentences, but
-    never cross a blank-line section boundary.
+    rule must not silently cancel a risky operation in another. Keep controls
+    inside the same bounded Markdown rule window as their signals.
     """
     total = 0
     uncovered = 0
-    paragraphs = re.split(r"\n\s*\n", text)
-    for paragraph in paragraphs:
-        window = paragraph.strip()
-        if not window:
-            continue
+    for window in _local_rule_windows(text):
         if not all(any(term in window for term in group)
                    for group in signal_groups):
             continue

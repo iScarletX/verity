@@ -202,6 +202,7 @@ class TestPartialSemanticView:
             "startByte": 3,
             "endByte": 11,
             "redactedPreview": None,
+            "sensitivity": "normal",
         }
         assert view["semantic"]["stageStats"][0][
             "catalogHintProposedCount"] == 1
@@ -300,6 +301,70 @@ class TestEvalProviderRetry:
             assert calls["n"] == 1  # not retried
         finally:
             os.environ.pop("VERITY_TEST_KEY_RETRY2", None)
+
+    def test_web_providers_bound_and_report_every_outbound_attempt(self):
+        import urllib.error
+
+        from verity.semantic.provider import ProviderCall
+
+        class CountingFailureOpener:
+            def __init__(self):
+                self.requests = []
+
+            def open(self, request, timeout):
+                self.requests.append((request, timeout))
+                raise urllib.error.URLError("synthetic provider outage")
+
+        sem_cfg, generator, validator, env_name = \
+            pw.build_semantic_config_with_ephemeral_key(
+                base_url="https://provider.example/v1",
+                api_key="synthetic-key",
+                generator_model="generator-model",
+                validator_model="validator-model",
+                egress_policy="redacted_evidence",
+            )
+        try:
+            cases = (
+                (
+                    generator,
+                    generator.generate_candidates,
+                    "candidate_generator",
+                    sem_cfg.budget.max_candidate_generation_calls,
+                ),
+                (
+                    validator,
+                    validator.validate_candidate,
+                    "validator",
+                    sem_cfg.budget.max_total_validation_calls,
+                ),
+            )
+            for provider, invoke, role, max_calls in cases:
+                opener = CountingFailureOpener()
+                provider.opener = opener
+                provider.retry_backoff_seconds = 0.0
+                responses = []
+                for index in range(max_calls + 2):
+                    responses.append(invoke(
+                        call=ProviderCall(
+                            review_id="review",
+                            egress_policy="redacted_evidence",
+                            call_role=role,
+                            call_id=f"{role}-{index}",
+                            request_bytes=2,
+                            request_digest_sha256="0" * 64,
+                        ),
+                        request={},
+                    ))
+
+                reported_attempts = sum(
+                    len(getattr(response, "attempts", ()))
+                    for response in responses
+                )
+                assert len(opener.requests) == max_calls
+                assert reported_attempts == max_calls
+                assert responses[-1].reason_code == "run_budget_exhausted"
+        finally:
+            pw.clear_ephemeral_key(env_name)
 
 
 class TestModelsEndpoint:

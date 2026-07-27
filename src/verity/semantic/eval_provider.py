@@ -15,9 +15,9 @@ import ssl
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from threading import Lock
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from .config import ProviderConfig
 from .provider import ProviderCall, ProviderResponse
@@ -142,6 +142,28 @@ def _system_prompt(role: str) -> str:
 _RETRYABLE_REASONS = frozenset({"network_error", "provider_timeout", "http_error"})
 
 
+@dataclass(frozen=True)
+class ProviderAttempt:
+    """One real outbound attempt made inside a logical Provider call."""
+
+    call_id: str
+    response_bytes: int
+    response_ok: bool
+    reason_code: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class AttemptTrackedProviderResponse(ProviderResponse):
+    """Provider response carrying scrubbed per-attempt accounting."""
+
+    attempts: Tuple[ProviderAttempt, ...] = ()
+
+
+@dataclass(frozen=True)
+class _TransportResponse(ProviderResponse):
+    outbound_attempted: bool = False
+
+
 @dataclass
 class EvalRunBudget:
     """Shared conservative budget for every HTTP attempt in one eval run."""
@@ -218,6 +240,10 @@ class OpenAICompatibleEvalProvider:
     run_budget: Optional[EvalRunBudget] = None
     input_price_per_million: float = 0.0
     output_price_per_million: float = 0.0
+    _attempt_limit_lock: Lock = field(
+        default_factory=Lock, init=False, repr=False)
+    _call_attempt_limits: Dict[str, int] = field(
+        default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if not self.config.base_url:
@@ -241,6 +267,37 @@ class OpenAICompatibleEvalProvider:
                 urllib.request.HTTPSHandler(context=ssl.create_default_context()),
             )
 
+    def set_call_attempt_limit(self, *, call_id: str,
+                               max_attempts: int) -> None:
+        """Cap HTTP attempts for one call to its remaining caller budget."""
+        if not isinstance(call_id, str) or not call_id:
+            raise ValueError("call_id is required")
+        if (not isinstance(max_attempts, int) or isinstance(max_attempts, bool)
+                or max_attempts < 1):
+            raise ValueError("max_attempts must be a positive integer")
+        with self._attempt_limit_lock:
+            self._call_attempt_limits[call_id] = min(
+                max_attempts, self.max_attempts)
+
+    def _take_call_attempt_limit(self, call_id: str) -> int:
+        with self._attempt_limit_lock:
+            return self._call_attempt_limits.pop(
+                call_id, self.max_attempts)
+
+    @staticmethod
+    def _with_attempts(
+            response: ProviderResponse,
+            attempts: Tuple[ProviderAttempt, ...],
+            ) -> AttemptTrackedProviderResponse:
+        return AttemptTrackedProviderResponse(
+            ok=response.ok,
+            payload=response.payload,
+            response_bytes=response.response_bytes,
+            reason_code=response.reason_code,
+            duration_seconds=response.duration_seconds,
+            attempts=attempts,
+        )
+
     def _call(self, *, call: ProviderCall,
               request: Dict[str, Any]) -> ProviderResponse:
         """Bounded-retry wrapper around one transport attempt.
@@ -252,23 +309,41 @@ class OpenAICompatibleEvalProvider:
         never retried.
         """
         last = None
-        for attempt in range(self.max_attempts):
-            resp = self._call_once(call=call, request=request)
+        attempts = []
+        max_attempts = self._take_call_attempt_limit(call.call_id)
+        for attempt in range(max_attempts):
+            attempt_call = (
+                call
+                if attempt == 0
+                else replace(
+                    call, call_id=f"{call.call_id}-a{attempt + 1}")
+            )
+            resp = self._call_once(call=attempt_call, request=request)
+            if getattr(resp, "outbound_attempted", True):
+                attempts.append(ProviderAttempt(
+                    call_id=attempt_call.call_id,
+                    response_bytes=resp.response_bytes,
+                    response_ok=resp.ok,
+                    reason_code=resp.reason_code,
+                ))
             if resp.ok or resp.reason_code not in _RETRYABLE_REASONS:
-                return resp
+                return self._with_attempts(resp, tuple(attempts))
             last = resp
-            if attempt < self.max_attempts - 1:
+            if attempt < max_attempts - 1:
                 time.sleep(self.retry_backoff_seconds * (attempt + 1))
-        return last if last is not None else ProviderResponse(
+        response = last if last is not None else ProviderResponse(
             ok=False, reason_code="network_error")
+        return self._with_attempts(response, tuple(attempts))
 
     def _call_once(self, *, call: ProviderCall,
                    request: Dict[str, Any]) -> ProviderResponse:
         if call.call_role != self.config.role:
-            return ProviderResponse(ok=False, reason_code="provider_role_mismatch")
+            return _TransportResponse(
+                ok=False, reason_code="provider_role_mismatch")
         key = self.config.credentials.resolve()
         if not self.config.credentials.api_key_env or not key:
-            return ProviderResponse(ok=False, reason_code="credential_missing")
+            return _TransportResponse(
+                ok=False, reason_code="credential_missing")
         wire = {
             "model": self.config.model_id,
             "messages": [
@@ -285,13 +360,14 @@ class OpenAICompatibleEvalProvider:
         body = json.dumps(wire, ensure_ascii=False, sort_keys=True,
                           separators=(",", ":")).encode("utf-8")
         if len(body) > self.config.max_request_bytes:
-            return ProviderResponse(ok=False, reason_code="request_too_large")
+            return _TransportResponse(
+                ok=False, reason_code="request_too_large")
         if self.run_budget is not None and not self.run_budget.reserve(
                 request_bytes=len(body),
                 max_output_tokens=self.max_output_tokens,
                 input_price_per_million=self.input_price_per_million,
                 output_price_per_million=self.output_price_per_million):
-            return ProviderResponse(
+            return _TransportResponse(
                 ok=False, reason_code="run_budget_exhausted")
         req = urllib.request.Request(
             self.config.base_url + "/chat/completions", data=body, method="POST",
@@ -306,19 +382,31 @@ class OpenAICompatibleEvalProvider:
             with self.opener.open(req, timeout=self.config.timeout_seconds) as resp:
                 status = int(getattr(resp, "status", resp.getcode()))
                 if not 200 <= status < 300:
-                    return ProviderResponse(ok=False, reason_code="http_error")
+                    return _TransportResponse(
+                        ok=False, reason_code="http_error",
+                        outbound_attempted=True)
                 raw = resp.read(self.config.max_response_bytes + 1)
         except urllib.error.HTTPError as exc:
             if 300 <= exc.code < 400:
-                return ProviderResponse(ok=False, reason_code="redirect_refused")
-            return ProviderResponse(ok=False, reason_code="http_error")
+                return _TransportResponse(
+                    ok=False, reason_code="redirect_refused",
+                    outbound_attempted=True)
+            return _TransportResponse(
+                ok=False, reason_code="http_error",
+                outbound_attempted=True)
         except (TimeoutError, socket.timeout):
-            return ProviderResponse(ok=False, reason_code="provider_timeout")
+            return _TransportResponse(
+                ok=False, reason_code="provider_timeout",
+                outbound_attempted=True)
         except (urllib.error.URLError, ssl.SSLError, OSError):
-            return ProviderResponse(ok=False, reason_code="network_error")
+            return _TransportResponse(
+                ok=False, reason_code="network_error",
+                outbound_attempted=True)
         if len(raw) > self.config.max_response_bytes:
-            return ProviderResponse(ok=False, response_bytes=len(raw),
-                                    reason_code="response_too_large")
+            return _TransportResponse(
+                ok=False, response_bytes=len(raw),
+                reason_code="response_too_large",
+                outbound_attempted=True)
         try:
             envelope = _strict_object(raw)
             choices = envelope.get("choices")
@@ -332,10 +420,13 @@ class OpenAICompatibleEvalProvider:
                 raise ValueError("invalid content")
             payload = _strict_object(content.encode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError, ValueError, AttributeError):
-            return ProviderResponse(ok=False, response_bytes=len(raw),
-                                    reason_code="invalid_json")
-        return ProviderResponse(ok=True, payload=payload,
-                                response_bytes=len(raw))
+            return _TransportResponse(
+                ok=False, response_bytes=len(raw),
+                reason_code="invalid_json",
+                outbound_attempted=True)
+        return _TransportResponse(
+            ok=True, payload=payload, response_bytes=len(raw),
+            outbound_attempted=True)
 
     def generate_candidates(self, *, call: ProviderCall,
                             request: Dict[str, Any]) -> ProviderResponse:

@@ -121,6 +121,7 @@ def _finding_view(f: Dict[str, Any], ev_by_id: Dict[str, Dict[str, Any]]) -> Dic
                 "startByte": rng.get("start"),
                 "endByte": rng.get("end"),
                 "redactedPreview": ev.get("redactedPreview"),
+                "sensitivity": ev.get("sensitivity") or "normal",
             })
     origin = f.get("origin") or {}
     return {

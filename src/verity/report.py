@@ -142,8 +142,10 @@ def compute_verdict(review: Review) -> Dict[str, Any]:
     )
     if semantic_incomplete:
         reason_codes.append("semantic_requested_but_incomplete")
-    elif coverage_status == "sufficient":
-        if review.engine == "prompt":
+    if coverage_status == "sufficient":
+        if semantic_incomplete and not has_any:
+            subject = None
+        elif review.engine == "prompt":
             subject = {
                 "engine": "prompt",
                 "outcome": "needs_revision" if has_any else "ready",
@@ -200,11 +202,20 @@ def to_html(review: Review) -> str:
     else:
         subj = verdict["subject"] or {}
         outcome = subj.get("outcome", "unknown")
+        semantic_incomplete = (
+            "semantic_requested_but_incomplete" in verdict["reasonCodes"]
+        )
         if outcome in ("do_not_install", "needs_revision"):
             banner_msg = f"Subject outcome: {outcome.upper()} — do not use as-is."
             banner_kind = "bad"
         elif outcome in ("review_required",):
             banner_msg = "Subject outcome: REVIEW REQUIRED — human review needed before use."
+            banner_kind = "warn"
+        elif semantic_incomplete:
+            banner_msg = (
+                "SEMANTIC REVIEW INCOMPLETE — completed static results are "
+                "shown, but this review is not complete."
+            )
             banner_kind = "warn"
         else:
             banner_msg = f"Subject outcome: {outcome.upper()} (no known findings; not a safety guarantee)."

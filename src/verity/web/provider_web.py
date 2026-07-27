@@ -38,6 +38,7 @@ _MODELS_MAX_RESPONSE_BYTES = 4 * 1024 * 1024   # 4 MiB
 _MAX_MODELS_RETURNED = 2000
 _MAX_KEY_BYTES = 8 * 1024
 _MAX_BASE_URL_LEN = 300
+_SEMANTIC_MAX_OUTPUT_TOKENS = 800
 
 
 class ProviderWebError(Exception):
@@ -158,7 +159,10 @@ def build_semantic_config_with_ephemeral_key(
     """
     from ..semantic import (ProviderConfig, ProviderCredentials,
                             SemanticConfig)
-    from ..semantic.eval_provider import OpenAICompatibleEvalProvider
+    from ..semantic.eval_provider import (
+        EvalRunBudget,
+        OpenAICompatibleEvalProvider,
+    )
 
     url = validate_base_url(base_url)
     if not isinstance(api_key, str) or not api_key.strip():
@@ -188,9 +192,35 @@ def build_semantic_config_with_ephemeral_key(
             provider_config={"candidate_generator": gen_cfg,
                              "validator": val_cfg})
         # OpenAI-compatible (OpenRouter etc.) speaks /chat/completions, which
-        # is what the audited eval adapter uses. Distinct role-bound objects.
-        generator = OpenAICompatibleEvalProvider(config=gen_cfg)
-        validator = OpenAICompatibleEvalProvider(config=val_cfg)
+        # is what the audited eval adapter uses. Distinct role-bound objects
+        # get distinct attempt budgets so retries cannot borrow from the other
+        # role's semantic allowance.
+        generator = OpenAICompatibleEvalProvider(
+            config=gen_cfg,
+            max_output_tokens=_SEMANTIC_MAX_OUTPUT_TOKENS,
+            run_budget=EvalRunBudget(
+                max_calls=sem_cfg.budget.max_candidate_generation_calls,
+                max_total_tokens=(
+                    sem_cfg.budget.max_candidate_generation_calls
+                    * (gen_cfg.max_request_bytes + 1024
+                       + _SEMANTIC_MAX_OUTPUT_TOKENS)
+                ),
+                max_spend_usd=0.0,
+            ),
+        )
+        validator = OpenAICompatibleEvalProvider(
+            config=val_cfg,
+            max_output_tokens=_SEMANTIC_MAX_OUTPUT_TOKENS,
+            run_budget=EvalRunBudget(
+                max_calls=sem_cfg.budget.max_total_validation_calls,
+                max_total_tokens=(
+                    sem_cfg.budget.max_total_validation_calls
+                    * (val_cfg.max_request_bytes + 1024
+                       + _SEMANTIC_MAX_OUTPUT_TOKENS)
+                ),
+                max_spend_usd=0.0,
+            ),
+        )
     except ValueError as exc:
         clear_ephemeral_key(env_name)
         raise ProviderWebError("bad_semantic_config", str(exc))

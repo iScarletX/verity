@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "436caa35"
-  tests_collected: 752
-  tests_passed: 752
+  commit: "5b4691c7"
+  tests_collected: 786
+  tests_passed: 786
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -38,6 +38,31 @@ Strings below MUST match the runtime literals.
 **What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned), JSON / HTML / SARIF reports, and a Chinese review workbench with score, confidence, prioritized findings, source-byte highlighting, a Prompt editing draft, direct re-review, downloads, and Skill project history. Web Skill reviews always use the gitleaks-enabled `standard` profile. Non-secret Provider preferences persist in owner-only local JSON, while the API key is held only in the current macOS user's Keychain and is never returned to the browser. The default-OFF controlled semantic pipeline has 28 Finding Types. Catalog-first structured hypotheses, paragraph-scoped safe controls, and one closed-catalog full-prompt sweep reduce Candidate Generator recall vetoes without allowing the model to invent Finding Types, severity, or evidence; every accepted hypothesis still requires the independent Validator. `model_only` remains an explicit evaluation strategy so Provider quality can be measured without product catalog shortcuts. Confirmed semantic Evidence now reaches every report consumer, including remediation and source positioning. An explicitly requested semantic review that fails or remains incomplete now has no numeric score or pass verdict.
 
 **Deliberately absent.** No accepted semantic quality result and no claim that Verity equals or exceeds Butler. v3, v4, and v5 are consumed diagnostic evidence; the strong-reasoning v5 report is explicitly non-formal. There is no automatic remediation/PatchSet apply: the UI edits a draft and reruns review only. No Skill execution or sandbox, Prompt black-box runner, Semgrep/YARA, ZIP intake, or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
+
+---
+
+## Round 66 (2026-07-27) → close pre-merge security and integrity findings
+
+- Serialized Provider preference/Keychain mutations and rejected resolutions
+  that race a configuration change, preventing an old credential from being
+  paired with a new endpoint. Owner-readable-only preference permissions are
+  now enforced on load.
+- Preserved Evidence sensitivity in the Web projection. Secret evidence always
+  renders its redacted preview instead of reconstructing bytes from the local
+  source; oversized Skill selections are rejected before browser decoding.
+- Counted and audited real Provider HTTP attempts, bounded transport retries
+  and schema repair by total and per-candidate budgets, and attached separate
+  run budgets to Web generator and Validator adapters.
+- Replaced blank-line-only semantic control scoping with bounded,
+  Markdown-aware rule windows so unrelated compact headings, bullets, and
+  directives cannot suppress a finding.
+- Made incomplete semantic HTML reports non-green while retaining static
+  High/Critical outcomes.
+- Bound new hidden-holdout freezes to packet and alias-map hashes and made the
+  Verity evaluator consume the anonymous packet artifact. Existing frozen v6
+  remains honestly marked `legacy_unbound`; it was not rewritten or consumed.
+- Full verification: 786 tests passed; repository gate passed without tests
+  before this final documentation update.
 
 ---
 

@@ -6,6 +6,8 @@ from __future__ import annotations
 import io
 import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -14,9 +16,249 @@ from starlette.testclient import TestClient
 from verity.web import create_app
 
 FIXTURES = Path(__file__).parent / "fixtures"
+APP_JS = (
+    Path(__file__).parents[1] / "src" / "verity" / "web" / "static" / "app.js"
+)
 
 # Assembled at runtime so GitHub push-protection does not flag this source file.
 FAKE_GITHUB_PAT = "ghp" + "_" + "1234567890abcdefghij1234567890abcdefgh"
+
+_BROWSER_HARNESS = r"""
+const fs = require("fs");
+const vm = require("vm");
+
+class Element {
+  constructor(tagName, id) {
+    this.tagName = String(tagName || "div").toUpperCase();
+    this.id = id || "";
+    this.children = [];
+    this.listeners = {};
+    this.attributes = {};
+    this.className = "";
+    this.hidden = false;
+    this.disabled = false;
+    this.checked = false;
+    this.value = "";
+    this.files = [];
+    this.offsetTop = 0;
+    this._text = "";
+    this.classList = {
+      add: (...names) => {
+        const current = this.className ? this.className.split(/\s+/) : [];
+        this.className = Array.from(new Set(current.concat(names))).join(" ");
+      },
+      remove: (...names) => {
+        this.className = this.className.split(/\s+/)
+          .filter((name) => name && !names.includes(name)).join(" ");
+      },
+    };
+  }
+  get textContent() {
+    return this._text + this.children.map((child) => child.textContent).join("");
+  }
+  set textContent(value) {
+    this._text = String(value);
+    this.children = [];
+  }
+  get firstChild() {
+    return this.children.length ? this.children[0] : null;
+  }
+  appendChild(child) {
+    this.children.push(child);
+    return child;
+  }
+  removeChild(child) {
+    this.children.splice(this.children.indexOf(child), 1);
+  }
+  addEventListener(type, listener) {
+    (this.listeners[type] ||= []).push(listener);
+  }
+  setAttribute(name, value) {
+    this.attributes[name] = String(value);
+  }
+  getAttribute(name) {
+    return this.attributes[name] || null;
+  }
+  remove() {}
+}
+
+const elements = new Map();
+function elementFor(id) {
+  if (!elements.has(id)) {
+    const tag = id === "generator-model" || id === "validator-model"
+      ? "select" : "div";
+    elements.set(id, new Element(tag, id));
+  }
+  return elements.get(id);
+}
+elementFor("prompt-kind").value = "system_prompt";
+
+const document = {
+  getElementById: elementFor,
+  createElement: (tag) => new Element(tag),
+  createTextNode: (text) => {
+    const node = new Element("#text");
+    node.textContent = text;
+    return node;
+  },
+  querySelectorAll: () => [],
+};
+
+function response(body, ok = true) {
+  return Promise.resolve({ok, json: () => Promise.resolve(body)});
+}
+
+function emptyView(findings) {
+  return {
+    headline: {tone: "bad", title: "result", detail: "detail"},
+    nextSteps: {steps: []},
+    score: {status: "unavailable", value: null, reasonCodes: []},
+    reviewConfidence: {grade: "D", limitations: []},
+    remediations: [],
+    coverage: {status: "sufficient", reasonCodes: []},
+    counts: {critical: 0, high: findings.length, medium: 0, low: 0},
+    secretScan: {status: "completed", ok: true},
+    findings,
+    blocked: [],
+    analyzers: [],
+    owaspCoverage: {},
+    capabilities: {},
+    semantic: null,
+    downloads: {json: "#", html: "#", sarif: "#"},
+  };
+}
+
+function makeFile(name, size, onRead, text = "") {
+  const file = new File([new Uint8Array(size)], name);
+  Object.defineProperty(file, "webkitRelativePath", {
+    value: "skill/" + name,
+  });
+  file.text = () => {
+    onRead();
+    return Promise.resolve(text);
+  };
+  return file;
+}
+
+async function settle() {
+  for (let i = 0; i < 8; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
+
+async function main() {
+  const scenario = JSON.parse(process.argv[2]);
+  let reviewFetches = 0;
+  let reads = 0;
+  const fetch = (url) => {
+    if (url === "/api/projects") return response({projects: []});
+    if (url === "/api/provider-settings") {
+      return response({
+        baseUrl: "", generatorModel: "", validatorModel: "", keySaved: false,
+      });
+    }
+    if (url === "/api/review/skill") {
+      reviewFetches += 1;
+      const findings = scenario.kind === "secret_render" ? [{
+        type: "skill.gitleaks_finding",
+        severity: "high",
+        claim: "secret finding",
+        sourceLayer: "L0_static",
+        originKind: "deterministic_rule",
+        subject: {},
+        controls: [],
+        guidance: {},
+        evidences: [{
+          artifactPath: "secrets.env",
+          startByte: 4,
+          endByte: 39,
+          redactedPreview: scenario.preview,
+          sensitivity: "secret",
+        }],
+      }] : [];
+      return response(emptyView(findings));
+    }
+    throw new Error("unexpected fetch: " + url);
+  };
+
+  const context = {
+    Blob,
+    File,
+    FormData,
+    JSON,
+    Object,
+    Promise,
+    Set,
+    TextEncoder,
+    Uint8Array,
+    document,
+    encodeURIComponent,
+    fetch,
+    setTimeout,
+    window: {scrollTo() {}},
+  };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync(process.argv[1], "utf8"), context);
+  await settle();
+
+  if (scenario.kind === "secret_render") {
+    elementFor("skill-files").files = [
+      makeFile("secrets.env", scenario.source.length,
+        () => { reads += 1; }, scenario.source),
+    ];
+    for (const listener of elementFor("skill-submit").listeners.click || []) {
+      listener({target: elementFor("skill-submit")});
+    }
+    await settle();
+    process.stdout.write(JSON.stringify({
+      evidenceText: elementFor("evidence-workbench").textContent,
+      reviewFetches,
+    }));
+    return;
+  }
+
+  let files;
+  if (scenario.kind === "too_many_files") {
+    files = Array.from({length: 501}, (_, i) =>
+      makeFile("f-" + i + ".txt", 0, () => { reads += 1; }));
+  } else if (scenario.kind === "file_too_large") {
+    files = [makeFile("large.txt", 512 * 1024 + 1, () => { reads += 1; })];
+  } else if (scenario.kind === "total_too_large") {
+    files = Array.from({length: 17}, (_, i) =>
+      makeFile("f-" + i + ".txt", 512 * 1024, () => { reads += 1; }));
+  } else {
+    throw new Error("unknown scenario: " + scenario.kind);
+  }
+  elementFor("skill-files").files = files;
+  for (const listener of elementFor("skill-submit").listeners.click || []) {
+    listener({target: elementFor("skill-submit")});
+  }
+  await settle();
+  process.stdout.write(JSON.stringify({
+    errorText: elementFor("error").textContent,
+    reads,
+    reviewFetches,
+  }));
+}
+
+main().catch((error) => {
+  process.stderr.write(error.stack || String(error));
+  process.exitCode = 1;
+});
+"""
+
+
+def _run_browser_scenario(scenario):
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is required for browser behavior tests")
+    result = subprocess.run(
+        [node, "-e", _BROWSER_HARNESS, str(APP_JS), json.dumps(scenario)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(result.stdout)
 
 
 @pytest.fixture
@@ -107,6 +349,38 @@ class TestIndexAndAssets:
         assert "sessionStorage" not in js
 
 
+class TestBrowserBehavior:
+    def test_secret_evidence_uses_redacted_preview_not_local_source(self):
+        raw_secret = "VERITY_FAKE_SECRET_ABCDEFGH12345678"
+        preview = "VERITY_FAKE_SECRET_********"
+
+        result = _run_browser_scenario({
+            "kind": "secret_render",
+            "source": f"API={raw_secret}",
+            "preview": preview,
+        })
+
+        assert result["reviewFetches"] == 1
+        assert preview in result["evidenceText"]
+        assert raw_secret not in result["evidenceText"]
+
+    @pytest.mark.parametrize(
+        ("kind", "error_code"),
+        [
+            ("too_many_files", "too_many_files"),
+            ("file_too_large", "file_too_large"),
+            ("total_too_large", "total_too_large"),
+        ],
+    )
+    def test_skill_preflight_rejects_before_decoding_or_sending(
+            self, kind, error_code):
+        result = _run_browser_scenario({"kind": kind})
+
+        assert error_code in result["errorText"]
+        assert result["reads"] == 0
+        assert result["reviewFetches"] == 0
+
+
 # ----------------------------------------------------------------------
 # Host / Origin guards
 # ----------------------------------------------------------------------
@@ -168,6 +442,16 @@ class TestPromptEndpoint:
         assert view["counts"]["high"] >= 1
         # Raw synthetic secret must not appear in the view model.
         assert "VERITY_FAKE_SECRET_ABCDEFGH12345678" not in json.dumps(view)
+        secret_evidences = [
+            evidence
+            for finding in view["findings"]
+            for evidence in finding["evidences"]
+            if finding["type"] == "prompt.system_hardcoded_secret"
+        ]
+        assert secret_evidences
+        assert all(evidence["sensitivity"] == "secret"
+                   for evidence in secret_evidences)
+        assert all(evidence["redactedPreview"] for evidence in secret_evidences)
 
     def test_bad_prompt_kind_rejected(self, client):
         r = client.post("/api/review/prompt",

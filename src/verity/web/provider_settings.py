@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import shutil
+import stat
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from threading import RLock, local
 from typing import Callable, Optional, Tuple
 
 from ..history import (HistoryError, _atomic_json, _check_safe, _mkdir,
@@ -88,6 +90,11 @@ class ProviderPreferenceStore:
         try:
             _check_safe(self.root, True)
             _check_safe(self.path)
+            mode = stat.S_IMODE(self.path.stat().st_mode)
+            if mode & (stat.S_IRWXG | stat.S_IRWXO):
+                raise ProviderSettingsError(
+                    "provider_settings_corrupt",
+                    "saved Provider settings are not owner-only")
             raw = self.path.read_bytes()
             if len(raw) > MAX_PREFERENCE_BYTES:
                 raise ProviderSettingsError(
@@ -261,48 +268,76 @@ class ProviderSettingsStore:
                  credentials) -> None:
         self.preferences = preferences
         self.credentials = credentials
+        self._lock = RLock()
+        self._revision = 0
+        self._resolution_snapshot = local()
+
+    def _begin_mutation(self) -> None:
+        self._revision += 1
+        if hasattr(self._resolution_snapshot, "revision"):
+            del self._resolution_snapshot.revision
 
     def public_settings(
             self) -> Tuple[ProviderPreferences, bool]:
-        return self.preferences.load(), self.credentials.has_key()
+        with self._lock:
+            preferences = self.preferences.load()
+            key_saved = self.credentials.has_key()
+            self._resolution_snapshot.revision = self._revision
+            return preferences, key_saved
 
     def save(self, preferences: ProviderPreferences, *,
              api_key: str = "") -> ProviderPreferences:
         validated = _validated_preferences(preferences)
-        had_preferences = self.preferences.path.exists()
-        previous = self.preferences.load()
-        if (
-            not api_key
-            and self.credentials.has_key()
-            and previous.base_url != validated.base_url
-        ):
-            raise ProviderSettingsError(
-                "api_key_required",
-                "a new API Key is required when Provider address changes")
-        saved = self.preferences.save(validated)
-        if api_key:
-            try:
-                self.credentials.save_key(api_key)
-            except ProviderSettingsError:
+        with self._lock:
+            had_preferences = self.preferences.path.exists()
+            previous = self.preferences.load()
+            if (
+                not api_key
+                and self.credentials.has_key()
+                and previous.base_url != validated.base_url
+            ):
+                raise ProviderSettingsError(
+                    "api_key_required",
+                    "a new API Key is required when Provider address changes")
+            self._begin_mutation()
+            saved = self.preferences.save(validated)
+            if api_key:
                 try:
-                    if had_preferences:
-                        self.preferences.save(previous)
-                    else:
-                        self.preferences.clear()
-                except ProviderSettingsError as rollback_error:
-                    raise ProviderSettingsError(
-                        "provider_settings_unavailable",
-                        "Provider settings could not be rolled back safely",
-                    ) from rollback_error
-                raise
-        return saved
+                    self.credentials.save_key(api_key)
+                except ProviderSettingsError:
+                    try:
+                        if had_preferences:
+                            self.preferences.save(previous)
+                        else:
+                            self.preferences.clear()
+                    except ProviderSettingsError as rollback_error:
+                        raise ProviderSettingsError(
+                            "provider_settings_unavailable",
+                            "Provider settings could not be rolled back safely",
+                        ) from rollback_error
+                    raise
+            return saved
 
     def resolve_key(self) -> Optional[str]:
-        return self.credentials.load_key()
+        with self._lock:
+            snapshot_revision = getattr(
+                self._resolution_snapshot, "revision", None)
+            if snapshot_revision is not None:
+                del self._resolution_snapshot.revision
+            if (
+                snapshot_revision is not None
+                and snapshot_revision != self._revision
+            ):
+                raise ProviderSettingsError(
+                    "provider_settings_changed",
+                    "Provider settings changed while they were resolved")
+            return self.credentials.load_key()
 
     def clear(self) -> None:
-        self.credentials.delete_key()
-        self.preferences.clear()
+        with self._lock:
+            self._begin_mutation()
+            self.credentials.delete_key()
+            self.preferences.clear()
 
 
 def create_provider_settings_store(
