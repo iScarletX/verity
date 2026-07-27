@@ -35,10 +35,11 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError as SchemaValidationError
 
 from ..canonical import canonical_json, domain_tag, sha256_hex, subject_key
-from .catalog import CATALOG, SemanticFindingType
+from .catalog import (CATALOG, SemanticFindingType,
+                      extract_prompt_catalog_sweep)
 from .config import SemanticConfig, SemanticBudget
-from .egress import (PayloadAudit, audit_call, build_generator_request,
-                     build_validator_request)
+from .egress import (PayloadAudit, audit_call, build_catalog_sweep_request,
+                     build_generator_request, build_validator_request)
 from .provider import (CandidateGeneratorProvider, ProviderCall,
                        ValidatorProvider)
 from .schemas import CANDIDATE_LIST_SCHEMA, VALIDATION_RESULT_SCHEMA
@@ -103,6 +104,7 @@ class SemanticRunResult:
     evidences: List[Dict[str, Any]] = field(default_factory=list)
     payloadAudit: List[PayloadAudit] = field(default_factory=list)
     callCounts: Dict[str, int] = field(default_factory=dict)
+    stageStats: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     egressPolicy: str = "off"
 
 
@@ -210,23 +212,125 @@ class SemanticOrchestrator:
                                      SemanticFindingType,
                                      Dict[str, Dict[str, Any]]]] = []
         evidence_pool: Dict[str, Dict[str, Any]] = {}
+        sweep_eligible: List[SemanticFindingType] = []
 
         for ft, extractor in applicable:
             result.planItems.append(self._plan_item(
                 "extractor", f"extractor.{ft.findingType}", "completed"))
             seeds = extractor(review_dict, file_bytes)
+            stats = {
+                "extractorSeedCount": len(seeds),
+                "evidenceCount": 0,
+                "catalogHintProposedCount": 0,
+                "catalogHintAcceptedCount": 0,
+                "generatorRawCandidateCount": 0,
+                "generatorAcceptedCandidateCount": 0,
+                "queuedCandidateCount": 0,
+                "validatorStates": {
+                    "confirmed": 0,
+                    "rejected": 0,
+                    "insufficient_evidence": 0,
+                    "validation_failed": 0,
+                    "pending": 0,
+                },
+            }
+            result.stageStats[ft.findingType] = stats
             if not seeds:
+                if (cfg.candidate_strategy == "catalog_first"
+                        and engine == "prompt"):
+                    sweep_eligible.append(ft)
                 continue
             # Merge extractor evidence into the pool (identity-stable ids).
             allowed_ids: List[str] = []
+            deterministic_hint_payloads: List[Dict[str, Any]] = []
+            model_candidate_policies: List[str] = []
             for (_hint, ev_ids, ev_records) in seeds:
+                if isinstance(_hint, dict):
+                    policy = _hint.get("modelCandidatePolicy")
+                    if isinstance(policy, str):
+                        model_candidate_policies.append(policy)
                 for ev in ev_records:
                     evidence_pool.setdefault(ev["evidenceId"], ev)
                 for eid in ev_ids:
                     if eid not in allowed_ids:
                         allowed_ids.append(eid)
+                hints = (
+                    _hint.get("candidateHints")
+                    if isinstance(_hint, dict) else None)
+                if isinstance(hints, list):
+                    for index, hint in enumerate(hints):
+                        if not isinstance(hint, dict):
+                            continue
+                        deterministic_hint_payloads.append({
+                            "proposedCandidateId": (
+                                f"catalog-hint-{index + 1}"),
+                            "findingType": ft.findingType,
+                            "subject": hint.get("subject"),
+                            "claim": hint.get("claim"),
+                            "evidenceIds": list(ev_ids),
+                        })
             allowed_evidences = [evidence_pool[e] for e in allowed_ids
                                  if e in evidence_pool]
+            stats["evidenceCount"] = len(allowed_evidences)
+            stats["catalogHintProposedCount"] = len(
+                deterministic_hint_payloads)
+            skip_model_candidates = (
+                cfg.candidate_strategy == "catalog_first"
+                and not deterministic_hint_payloads
+                and len(model_candidate_policies) == len(seeds)
+                and all(policy == "skip_without_catalog_hint"
+                        for policy in model_candidate_policies))
+            if skip_model_candidates:
+                result.planItems.append(self._plan_item(
+                    "candidate_generator", ft.findingType,
+                    "completed", "model_candidate_gate_skipped"))
+                continue
+            if (cfg.candidate_strategy == "catalog_first"
+                    and deterministic_hint_payloads):
+                # Catalog-owned deterministic hypotheses are already bounded
+                # to extractor Evidence. Skip model candidate generation and
+                # send only these hypotheses to the independent Validator.
+                hint_candidates = self._parse_and_check_candidates(
+                    ft, {"candidates": deterministic_hint_payloads},
+                    allowed_evidence_ids=set(allowed_ids),
+                    allowed_evidences=allowed_evidences,
+                    review_snapshot_id=(
+                        (review_dict.get("snapshot") or {}).get(
+                            "snapshotId", "")),
+                )
+                if hint_candidates is None:
+                    result.planItems.append(self._plan_item(
+                        "candidate_generator", ft.findingType,
+                        "failed", "catalog_candidate_hint_invalid"))
+                    result.status = "failed"
+                    if result.reasonCode is None:
+                        result.reasonCode = "catalog_candidate_hint_invalid"
+                    continue
+                stats["catalogHintAcceptedCount"] = len(hint_candidates)
+                combined = []
+                seen_candidate_ids = set()
+                for candidate in hint_candidates:
+                    if candidate.candidateId in seen_candidate_ids:
+                        continue
+                    seen_candidate_ids.add(candidate.candidateId)
+                    combined.append(candidate)
+                    if len(combined) >= cfg.budget.max_candidates_per_extractor:
+                        break
+                stats["queuedCandidateCount"] = min(
+                    len(combined),
+                    max(0, cfg.budget.max_candidates_total
+                        - len(candidates_total)),
+                )
+                for c in combined:
+                    if len(candidates_total) >= cfg.budget.max_candidates_total:
+                        break
+                    candidates_total.append(
+                        (c, ft, {e["evidenceId"]: e
+                                 for e in allowed_evidences}))
+                result.planItems.append(self._plan_item(
+                    "candidate_generator", ft.findingType,
+                    "completed", "catalog_hint_candidates"))
+                continue
 
             # Call generator.
             if result.callCounts["generator"] >= cfg.budget.max_candidate_generation_calls:
@@ -299,6 +403,11 @@ class SemanticOrchestrator:
                         or "generator_error")
                 continue
 
+            raw_candidates = (
+                response.payload.get("candidates")
+                if isinstance(response.payload, dict) else None)
+            stats["generatorRawCandidateCount"] = (
+                len(raw_candidates) if isinstance(raw_candidates, list) else 0)
             candidates = self._parse_and_check_candidates(
                 ft, response.payload,
                 allowed_evidence_ids=set(allowed_ids),
@@ -313,6 +422,23 @@ class SemanticOrchestrator:
                 if result.reasonCode is None:
                     result.reasonCode = "generator_output_schema_violation"
                 continue
+            stats["generatorAcceptedCandidateCount"] = len(candidates)
+            candidate_source = candidates
+            combined = []
+            seen_candidate_ids = set()
+            for candidate in candidate_source:
+                if candidate.candidateId in seen_candidate_ids:
+                    continue
+                seen_candidate_ids.add(candidate.candidateId)
+                combined.append(candidate)
+                if len(combined) >= cfg.budget.max_candidates_per_extractor:
+                    break
+            candidates = combined
+            stats["queuedCandidateCount"] = min(
+                len(candidates),
+                max(0, cfg.budget.max_candidates_total
+                    - len(candidates_total)),
+            )
             # cap total
             for c in candidates:
                 if len(candidates_total) >= cfg.budget.max_candidates_total:
@@ -321,6 +447,214 @@ class SemanticOrchestrator:
                                                   for e in allowed_evidences}))
             result.planItems.append(self._plan_item(
                 "candidate_generator", ft.findingType, "completed"))
+
+        # Butler-style whole-document recall pass, constrained to Verity's
+        # registered catalog. It runs only for prompt types whose deterministic
+        # extractor produced no seed. Types that reached an explicit safe gate
+        # are deliberately excluded, preserving the catalog-first precision
+        # boundary.
+        if sweep_eligible:
+            sweep_seeds = extract_prompt_catalog_sweep(
+                review_dict, file_bytes)
+            if not sweep_seeds:
+                result.planItems.append(self._plan_item(
+                    "candidate_generator", "semantic.catalog_sweep",
+                    "not_applicable", "no_complete_prompt_evidence"))
+            elif (result.callCounts["generator"]
+                  >= cfg.budget.max_candidate_generation_calls):
+                result.planItems.append(self._plan_item(
+                    "candidate_generator", "semantic.catalog_sweep",
+                    "failed", "budget_generation_exhausted"))
+                result.status = "budget_exhausted"
+            else:
+                sweep_ids: List[str] = []
+                sweep_evidences: List[Dict[str, Any]] = []
+                for (_source, ev_ids, ev_records) in sweep_seeds:
+                    for ev in ev_records:
+                        evidence_pool.setdefault(ev["evidenceId"], ev)
+                    for eid in ev_ids:
+                        if eid not in sweep_ids:
+                            sweep_ids.append(eid)
+                sweep_evidences = [
+                    evidence_pool[eid] for eid in sweep_ids
+                    if eid in evidence_pool
+                ]
+                eligible_by_id = {
+                    ft.findingType: ft for ft in sweep_eligible
+                }
+                finding_catalog = [{
+                    "findingType": ft.findingType,
+                    "subjectTaxonomy": {
+                        "fields": [{
+                            "fieldName": field.fieldName,
+                            "valueKind": field.valueKind,
+                            "enum": field.enum or [],
+                        } for field in ft.subjectFields],
+                    },
+                    "judgmentPolicy": {
+                        "appliesWhen": ft.judgmentPolicy.appliesWhen,
+                        "confirmWhen": ft.judgmentPolicy.confirmWhen,
+                        "rejectWhen": ft.judgmentPolicy.rejectWhen,
+                        "insufficientWhen": ft.judgmentPolicy.insufficientWhen,
+                    },
+                } for ft in sweep_eligible]
+                req = build_catalog_sweep_request(
+                    review_id=review_id,
+                    evidences=sweep_evidences,
+                    file_bytes=file_bytes,
+                    egress_policy=cfg.egress_policy,
+                    finding_catalog=finding_catalog,
+                    max_evidence=cfg.budget.max_evidence_per_candidate,
+                    prompt_kind=(
+                        (review_dict.get("snapshot") or {}).get(
+                            "promptKind")),
+                )
+                call_id = f"cg-sweep-{uuid.uuid4().hex[:12]}"
+                provider_call = ProviderCall(
+                    review_id=review_id,
+                    egress_policy=cfg.egress_policy,
+                    call_role="candidate_generator",
+                    call_id=call_id,
+                    request_bytes=len(json.dumps(req).encode()),
+                    request_digest_sha256=hashlib.sha256(
+                        json.dumps(req, sort_keys=True).encode()
+                    ).hexdigest(),
+                )
+                try:
+                    response = generator.generate_candidates(
+                        call=provider_call, request=req)
+                except Exception as exc:  # pragma: no cover
+                    response = None
+                    exc_reason = f"provider_raised:{type(exc).__name__}"
+                else:
+                    exc_reason = None
+                result.callCounts["generator"] += 1
+                result.payloadAudit.append(audit_call(
+                    call_id=call_id,
+                    call_role="candidate_generator",
+                    egress_policy=cfg.egress_policy,
+                    request_obj=req,
+                    response_bytes=(
+                        response.response_bytes if response else 0),
+                    response_ok=bool(response and response.ok),
+                    reason_code=(
+                        response.reason_code if response else exc_reason),
+                ))
+
+                if response is None or not response.ok:
+                    reason = (
+                        (response.reason_code if response else exc_reason)
+                        or "generator_error")
+                    result.planItems.append(self._plan_item(
+                        "candidate_generator", "semantic.catalog_sweep",
+                        "failed", reason))
+                    result.status = "failed"
+                    if result.reasonCode is None:
+                        result.reasonCode = reason
+                else:
+                    try:
+                        _CANDIDATE_LIST_VALIDATOR.validate(response.payload)
+                    except SchemaValidationError:
+                        sweep_invalid = True
+                    else:
+                        sweep_invalid = False
+
+                    parsed_sweep: List[
+                        Tuple[SemanticCandidateRecord,
+                              SemanticFindingType]] = []
+                    seen_types = set()
+                    if not sweep_invalid:
+                        raw_candidates = response.payload["candidates"][
+                            :cfg.budget.max_candidates_per_extractor]
+                        for raw in raw_candidates:
+                            finding_type = raw.get("findingType")
+                            ft = eligible_by_id.get(finding_type)
+                            if ft is None or finding_type in seen_types:
+                                sweep_invalid = True
+                                break
+                            seen_types.add(finding_type)
+                            parsed = self._parse_and_check_candidates(
+                                ft,
+                                {"candidates": [raw]},
+                                allowed_evidence_ids=set(sweep_ids),
+                                allowed_evidences=sweep_evidences,
+                                review_snapshot_id=(
+                                    (review_dict.get("snapshot") or {}).get(
+                                        "snapshotId", "")),
+                            )
+                            if parsed is None or len(parsed) != 1:
+                                sweep_invalid = True
+                                break
+                            parsed_sweep.append((parsed[0], ft))
+
+                    if sweep_invalid:
+                        result.planItems.append(self._plan_item(
+                            "candidate_generator", "semantic.catalog_sweep",
+                            "failed", "catalog_sweep_output_violation"))
+                        result.status = "failed"
+                        if result.reasonCode is None:
+                            result.reasonCode = (
+                                "catalog_sweep_output_violation")
+                    else:
+                        raw_counts: Dict[str, int] = {}
+                        for candidate, _ft in parsed_sweep:
+                            raw_counts[candidate.findingType] = (
+                                raw_counts.get(candidate.findingType, 0) + 1)
+                        existing_keys = {
+                            (
+                                candidate.findingType,
+                                subject_key(
+                                    candidate.findingType,
+                                    candidate.subject,
+                                    candidate_ft.subjectKeyFields,
+                                ),
+                            )
+                            for candidate, candidate_ft, _pool
+                            in candidates_total
+                        }
+                        queued_types = set()
+                        for candidate, ft in parsed_sweep:
+                            stats = result.stageStats[ft.findingType]
+                            stats["evidenceCount"] = len(sweep_evidences)
+                            stats["generatorRawCandidateCount"] = raw_counts[
+                                ft.findingType]
+                            stats["generatorAcceptedCandidateCount"] = 1
+                            candidate_key = (
+                                candidate.findingType,
+                                subject_key(
+                                    candidate.findingType,
+                                    candidate.subject,
+                                    ft.subjectKeyFields,
+                                ),
+                            )
+                            if candidate_key in existing_keys:
+                                continue
+                            if (len(candidates_total)
+                                    >= cfg.budget.max_candidates_total):
+                                result.status = "budget_exhausted"
+                                break
+                            existing_keys.add(candidate_key)
+                            queued_types.add(ft.findingType)
+                            stats["queuedCandidateCount"] = 1
+                            candidates_total.append((
+                                candidate,
+                                ft,
+                                {ev["evidenceId"]: ev
+                                 for ev in sweep_evidences},
+                            ))
+                        for ft in sweep_eligible:
+                            stats = result.stageStats[ft.findingType]
+                            stats["evidenceCount"] = len(sweep_evidences)
+                            result.planItems.append(self._plan_item(
+                                "candidate_generator",
+                                ft.findingType,
+                                "completed",
+                                (
+                                    "catalog_sweep_candidate"
+                                    if ft.findingType in queued_types
+                                    else "catalog_sweep_no_candidate"
+                                ),
+                            ))
 
         result.candidates = [c for (c, _ft, _pool) in candidates_total]
         result.evidences = list(evidence_pool.values())
@@ -332,6 +666,8 @@ class SemanticOrchestrator:
                     candidateId=cand.candidateId, state="pending",
                     reasonCodes=["budget_validation_exhausted"],
                 ))
+                result.stageStats[cand.findingType][
+                    "validatorStates"]["pending"] += 1
                 result.status = "budget_exhausted"
                 continue
 
@@ -393,6 +729,8 @@ class SemanticOrchestrator:
                     reasonCodes=[reason],
                     validationCallId=call_id,
                 ))
+                result.stageStats[cand.findingType][
+                    "validatorStates"]["validation_failed"] += 1
                 result.status = "failed"
                 if result.reasonCode is None:
                     result.reasonCode = reason
@@ -401,10 +739,62 @@ class SemanticOrchestrator:
             state, reasons = self._parse_and_check_validation(
                 cand=cand, ft=ft, payload=response.payload,
             )
+            if (state == "validation_failed"
+                    and reasons
+                    and reasons[0] in {"schema_violation",
+                                       "candidateId_mismatch"}
+                    and result.callCounts["validator"]
+                    < cfg.budget.max_total_validation_calls):
+                retry_call_id = f"vv-{uuid.uuid4().hex[:12]}"
+                retry_provider_call = ProviderCall(
+                    review_id=review_id,
+                    egress_policy=cfg.egress_policy,
+                    call_role="validator", call_id=retry_call_id,
+                    request_bytes=len(json.dumps(req).encode()),
+                    request_digest_sha256=hashlib.sha256(
+                        json.dumps(req, sort_keys=True).encode()).hexdigest(),
+                )
+                try:
+                    retry_response = validator.validate_candidate(
+                        call=retry_provider_call, request=req)
+                    retry_exc_reason = None
+                except Exception as e:  # pragma: no cover
+                    retry_response = None
+                    retry_exc_reason = f"provider_raised:{type(e).__name__}"
+
+                result.callCounts["validator"] += 1
+                retry_audit = audit_call(
+                    call_id=retry_call_id, call_role="validator",
+                    egress_policy=cfg.egress_policy, request_obj=req,
+                    response_bytes=(
+                        retry_response.response_bytes
+                        if retry_response else 0),
+                    response_ok=bool(retry_response and retry_response.ok),
+                    reason_code=(
+                        retry_response.reason_code
+                        if retry_response else retry_exc_reason),
+                )
+                result.payloadAudit.append(retry_audit)
+                if retry_response is None or not retry_response.ok:
+                    state = "validation_failed"
+                    reasons = [(
+                        retry_response.reason_code
+                        if retry_response else retry_exc_reason)
+                        or "validator_error"]
+                    call_id = retry_call_id
+                else:
+                    retry_state, retry_reasons = (
+                        self._parse_and_check_validation(
+                            cand=cand, ft=ft, payload=retry_response.payload))
+                    state = retry_state
+                    reasons = retry_reasons
+                    call_id = retry_call_id
             result.assessments.append(SemanticAssessmentRecord(
                 candidateId=cand.candidateId,
                 state=state, reasonCodes=reasons, validationCallId=call_id,
             ))
+            result.stageStats[cand.findingType][
+                "validatorStates"][state] += 1
             if state == "validation_failed":
                 result.status = "failed"
                 if result.reasonCode is None:

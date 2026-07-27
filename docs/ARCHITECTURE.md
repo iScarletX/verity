@@ -27,8 +27,8 @@
        │  verity/bandit_*     │             └─────────┬───────────────┘
        │                      │                       │
        │  Rules → Evidence    │            Extractor  │
-       │  → RuleMatchEvent    │            Candidate  │
-       │  → deterministic     │            Generator  │
+       │  → RuleMatchEvent    │            Catalog +  │
+       │  → deterministic     │          bounded sweep│
        │       Finding        │            Validator  │
        └──────────┬───────────┘            Assessment │
                   │                        semantic   │
@@ -89,15 +89,29 @@
   Types; they exercise contracts only and explicitly do not measure model
   quality. `verity.semantic_quality` keeps the consumed 42-case protocol v2
   frozen for historical reproducibility.
-- `verity.semantic_benchmark` validates a fresh 112-case answer-hidden
-  Verity/Butler corpus, creates separately randomized system packets, validates
-  repeated scrubbed observations, and permits a scoped superiority claim only
-  after independent digest-bound labels and both absolute and relative gates
-  pass. It also requires all twenty-eight controlled Finding Types, at least
-  twenty-seven mapped risk ids, and a 45-item pinned Butler crosswalk with no
-  open gaps. Provisional labels, missing observations, fewer than 112 cases, or any
-  breadth gap produce no claim. Mutable Provider records stay under gitignored
-  `.verity-data/`; no evaluation path contains an aggregate safety score.
+- `verity.semantic_benchmark` validates versioned 112-case answer-hidden
+  Verity/Butler corpora, creates separately randomized system packets,
+  validates repeated scrubbed observations, and permits a scoped superiority
+  claim only after independent digest-bound labels and both absolute and
+  relative gates pass. Protocol v3 remains immutable development evidence;
+  protocol v4 hidden holdouts additionally carry the catalog's exact
+  applicability/confirm/reject/insufficient policy to every system and label
+  reviewer. Hidden v5 is consumed diagnostic evidence. Its first Verity run
+  accidentally measured `model_only`, and its legacy independent-AI
+  attestation disagreed with the precommitted provisional labels on 18 cases.
+  The comparator now quarantines any such hidden-holdout disagreement before
+  metrics are accepted. Local hidden v6 is frozen before remote observation
+  with the product's `catalog_first` strategy, 112/112 extractor coverage,
+  56 positive catalog hypotheses, and 56 safe pre-model suppressions. Its
+  remote payload is not authorized. The comparator requires all
+  twenty-eight controlled Finding Types,
+  at least twenty-seven mapped risk ids, a 45-item pinned Butler crosswalk with
+  no open gaps, and a healthy reference run before relative checks. Provisional
+  labels, missing observations, fewer than 112 cases, any breadth gap, budget
+  exhaustion, error rate above 5%, successful-run coverage below 95%, or an
+  unresolved label disagreement produces no claim. Mutable Provider records
+  and hidden holdout payloads stay under gitignored local paths; no evaluation
+  path contains an aggregate safety score.
 - `verity.closure` (policy v2.0.0) computes a scoped V1 release decision. The
   `decision` covers only the deterministic static auditor and is
   `release_candidate` on green engineering acceptance, with no evaluated-
@@ -120,7 +134,20 @@
 - **Score comparison**: requires compatible scope, sufficient Coverage, available scores and the same score-policy version. It is always secondary to the five-state Finding diff and cannot itself prove remediation.
 - **Diff resolution**: exact occurrence and controlled stable subject remain distinct. A disappearance is `resolved` only when its relevant current parser/analyzer/rule plan items succeeded; otherwise `unknown_due_to_coverage`.
 - **Reviewed artifact → Provider config**: forbidden. Provider config
-  is only accepted from a trusted caller / env var name / CLI arg.
+  is only accepted from a trusted caller / env var name / CLI arg or the
+  loopback Web settings endpoint. Web URL/model preferences use strict,
+  owner-only JSON; the API key uses the current macOS user's Keychain.
+  Reviewed content cannot select, modify, or weaken these settings.
+- **Stored Web credential → browser**: forbidden. The settings API returns
+  only non-secret preferences plus `keySaved`; it never returns the key.
+  JavaScript uses no browser storage for credentials. Keychain access is
+  bounded, no-shell, runs outside the ASGI event loop, and supplies a new key
+  through stdin rather than process arguments. A request-supplied Provider URL
+  never inherits a saved key, and changing the saved URL requires a new key.
+- **Web maximum-scan policy**: the loopback UI and server force
+  `standard` Skill scanning and `redacted_evidence` semantic egress. Removed
+  selectors are not the enforcement boundary: stale `minimal` or
+  `metadata_only` requests are upgraded server-side.
 - **Eval-only Provider**: `semantic/eval_provider.py` is reachable only from
   explicit evaluation tools, accepts only versioned synthetic corpora, has a
   whole-run call-budget preflight, and is not wired into product CLI/Web
@@ -140,7 +167,32 @@
   budget. A caller cannot establish
   independence by supplying reviewer names alone. The comparator canonicalizes
   both system mappings and refuses a claim unless the derived attestation
-  covers the same payload digests.
+  covers the same payload digests. For hidden holdouts it then compares the
+  blind consensus with the labels committed before any remote review. A
+  disagreement is not auto-resolved by another majority: it is exposed as
+  `labels_require_adjudication` and blocks the claim.
+- **Catalog hypothesis → Validator**: bounded catalog-owned hypotheses may
+  bypass an empty Candidate Generator result only for explicitly structured
+  facts. They never bypass the independent Validator, set severity, or create
+  evidence. One strongest catalog hypothesis takes precedence over a competing
+  model hypothesis for the same extractor seed. Scrubbed stage diagnostics
+  contain counts and controlled reason codes only, never source text, claims,
+  subjects, case ids, Finding Types, labels, or Provider responses.
+- **Candidate strategy**: product CLI/Web review uses `catalog_first`.
+  Structured positive facts create catalog hypotheses; structured safe controls
+  can gate off model candidate generation. Prompt types with no deterministic
+  seed receive one bounded whole-prompt pass against only the registered
+  type/subject catalog. The sweep cannot invent evidence or severity, and every
+  accepted candidate still reaches the independent Validator. `model_only` is
+  reserved for controlled Provider benchmarks and transport tests so model
+  quality remains measurable without changing the product precision policy.
+  The comparison CLI defaults to `catalog_first`, and the selected strategy is
+  included in both the configuration fingerprint and the budget sidecar.
+- **Evidence projection**: deterministic and completed-semantic Findings remain
+  physically separate in the Review object, but the read-only report consumer
+  joins both evidence pools. Web source highlighting, remediations, JSON, HTML,
+  SARIF, verdict, and scoring therefore resolve the same completed Finding
+  evidence ids.
 - **Read-only Butler reference**: the eval CLI builds a temporary Node bundle
   from an explicitly supplied Butler source tree and existing dependencies.
   It reuses Butler's profiler, static checker, selected LLM checks and vote
@@ -150,7 +202,8 @@
   eight; reservations occur synchronously before every network call. Final
   Butler consolidation/deduplication is excluded and disclosed because it can
   contact a separate embeddings endpoint and add findings beyond the packet's
-  single target risk.
+  single target risk. The adapter returns a strict budget snapshot; exhausted
+  budget is propagated to observation health and blocks relative comparison.
 - **Provider payload**: passes through the egress gate
   (`verity/semantic/egress.py`) which drops sensitive Evidence, caps
   string lengths, and records only sizes + SHA-256 in the payload

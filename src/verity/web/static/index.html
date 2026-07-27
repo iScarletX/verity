@@ -3,35 +3,31 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Verity — Prompt / Skill 静态审查</title>
+<title>Verity — Prompt / Skill 审查工作台</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-<header>
-  <h1>Verity <small>本地静态审查</small></h1>
-  <p class="tagline">检查 Prompt 与 Agent Skill，告诉你 <strong>能不能用、为什么、先改什么</strong>。</p>
-  <p class="scope">本地静态检查 V1：不执行 Skill、不安装依赖、不联网。Prompt 黑盒（V1.5）与 Skill 隔离沙箱（V2）<strong>尚未启用</strong>。</p>
-  <ol class="three-steps" aria-label="3 步开始">
-    <li>粘贴 Prompt <em>或</em> 选择 Skill 文件夹</li>
-    <li>点“开始审查”</li>
-    <li>看结论 &amp; 下一步建议</li>
-  </ol>
+<header class="app-header">
+  <div>
+    <h1>Verity <small>审查工作台</small></h1>
+    <p class="tagline">Prompt / Agent Skill 风险审查、证据定位与整改复查。</p>
+  </div>
+  <div class="status-strip" aria-label="能力状态">
+    <span>静态检查</span>
+    <span>受控语义</span>
+    <span>本地报告</span>
+  </div>
 </header>
 
-<main>
-  <section class="projects" aria-labelledby="projects-title">
+<main class="workspace">
+  <aside class="left-rail">
+  <section class="projects panel" aria-labelledby="projects-title">
     <h2 id="projects-title">Skill 项目与版本历史</h2>
     <p class="muted">先创建可信项目，再从项目中提交“检查新版本”。Verity 不按名称或内容自动关联版本。</p>
     <div class="row"><input id="project-name" maxlength="80" placeholder="项目显示名称"><button id="project-create">新建项目</button></div>
     <div id="project-list"></div>
     <section id="project-page" hidden>
       <h3 id="project-title"></h3>
-      <label>扫描 Profile
-        <select id="project-profile">
-          <option value="standard">standard（含 gitleaks，推荐）</option>
-          <option value="minimal">minimal（跳过 Secret 扫描）</option>
-        </select>
-      </label>
       <input id="project-files" type="file" multiple webkitdirectory directory>
       <button id="project-submit" class="primary">检查新版本</button>
       <div id="project-history"></div><div id="project-diff"></div>
@@ -43,37 +39,36 @@
     <button role="tab" aria-selected="false" data-tab="skill">检查 Agent Skill</button>
   </nav>
 
-  <details class="experimental" id="semantic-panel">
-    <summary>实验性：语义审查（默认关闭）</summary>
-    <p class="warn-box"><strong>⚠️ 实验性功能。</strong>语义审查由 LLM 判断，<strong>尚未通过 Verity 自己的质量门槛</strong>（最近一次评测误报率约 0.43，会漏报也会误报）。结果<strong>仅供参考，不是可信判定</strong>，请勿据此单独决策。确定性静态检查才是可靠结论。</p>
+  <details class="experimental panel" id="semantic-panel">
+    <summary>受控语义审查</summary>
+    <p class="warn-box"><strong>模型审查需要复核。</strong>语义结论会进入证据链与评分，但仍受 Provider 可用性、样本覆盖和证据质量影响；高风险结论请结合原文定位复查。</p>
     <label><input type="checkbox" id="semantic-enabled"> 启用语义审查（需配置下方 Provider）</label>
 
     <div id="provider-config" class="provider-config">
       <label>Provider 地址（OpenAI 兼容，如 OpenRouter）
-        <input type="text" id="provider-base-url" autocomplete="off">
+        <input type="text" id="provider-base-url" autocomplete="off" disabled>
       </label>
-      <label>API Key（只用于本机直连 Provider，<strong>不保存、不上传、不写日志</strong>）
-        <input type="password" id="provider-api-key" autocomplete="off" spellcheck="false">
+      <label>API Key（保存到本机 macOS 钥匙串，页面不会读取或显示原值）
+        <input type="password" id="provider-api-key" autocomplete="off" spellcheck="false" disabled>
       </label>
-      <button type="button" id="fetch-models-btn">拉取模型列表</button>
-      <span id="models-status" class="muted"></span>
+      <div class="provider-actions">
+        <button type="button" id="provider-save-btn" disabled>保存配置</button>
+        <button type="button" id="provider-clear-btn" disabled>清除配置</button>
+        <button type="button" id="fetch-models-btn" disabled>拉取模型列表</button>
+      </div>
+      <p id="provider-settings-status" class="muted" role="status"></p>
+      <p id="models-status" class="muted" role="status"></p>
       <label>生成器模型
-        <select id="generator-model"><option value="">（先拉取模型）</option></select>
+        <select id="generator-model" disabled><option value="">（先拉取模型）</option></select>
       </label>
       <label>校验器模型
-        <select id="validator-model"><option value="">（先拉取模型）</option></select>
-      </label>
-      <label>数据出境策略
-        <select id="egress-policy">
-          <option value="metadata_only">metadata_only（只发送位置/元信息）</option>
-          <option value="redacted_evidence">redacted_evidence（发送小段非敏感 evidence 文本）</option>
-        </select>
+        <select id="validator-model" disabled><option value="">（先拉取模型）</option></select>
       </label>
     </div>
-    <p class="muted">不会发送：完整原文、绝对路径、RedactionMap。API key 仅用于本机向 Provider 直连，用完即从内存清除。不填 Provider 时诚实返回 <code>provider_not_configured</code>。</p>
+    <p class="muted">不会发送完整原文、绝对路径或 RedactionMap；语义审查固定使用脱敏证据片段。API Key 只保存在当前 macOS 用户的钥匙串中。</p>
   </details>
 
-  <section id="tab-prompt" class="tab-panel" role="tabpanel">
+  <section id="tab-prompt" class="tab-panel panel" role="tabpanel">
     <h2>粘贴一段 Prompt / System Prompt</h2>
     <label>
       类型
@@ -89,26 +84,19 @@
     </div>
   </section>
 
-  <section id="tab-skill" class="tab-panel" role="tabpanel" hidden>
+  <section id="tab-skill" class="tab-panel panel" role="tabpanel" hidden>
     <h2>选择本地 Skill 文件夹</h2>
     <p class="muted">仅读取一次，不执行代码；符号链接、特殊文件、超预算的内容会被忽略。<strong>暂不支持</strong> ZIP / GitHub URL。</p>
-    <label>
-      扫描 Profile
-      <select id="skill-profile">
-        <option value="standard">standard（含 gitleaks 密钥扫描，推荐）</option>
-        <option value="minimal">minimal（不含密钥扫描；无法给出完整安全结论）</option>
-      </select>
-    </label>
     <input id="skill-files" type="file" multiple webkitdirectory directory>
     <div class="row">
       <span id="skill-count" class="muted">尚未选择文件</span>
       <button id="skill-submit" class="primary">开始审查</button>
     </div>
-    <p id="skill-minimal-note" class="warn" hidden>
-      ⚠ 你选择了 <code>minimal</code>：本次不会执行 Secret 扫描；哪怕未发现问题，也<strong>不能视为完整安全结论</strong>。
-    </p>
   </section>
 
+  </aside>
+
+  <section class="review-pane">
   <section id="loading" hidden aria-live="polite">
     <p>正在审查，请稍候……</p>
   </section>
@@ -127,6 +115,8 @@
     <div id="score-detail" class="section"></div>
     <div id="remediations" class="section"></div>
     <div id="findings" class="section"></div>
+    <div id="evidence-workbench" class="section"></div>
+    <div id="fix-workbench" class="section"></div>
     <div id="blocked" class="section"></div>
     <div id="analyzers" class="section"></div>
     <div id="semantic-view" class="section"></div>
@@ -139,6 +129,7 @@
   </section>
 
   <section id="error" hidden class="error"></section>
+  </section>
 </main>
 
 <footer class="muted">

@@ -624,14 +624,15 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
     ),
     "semantic.prompt.ambiguous_operational_criteria": Guidance(
         id="semantic.prompt.ambiguous_operational_criteria",
-        plainTitle="关键行为依赖没有边界的模糊标准",
+        plainTitle="任务目标、必要上下文或判定标准不完整",
         whyItMatters=(
-            "“适当”“较长”“必要时”等词如果决定条目数、分支或风险动作，却没有阈值，"
-            "不同模型和不同轮次会作出实质不同的选择。"
+            "提示词如果只描述风格、程度或零散约束，却没有说清任务对象、必要上下文或"
+            "可判定标准，不同模型和不同轮次会执行成实质不同的任务。"
         ),
         whatToDo=[
-            "把模糊程度词替换成数值范围、可观察条件或明确决策表。",
-            "如果必须保留主观判断，补充正反例和无法判定时的默认路径。",
+            "补齐要完成的操作、主要对象、必要上下文和可以验收的结果条件。",
+            "把模糊程度词替换成数值范围、可观察条件、正反例或明确决策表。",
+            "若文本只是可复用的风格片段，请明确标注其用途和需要由调用方补入的变量。",
         ], priority="P1",
     ),
     "semantic.prompt.grounding_requirement_gap": Guidance(

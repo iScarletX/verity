@@ -212,6 +212,7 @@ class TestJsonHttpProvider:
         val_cfg = _config(role="validator")
         cfg = SemanticConfig(
             enabled=True, egress_policy="metadata_only",
+            candidate_strategy="model_only",
             provider_config={"candidate_generator": gen_cfg,
                              "validator": val_cfg},
         )
@@ -236,6 +237,7 @@ class TestJsonHttpProvider:
 class _SemanticHandler(BaseHTTPRequestHandler):
     seen_paths = []
     seen_authorization = []
+    seen_inputs = []
 
     def do_POST(self):
         size = int(self.headers.get("Content-Length", "0"))
@@ -244,6 +246,7 @@ class _SemanticHandler(BaseHTTPRequestHandler):
         self.__class__.seen_authorization.append(
             self.headers.get("Authorization", ""))
         inp = wire["input"]
+        self.__class__.seen_inputs.append(inp)
         if self.path.endswith("candidate-generator"):
             evidence = inp.get("evidence") or []
             if inp["findingType"] == "semantic.prompt.instruction_conflict" and len(evidence) >= 2:
@@ -251,6 +254,9 @@ class _SemanticHandler(BaseHTTPRequestHandler):
                 evidence_ids = [evidence[0]["evidenceId"], evidence[1]["evidenceId"]]
             elif inp["findingType"] == "semantic.prompt.missing_output_contract" and evidence:
                 subject = {"expectedFormat": "json"}
+                evidence_ids = [evidence[0]["evidenceId"]]
+            elif inp["findingType"] == "semantic.prompt.example_contract_mismatch" and evidence:
+                subject = {"exampleGapKind": "rule_mismatch"}
                 evidence_ids = [evidence[0]["evidenceId"]]
             else:
                 subject = None
@@ -281,10 +287,11 @@ class _SemanticHandler(BaseHTTPRequestHandler):
         pass
 
 
-def test_cli_real_provider_end_to_end_without_public_network(tmp_path):
-    """Full CLI → two role endpoints → strict semantic Finding path."""
+def test_cli_catalog_first_provider_end_to_end_without_public_network(tmp_path):
+    """Full CLI → catalog hypothesis → real Validator → Finding path."""
     _SemanticHandler.seen_paths = []
     _SemanticHandler.seen_authorization = []
+    _SemanticHandler.seen_inputs = []
     server = ThreadingHTTPServer(("127.0.0.1", 0), _SemanticHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -305,7 +312,9 @@ def test_cli_real_provider_end_to_end_without_public_network(tmp_path):
             "--semantic-validator-url", base,
             "--semantic-validator-model", "validator-test",
             "--semantic-validator-api-key-env", "VERITY_TEST_PROVIDER_KEY",
-            "--text", "Return only JSON.\nAlso answer in prose, never JSON.",
+            "--text",
+            'Rule: return JSON with a required "status" field.\n'
+            'Example: {"state":"ok"}.',
             "--out", str(tmp_path),
         ], cwd=root, env=env, capture_output=True, text=True, timeout=30)
     finally:
@@ -321,7 +330,22 @@ def test_cli_real_provider_end_to_end_without_public_network(tmp_path):
     assert report["semantic"]["status"] == "completed"
     assert report["semantic"]["findings"]
     assert report["capabilities"]["semantic"]["status"] == "completed"
-    assert any(p.endswith("candidate-generator") for p in _SemanticHandler.seen_paths)
+    generator_inputs = [
+        inp for path, inp in zip(
+            _SemanticHandler.seen_paths, _SemanticHandler.seen_inputs)
+        if path.endswith("candidate-generator")
+    ]
+    sweep_inputs = [
+        inp for inp in generator_inputs
+        if inp["findingType"] == "semantic.catalog_sweep"
+    ]
+    assert len(sweep_inputs) == 1
+    assert sweep_inputs[0]["findingCatalog"]
+    assert all(
+        inp["findingType"] == "semantic.catalog_sweep"
+        or inp["findingType"].startswith("semantic.prompt.")
+        for inp in generator_inputs
+    )
     assert any(p.endswith("validator") for p in _SemanticHandler.seen_paths)
     assert set(_SemanticHandler.seen_authorization) == {"Bearer " + secret}
     assert secret not in proc.stdout

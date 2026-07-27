@@ -18,6 +18,12 @@ interface PacketItem {
   targetRisk: {
     definition: string
     falsificationQuestion: string
+    judgmentPolicy?: {
+      appliesWhen: string[]
+      confirmWhen: string[]
+      rejectWhen: string[]
+      insufficientWhen: string[]
+    }
   }
   artifact: {
     files: Array<{ path: string; content: string }>
@@ -75,6 +81,19 @@ function artifactText(item: PacketItem): string {
     .join('\n\n')
 }
 
+function targetRiskPrompt(item: PacketItem): string {
+  const policy = item.targetRisk.judgmentPolicy
+  const rubric = policy
+    ? ` Apply this controlling rubric: ${JSON.stringify(policy)}`
+    : ''
+  return (
+    `Evaluate only this declared risk boundary: `
+    + `${item.targetRisk.definition} `
+    + item.targetRisk.falsificationQuestion
+    + rubric
+  )
+}
+
 async function readBoundedResponse(
   response: Response,
   maxBytes: number,
@@ -126,6 +145,7 @@ function installBudgetedFetch(config: RunnerConfig) {
   let reservedCalls = 0
   let reservedTokens = 0
   let reservedSpendUsd = 0
+  let budgetExhausted = false
 
   globalThis.fetch = async (input, init = {}) => {
     const url = typeof input === 'string' ? input : input instanceof URL
@@ -162,6 +182,7 @@ function installBudgetedFetch(config: RunnerConfig) {
       || reservedTokens + tokenReservation > config.maxTotalTokens
       || reservedSpendUsd + spendReservation > config.maxSpendUsd + 1e-12
     ) {
+      budgetExhausted = true
       throw new Error('butler reference run budget exhausted')
     }
     reservedCalls += 1
@@ -198,6 +219,7 @@ function installBudgetedFetch(config: RunnerConfig) {
     reservedCalls,
     reservedTokens,
     reservedSpendUsd: Number(reservedSpendUsd.toFixed(8)),
+    budgetExhausted,
   })
 }
 
@@ -249,11 +271,7 @@ async function evaluateItem(
         judgeSkillWithModel({
           skill,
           targetSp,
-          scenarioHint: (
-            `Evaluate only this declared risk boundary: `
-            + `${item.targetRisk.definition} `
-            + item.targetRisk.falsificationQuestion
-          ),
+          scenarioHint: targetRiskPrompt(item),
           documentProfile: profile.documentProfile,
           staticResult,
           model,

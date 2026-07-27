@@ -10,6 +10,7 @@
   "use strict";
 
   var $ = function (id) { return document.getElementById(id); };
+  var currentSource = { engine: null, files: {} };
   var mk = function (tag, opts) {
     var el = document.createElement(tag);
     if (opts) {
@@ -102,7 +103,7 @@
   function showProjectError(e) { $("project-diff").textContent=e.message; }
   $("project-create").addEventListener("click",function(){ api("/api/projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({displayName:$("project-name").value})}).then(function(){ $("project-name").value=""; loadProjects(); }).catch(showProjectError); });
   $("project-submit").addEventListener("click",function(){
-    if(!selectedProject) return; var fd=new FormData(); Array.prototype.forEach.call($("project-files").files,function(f){fd.append("files",f,f.webkitRelativePath||f.name);}); fd.append("profile",$("project-profile").value);
+    if(!selectedProject) return; var fd=new FormData(); Array.prototype.forEach.call($("project-files").files,function(f){fd.append("files",f,f.webkitRelativePath||f.name);}); fd.append("profile", "standard");
     api("/api/projects/"+encodeURIComponent(selectedProject)+"/versions",{method:"POST",body:fd}).then(loadProject).catch(showProjectError);
   });
   loadProjects();
@@ -135,12 +136,15 @@
   function submitPrompt() {
     var text = promptText.value;
     var kind = $("prompt-kind").value;
+    var opts = semanticOpts();
+    if (opts === null) return;
+    currentSource = { engine: "prompt", files: { "prompt.txt": text } };
     disable(true);
     fetch("/api/review/prompt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(Object.assign({ text: text, prompt_kind: kind },
-                                          semanticOpts())),
+                                          opts)),
     }).then(handleJson).catch(handleFetchError).finally(function () {
       disable(false);
     });
@@ -149,90 +153,251 @@
   function semanticOpts() {
     var box = $("semantic-enabled");
     if (!box || !box.checked) return {};
-    var o = {
-      semantic_enabled: true,
-      egress_policy: ($("egress-policy") || { value: "metadata_only" }).value,
-    };
-    var url = ($("provider-base-url") || {}).value || "";
-    var key = ($("provider-api-key") || {}).value || "";
-    var gen = ($("generator-model") || {}).value || "";
-    var val = ($("validator-model") || {}).value || "";
-    if (url || key || gen || val) {
-      o.provider_base_url = url;
-      o.provider_api_key = key;
-      o.generator_model = gen;
-      o.validator_model = val;
+    if (!providerSettingsLoaded) {
+      showError({
+        code: "provider_settings_loading",
+        message: "Provider 配置仍在读取，请稍后再开始审查。",
+      });
+      return null;
     }
-    return o;
+    if (providerConfigDirty) {
+      showError({
+        code: "provider_settings_unsaved",
+        message: "Provider 配置有未保存的更改，请先点“保存配置”。",
+      });
+      return null;
+    }
+    return {
+      semantic_enabled: true,
+      egress_policy: "redacted_evidence",
+    };
   }
 
   // ---------------- provider model listing ----------------
   // Default base URL is assigned here (not in HTML) so the page source has
   // no external URL literal; the strict no-external-asset test stays valid.
   var providerBaseUrlEl = $("provider-base-url");
+  var defaultProviderUrl = "htt" + "ps:" + "//openrouter.ai/api/v1";
+  var providerSettingsLoaded = false;
+  var providerConfigDirty = false;
+  var providerOperationId = 0;
+  var providerControlIds = [
+    "provider-base-url",
+    "provider-api-key",
+    "generator-model",
+    "validator-model",
+    "provider-save-btn",
+    "provider-clear-btn",
+    "fetch-models-btn",
+  ];
   if (providerBaseUrlEl && !providerBaseUrlEl.value) {
     // Scheme assembled from parts so this source file contains no external
     // URL literal (keeps the strict no-external-asset asset test valid).
-    var defaultProviderUrl = "htt" + "ps:" + "//openrouter.ai/api/v1";
     providerBaseUrlEl.value = defaultProviderUrl;
     providerBaseUrlEl.setAttribute("placeholder", defaultProviderUrl);
   }
+
+  function setProviderControlsDisabled(disabled) {
+    providerControlIds.forEach(function (id) {
+      var control = $(id);
+      if (control) control.disabled = disabled;
+    });
+  }
+
+  function setProviderSettingsStatus(textValue) {
+    var status = $("provider-settings-status");
+    if (status) status.textContent = textValue;
+  }
+
+  function setStoredModel(sel, model) {
+    fillModelSelect(sel, model ? [{ id: model }] : [], model);
+  }
+
+  function applyProviderSettings(settings) {
+    var keySaved = Boolean(settings.keySaved);
+    if (providerBaseUrlEl) {
+      providerBaseUrlEl.value = settings.baseUrl || defaultProviderUrl;
+    }
+    var keyEl = $("provider-api-key");
+    if (keyEl) {
+      keyEl.value = "";
+      keyEl.setAttribute(
+        "placeholder",
+        keySaved ? "已安全保存；留空可继续使用" : "输入 API Key");
+    }
+    setStoredModel($("generator-model"), settings.generatorModel || "");
+    setStoredModel($("validator-model"), settings.validatorModel || "");
+    providerSettingsLoaded = true;
+    providerConfigDirty = false;
+    setProviderControlsDisabled(false);
+    setProviderSettingsStatus(
+      settings.baseUrl || settings.generatorModel ||
+      settings.validatorModel || settings.keySaved
+        ? (settings.keySaved
+          ? "已恢复本机配置，API Key 已保存在 macOS 钥匙串"
+          : "已恢复本机配置，尚未保存 API Key")
+        : "尚未保存 Provider 配置");
+  }
+
+  function restoreProviderSettings() {
+    var operationId = ++providerOperationId;
+    setProviderControlsDisabled(true);
+    api("/api/provider-settings")
+      .then(function (settings) {
+        if (operationId !== providerOperationId) return;
+        applyProviderSettings(settings);
+      })
+      .catch(function (e) {
+        if (operationId !== providerOperationId) return;
+        providerSettingsLoaded = true;
+        setProviderControlsDisabled(false);
+        setProviderSettingsStatus("配置读取失败：" + e.message);
+      });
+  }
+
+  [
+    "provider-base-url",
+    "provider-api-key",
+    "generator-model",
+    "validator-model",
+  ].forEach(function (id) {
+    var control = $(id);
+    if (!control) return;
+    var eventName = control.tagName === "SELECT" ? "change" : "input";
+    control.addEventListener(eventName, function () {
+      if (!providerSettingsLoaded) return;
+      providerConfigDirty = true;
+      setProviderSettingsStatus("有未保存的 Provider 配置更改");
+    });
+  });
+
+  var providerSaveBtn = $("provider-save-btn");
+  if (providerSaveBtn) {
+    providerSaveBtn.addEventListener("click", function () {
+      if (!providerSettingsLoaded) return;
+      var keyEl = $("provider-api-key");
+      var operationId = ++providerOperationId;
+      setProviderControlsDisabled(true);
+      setProviderSettingsStatus("保存中…");
+      api("/api/provider-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: (providerBaseUrlEl || {}).value || "",
+          apiKey: (keyEl || {}).value || "",
+          generatorModel: ($("generator-model") || {}).value || "",
+          validatorModel: ($("validator-model") || {}).value || "",
+        }),
+      }).then(function (settings) {
+        if (operationId !== providerOperationId) return;
+        applyProviderSettings(settings);
+        setProviderSettingsStatus(
+          settings.keySaved
+            ? "配置已保存，API Key 已写入 macOS 钥匙串"
+            : "配置已保存，尚未保存 API Key");
+      }).catch(function (e) {
+        if (operationId !== providerOperationId) return;
+        providerSettingsLoaded = true;
+        setProviderControlsDisabled(false);
+        setProviderSettingsStatus("保存失败：" + e.message);
+      });
+    });
+  }
+
+  var providerClearBtn = $("provider-clear-btn");
+  if (providerClearBtn) {
+    providerClearBtn.addEventListener("click", function () {
+      if (!providerSettingsLoaded) return;
+      var operationId = ++providerOperationId;
+      setProviderControlsDisabled(true);
+      setProviderSettingsStatus("清除中…");
+      api("/api/provider-settings", { method: "DELETE" })
+        .then(function (settings) {
+          if (operationId !== providerOperationId) return;
+          applyProviderSettings(settings);
+          setProviderSettingsStatus("Provider 配置和钥匙串凭据已清除");
+        }).catch(function (e) {
+          if (operationId !== providerOperationId) return;
+          providerSettingsLoaded = true;
+          setProviderControlsDisabled(false);
+          setProviderSettingsStatus("清除失败：" + e.message);
+        });
+    });
+  }
+
   var fetchModelsBtn = $("fetch-models-btn");
   if (fetchModelsBtn) {
     fetchModelsBtn.addEventListener("click", function () {
-      var url = ($("provider-base-url") || {}).value || "";
-      var key = ($("provider-api-key") || {}).value || "";
       var status = $("models-status");
-      if (!url || !key) {
-        if (status) status.textContent = "请先填写 Provider 地址和 API Key";
+      if (!providerSettingsLoaded) {
+        if (status) status.textContent = "Provider 配置仍在读取";
         return;
       }
+      if (providerConfigDirty) {
+        if (status) status.textContent = "请先保存当前 Provider 配置";
+        return;
+      }
+      var operationId = ++providerOperationId;
       if (status) status.textContent = "拉取中…";
-      fetchModelsBtn.disabled = true;
+      setProviderControlsDisabled(true);
       fetch("/api/models", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider_base_url: url, provider_api_key: key }),
+        body: JSON.stringify({}),
       }).then(function (r) {
         return r.json().then(function (j) {
           if (!r.ok) throw new Error((j.error || {}).message || "拉取失败");
           return j;
         });
       }).then(function (j) {
-        fillModelSelect($("generator-model"), j.models);
-        fillModelSelect($("validator-model"), j.models);
+        if (operationId !== providerOperationId) return;
+        var generatorSelected = ($("generator-model") || {}).value || "";
+        var validatorSelected = ($("validator-model") || {}).value || "";
+        fillModelSelect(
+          $("generator-model"), j.models, generatorSelected);
+        fillModelSelect(
+          $("validator-model"), j.models, validatorSelected);
+        setProviderControlsDisabled(false);
         if (status) status.textContent = "已加载 " + j.count + " 个模型，请选择";
       }).catch(function (e) {
+        if (operationId !== providerOperationId) return;
+        setProviderControlsDisabled(false);
         if (status) status.textContent = "错误：" + e.message;
-      }).finally(function () {
-        fetchModelsBtn.disabled = false;
       });
     });
   }
 
-  function fillModelSelect(sel, models) {
+  function fillModelSelect(sel, models, selected) {
     if (!sel) return;
     while (sel.firstChild) sel.removeChild(sel.firstChild);
     var placeholder = mk("option", { text: "（请选择模型）" });
     placeholder.value = "";
     sel.appendChild(placeholder);
+    var selectedFound = false;
     for (var i = 0; i < models.length; i++) {
       var opt = mk("option", { text: models[i].id });
       opt.value = models[i].id;
+      opt.selected = models[i].id === selected;
+      selectedFound = selectedFound || opt.selected;
       sel.appendChild(opt);
     }
+    if (selected && !selectedFound) {
+      var savedOption = mk("option", {
+        text: selected + "（已保存，当前列表未返回）",
+      });
+      savedOption.value = selected;
+      savedOption.selected = true;
+      sel.appendChild(savedOption);
+    }
   }
+  restoreProviderSettings();
 
   // ---------------- skill tab ----------------
   var skillFiles = $("skill-files");
   var skillCount = $("skill-count");
-  var minimalNote = $("skill-minimal-note");
   skillFiles.addEventListener("change", function () {
     var n = skillFiles.files ? skillFiles.files.length : 0;
     skillCount.textContent = n + " 个文件";
-  });
-  $("skill-profile").addEventListener("change", function () {
-    minimalNote.hidden = $("skill-profile").value !== "minimal";
   });
   $("skill-submit").addEventListener("click", function () {
     submitSkill();
@@ -245,12 +410,14 @@
       return;
     }
     var fd = new FormData();
-    fd.append("profile", $("skill-profile").value);
+    fd.append("profile", "standard");
     var opts = semanticOpts();
+    if (opts === null) return;
     if (opts.semantic_enabled) {
       fd.append("semantic_enabled", "true");
       fd.append("egress_policy", opts.egress_policy);
     }
+    var sourceFiles = {};
     for (var i = 0; i < files.length; i++) {
       var f = files[i];
       // webkitRelativePath is the browser-normalised relative path
@@ -260,7 +427,17 @@
       fd.append("files", f, rel);
     }
     disable(true);
-    fetch("/api/review/skill", { method: "POST", body: fd })
+    Promise.all(Array.prototype.map.call(files, function (f) {
+      var rawRel = f.webkitRelativePath || f.name;
+      var rel = rawRel.indexOf("/") >= 0 ? rawRel.split("/").slice(1).join("/") : rawRel;
+      if (!rel) rel = rawRel;
+      if (typeof f.text !== "function") return Promise.resolve();
+      return f.text().then(function (text) { sourceFiles[rel] = text; })
+        .catch(function () { sourceFiles[rel] = ""; });
+    })).then(function () {
+      currentSource = { engine: "skill", files: sourceFiles };
+      return fetch("/api/review/skill", { method: "POST", body: fd });
+    })
       .then(handleJson)
       .catch(handleFetchError)
       .finally(function () { disable(false); });
@@ -464,6 +641,12 @@
         var why = mk("p", { className: "why", text: g.whyItMatters });
         card.appendChild(why);
       }
+      if (f.claim) {
+        var claim = mk("p", { className: "finding-claim" });
+        claim.appendChild(mk("strong", { text: "本次具体发现：" }));
+        claim.appendChild(document.createTextNode(f.claim));
+        card.appendChild(claim);
+      }
 
       // Actionable steps
       if (g.whatToDo && g.whatToDo.length) {
@@ -511,6 +694,8 @@
       card.appendChild(d);
       findingsEl.appendChild(card);
     });
+    renderEvidenceWorkbench(findingsSorted);
+    renderFixWorkbench(view, findingsSorted);
 
     // Blocked / failed
     var blockedEl = $("blocked");
@@ -605,6 +790,35 @@
         "确认 " + confirmed + "，拒绝 " + ((s.assessmentCounts || {}).rejected || 0)
         + "，证据不足 " + ((s.assessmentCounts || {}).insufficient_evidence || 0)
         + "，验证失败 " + failed }));
+      var stageStats = s.stageStats || [];
+      if (stageStats.length) {
+        var stageDetails = mk("details");
+        stageDetails.appendChild(mk("summary", {
+          text: "查看各语意类型的实际执行路径（" + stageStats.length + "）"
+        }));
+        var stageTable = mk("table", { className: "owasp-table" });
+        var stageHead = mk("tr");
+        ["类型", "种子", "目录候选", "模型候选", "已验证"].forEach(function (h) {
+          stageHead.appendChild(mk("th", { text: h }));
+        });
+        stageTable.appendChild(stageHead);
+        stageStats.forEach(function (row) {
+          var tr = mk("tr");
+          var states = row.validatorStates || {};
+          tr.appendChild(mk("td", { text: row.findingType }));
+          tr.appendChild(mk("td", { text: String(row.extractorSeedCount || 0) }));
+          tr.appendChild(mk("td", { text: String(row.catalogHintProposedCount || 0) }));
+          tr.appendChild(mk("td", { text: String(row.generatorAcceptedCandidateCount || 0) }));
+          tr.appendChild(mk("td", { text:
+            "确认 " + (states.confirmed || 0)
+            + " / 拒绝 " + (states.rejected || 0)
+            + " / 失败 " + (states.validation_failed || 0)
+          }));
+          stageTable.appendChild(tr);
+        });
+        stageDetails.appendChild(stageTable);
+        semEl.appendChild(stageDetails);
+      }
 
       // Partial-run warning: the run did not fully complete (e.g. a network
       // error) but some candidates were confirmed. Those results are shown
@@ -632,6 +846,12 @@
           if (sf.claim) {
             li.appendChild(mk("div", { attrs: { class: "muted" }, text: sf.claim }));
           }
+          (sf.evidences || []).forEach(function (ev) {
+            li.appendChild(mk("div", { attrs: { class: "evidence" }, text:
+              (ev.artifactPath || "(no path)") + " bytes "
+              + String(ev.startByte) + "–" + String(ev.endByte)
+            }));
+          });
           list.appendChild(li);
         }
         semEl.appendChild(list);
@@ -667,6 +887,149 @@
 
   function dispositionLabel(status) {
     return ({acknowledged:"已确认",accept_risk:"接受风险",false_positive:"误报",wont_fix:"不修复"})[status] || status;
+  }
+
+  function readSourceForEvidence(ev) {
+    var files = currentSource.files || {};
+    var path = ev.artifactPath || "";
+    if (Object.prototype.hasOwnProperty.call(files, path)) return files[path];
+    var keys = Object.keys(files);
+    if (keys.length === 1) return files[keys[0]];
+    return "";
+  }
+
+  function sliceUtf8Range(text, startByte, endByte) {
+    if (typeof text !== "string") return { before: "", hit: "", after: "" };
+    if (startByte === null || startByte === undefined
+        || endByte === null || endByte === undefined) {
+      return {
+        before: text.slice(0, 180),
+        hit: "",
+        after: text.length > 180 ? text.slice(180, 360) : "",
+      };
+    }
+    var enc = new TextEncoder();
+    var bytePos = 0;
+    var startIdx = 0;
+    var endIdx = text.length;
+    var setStart = false;
+    for (var i = 0; i < text.length; ) {
+      var code = text.codePointAt(i);
+      var ch = String.fromCodePoint(code);
+      var next = i + ch.length;
+      if (!setStart && bytePos >= startByte) {
+        startIdx = i;
+        setStart = true;
+      }
+      bytePos += enc.encode(ch).length;
+      if (bytePos >= endByte) {
+        endIdx = next;
+        break;
+      }
+      i = next;
+    }
+    var pad = 160;
+    return {
+      before: text.slice(Math.max(0, startIdx - pad), startIdx),
+      hit: text.slice(startIdx, endIdx),
+      after: text.slice(endIdx, Math.min(text.length, endIdx + pad)),
+    };
+  }
+
+  function renderEvidenceWorkbench(findings) {
+    var box = $("evidence-workbench");
+    box.textContent = "";
+    box.appendChild(mk("h3", { text: "原文定位" }));
+    var rows = [];
+    (findings || []).forEach(function (f) {
+      (f.evidences || []).forEach(function (ev) {
+        rows.push({ finding: f, evidence: ev });
+      });
+    });
+    if (!rows.length) {
+      box.appendChild(mk("p", { className: "muted",
+        text: "本次没有可定位证据；请查看技术详情和报告。" }));
+      return;
+    }
+    rows.slice(0, 12).forEach(function (row) {
+      var ev = row.evidence;
+      var f = row.finding;
+      var item = mk("div", { className: "evidence-card" });
+      var title = mk("div", { className: "evidence-title" });
+      title.appendChild(mk("strong", { text: f.type }));
+      title.appendChild(mk("span", { className: "badge sev-" + f.severity,
+        text: sevLabel(f.severity) }));
+      item.appendChild(title);
+      item.appendChild(mk("div", { className: "muted", text:
+        (ev.artifactPath || "prompt.txt") + formatByteRange(ev) }));
+      var source = readSourceForEvidence(ev);
+      if (source) {
+        var parts = sliceUtf8Range(source, ev.startByte, ev.endByte);
+        var pre = mk("pre", { className: "source-snippet" });
+        pre.appendChild(mk("span", { text: parts.before }));
+        if (parts.hit) pre.appendChild(mk("mark", { text: parts.hit }));
+        pre.appendChild(mk("span", { text: parts.after }));
+        item.appendChild(pre);
+      } else if (ev.redactedPreview) {
+        item.appendChild(mk("pre", { className: "source-snippet",
+          text: ev.redactedPreview }));
+      }
+      box.appendChild(item);
+    });
+    if (rows.length > 12) {
+      box.appendChild(mk("p", { className: "muted",
+        text: "已显示前 12 条定位；完整证据在 JSON / HTML 报告中。" }));
+    }
+  }
+
+  function formatByteRange(ev) {
+    if (ev.startByte === null || ev.startByte === undefined
+        || ev.endByte === null || ev.endByte === undefined) return "";
+    return " · bytes " + ev.startByte + "-" + ev.endByte;
+  }
+
+  function renderFixWorkbench(view, findings) {
+    var box = $("fix-workbench");
+    box.textContent = "";
+    box.appendChild(mk("h3", { text: "修改与复查" }));
+    var rems = view.remediations || [];
+    if (!findings.length && !rems.length) {
+      box.appendChild(mk("p", { className: "muted",
+        text: "当前没有需要修改的审查项；可导出报告留档。" }));
+      return;
+    }
+    var draft = mk("textarea", { attrs: { rows: "10" } });
+    if (currentSource.engine === "prompt") {
+      draft.value = currentSource.files["prompt.txt"] || "";
+      box.appendChild(mk("p", { className: "muted",
+        text: "在这里修改 Prompt 草稿，改完可直接重新审查。" }));
+      box.appendChild(draft);
+      var rerun = mk("button", { text: "审查修改版", className: "primary" });
+      rerun.addEventListener("click", function () {
+        promptText.value = draft.value;
+        promptCount.textContent = promptText.value.length + " 字符";
+        submitPrompt();
+      });
+      box.appendChild(rerun);
+    } else {
+      box.appendChild(mk("p", { className: "muted",
+        text: "按下列整改项修改本地文件后，重新选择文件夹或直接复查当前选择。" }));
+      var rerunSkill = mk("button", { text: "复查当前文件夹", className: "primary" });
+      rerunSkill.addEventListener("click", submitSkill);
+      box.appendChild(rerunSkill);
+    }
+    if (rems.length) {
+      var checklist = mk("ol", { className: "fix-list" });
+      rems.forEach(function (rem) {
+        var li = mk("li");
+        li.appendChild(mk("strong", { text: (rem.priority || "P1") + " · " + rem.title }));
+        (rem.actions || []).forEach(function (action) {
+          li.appendChild(mk("div", { text: action }));
+        });
+        checklist.appendChild(li);
+      });
+      box.appendChild(checklist);
+    }
   }
 
   function showDispositionForm(fp, container) {

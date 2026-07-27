@@ -17,8 +17,11 @@ from verity.semantic_benchmark import (
     BUTLER_REFERENCE_SKILL_MAP_VERSION,
     COMPARISON_PROTOCOL_ID,
     COMPARISON_PROTOCOL_VERSION,
+    COMPARISON_PROTOCOL_V4,
+    COMPARISON_PROTOCOL_V5,
     COMPARISON_THRESHOLDS,
     DEFAULT_COMPARISON_MAX_TOTAL_CALLS,
+    PROTOCOL_V5_EVALUATION_POLICY,
     _packet_item_digest,
     butler_breadth_summary,
     build_independent_label_attestation,
@@ -95,7 +98,7 @@ SUBJECTS = {
 
 
 def _observations(packet, runs_by_item, repetitions=2):
-    return {
+    observations = {
         "schemaVersion": 1,
         "protocolId": COMPARISON_PROTOCOL_ID,
         "protocolVersion": COMPARISON_PROTOCOL_VERSION,
@@ -109,6 +112,9 @@ def _observations(packet, runs_by_item, repetitions=2):
             for item in packet["items"]
         ],
     }
+    if packet["systemId"] == "butler":
+        observations["runHealth"] = {"budgetExhausted": False}
+    return observations
 
 
 def _complete_butler_crosswalk():
@@ -143,6 +149,122 @@ def test_v3_development_manifest_is_fresh_paired_and_seeded():
     assert COMPARISON_THRESHOLDS["minimumFindingTypeCount"] == 28
     assert validate_semantic_comparison_seed_coverage() == 112
     assert DEFAULT_COMPARISON_MAX_TOTAL_CALLS >= 112 * 2 * 2
+
+
+def test_v4_packet_carries_catalog_rubric_without_answer_metadata(tmp_path):
+    source = json.loads(
+        (ROOT / "evals/corpus/v1/semantic_comparison_v3.json").read_text(
+            "utf-8"))
+    source["protocolVersion"] = COMPARISON_PROTOCOL_V4
+    source["status"] = "hidden_holdout"
+    manifest_path = tmp_path / "semantic-comparison-v4.json"
+    manifest_path.write_text(
+        json.dumps(source, ensure_ascii=False), encoding="utf-8")
+
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="label-reviewer-v4",
+        seed="round60-v4-policy-packet",
+        manifest_path=manifest_path)
+    v3_packet, _v3_mapping = build_semantic_comparison_packet(
+        system_id="label-reviewer-v3",
+        seed="round60-v4-policy-packet")
+
+    assert packet["protocolVersion"] == COMPARISON_PROTOCOL_V4
+    assert mapping["protocolVersion"] == COMPARISON_PROTOCOL_V4
+    assert packet["corpusFingerprint"] != v3_packet["corpusFingerprint"]
+    assert all(set(item["targetRisk"]["judgmentPolicy"]) == {
+        "appliesWhen", "confirmWhen", "rejectWhen", "insufficientWhen",
+    } for item in packet["items"])
+    assert all(
+        all(policy_values)
+        for item in packet["items"]
+        for policy_values in item["targetRisk"]["judgmentPolicy"].values()
+    )
+    packet_text = json.dumps(packet, sort_keys=True)
+    assert "authorAssessment" not in packet_text
+    assert "findingType" not in packet_text
+
+
+def test_v4_packet_refuses_missing_catalog_rubric(tmp_path):
+    source = json.loads(
+        (ROOT / "evals/corpus/v1/semantic_comparison_v3.json").read_text(
+            "utf-8"))
+    source["protocolVersion"] = COMPARISON_PROTOCOL_V4
+    source["status"] = "hidden_holdout"
+    manifest_path = tmp_path / "semantic-comparison-v4.json"
+    manifest_path.write_text(json.dumps(source), encoding="utf-8")
+    packet, _mapping = build_semantic_comparison_packet(
+        system_id="verity", seed="round60-v4-missing-policy",
+        manifest_path=manifest_path)
+    packet["items"][0]["targetRisk"].pop("judgmentPolicy")
+    with pytest.raises(CorpusError, match="target risk invalid"):
+        semantic_head_to_head._validate_mapping({}, packet)
+
+
+def test_v5_manifest_binds_product_strategy_and_label_policy(tmp_path):
+    source = json.loads(
+        (ROOT / "evals/corpus/v1/semantic_comparison_v3.json").read_text(
+            "utf-8"))
+    source["protocolVersion"] = COMPARISON_PROTOCOL_V5
+    source["status"] = "hidden_holdout"
+    source["evaluationPolicy"] = dict(PROTOCOL_V5_EVALUATION_POLICY)
+    manifest_path = tmp_path / "semantic-comparison-v5.json"
+    manifest_path.write_text(json.dumps(source), encoding="utf-8")
+
+    manifest = load_semantic_comparison_manifest(manifest_path)
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="verity", seed="round63-v5-frozen-product-policy",
+        manifest_path=manifest_path)
+
+    assert manifest["evaluationPolicy"] == {
+        "candidateStrategy": "catalog_first",
+        "labelDisagreementPolicy": "require_adjudication",
+        "minimumIndependentReviewers": 2,
+    }
+    assert packet["protocolVersion"] == COMPARISON_PROTOCOL_V5
+    assert mapping["protocolVersion"] == COMPARISON_PROTOCOL_V5
+    assert all("judgmentPolicy" in item["targetRisk"]
+               for item in packet["items"])
+
+
+def test_v5_runner_refuses_strategy_different_from_frozen_policy(tmp_path):
+    source = json.loads(
+        (ROOT / "evals/corpus/v1/semantic_comparison_v3.json").read_text(
+            "utf-8"))
+    source["protocolVersion"] = COMPARISON_PROTOCOL_V5
+    source["status"] = "hidden_holdout"
+    source["evaluationPolicy"] = dict(PROTOCOL_V5_EVALUATION_POLICY)
+    manifest_path = tmp_path / "semantic-comparison-v5.json"
+    manifest_path.write_text(json.dumps(source), encoding="utf-8")
+    packet, mapping = build_semantic_comparison_packet(
+        system_id="verity", seed="round63-v5-strategy-mismatch",
+        manifest_path=manifest_path)
+
+    with pytest.raises(
+            CorpusError, match="differs from frozen policy"):
+        evaluate_verity_comparison_observations(
+            packet=packet, mapping=mapping, repetitions=2,
+            generator=None, validator=None,
+            generator_config=None, validator_config=None,
+            candidate_strategy="model_only",
+            manifest_path=manifest_path)
+
+
+def test_v5_manifest_rejects_non_product_candidate_strategy(tmp_path):
+    source = json.loads(
+        (ROOT / "evals/corpus/v1/semantic_comparison_v3.json").read_text(
+            "utf-8"))
+    source["protocolVersion"] = COMPARISON_PROTOCOL_V5
+    source["status"] = "hidden_holdout"
+    source["evaluationPolicy"] = {
+        **PROTOCOL_V5_EVALUATION_POLICY,
+        "candidateStrategy": "model_only",
+    }
+    manifest_path = tmp_path / "semantic-comparison-v5.json"
+    manifest_path.write_text(json.dumps(source), encoding="utf-8")
+
+    with pytest.raises(CorpusError, match="evaluation policy invalid"):
+        load_semantic_comparison_manifest(manifest_path)
 
 
 def test_butler_reference_skill_map_covers_every_semantic_type():
@@ -257,6 +379,18 @@ def test_observations_require_complete_repeated_scrubbed_rows():
     assert validate_observations(value, packet) is value
     value["observations"][0]["runs"] = ["absent"]
     with pytest.raises(CorpusError, match="runs invalid"):
+        validate_observations(value, packet)
+
+
+def test_butler_observations_accept_only_strict_run_health():
+    packet, _mapping = build_semantic_comparison_packet(
+        system_id="butler", seed="round60-butler-health-schema")
+    runs = {item["itemId"]: ["absent", "absent"]
+            for item in packet["items"]}
+    value = _observations(packet, runs)
+    assert validate_observations(value, packet) is value
+    value["runHealth"]["budgetExhausted"] = "false"
+    with pytest.raises(CorpusError, match="run health invalid"):
         validate_observations(value, packet)
 
 
@@ -415,6 +549,28 @@ def _synthetic_pair(case_count=112):
     )
 
 
+def _as_hidden_v4(pair):
+    """Upgrade a synthetic metric fixture to the hidden-holdout protocol."""
+    vp, vm, vo, bp, bm, bo, labels = deepcopy(pair)
+    policy = {
+        "appliesWhen": ["The synthetic target applies."],
+        "confirmWhen": ["The synthetic target is present."],
+        "rejectWhen": ["The synthetic target is absent."],
+        "insufficientWhen": ["The artifact is incomplete."],
+    }
+    for packet, mapping, observations in (
+            (vp, vm, vo), (bp, bm, bo)):
+        packet["protocolVersion"] = COMPARISON_PROTOCOL_V4
+        mapping["protocolVersion"] = COMPARISON_PROTOCOL_V4
+        observations["protocolVersion"] = COMPARISON_PROTOCOL_V4
+        for item in packet["items"]:
+            item["targetRisk"]["judgmentPolicy"] = policy
+            mapping["aliases"][item["itemId"]]["packetItemDigest"] = (
+                _packet_item_digest(item))
+    labels["protocolVersion"] = COMPARISON_PROTOCOL_V4
+    return vp, vm, vo, bp, bm, bo, labels
+
+
 def test_superiority_claim_requires_absolute_and_relative_gate():
     (vp, vm, vo, bp, bm, bo, labels) = _synthetic_pair()
     report = compare_semantic_systems(
@@ -434,6 +590,39 @@ def test_superiority_claim_requires_absolute_and_relative_gate():
     assert all(report["relativeChecks"].values())
 
 
+def test_hidden_holdout_label_disagreements_require_adjudication():
+    vp, vm, vo, bp, bm, bo, labels = _as_hidden_v4(_synthetic_pair())
+    labels["labels"][0]["assessment"] = "absent"
+    report = compare_semantic_systems(
+        verity_packet=vp, verity_mapping=vm, verity_observations=vo,
+        butler_packet=bp, butler_mapping=bm, butler_observations=bo,
+        label_attestation=labels,
+        butler_crosswalk=_complete_butler_crosswalk())
+    assert report["status"] == "not_eligible"
+    assert report["reasonCodes"] == ["labels_require_adjudication"]
+    assert report["claim"] is None
+    assert report["labelQuality"] == {
+        "status": "requires_adjudication",
+        "policy": (
+            "blind_consensus_must_match_precommitted_provisional_labels"),
+        "caseCount": 112,
+        "disagreementCount": 1,
+        "disagreementCaseIds": ["case-000"],
+    }
+
+
+def test_hidden_holdout_label_quality_gate_passes_full_agreement():
+    vp, vm, vo, bp, bm, bo, labels = _as_hidden_v4(_synthetic_pair())
+    report = compare_semantic_systems(
+        verity_packet=vp, verity_mapping=vm, verity_observations=vo,
+        butler_packet=bp, butler_mapping=bm, butler_observations=bo,
+        label_attestation=labels,
+        butler_crosswalk=_complete_butler_crosswalk())
+    assert report["status"] == "passed"
+    assert report["labelQuality"]["status"] == "passed"
+    assert report["labelQuality"]["disagreementCount"] == 0
+
+
 def test_real_crosswalk_allows_claim_when_metrics_and_labels_pass():
     vp, vm, vo, bp, bm, bo, labels = _synthetic_pair()
     report = compare_semantic_systems(
@@ -445,6 +634,86 @@ def test_real_crosswalk_allows_claim_when_metrics_and_labels_pass():
     assert report["claim"] == (
         "verity_exceeds_butler_on_this_independently_labelled_benchmark")
     assert report["butlerBreadth"]["openGapCount"] == 0
+
+
+def test_butler_baseline_requires_explicit_healthy_run_metadata():
+    vp, vm, vo, bp, bm, bo, labels = _synthetic_pair()
+    bo.pop("runHealth")
+    report = compare_semantic_systems(
+        verity_packet=vp, verity_mapping=vm, verity_observations=vo,
+        butler_packet=bp, butler_mapping=bm, butler_observations=bo,
+        label_attestation=labels,
+        butler_crosswalk=_complete_butler_crosswalk())
+    assert report["status"] == "not_eligible"
+    assert report["reasonCodes"] == ["butler_baseline_health_missing"]
+    assert report["claim"] is None
+    assert "relativeChecks" not in report
+
+
+def test_butler_budget_exhaustion_invalidates_an_accurate_baseline():
+    vp, vm, vo, bp, bm, bo, labels = _synthetic_pair()
+    bo["runHealth"]["budgetExhausted"] = True
+    report = compare_semantic_systems(
+        verity_packet=vp, verity_mapping=vm, verity_observations=vo,
+        butler_packet=bp, butler_mapping=bm, butler_observations=bo,
+        label_attestation=labels,
+        butler_crosswalk=_complete_butler_crosswalk())
+    assert report["status"] == "not_eligible"
+    assert report["reasonCodes"] == ["butler_baseline_budget_exhausted"]
+    assert report["claim"] is None
+    assert "relativeChecks" not in report
+
+
+def test_butler_errors_invalidate_filtered_high_recall():
+    vp, vm, vo, bp, bm, bo, labels = _synthetic_pair()
+    for row in bo["observations"][:7]:
+        row["runs"] = ["error", "error"]
+    report = compare_semantic_systems(
+        verity_packet=vp, verity_mapping=vm, verity_observations=vo,
+        butler_packet=bp, butler_mapping=bm, butler_observations=bo,
+        label_attestation=labels,
+        butler_crosswalk=_complete_butler_crosswalk())
+    assert report["status"] == "not_eligible"
+    assert report["reasonCodes"] == [
+        "butler_baseline_error_rate_exceeded",
+        "butler_baseline_success_coverage_insufficient",
+    ]
+    assert report["butlerHealth"]["successfulRuns"] == 210
+    assert report["verity"]["recall"] == 1.0
+    assert "butler" not in report
+    assert "relativeChecks" not in report
+
+
+def test_butler_budget_snapshot_is_strict_and_bound_to_frozen_limits():
+    limits = {
+        "maxTotalCalls": 448,
+        "maxTotalTokens": 1_000_000,
+        "maxSpendUsd": 10.0,
+    }
+    snapshot = {
+        "schemaVersion": 1,
+        "method": (
+            "utf8_request_bytes_plus_1024_and_max_output_reservation"),
+        "maxCalls": 448,
+        "maxTotalTokens": 1_000_000,
+        "maxSpendUsd": 10.0,
+        "reservedCalls": 224,
+        "reservedTokens": 500_000,
+        "reservedSpendUsd": 5.0,
+        "budgetExhausted": False,
+    }
+    assert semantic_head_to_head._validate_butler_budget_snapshot(
+        snapshot, limits) is snapshot
+    invalid = deepcopy(snapshot)
+    invalid["reservedCalls"] = 449
+    with pytest.raises(CorpusError, match="budget count invalid"):
+        semantic_head_to_head._validate_butler_budget_snapshot(
+            invalid, limits)
+    invalid = deepcopy(snapshot)
+    invalid["unexpected"] = True
+    with pytest.raises(CorpusError, match="budget schema invalid"):
+        semantic_head_to_head._validate_butler_budget_snapshot(
+            invalid, limits)
 
 
 def test_label_attestation_is_derived_from_two_distinct_consensus_reviews():
@@ -541,6 +810,44 @@ def test_label_attestation_accepts_three_reviewer_majority():
         reviewer_c_observations=observations_c)
 
     assert len(attestation["reviewers"]) == 3
+    assert len(attestation["labels"]) == 112
+
+
+def test_label_attestation_allows_case_level_reviewer_abstention():
+    packet_a, map_a = build_semantic_comparison_packet(
+        system_id="label-reviewer-a", seed="round60-label-abstain-a")
+    packet_b, map_b = build_semantic_comparison_packet(
+        system_id="label-reviewer-b", seed="round60-label-abstain-b")
+    packet_c, map_c = build_semantic_comparison_packet(
+        system_id="label-reviewer-c", seed="round60-label-abstain-c")
+
+    def reviewed(packet, mapping, fingerprint):
+        observations = _observations(
+            packet, {
+                alias: [metadata["authorAssessment"]] * 3
+                for alias, metadata in mapping["aliases"].items()
+            }, repetitions=3)
+        observations["configurationFingerprint"] = fingerprint
+        return observations
+
+    observations_a = reviewed(packet_a, map_a, "1" * 64)
+    observations_b = reviewed(packet_b, map_b, "2" * 64)
+    observations_c = reviewed(packet_c, map_c, "3" * 64)
+    first_b = observations_b["observations"][0]["runs"][0]
+    observations_b["observations"][0]["runs"] = [
+        first_b,
+        "absent" if first_b == "present" else "present",
+        "error",
+    ]
+
+    attestation = build_independent_label_attestation(
+        reviewer_a_packet=packet_a, reviewer_a_mapping=map_a,
+        reviewer_a_observations=observations_a,
+        reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
+        reviewer_b_observations=observations_b,
+        reviewer_c_packet=packet_c, reviewer_c_mapping=map_c,
+        reviewer_c_observations=observations_c)
+
     assert len(attestation["labels"]) == 112
 
 
@@ -798,12 +1105,15 @@ def test_verity_observation_runner_is_label_free_and_complete(monkeypatch):
     generator_config = ProviderConfig(
         role="candidate_generator", **common)
     validator_config = ProviderConfig(role="validator", **common)
+    diagnostics = {}
     observations = evaluate_verity_comparison_observations(
         packet=packet, mapping=mapping, repetitions=2,
         generator=_CandidateProvider(), validator=_RejectingValidator(),
         generator_config=generator_config,
         validator_config=validator_config,
-        role_prompt_version="3.0.0")
+        candidate_strategy="model_only",
+        role_prompt_version="3.0.0",
+        diagnostics_out=diagnostics)
     assert len(observations["observations"]) == 112
     assert all(row["runs"] == ["absent", "absent"]
                for row in observations["observations"])
@@ -811,6 +1121,16 @@ def test_verity_observation_runner_is_label_free_and_complete(monkeypatch):
     assert "authorAssessment" not in serialized
     assert "Bounded test claim" not in serialized
     assert "local-test-value" not in serialized
+    serialized_diagnostics = json.dumps(diagnostics)
+    assert len(diagnostics["items"]) == 112
+    assert all(len(row["runs"]) == 2 for row in diagnostics["items"])
+    assert all(
+        run["stage"] is not None
+        for row in diagnostics["items"] for run in row["runs"])
+    for forbidden in (
+            "authorAssessment", "findingType", "riskId",
+            "Bounded test claim", "local-test-value"):
+        assert forbidden not in serialized_diagnostics
 
 
 def test_verity_runner_cannot_masquerade_as_an_independent_label_reviewer(
@@ -831,6 +1151,7 @@ def test_verity_runner_cannot_masquerade_as_an_independent_label_reviewer(
             generator_config=ProviderConfig(
                 role="candidate_generator", **common),
             validator_config=ProviderConfig(role="validator", **common),
+            candidate_strategy="model_only",
             role_prompt_version="3.0.0")
 
 
@@ -934,3 +1255,6 @@ def test_butler_reference_response_body_has_a_streaming_byte_cap():
     assert "async function readBoundedResponse(" in source
     assert "totalBytes > maxBytes" in source
     assert "response.arrayBuffer()" not in source
+    assert "function targetRiskPrompt(" in source
+    assert "item.targetRisk.judgmentPolicy" in source
+    assert "Apply this controlling rubric" in source

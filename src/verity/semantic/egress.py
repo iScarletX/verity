@@ -113,39 +113,63 @@ def _metadata_view(metadata: Dict[str, Any]) -> Dict[str, Any]:
     if role == "prompt_analysis":
         allowed_counts = (
             "sourceSignalCount", "mitigationSignalCount",
+            "unboundedSourceSegmentCount",
             "toolDeclarationCount", "approvalSignalCount",
+            "highImpactToolSignalCount", "readOnlyTaskSignalCount",
+            "noApprovalSignalCount",
             "pressureSignalCount", "limitSignalCount",
             "prioritySignalCount", "continuationSignalCount",
+            "uncoveredBudgetTradeoffCount",
             "autonomySignalCount", "sideEffectSignalCount",
+            "uncoveredAutonomousActionCount",
             "operationSignalCount", "strategySignalCount",
+            "uncoveredFailureOperationCount",
             "vagueCriterionCount", "boundaryMarkerCount",
+            "visualStyleSignalCount", "visualTaskDirectiveCount",
+            "visualSubjectAnchorCount",
             "groundingSignalCount", "reasoningSignalCount",
+            "uncoveredGroundingTaskCount",
             "exposureSignalCount", "containmentSignalCount",
+            "uncoveredReasoningExposureCount",
             "requirementSignalCount", "verificationSignalCount",
-            "downstreamSignalCount",
+            "downstreamSignalCount", "bypassReviewSignalCount",
+            "uncoveredVerificationRequirementCount",
             "inputSignalCount", "requirednessSignalCount",
             "defaultSignalCount", "invalidInputSignalCount",
             "handlingSignalCount", "exampleSignalCount", "ruleSignalCount",
+            "normativeExampleViolationCount",
             "boundaryExampleSignalCount", "failureExampleSignalCount",
             "exampleQualitySignalCount",
             "toolCallSignalCount", "invocationSignalCount",
-            "parameterSignalCount", "resultContractSignalCount",
+            "parameterSignalCount", "parameterControlSignalCount",
+            "resultContractSignalCount",
             "capabilitySignalCount", "provisionSignalCount",
             "fallbackSignalCount", "sensitiveDataSignalCount",
             "dataActionSignalCount", "dataControlSignalCount",
+            "minimizationSignalCount", "redactionSignalCount",
+            "authorizationControlSignalCount", "retentionControlSignalCount",
+            "outboundDisclosureSignalCount", "collectionStorageSignalCount",
             "roleSignalCount", "audienceSignalCount", "dutySignalCount",
             "exclusionSignalCount", "workflowSignalCount",
             "dependencySignalCount", "intermediateResultSignalCount",
-            "workflowBranchSignalCount", "fieldSignalCount",
+            "workflowBranchSignalCount",
+            "sideEffectBeforeValidationSignalCount",
+            "sideEffectBeforePreparationSignalCount",
+            "fieldSignalCount", "machineConsumerSignalCount",
             "fieldTypeSignalCount", "unitPrecisionSignalCount",
             "rangeSignalCount", "boundaryValueSignalCount",
             "errorResponseSignalCount", "errorSchemaSignalCount",
             "recoverySignalCount", "errorFormatSignalCount",
             "structureSignalCount", "hierarchySignalCount",
             "repetitionSignalCount", "promptLineCount",
-            "promptCharacterCount", "streamingSignalCount",
+            "promptCharacterCount", "criticalRuleLineIndex",
+            "streamingSignalCount",
             "framingSignalCount", "completionSignalCount",
             "resumeSignalCount", "partialStreamSignalCount",
+            "explicitMissingFramingCount",
+            "explicitMissingCompletionCount",
+            "explicitMissingResumeCount",
+            "explicitMissingPartialCount",
             "multiTurnSignalCount", "stateInheritanceSignalCount",
             "stateUpdateSignalCount", "stateResetSignalCount",
             "stateInvariantSignalCount", "safetyDomainSignalCount",
@@ -153,9 +177,12 @@ def _metadata_view(metadata: Dict[str, Any]) -> Dict[str, Any]:
             "escalationSignalCount", "sourceUseSignalCount",
             "attributionSignalCount", "transformationSignalCount",
             "sourceLimitSignalCount",
+            "sweepChunkIndex", "sweepChunkCount",
+            "sweepCoverageCompleteCount",
         )
         view = {
             "evidenceRole": role,
+            "evidenceScope": _capped(metadata.get("evidenceScope", "")),
             "signalFamilies": _string_list(
                 metadata.get("signalFamilies"), maximum=12),
             "operationKinds": _string_list(
@@ -168,7 +195,7 @@ def _metadata_view(metadata: Dict[str, Any]) -> Dict[str, Any]:
                 view[key] = _small_int(metadata.get(key))
         return view
     if role == "manifest_declaration":
-        return {
+        view = {
             "evidenceRole": role,
             "declaredPermissionFamilies": _string_list(
                 metadata.get("declaredPermissionFamilies"), maximum=12),
@@ -178,7 +205,22 @@ def _metadata_view(metadata: Dict[str, Any]) -> Dict[str, Any]:
                 metadata.get("declaredCapabilityFamilies"), maximum=12),
             "deniedCapabilityFamilies": _string_list(
                 metadata.get("deniedCapabilityFamilies"), maximum=12),
+            "observedCapabilityFactCount": _small_int(
+                metadata.get("observedCapabilityFactCount")),
+            "includedCapabilityFactCount": _small_int(
+                metadata.get("includedCapabilityFactCount")),
+            "externalReferenceCount": _small_int(
+                metadata.get("externalReferenceCount")),
+            "externalInstructionUrlCount": _small_int(
+                metadata.get("externalInstructionUrlCount")),
+            "externalTrustControlCount": _small_int(
+                metadata.get("externalTrustControlCount")),
+            "capabilityFactsTruncated": bool(
+                metadata.get("capabilityFactsTruncated")),
         }
+        if "evidenceScope" in metadata:
+            view["evidenceScope"] = _capped(metadata["evidenceScope"])
+        return view
     if role == "capability_fact":
         view = {
             "evidenceRole": role,
@@ -187,10 +229,13 @@ def _metadata_view(metadata: Dict[str, Any]) -> Dict[str, Any]:
             "capabilityOperation": _capped(
                 metadata.get("capabilityOperation", "")),
         }
+        if "evidenceScope" in metadata:
+            view["evidenceScope"] = _capped(metadata["evidenceScope"])
         for key in ("capabilityFamily", "capabilityTarget"):
             if key in metadata:
                 view[key] = _capped(metadata.get(key, ""))
-        for key in ("declaredBehaviorMatch", "declaredPermissionMatch"):
+        for key in ("declaredBehaviorMatch", "declaredBehaviorDenied",
+                    "declaredPermissionMatch"):
             if key in metadata:
                 view[key] = bool(metadata.get(key))
         return view
@@ -288,10 +333,95 @@ def build_generator_request(
         "promptKind": _capped(prompt_kind or ""),
         "instruction": (
             "Apply the catalog-owned judgmentPolicy to the cited evidence. "
+            "For complete_reviewed_prompt evidence, zero relevant control "
+            "signals may evidence an omitted contract when applicability is "
+            "present. Explicit false Skill match booleans support a mismatch "
+            "hypothesis; true match booleans falsify it. "
             "You may only propose semantic candidates whose evidence "
             "references are drawn from the list above. Do not invent new "
             "evidence, do not set severity or ruleId. Return JSON matching "
             "the candidate response schema."
+        ),
+    }
+
+
+def build_catalog_sweep_request(
+    *,
+    review_id: str,
+    evidences: List[Dict[str, Any]],
+    file_bytes: Dict[str, bytes],
+    egress_policy: str,
+    finding_catalog: List[Dict[str, Any]],
+    max_evidence: int,
+    prompt_kind: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Build one bounded full-prompt pass over registered Finding Types.
+
+    The sweep improves recall when a deterministic extractor has no lexical
+    seed. It is not a free-form catch-all: every proposed type, subject field,
+    policy, and Evidence id remains catalog-owned.
+    """
+    ev_views: List[Dict[str, Any]] = []
+    for ev in evidences[:max_evidence]:
+        snippet = b""
+        if egress_policy == "redacted_evidence":
+            locs = ev.get("locations") or []
+            if locs:
+                br = (locs[0] or {}).get("sourceByteRange") or {}
+                fid = (locs[0] or {}).get("fileId")
+                if fid and br:
+                    raw = file_bytes.get(fid, b"")
+                    start = int(br.get("start", 0))
+                    end = int(br.get("end", start))
+                    end = min(end, start + MAX_CONTENT_LEN)
+                    snippet = raw[start:end]
+        view = _evidence_view(
+            ev,
+            egress_policy=egress_policy,
+            snippet_bytes=snippet,
+        )
+        if view is not None:
+            ev_views.append(view)
+
+    catalog_view = []
+    for item in finding_catalog[:32]:
+        fields = []
+        taxonomy = item.get("subjectTaxonomy") or {}
+        for field in (taxonomy.get("fields") or [])[:8]:
+            if not isinstance(field, dict):
+                continue
+            fields.append({
+                "fieldName": _capped(field.get("fieldName", "")),
+                "valueKind": _capped(field.get("valueKind", "")),
+                "enum": _string_list(field.get("enum"), maximum=16),
+            })
+        catalog_view.append({
+            "findingType": _capped(item.get("findingType", "")),
+            "subjectTaxonomy": {"fields": fields},
+            "judgmentPolicy": _judgment_policy_view(
+                item.get("judgmentPolicy")),
+        })
+
+    return {
+        "reviewId": _capped(review_id),
+        "engine": "prompt",
+        "findingType": "semantic.catalog_sweep",
+        "egressPolicy": egress_policy,
+        "findingCatalog": catalog_view,
+        "evidence": ev_views,
+        "promptKind": _capped(prompt_kind or ""),
+        "instruction": (
+            "Review the complete prompt once against only findingCatalog. "
+            "Return at most one strongest materially supported candidate per "
+            "Finding Type. Every findingType and subject must exactly match "
+            "its catalog entry, and every evidence id must come from evidence. "
+            "Apply applicability and every rejection condition before "
+            "confirmation. Do not invent a new category, severity, ruleId, "
+            "or evidence. Optional creative specificity, stylistic preference, "
+            "and intentionally open-ended choice are not defects by themselves. "
+            "When evidenceScope is sampled_reviewed_prompt, do not infer that "
+            "an omitted control is absent from the unseen regions. "
+            "Return JSON matching the candidate response schema."
         ),
     }
 
@@ -342,7 +472,10 @@ def build_validator_request(
         "egressPolicy": egress_policy,
         "instruction": (
             "Apply judgmentPolicy in order: applicability, rejection, "
-            "confirmation, then insufficiency. You MUST NOT modify the "
+            "confirmation, then insufficiency. For complete_reviewed_prompt "
+            "evidence, an applicable signal plus zero relevant control signals "
+            "can evidence an omission. A true Skill match boolean falsifies "
+            "the corresponding mismatch; false supports it. You MUST NOT modify the "
             "candidate, invent new evidence, change the finding type, set "
             "severity, or return a different candidateId. Reply with decision in "
             "{confirmed, rejected, insufficient_evidence}."

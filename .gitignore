@@ -15,3 +15,6 @@ htmlcov/
 /out/
 /.tools/
 /.verity-data/
+/evals/corpus/v1/.hidden-v4/
+/evals/corpus/v1/.hidden-v5/
+/evals/corpus/v1/.hidden-v6/

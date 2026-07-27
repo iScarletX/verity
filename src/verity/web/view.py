@@ -18,6 +18,12 @@ from ..guidance import lookup as _lookup_guidance, next_steps_summary
 
 # The four top-level headlines the UI shows. Coverage insufficient wins.
 _HEADLINES = {
+    "semantic_block": {
+        "code": "semantic_block",
+        "title": "语意检查未完成，暂不能下结论",
+        "detail": "你已开启语意审查，但模型调用、预算或验证链路没有完整完成。本次不显示安全分，请查看语意状态后重试。",
+        "tone": "warning",
+    },
     "coverage_block": {
         "code": "coverage_block",
         "title": "检查不完整，暂不能下结论",
@@ -67,6 +73,12 @@ def headline_for(review_dict: Dict[str, Any]) -> Dict[str, str]:
     verdict = review_dict.get("verdict") or {}
     coverage = verdict.get("coverage") or "unknown"
     engine = review_dict.get("engine")
+    semantic_status = (
+        ((review_dict.get("capabilities") or {}).get("semantic") or {})
+        .get("status")
+    )
+    if semantic_status == "failed":
+        return _HEADLINES["semantic_block"]
     if coverage != "sufficient":
         return _HEADLINES["coverage_block"]
     subject = verdict.get("subject") or {}
@@ -191,8 +203,15 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
     sem = review_dict.get("semantic") or None
     if sem is not None:
         sem_status = sem.get("status") or "unknown"
-        sem_findings = [_semantic_finding_view(f)
-                        for f in sem.get("findings") or []]
+        sem_ev_by_id = {
+            item.get("evidenceId"): item
+            for item in (sem.get("evidences") or [])
+            if item.get("evidenceId")
+        }
+        sem_findings = [
+            _finding_view(f, sem_ev_by_id)
+            for f in sem.get("findings") or []
+        ]
         semantic_view = {
             "status": sem_status,
             "reasonCode": sem.get("reasonCode"),
@@ -201,6 +220,23 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
             "candidateCount": len(sem.get("candidates") or []),
             "assessmentCounts": _assessment_counts(sem.get("assessments") or []),
             "findings": sem_findings,
+            "stageStats": [
+                {
+                    "findingType": finding_type,
+                    "extractorSeedCount": stats.get(
+                        "extractorSeedCount", 0),
+                    "catalogHintProposedCount": stats.get(
+                        "catalogHintProposedCount", 0),
+                    "generatorAcceptedCandidateCount": stats.get(
+                        "generatorAcceptedCandidateCount", 0),
+                    "queuedCandidateCount": stats.get(
+                        "queuedCandidateCount", 0),
+                    "validatorStates": dict(
+                        stats.get("validatorStates") or {}),
+                }
+                for finding_type, stats in sorted(
+                    (sem.get("stageStats") or {}).items())
+            ],
             # True when the run did not fully complete but still confirmed
             # some candidates. Those findings are advisory + possibly
             # incomplete; the UI must label them clearly and they are NOT
@@ -214,7 +250,22 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
             ],
         }
     capabilities = review_dict.get("capabilities") or {}
+    if ((capabilities.get("semantic") or {}).get("status") == "failed"):
+        next_steps["steps"].insert(0, {
+            "code": "rerun_semantic",
+            "label": "先处理语意 Provider、预算或验证失败，再使用相同配置重新审查",
+        })
     score = review_dict.get("score") or {"status": "unavailable", "value": None}
+    if ((capabilities.get("semantic") or {}).get("status") == "failed"):
+        score = {
+            **score,
+            "status": "unavailable",
+            "value": None,
+            "reasonCodes": ["semantic_requested_but_incomplete"],
+            "includedLayers": [],
+            "evaluatedLayers": [],
+            "deductions": [],
+        }
     confidence = review_dict.get("reviewConfidence") or {}
     remediations = review_dict.get("remediations") or []
     return {
@@ -289,14 +340,3 @@ def _assessment_counts(assessments):
         if st in counts:
             counts[st] += 1
     return counts
-
-
-def _semantic_finding_view(f):
-    return {
-        "id": f.get("findingId"),
-        "type": f.get("findingType"),
-        "severity": f.get("severity"),
-        "claim": f.get("claim"),
-        "originKind": (f.get("origin") or {}).get("kind"),
-        "subject": f.get("subject") or {},
-    }

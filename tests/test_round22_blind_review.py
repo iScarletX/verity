@@ -7,6 +7,9 @@ from verity.blind_review import (build_blind_packet,
                                  compare_blind_reviews,
                                  validate_review_result)
 from verity.corpus import CorpusError, load_manifest
+from verity.intake import intake_directory
+from verity.report import review_to_dict
+from verity.review import ReviewInputs, run_review
 from verity.review_evidence import (load_independent_ai_attestation,
                                     require_independent_ai_case,
                                     ReviewEvidenceError)
@@ -236,6 +239,34 @@ def test_data_only_external_reference_is_neutral_seed_not_l0_instruction():
         review_to_dict(review), ensure_ascii=False)
 
 
+def test_documentation_only_external_reference_skips_semantic_candidate(tmp_path):
+    (tmp_path / "SKILL.md").write_text(
+        "---\n"
+        "name: operator-handbook-link\n"
+        "description: Lists an operator handbook for humans; the Skill never "
+        "fetches or follows it at runtime.\n"
+        "external_instructions:\n"
+        "  source: https://handbook.invalid/operators\n"
+        "  mode: documentation_only\n"
+        "metadata:\n"
+        "  reference-policy: documentation for humans only; not fetched or "
+        "followed by the Skill\n"
+        "---\n",
+        encoding="utf-8")
+    snapshot, file_bytes = intake_directory(tmp_path)
+    review = run_review(ReviewInputs(
+        "skill", snapshot, file_bytes, profile="minimal"))
+
+    seeds = extract_external_instruction_trust_gap(
+        review_to_dict(review), file_bytes)
+
+    assert seeds
+    assert not seeds[0][0].get("candidateHints")
+    assert (
+        seeds[0][0].get("modelCandidatePolicy")
+        == "skip_without_catalog_hint")
+
+
 def test_protocol_v1_selection_is_invalidated_and_v2_fingerprints_corpus():
     import json
     from pathlib import Path
@@ -265,3 +296,9 @@ def test_protocol_v1_selection_is_invalidated_and_v2_fingerprints_corpus():
                             repetitions=2, role_prompt_version="2.0.0",
                             protocol_version="2.0.0", corpus_fingerprint="b" * 64)
     assert a != b
+    product = _config_fingerprint(
+        gen, val, temperature=0, max_output_tokens=800,
+        repetitions=2, role_prompt_version="2.0.0",
+        protocol_version="2.0.0", corpus_fingerprint="a" * 64,
+        candidate_strategy="catalog_first")
+    assert product != a

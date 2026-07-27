@@ -125,9 +125,11 @@ def test_confirmed_semantic_only_counts_when_semantic_completed():
     report["semantic"]["status"] = "failed"
     report["capabilities"]["semantic"]["status"] = "failed"
     score = compute_score(report)
-    assert score["value"] == 100
+    assert score["status"] == "unavailable"
+    assert score["value"] is None
+    assert score["reasonCodes"] == ["semantic_requested_but_incomplete"]
     assert score["includedLayers"] == []
-    assert score["evaluatedLayers"] == ["L0_static"]
+    assert score["evaluatedLayers"] == []
     confidence = compute_confidence(report)
     assert confidence["grade"] == "D"
     assert "semantic_requested_but_failed" in confidence["limitations"]

@@ -14,11 +14,34 @@ separately by hand during walkthroughs, never in CI.
 """
 from __future__ import annotations
 
+import json
 import os
 
 import pytest
 
 from verity.web import provider_web as pw
+from verity.web.provider_settings import (
+    ProviderPreferenceStore,
+    ProviderPreferences,
+    ProviderSettingsStore,
+)
+
+
+class _MemoryCredentials:
+    def __init__(self):
+        self.value = None
+
+    def save_key(self, value):
+        self.value = value
+
+    def load_key(self):
+        return self.value
+
+    def has_key(self):
+        return self.value is not None
+
+    def delete_key(self):
+        self.value = None
 
 
 class TestBaseUrlValidation:
@@ -123,7 +146,15 @@ class TestPartialSemanticView:
             "evidences": [],
             "analyzerModel": {},
             "coverage": {"status": "sufficient", "reasonCodes": []},
-            "capabilities": {},
+            "capabilities": {
+                "semantic": {
+                    "status": (
+                        "completed"
+                        if semantic.get("status") == "completed"
+                        else "failed"
+                    ),
+                },
+            },
             "score": {"status": "available", "value": 100},
             "reviewConfidence": {"grade": "C"},
             "remediations": [],
@@ -138,16 +169,46 @@ class TestPartialSemanticView:
             "callCounts": {"generator": 2, "validator": 2},
             "candidates": [{}, {}],
             "assessments": [{"state": "confirmed"}, {"state": "confirmed"}],
+            "evidences": [{
+                "evidenceId": "EV-1",
+                "locations": [{
+                    "artifactPath": "prompt.txt",
+                    "sourceByteRange": {"start": 3, "end": 11},
+                }],
+            }],
             "findings": [
                 {"findingId": "F-1", "findingType": "semantic.prompt.instruction_conflict",
-                 "severity": "medium", "claim": "conflict", "origin": {"kind": "semantic_validation"}},
+                 "severity": "medium", "claim": "conflict",
+                 "evidenceIds": ["EV-1"],
+                 "origin": {"kind": "semantic_validation"}},
             ],
+            "stageStats": {
+                "semantic.prompt.instruction_conflict": {
+                    "extractorSeedCount": 1,
+                    "catalogHintProposedCount": 1,
+                    "generatorAcceptedCandidateCount": 0,
+                    "queuedCandidateCount": 1,
+                    "validatorStates": {"confirmed": 1},
+                },
+            },
             "planItems": [],
         }
         view = build_view_model(self._base_report(sem), "rid")
         assert view["semantic"]["status"] == "failed"
         assert view["semantic"]["partial"] is True
         assert len(view["semantic"]["findings"]) == 1
+        assert view["semantic"]["findings"][0]["evidences"][0] == {
+            "artifactPath": "prompt.txt",
+            "startByte": 3,
+            "endByte": 11,
+            "redactedPreview": None,
+        }
+        assert view["semantic"]["stageStats"][0][
+            "catalogHintProposedCount"] == 1
+        assert view["headline"]["code"] == "semantic_block"
+        assert view["nextSteps"]["steps"][0]["code"] == "rerun_semantic"
+        assert view["score"]["status"] == "unavailable"
+        assert view["score"]["value"] is None
         # The partial semantic finding must NOT leak into the main list/score.
         assert view["findings"] == []
         assert view["counts"]["medium"] == 0
@@ -268,3 +329,176 @@ class TestModelsEndpoint:
                              "provider_api_key": ""})
             assert r.status_code == 400
             assert r.json()["error"]["code"] == "api_key_required"
+
+
+class TestPersistentProviderSettings:
+    def _client(self, tmp_path):
+        from starlette.testclient import TestClient
+        from verity.web import create_app
+        credentials = _MemoryCredentials()
+        settings = ProviderSettingsStore(
+            ProviderPreferenceStore(tmp_path / "settings"), credentials)
+        app = create_app(
+            history_root=tmp_path / "history",
+            provider_settings_store=settings,
+        )
+        return (TestClient(app, base_url="http://127.0.0.1"),
+                settings, credentials)
+
+    def test_save_load_and_clear_never_return_key(self, tmp_path):
+        client, settings, credentials = self._client(tmp_path)
+        key = "saved-" + "provider-key"
+        with client as c:
+            saved = c.put("/api/provider-settings", json={
+                "baseUrl": "https://openrouter.ai/api/v1/",
+                "apiKey": key,
+                "generatorModel": "openai/generator",
+                "validatorModel": "anthropic/validator",
+            })
+            assert saved.status_code == 200
+            assert saved.json() == {
+                "baseUrl": "https://openrouter.ai/api/v1",
+                "generatorModel": "openai/generator",
+                "validatorModel": "anthropic/validator",
+                "keySaved": True,
+            }
+            assert key not in saved.text
+            loaded = c.get("/api/provider-settings")
+            assert loaded.json() == saved.json()
+            assert key not in loaded.text
+            assert credentials.value == key
+
+            cleared = c.delete("/api/provider-settings")
+            assert cleared.status_code == 200
+            assert cleared.json() == {
+                "baseUrl": "",
+                "generatorModel": "",
+                "validatorModel": "",
+                "keySaved": False,
+            }
+            assert settings.public_settings() == (
+                ProviderPreferences(), False)
+
+    @pytest.mark.parametrize("payload,code", [
+        ({"baseUrl": 123}, "bad_base_url"),
+        ({"baseUrl": "https://user:pass@example.com"}, "bad_base_url"),
+        ({"generatorModel": []}, "bad_model"),
+    ])
+    def test_invalid_saved_preferences_are_client_errors(
+            self, tmp_path, payload, code):
+        client, _settings, _credentials = self._client(tmp_path)
+        with client as c:
+            response = c.put("/api/provider-settings", json=payload)
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == code
+
+    def test_saved_key_requires_new_key_when_provider_changes(
+            self, tmp_path):
+        client, _settings, _credentials = self._client(tmp_path)
+        with client as c:
+            assert c.put("/api/provider-settings", json={
+                "baseUrl": "https://saved.example",
+                "apiKey": "saved-key",
+                "generatorModel": "saved-g",
+                "validatorModel": "saved-v",
+            }).status_code == 200
+            changed = c.put("/api/provider-settings", json={
+                "baseUrl": "https://other.example",
+                "apiKey": "",
+                "generatorModel": "other-g",
+                "validatorModel": "other-v",
+            })
+            restored = c.get("/api/provider-settings")
+
+        assert changed.status_code == 400
+        assert changed.json()["error"]["code"] == "api_key_required"
+        assert restored.json() == {
+            "baseUrl": "https://saved.example",
+            "generatorModel": "saved-g",
+            "validatorModel": "saved-v",
+            "keySaved": True,
+        }
+
+    def test_model_listing_can_use_saved_address_and_key(
+            self, tmp_path, monkeypatch):
+        client, _settings, _credentials = self._client(tmp_path)
+        seen = {}
+
+        def fake_list(base_url, api_key):
+            seen.update(base_url=base_url, api_key=api_key)
+            return [{"id": "model-a", "name": "Model A"}]
+
+        monkeypatch.setattr(pw, "list_models", fake_list)
+        with client as c:
+            assert c.put("/api/provider-settings", json={
+                "baseUrl": "https://openrouter.ai/api/v1",
+                "apiKey": "saved-key",
+                "generatorModel": "model-a",
+                "validatorModel": "model-a",
+            }).status_code == 200
+            response = c.post("/api/models", json={})
+        assert response.status_code == 200
+        assert response.json()["models"][0]["id"] == "model-a"
+        assert seen == {
+            "base_url": "https://openrouter.ai/api/v1",
+            "api_key": "saved-key",
+        }
+
+    def test_saved_semantic_settings_force_maximum_egress(
+            self, tmp_path, monkeypatch):
+        from verity.web import app as web_app
+
+        credentials = _MemoryCredentials()
+        store = ProviderSettingsStore(
+            ProviderPreferenceStore(tmp_path), credentials)
+        store.save(ProviderPreferences(
+            base_url="https://openrouter.ai/api/v1",
+            generator_model="generator",
+            validator_model="validator",
+        ), api_key="saved-key")
+        seen = {}
+
+        def fake_build(**kwargs):
+            seen.update(kwargs)
+            return ("config", "generator", "validator", "env")
+
+        monkeypatch.setattr(
+            pw, "build_semantic_config_with_ephemeral_key", fake_build)
+        plan = web_app._maybe_semantic_run({
+            "semantic_enabled": True,
+            "egress_policy": "metadata_only",
+        }, store)
+
+        assert plan == ("config", "generator", "validator", "env")
+        assert seen == {
+            "base_url": "https://openrouter.ai/api/v1",
+            "api_key": "saved-key",
+            "generator_model": "generator",
+            "validator_model": "validator",
+            "egress_policy": "redacted_evidence",
+        }
+
+    def test_request_url_cannot_reuse_key_saved_for_another_provider(
+            self, tmp_path):
+        from starlette.responses import JSONResponse
+        from verity.web import app as web_app
+
+        credentials = _MemoryCredentials()
+        store = ProviderSettingsStore(
+            ProviderPreferenceStore(tmp_path), credentials)
+        store.save(ProviderPreferences(
+            base_url="https://saved.example",
+            generator_model="saved-g",
+            validator_model="saved-v",
+        ), api_key="saved-key")
+
+        plan = web_app._maybe_semantic_run({
+            "semantic_enabled": True,
+            "provider_base_url": "https://other.example",
+            "generator_model": "other-g",
+            "validator_model": "other-v",
+        }, store)
+
+        assert isinstance(plan, JSONResponse)
+        assert plan.status_code == 400
+        assert json.loads(plan.body)["error"]["code"] == "api_key_required"

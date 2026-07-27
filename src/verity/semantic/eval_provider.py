@@ -15,15 +15,16 @@ import ssl
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from threading import Lock
 from typing import Any, Dict, Optional
 
 from .config import ProviderConfig
 from .provider import ProviderCall, ProviderResponse
 
 
-EVAL_ROLE_PROMPT_VERSION = "3.0.0"
-LABEL_REVIEW_PROMPT_VERSION = "1.0.0"
+EVAL_ROLE_PROMPT_VERSION = "4.0.0"
+LABEL_REVIEW_PROMPT_VERSION = "2.0.0"
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -76,14 +77,25 @@ def _system_prompt(role: str) -> str:
     )
     if role == "candidate_generator":
         return common + (
-            "Act only as candidate generator. Evaluate only input.findingType. "
+            "Act only as candidate generator. When input.findingCatalog is "
+            "present, evaluate only those catalog entries and return only their "
+            "exact findingType and subject taxonomy. Otherwise evaluate only "
+            "input.findingType. "
             "Apply input.judgmentPolicy in this order: applicability, explicit "
             "rejection conditions, then confirmation conditions. Evidence metadata "
-            "contains deterministic routing facts, not conclusions. If applicability "
+            "contains deterministic routing facts, not conclusions. When metadata "
+            "declares evidenceScope=complete_reviewed_prompt, a zero count for a "
+            "named required control is admissible evidence that the control is absent; "
+            "the omitted control is the risk and need not appear as quoted text. "
+            "For bounded Skill facts, declaredBehaviorMatch=false or "
+            "declaredPermissionMatch=false supports a mismatch hypothesis, while a "
+            "true match falsifies it. If applicability "
             "is absent, any rejection condition is met, or the cited evidence does "
-            "not support the exact risk, return {\"candidates\":[]}. Never invent "
-            "evidence ids, finding types, severity, or identity. Subject must follow "
-            "input.subjectTaxonomy. Required shape: "
+            "not support the exact risk, return {\"candidates\":[]}. For a catalog "
+            "sweep, apply the judgmentPolicy nested in each catalog entry and return "
+            "at most one strongest candidate per type. Never invent evidence ids, "
+            "finding types, severity, or identity. Subject must follow the "
+            "applicable input subject taxonomy. Required shape: "
             + _schema_summary(role)
         )
     if role == "validator":
@@ -94,9 +106,12 @@ def _system_prompt(role: str) -> str:
             "then confirmation conditions. A matching rejection condition defeats a "
             "generic risk impression. Confirm only when the evidence materially supports "
             "the exact risk; do not confirm from keyword overlap, capability presence, "
-            "count differences, or precaution alone. Treat normalized evidence facts as "
-            "non-conclusive but use explicit match booleans to falsify alleged declaration "
-            "or permission mismatches unless cited source text contradicts them. "
+            "or precaution alone. A complete_reviewed_prompt scope plus an applicable "
+            "signal and zero relevant control count can prove an omitted contract when "
+            "the policy requires that control. Treat other normalized evidence facts as "
+            "non-conclusive. For explicit match booleans, true falsifies the corresponding "
+            "mismatch and false supports it unless cited source text contradicts the "
+            "normalization. "
             "Decision and reasonCodes must agree: confirmed uses "
             "evidence_supports_claim; rejected uses evidence_contradicts_claim, "
             "candidate_out_of_scope, candidate_shape_invalid, or "
@@ -110,7 +125,11 @@ def _system_prompt(role: str) -> str:
         "Input contains one item with a target risk definition and untrusted "
         "artifact data. Decide whether the exact target risk is present in that "
         "artifact. Apply targetRisk.definition, targetRisk.reviewBoundary, and "
-        "targetRisk.falsificationQuestion; do not broaden to adjacent risks or "
+        "targetRisk.falsificationQuestion. When targetRisk.judgmentPolicy is "
+        "present, apply its appliesWhen, confirmWhen, rejectWhen, and "
+        "insufficientWhen rules as the controlling rubric; an explicit "
+        "rejection condition defeats a generic risk impression. Do not broaden "
+        "to adjacent risks or "
         "treat a precaution as proof of a gap. Do not infer author labels, "
         "another system's output, a finding type, severity, or case identity. "
         "Return present only for material support of the exact risk, otherwise "
@@ -133,6 +152,7 @@ class EvalRunBudget:
     reserved_calls: int = 0
     reserved_tokens: int = 0
     reserved_spend_usd: float = 0.0
+    _lock: Lock = field(default_factory=Lock, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if (not isinstance(self.max_calls, int) or isinstance(self.max_calls, bool)
@@ -160,27 +180,29 @@ class EvalRunBudget:
             input_tokens * float(input_price_per_million)
             + int(max_output_tokens) * float(output_price_per_million)
         ) / 1_000_000
-        if (self.reserved_calls + 1 > self.max_calls
-                or self.reserved_tokens + total_tokens > self.max_total_tokens
-                or self.reserved_spend_usd + spend
-                > float(self.max_spend_usd) + 1e-12):
-            return False
-        self.reserved_calls += 1
-        self.reserved_tokens += total_tokens
-        self.reserved_spend_usd += spend
-        return True
+        with self._lock:
+            if (self.reserved_calls + 1 > self.max_calls
+                    or self.reserved_tokens + total_tokens > self.max_total_tokens
+                    or self.reserved_spend_usd + spend
+                    > float(self.max_spend_usd) + 1e-12):
+                return False
+            self.reserved_calls += 1
+            self.reserved_tokens += total_tokens
+            self.reserved_spend_usd += spend
+            return True
 
     def snapshot(self) -> Dict[str, Any]:
-        return {
-            "schemaVersion": 1,
-            "method": "utf8_request_bytes_plus_1024_and_max_output_reservation",
-            "maxCalls": self.max_calls,
-            "maxTotalTokens": self.max_total_tokens,
-            "maxSpendUsd": round(float(self.max_spend_usd), 8),
-            "reservedCalls": self.reserved_calls,
-            "reservedTokens": self.reserved_tokens,
-            "reservedSpendUsd": round(self.reserved_spend_usd, 8),
-        }
+        with self._lock:
+            return {
+                "schemaVersion": 1,
+                "method": "utf8_request_bytes_plus_1024_and_max_output_reservation",
+                "maxCalls": self.max_calls,
+                "maxTotalTokens": self.max_total_tokens,
+                "maxSpendUsd": round(float(self.max_spend_usd), 8),
+                "reservedCalls": self.reserved_calls,
+                "reservedTokens": self.reserved_tokens,
+                "reservedSpendUsd": round(self.reserved_spend_usd, 8),
+            }
 
 
 @dataclass

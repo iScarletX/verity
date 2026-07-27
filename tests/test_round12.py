@@ -360,9 +360,8 @@ def test_project_web_defaults_to_standard_secret_scan(tmp_path):
                     base_url="http://localhost") as c:
         html = c.get("/").text
         js = c.get("/static/app.js").text
-        assert 'id="project-profile"' in html
-        assert '<option value="standard"' in html
-        assert 'fd.append("profile",$("project-profile").value)' in js
+        assert 'id="project-profile"' not in html
+        assert 'fd.append("profile", "standard")' in js
         assert "d.changes.forEach" in js
         assert "本轮相关检查未完整完成" in js
 

@@ -84,6 +84,12 @@ def compute_score(review: Dict[str, Any]) -> Dict[str, Any]:
     coverage = review.get("coverage") or {}
     if coverage.get("status") != "sufficient":
         return _unavailable("coverage_insufficient")
+    semantic = review.get("semantic")
+    if (
+        isinstance(semantic, dict)
+        and semantic.get("status") not in {None, "off", "completed"}
+    ):
+        return _unavailable("semantic_requested_but_incomplete")
     rows, errors = _mapped_findings(review)
     if errors:
         result = _unavailable("finding_mapping_incomplete")

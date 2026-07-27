@@ -24,8 +24,10 @@ from urllib.parse import urlsplit
 # --- Egress policy ---------------------------------------------------
 
 EgressPolicy = Literal["off", "metadata_only", "redacted_evidence"]
+CandidateStrategy = Literal["catalog_first", "model_only"]
 
 EGRESS_POLICIES: Tuple[str, ...] = ("off", "metadata_only", "redacted_evidence")
+CANDIDATE_STRATEGIES: Tuple[str, ...] = ("catalog_first", "model_only")
 
 
 # --- Credentials -----------------------------------------------------
@@ -142,12 +144,20 @@ class SemanticConfig:
     # Which semantic FindingTypes to attempt. Empty = every registered
     # entry from the semantic catalog.
     enabled_finding_types: List[str] = field(default_factory=list)
+    # Product reviews use deterministic catalog hypotheses and safe-negative
+    # gates. ``model_only`` is reserved for controlled provider benchmarks so
+    # model quality can be measured without catalog shortcuts.
+    candidate_strategy: CandidateStrategy = "catalog_first"
 
     def __post_init__(self) -> None:
         if self.egress_policy not in EGRESS_POLICIES:
             raise ValueError(
                 f"unknown egress_policy: {self.egress_policy!r}. "
                 f"Expected one of {EGRESS_POLICIES}.")
+        if self.candidate_strategy not in CANDIDATE_STRATEGIES:
+            raise ValueError(
+                f"unknown candidate_strategy: {self.candidate_strategy!r}. "
+                f"Expected one of {CANDIDATE_STRATEGIES}.")
         # raw_full_artifact is intentionally not implemented in this round.
         # Enabling semantic without a compatible egress policy is a config
         # error, not a silent no-op:

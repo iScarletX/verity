@@ -14,6 +14,151 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-27 — Removing a control is not an enforcement boundary
+
+- **Symptom**: Refresh still showed egress-policy and Skill-profile selectors,
+  and an old client could continue submitting weaker values even after the
+  product decision was “always scan the maximum range.”
+- **Root cause**: UI state, request defaults, and server enforcement were
+  treated as one concern. Provider credentials were also transient, so every
+  restart forced users to rebuild the configuration.
+- **Fix**: Remove the selectors, force `standard` and `redacted_evidence` at
+  the loopback server boundary, retain validation for malformed legacy input,
+  persist only non-secret preferences in owner-only JSON, and store the key in
+  macOS Keychain without returning it to JavaScript. Treat saved Provider
+  address and key as one configuration: never fill a request-supplied address
+  with a saved key, and require a new key when the saved address changes.
+- **Prevention**: Test both rendered control absence and stale-client requests.
+  Credential persistence must split secret and non-secret state, with no
+  plaintext fallback when the platform credential store is unavailable.
+  Test write rollback, URL/key mismatch, initialization races, and event-loop
+  blocking separately from the happy path. macOS `security ... -w` without an
+  argv password prompts for the value twice; stdin automation must provide the
+  same bounded value twice, or the command reports `passwords don't match`.
+  When the parent service owns a controlling TTY, `security` may still read
+  from that terminal and ignore piped stdin; launch it in a new session so
+  credential writes remain bounded and non-interactive. Tests must inject an
+  isolated credential store rather than inheriting the user's real Keychain.
+- **Evidence**: Round 65;
+  `test_maximum_scan_ui_has_persistent_provider_controls`,
+  `test_clean_skill_minimal_request_cannot_disable_secret_scan`,
+  `test_keychain_save_uses_stdin_not_process_arguments`.
+
+### 2026-07-27 — A complete catalog is not complete recall
+
+- **Symptom**: All Butler checks had mapped Verity detectors, yet a detailed
+  visual prompt with no concrete task could finish without a semantic finding.
+  Unrelated controls elsewhere in a prompt could also suppress real risks.
+- **Root cause**: `catalog_first` treated a zero-seed extractor as a final
+  negative, and several policies used whole-document mitigation counts. The
+  architecture had breadth on paper but no controlled fallback for semantic
+  phrasing outside deterministic trigger vocabularies.
+- **Fix**: Add one bounded full-prompt sweep over a closed registered catalog
+  for no-seed Prompt types, retain independent validation, and scope mitigation
+  controls to the same paragraph as the risky operation. Unknown model output
+  fails the semantic run closed.
+- **Prevention**: Test type reachability separately from catalog inventory.
+  Every semantic policy needs positive, safe, no-keyword, and cross-section
+  counterexamples; a requested incomplete semantic run must never show a score
+  or pass verdict.
+- **Evidence**: Round 64;
+  `test_catalog_sweep_recovers_registered_type_without_lexical_seed`,
+  `test_catalog_sweep_rejects_unregistered_finding_type`,
+  `test_unrelated_control_section_does_not_suppress_gap`.
+
+### 2026-07-26 — A hidden benchmark must bind product strategy and label quality
+
+- **Symptom**: The first v5 Verity run measured `model_only` even though the
+  shipped path is `catalog_first`. Separately, three independent AI reviewers
+  produced a complete attestation that contradicted 18 precommitted labels,
+  including clear safe fallbacks and compatible contracts.
+- **Root cause**: Candidate strategy was not a first-class comparison argument
+  or fingerprint dimension. The label gate validated independence and
+  consensus provenance but assumed that model majority implied policy-correct
+  ground truth.
+- **Fix**: Default product comparisons to `catalog_first` and bind the strategy
+  into configuration fingerprints and budget sidecars. For hidden holdouts,
+  compare blind consensus with the labels committed before remote review and
+  return `labels_require_adjudication` on any disagreement.
+- **Prevention**: Freeze the exact shipped configuration, not only the corpus.
+  Treat independent-AI consensus as an annotation input; quarantine its
+  disagreements instead of automatically promoting majority labels to truth.
+- **Evidence**: Round 62;
+  `test_hidden_holdout_label_disagreements_require_adjudication`,
+  `test_hidden_holdout_label_quality_gate_passes_full_agreement`,
+  `test_verity_configuration_fingerprint_binds_candidate_strategy`.
+
+### 2026-07-26 — A proposed catalog hint is not proof that a candidate ran
+
+- **Symptom**: Two explicit normative-example contradictions recorded
+  `catalogHintProposedCount=1` but ended with zero queued candidates. Compatible
+  examples also produced stochastic false positives when the free-form
+  Candidate Generator ran without structured contradiction evidence.
+- **Root cause**: The new evidence detail values were used directly as
+  `exampleGapKind`, but were outside the Finding Type's controlled subject
+  enum, so normalization discarded the proposal. The same extractor lacked a
+  safe-negative model gate.
+- **Fix**: Preserve detailed violation kinds in Evidence while mapping
+  candidate subjects to `rule_mismatch` or `schema_mismatch`. Skip free-form
+  product candidates when no structured example/rule violation exists.
+- **Prevention**: Test every stage count from proposal through normalization,
+  queueing, validation, and final Finding. Pair every new structured positive
+  with compatible counterexamples and a hallucinating generator fixture.
+- **Evidence**: Round 62;
+  `test_normative_example_violations_reach_validator`,
+  `test_compatible_examples_skip_free_form_model_candidates`.
+
+### 2026-07-24 — Failed runs and weak labels can manufacture a comparison result
+
+- **Symptom**: Butler appeared to have `0.944444` recall while Verity appeared
+  to have `0.685714`, but Butler completed only 52 of 224 planned runs. Five
+  independent v3 labels also disagreed with the author labels, including clear
+  permission and declared-behavior boundary inversions.
+- **Root cause**: The metric discarded error/inconclusive runs from positive
+  recall, and the comparator had no minimum successful-run coverage or
+  budget-exhaustion gate. Label reviewers received a broad target definition
+  but not the catalog's exact confirm/reject policy, so majority did not
+  necessarily mean policy-correct ground truth.
+- **Fix**: Count every positive error or inconclusive decision as a false
+  negative. Require explicit Butler run health, no budget exhaustion, at most
+  5% errors, and at least 95% successful-run coverage before computing any
+  relative check. Protocol v4 sends the same versioned catalog judgment policy
+  to evaluated systems and all independent label reviewers.
+- **Prevention**: Report successful runs beside every accuracy metric, never
+  filter failures out of recall, and validate the reference system before
+  comparing scores. Treat multi-model agreement as evidence only under a
+  shared, versioned adjudication rubric.
+- **Evidence**: Round 60;
+  `test_butler_baseline_requires_explicit_healthy_run_metadata`,
+  `test_butler_budget_exhaustion_invalidates_an_accurate_baseline`,
+  `test_butler_errors_invalidate_filtered_high_recall`,
+  `test_v4_packet_carries_catalog_rubric_without_answer_metadata`.
+
+### 2026-07-24 — A Candidate Generator must not be a silent recall veto
+
+- **Symptom**: All nineteen positive v3 target runs for the nine weakest
+  semantic types reached deterministic extractors, yet most ended with no
+  candidate. Adding both catalog and model hypotheses then produced duplicate
+  same-type Findings and duplicate Validator calls.
+- **Root cause**: The pipeline flattened “generator returned no candidate” into
+  `absent`, so an optional proposal stage controlled recall even when bounded
+  structured facts already supported one precise hypothesis. Combining both
+  proposal sources without precedence recreated the fragmentation Verity was
+  intended to avoid.
+- **Fix**: Let the catalog propose one strongest bounded hypothesis for the
+  nine explicit structured gaps. It still requires the independent Validator;
+  generator transport/schema failures still fail closed. When a catalog
+  hypothesis exists for a seed, use it instead of a competing generated
+  hypothesis. Emit scrubbed stage counts so each loss is attributable.
+- **Prevention**: Test every pipeline transition, not only final Findings.
+  Separate extraction, hypothesis formation, validation, and provider failure
+  in evaluation artifacts, and cap one seed to one primary hypothesis unless
+  multiple independently meaningful Findings are deliberately specified.
+- **Evidence**: Round 60; `tests/test_round60_semantic_recall.py` and unchanged
+  56/56 fixed semantic replay baseline.
+
+---
+
 ### 2026-07-24 — Repeated label review needs consensus and independent adjudication
 
 - **Symptom**: The first real answer-hidden label pass had one unstable case

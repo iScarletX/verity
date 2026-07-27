@@ -21,7 +21,12 @@ from .intake import IntakeBudget, intake_directory, intake_text
 from .report import review_to_dict
 from .review import ReviewInputs, run_review
 from .semantic.catalog import CATALOG
-from .semantic.config import ProviderConfig, SemanticBudget, SemanticConfig
+from .semantic.config import (
+    CandidateStrategy,
+    ProviderConfig,
+    SemanticBudget,
+    SemanticConfig,
+)
 from .standards import load_detector_mappings, load_risks
 
 
@@ -245,7 +250,9 @@ def _selection_gate(split: str, metrics: Dict[str, Any],
 def _config_fingerprint(generator: ProviderConfig, validator: ProviderConfig,
                         *, temperature: float, max_output_tokens: int,
                         repetitions: int, role_prompt_version: str,
-                        protocol_version: str, corpus_fingerprint: str) -> str:
+                        protocol_version: str, corpus_fingerprint: str,
+                        candidate_strategy: CandidateStrategy = "model_only",
+                        ) -> str:
     # Endpoint and credential environment names intentionally do not enter the
     # public report. Their presence/values are deployment metadata, not model
     # quality dimensions.
@@ -260,6 +267,7 @@ def _config_fingerprint(generator: ProviderConfig, validator: ProviderConfig,
                           validator.base_url.encode()).hexdigest()},
         "temperature": temperature, "maxOutputTokens": max_output_tokens,
         "repetitions": repetitions, "egressPolicy": "redacted_evidence",
+        "candidateStrategy": candidate_strategy,
         "rolePromptVersion": role_prompt_version,
         "catalog": sorted(
             PROTOCOL_V2_FINDING_TYPES
@@ -274,12 +282,15 @@ def _config_fingerprint(generator: ProviderConfig, validator: ProviderConfig,
 
 def _run_case(case: Dict[str, Any], *, generator, validator,
               generator_config: ProviderConfig,
-              validator_config: ProviderConfig) -> Tuple[str, Dict[str, Any]]:
+              validator_config: ProviderConfig,
+              candidate_strategy: CandidateStrategy = "model_only",
+              ) -> Tuple[str, Dict[str, Any]]:
     config = SemanticConfig(
         enabled=True, egress_policy="redacted_evidence",
         enabled_finding_types=[case["findingType"]],
         provider_config={"candidate_generator": generator_config,
                          "validator": validator_config},
+        candidate_strategy=candidate_strategy,
         budget=SemanticBudget(max_candidate_generation_calls=1,
                               max_validation_calls_per_candidate=1,
                               max_total_validation_calls=1,
@@ -334,6 +345,7 @@ def _run_case(case: Dict[str, Any], *, generator, validator,
         "assessmentCount": len(assessments),
         "findingCount": len(semantic.get("findings") or []),
         "callCounts": dict(semantic.get("callCounts") or {}),
+        "stageStats": dict(semantic.get("stageStats") or {}),
     }
 
 
@@ -463,6 +475,7 @@ def evaluate_semantic_model_quality(*, split: str, repetitions: int,
             "validatorModelId": validator_config.model_id,
             "temperature": temperature, "maxOutputTokens": max_output_tokens,
             "egressPolicy": "redacted_evidence",
+            "candidateStrategy": "model_only",
             "rolePromptVersion": role_prompt_version,
             "corpusFingerprint": corpus_fingerprint,
             "configurationFingerprint": _config_fingerprint(

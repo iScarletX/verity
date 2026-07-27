@@ -60,6 +60,8 @@ class TestIndexAndAssets:
     def test_static_assets_served_and_no_innerhtml(self, client):
         css = client.get("/static/app.css")
         assert css.status_code == 200
+        assert ".section:empty" in css.text
+        assert "display: none" in css.text
         js = client.get("/static/app.js")
         assert js.status_code == 200
         # Frontend must NOT USE innerHTML as an assignment target (the
@@ -70,6 +72,39 @@ class TestIndexAndAssets:
         assert "innerHTML=" not in js.text
         # And must not import from external URLs.
         assert "http://" not in js.text and "https://" not in js.text
+
+    def test_index_exposes_evidence_and_fix_workbench(self, client):
+        html = client.get("/").text
+        assert 'id="evidence-workbench"' in html
+        assert 'id="fix-workbench"' in html
+        js = client.get("/static/app.js").text
+        assert "renderEvidenceWorkbench" in js
+        assert "renderFixWorkbench" in js
+        assert 'fd.append("provider_api_key"' not in js
+
+    def test_maximum_scan_ui_has_persistent_provider_controls(self, client):
+        html = client.get("/").text
+        for removed_id in (
+            "egress-policy",
+            "skill-profile",
+            "project-profile",
+            "skill-minimal-note",
+        ):
+            assert f'id="{removed_id}"' not in html
+        assert 'id="provider-save-btn"' in html
+        assert 'id="provider-clear-btn"' in html
+        assert 'id="provider-settings-status"' in html
+
+        js = client.get("/static/app.js").text
+        assert "/api/provider-settings" in js
+        assert "redacted_evidence" in js
+        assert 'fd.append("profile", "standard")' in js
+        assert "providerConfigDirty" in js
+        assert "setProviderControlsDisabled" in js
+        assert "providerOperationId" in js
+        assert "provider_api_key: key" not in js
+        assert "localStorage" not in js
+        assert "sessionStorage" not in js
 
 
 # ----------------------------------------------------------------------
@@ -207,12 +242,11 @@ class TestSkillEndpoint:
         # clean skill + gitleaks completed on this dev box = pass
         assert view["counts"]["high"] == 0
 
-    def test_clean_skill_minimal_shows_secret_scan_off(self, client):
+    def test_clean_skill_minimal_request_cannot_disable_secret_scan(self, client):
         r = _post_skill(client, FIXTURES / "clean-skill", profile="minimal")
         assert r.status_code == 200
         view = r.json()
-        assert view["secretScan"]["ok"] is False
-        assert view["secretScan"]["status"] == "not_requested_by_profile"
+        assert view["secretScan"]["status"] != "not_requested_by_profile"
 
     def test_risky_skill_high(self, client):
         r = _post_skill(client, FIXTURES / "risky_permissions_skill",

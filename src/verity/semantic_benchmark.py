@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -21,7 +22,11 @@ from .intake import IntakeBudget, intake_directory, intake_text
 from .report import review_to_dict
 from .review import ReviewInputs, run_review
 from .semantic.catalog import CATALOG
-from .semantic.config import ProviderConfig
+from .semantic.config import (
+    CANDIDATE_STRATEGIES,
+    CandidateStrategy,
+    ProviderConfig,
+)
 from .semantic.provider import ProviderCall
 from .standards import load_detector_mappings, load_risks
 
@@ -31,6 +36,13 @@ BUTLER_CROSSWALK_PATH = (
     CORPUS_DIR.parents[1] / "reference" / "butler_crosswalk.json")
 COMPARISON_PROTOCOL_ID = "verity-butler-semantic-head-to-head"
 COMPARISON_PROTOCOL_VERSION = "3.0.0"
+COMPARISON_PROTOCOL_V4 = "4.0.0"
+COMPARISON_PROTOCOL_V5 = "5.0.0"
+SUPPORTED_COMPARISON_PROTOCOL_VERSIONS = frozenset({
+    COMPARISON_PROTOCOL_VERSION,
+    COMPARISON_PROTOCOL_V4,
+    COMPARISON_PROTOCOL_V5,
+})
 OBSERVATIONS = {"present", "absent", "inconclusive", "error"}
 INDEPENDENT_LABEL_STATUS = "independent_ai_review"
 DEFAULT_COMPARISON_MAX_TOTAL_CALLS = 500
@@ -39,6 +51,11 @@ LABEL_REVIEW_EGRESS_POLICY = "answer_hidden_label_review"
 LABEL_REVIEW_MIN_REPETITIONS = 3
 LABEL_REVIEW_CONSENSUS_NUMERATOR = 2
 LABEL_REVIEW_CONSENSUS_DENOMINATOR = 3
+PROTOCOL_V5_EVALUATION_POLICY = {
+    "candidateStrategy": "catalog_first",
+    "labelDisagreementPolicy": "require_adjudication",
+    "minimumIndependentReviewers": 2,
+}
 
 # Read-only Butler v6 reference mapping. These are comparison routes, not
 # Verity labels and not claims that Butler fully covers the associated risk.
@@ -252,18 +269,32 @@ def butler_breadth_summary(
 def load_semantic_comparison_manifest(
         path: Path = COMPARISON_MANIFEST_PATH) -> Dict[str, Any]:
     value = _strict_json(path)
-    if set(value) != {
+    base_keys = {
             "schemaVersion", "protocolId", "protocolVersion", "status",
-            "license", "provenance", "labelStatus", "description", "cases"}:
+            "license", "provenance", "labelStatus", "description", "cases"}
+    protocol_version = value.get("protocolVersion")
+    expected_keys = set(base_keys)
+    if protocol_version == COMPARISON_PROTOCOL_V5:
+        expected_keys.add("evaluationPolicy")
+    if set(value) != expected_keys:
         raise CorpusError("semantic comparison manifest schema invalid")
+    expected_status = {
+        COMPARISON_PROTOCOL_VERSION: "development_calibration",
+        COMPARISON_PROTOCOL_V4: "hidden_holdout",
+        COMPARISON_PROTOCOL_V5: "hidden_holdout",
+    }.get(protocol_version)
     if (value.get("schemaVersion") != 1
             or value.get("protocolId") != COMPARISON_PROTOCOL_ID
-            or value.get("protocolVersion") != COMPARISON_PROTOCOL_VERSION
-            or value.get("status") != "development_calibration"
+            or expected_status is None
+            or value.get("status") != expected_status
             or value.get("license") != "Apache-2.0"
             or value.get("provenance") != "verity_synthetic"
             or value.get("labelStatus") != "provisional_single_review"):
         raise CorpusError("semantic comparison manifest identity invalid")
+    if (protocol_version == COMPARISON_PROTOCOL_V5
+            and value.get("evaluationPolicy")
+            != PROTOCOL_V5_EVALUATION_POLICY):
+        raise CorpusError("semantic comparison evaluation policy invalid")
     if not isinstance(value.get("description"), str) or not value["description"]:
         raise CorpusError("semantic comparison description required")
     cases = value.get("cases")
@@ -355,8 +386,29 @@ def _digest(seed: str, value: str) -> str:
     return hashlib.sha256((seed + "\0" + value).encode()).hexdigest()
 
 
+def _target_risk(case: Dict[str, Any], risks: Dict[str, Any],
+                 protocol_version: str) -> Dict[str, Any]:
+    definition = CATALOG[case["findingType"]][0]
+    target = {
+        "title": risks[case["riskId"]]["title"],
+        "definition": risks[case["riskId"]]["definition"],
+        "reviewBoundary": risks[case["riskId"]]["layerBoundaries"][
+            "L1_semantic"],
+        "falsificationQuestion": definition.falsificationQuestion,
+    }
+    if protocol_version in {COMPARISON_PROTOCOL_V4, COMPARISON_PROTOCOL_V5}:
+        policy = definition.judgmentPolicy
+        target["judgmentPolicy"] = {
+            "appliesWhen": list(policy.appliesWhen),
+            "confirmWhen": list(policy.confirmWhen),
+            "rejectWhen": list(policy.rejectWhen),
+            "insufficientWhen": list(policy.insufficientWhen),
+        }
+    return target
+
+
 def _corpus_fingerprint(manifest: Dict[str, Any]) -> str:
-    payload = [
+    cases = [
         {
             "caseId": case["caseId"],
             "payloadDigest": case["payloadDigest"],
@@ -364,6 +416,31 @@ def _corpus_fingerprint(manifest: Dict[str, Any]) -> str:
         }
         for case in sorted(manifest["cases"], key=lambda row: row["caseId"])
     ]
+    # Preserve the consumed v3 fingerprint exactly. v4 also binds every
+    # trusted target-risk field and catalog adjudication rule, so a policy
+    # change cannot silently make evaluated systems use different rubrics.
+    payload: Any = cases
+    if manifest["protocolVersion"] in {
+            COMPARISON_PROTOCOL_V4, COMPARISON_PROTOCOL_V5}:
+        risks = load_risks()
+        payload = {
+            "cases": cases,
+            "evaluationPolicy": manifest.get("evaluationPolicy"),
+            "targetRisks": [
+                {
+                    "findingType": case["findingType"],
+                    "riskId": case["riskId"],
+                    "targetRisk": _target_risk(
+                        case, risks, manifest["protocolVersion"]),
+                }
+                for case in sorted(
+                    {
+                        (item["findingType"], item["riskId"]): item
+                        for item in manifest["cases"]
+                    }.values(),
+                    key=lambda row: (row["findingType"], row["riskId"]))
+            ],
+        }
     return hashlib.sha256(json.dumps(
         payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
@@ -393,18 +470,12 @@ def build_semantic_comparison_packet(
         root_name, files = _safe_content_files(case["path"])
         display_root, files = _anonymous_identity(
             case["caseId"], seed, root_name, files)
-        definition = CATALOG[case["findingType"]][0]
         item = {
             "itemId": alias,
             "objectType": case["objectType"],
             "language": case["language"],
-            "targetRisk": {
-                "title": risks[case["riskId"]]["title"],
-                "definition": risks[case["riskId"]]["definition"],
-                "reviewBoundary": risks[case["riskId"]]["layerBoundaries"][
-                    "L1_semantic"],
-                "falsificationQuestion": definition.falsificationQuestion,
-            },
+            "targetRisk": _target_risk(
+                case, risks, manifest["protocolVersion"]),
             "artifact": {
                 "displayRootName": display_root or None,
                 "files": [{"path": path, "content": content}
@@ -425,7 +496,7 @@ def build_semantic_comparison_packet(
     packet = {
         "schemaVersion": 1,
         "protocolId": COMPARISON_PROTOCOL_ID,
-        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+        "protocolVersion": manifest["protocolVersion"],
         "systemId": system_id,
         "itemCount": len(items),
         "corpusFingerprint": _corpus_fingerprint(manifest),
@@ -444,7 +515,7 @@ def build_semantic_comparison_packet(
     mapping = {
         "schemaVersion": 1,
         "protocolId": COMPARISON_PROTOCOL_ID,
-        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+        "protocolVersion": manifest["protocolVersion"],
         "systemId": system_id,
         "corpusFingerprint": packet["corpusFingerprint"],
         "aliases": aliases,
@@ -473,7 +544,8 @@ def _validate_packet(packet: Dict[str, Any]) -> None:
     fingerprint = packet.get("corpusFingerprint")
     if (packet.get("schemaVersion") != 1
             or packet.get("protocolId") != COMPARISON_PROTOCOL_ID
-            or packet.get("protocolVersion") != COMPARISON_PROTOCOL_VERSION
+            or packet.get("protocolVersion")
+            not in SUPPORTED_COMPARISON_PROTOCOL_VERSIONS
             or not isinstance(system_id, str) or not system_id.strip()
             or len(system_id) > 80
             or not isinstance(fingerprint, str)
@@ -520,12 +592,36 @@ def _validate_packet(packet: Dict[str, Any]) -> None:
                 or not item["language"] or len(item["language"]) > 40):
             raise CorpusError("semantic comparison packet item invalid")
         target = item.get("targetRisk")
-        if (not isinstance(target, dict) or set(target) != {
-                "title", "definition", "reviewBoundary",
-                "falsificationQuestion"}
-                or any(not isinstance(value, str) or not value
-                       or len(value) > 2000 for value in target.values())):
+        target_keys = {
+            "title", "definition", "reviewBoundary",
+            "falsificationQuestion",
+        }
+        if packet["protocolVersion"] in {
+                COMPARISON_PROTOCOL_V4, COMPARISON_PROTOCOL_V5}:
+            target_keys.add("judgmentPolicy")
+        if (not isinstance(target, dict) or set(target) != target_keys):
             raise CorpusError("semantic comparison target risk invalid")
+        for key in (
+                "title", "definition", "reviewBoundary",
+                "falsificationQuestion"):
+            value = target.get(key)
+            if (not isinstance(value, str) or not value
+                    or len(value) > 2000):
+                raise CorpusError("semantic comparison target risk invalid")
+        if "judgmentPolicy" in target:
+            policy = target["judgmentPolicy"]
+            if (not isinstance(policy, dict) or set(policy) != {
+                    "appliesWhen", "confirmWhen", "rejectWhen",
+                    "insufficientWhen"}):
+                raise CorpusError(
+                    "semantic comparison judgment policy invalid")
+            for values in policy.values():
+                if (not isinstance(values, list) or not values
+                        or len(values) > 12
+                        or any(not isinstance(value, str) or not value
+                               or len(value) > 1000 for value in values)):
+                    raise CorpusError(
+                        "semantic comparison judgment policy invalid")
         artifact = item.get("artifact")
         if not isinstance(artifact, dict) or set(artifact) != {
                 "displayRootName", "files"}:
@@ -577,7 +673,8 @@ def _validate_mapping(mapping: Dict[str, Any],
         raise CorpusError("semantic comparison alias map schema invalid")
     if (mapping.get("schemaVersion") != 1
             or mapping.get("protocolId") != COMPARISON_PROTOCOL_ID
-            or mapping.get("protocolVersion") != COMPARISON_PROTOCOL_VERSION
+            or mapping.get("protocolVersion")
+            != packet.get("protocolVersion")
             or mapping.get("systemId") != packet.get("systemId")
             or mapping.get("corpusFingerprint")
             != packet.get("corpusFingerprint")):
@@ -620,14 +717,21 @@ def _validate_mapping(mapping: Dict[str, Any],
 def validate_observations(observations: Dict[str, Any],
                           packet: Dict[str, Any]) -> Dict[str, Any]:
     _validate_packet(packet)
-    if set(observations) != {
-            "schemaVersion", "protocolId", "protocolVersion", "systemId",
-            "configurationFingerprint", "corpusFingerprint", "repetitions",
-            "observations"}:
+    base_keys = {
+        "schemaVersion", "protocolId", "protocolVersion", "systemId",
+        "configurationFingerprint", "corpusFingerprint", "repetitions",
+        "observations",
+    }
+    allowed_keys = (
+        {frozenset(base_keys), frozenset(base_keys | {"runHealth"})}
+        if packet.get("systemId") == "butler"
+        else {frozenset(base_keys)})
+    if frozenset(observations) not in allowed_keys:
         raise CorpusError("semantic observations schema invalid")
     if (observations.get("schemaVersion") != 1
             or observations.get("protocolId") != COMPARISON_PROTOCOL_ID
-            or observations.get("protocolVersion") != COMPARISON_PROTOCOL_VERSION
+            or observations.get("protocolVersion")
+            != packet.get("protocolVersion")
             or observations.get("systemId") != packet.get("systemId")
             or observations.get("corpusFingerprint")
             != packet.get("corpusFingerprint")):
@@ -636,6 +740,13 @@ def validate_observations(observations: Dict[str, Any],
     if not isinstance(fingerprint, str) or not re.fullmatch(
             r"[0-9a-f]{64}", fingerprint):
         raise CorpusError("semantic observations configuration invalid")
+    if "runHealth" in observations:
+        run_health = observations["runHealth"]
+        if (not isinstance(run_health, dict)
+                or set(run_health) != {"budgetExhausted"}
+                or not isinstance(
+                    run_health.get("budgetExhausted"), bool)):
+            raise CorpusError("Butler observation run health invalid")
     repetitions = observations.get("repetitions")
     if (not isinstance(repetitions, int) or isinstance(repetitions, bool)
             or not 2 <= repetitions <= 10):
@@ -718,6 +829,13 @@ def build_independent_label_attestation(
     for packet, mapping, observations in reviewer_rows:
         _validate_mapping(mapping, packet)
         validate_observations(observations, packet)
+    protocol_versions = {
+        packet.get("protocolVersion")
+        for packet, _mapping, _observations in reviewer_rows
+    }
+    if len(protocol_versions) != 1:
+        raise CorpusError("independent reviewers used different protocols")
+    protocol_version = reviewer_a_packet["protocolVersion"]
     if len({
             packet.get("corpusFingerprint")
             for packet, _mapping, _observations in reviewer_rows
@@ -751,16 +869,24 @@ def build_independent_label_attestation(
     reviewer_majority = len(reviewer_rows) // 2 + 1
     labels = []
     for case_id in sorted(metadata_a):
-        assessments = [
-            _independent_review_consensus(runs[case_id])
-            for runs in canonical_runs
-        ]
+        assessments = []
+        nondecisive_count = 0
+        for runs in canonical_runs:
+            try:
+                assessments.append(_independent_review_consensus(
+                    runs[case_id]))
+            except CorpusError:
+                nondecisive_count += 1
         counts = {
             value: assessments.count(value)
             for value in ("present", "absent")
         }
         assessment, count = max(counts.items(), key=lambda item: item[1])
         if count < reviewer_majority:
+            if nondecisive_count:
+                raise CorpusError(
+                    "independent label review must reach two-thirds "
+                    "decisive consensus")
             raise CorpusError("independent label reviewers disagree")
         labels.append({
             "caseId": case_id,
@@ -770,7 +896,7 @@ def build_independent_label_attestation(
     attestation = {
         "schemaVersion": 1,
         "protocolId": COMPARISON_PROTOCOL_ID,
-        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+        "protocolVersion": protocol_version,
         "corpusFingerprint": reviewer_a_packet["corpusFingerprint"],
         "labelStatus": INDEPENDENT_LABEL_STATUS,
         "reviewers": [
@@ -818,8 +944,11 @@ def evaluate_verity_comparison_observations(
         generator_config: ProviderConfig, validator_config: ProviderConfig,
         temperature: float = 0.0, max_output_tokens: int = 800,
         max_total_calls: int = DEFAULT_COMPARISON_MAX_TOTAL_CALLS,
+        max_concurrency: int = 1,
+        candidate_strategy: CandidateStrategy = "catalog_first",
         role_prompt_version: str = "unspecified",
-        manifest_path: Path = COMPARISON_MANIFEST_PATH) -> Dict[str, Any]:
+        manifest_path: Path = COMPARISON_MANIFEST_PATH,
+        diagnostics_out: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Run Verity on the answer-free v3 calibration and emit observations.
 
     Labels and author assessments are never read into the Provider path.
@@ -837,13 +966,24 @@ def evaluate_verity_comparison_observations(
     if (not isinstance(repetitions, int) or isinstance(repetitions, bool)
             or not 2 <= repetitions <= 10):
         raise CorpusError("semantic comparison repetitions invalid")
+    if (not isinstance(max_concurrency, int)
+            or isinstance(max_concurrency, bool)
+            or not 1 <= max_concurrency <= 16):
+        raise CorpusError("semantic comparison concurrency must be 1..16")
+    if candidate_strategy not in CANDIDATE_STRATEGIES:
+        raise CorpusError("semantic comparison candidate strategy invalid")
+    manifest = load_semantic_comparison_manifest(manifest_path)
+    if (manifest["protocolVersion"] == COMPARISON_PROTOCOL_V5
+            and candidate_strategy
+            != manifest["evaluationPolicy"]["candidateStrategy"]):
+        raise CorpusError(
+            "semantic comparison candidate strategy differs from frozen policy")
     if (generator_config.role != "candidate_generator"
             or validator_config.role != "validator"):
         raise CorpusError("semantic comparison Provider roles invalid")
     if (not generator_config.credentials.resolve()
             or not validator_config.credentials.resolve()):
         raise CorpusError("semantic comparison credentials missing before run")
-    manifest = load_semantic_comparison_manifest(manifest_path)
     if packet.get("corpusFingerprint") != _corpus_fingerprint(manifest):
         raise CorpusError("semantic comparison packet corpus is stale")
     required_calls = len(manifest["cases"]) * repetitions * 2
@@ -859,8 +999,17 @@ def evaluate_verity_comparison_observations(
     if set(alias_by_case) != set(case_by_id):
         raise CorpusError("semantic comparison alias map is incomplete")
 
-    rows = []
-    for case_id in sorted(case_by_id):
+    sorted_case_ids = sorted(case_by_id)
+    rows = [
+        {"itemId": alias_by_case[case_id], "runs": ["error"] * repetitions}
+        for case_id in sorted_case_ids
+    ]
+    diagnostic_rows = [
+        {"itemId": alias_by_case[case_id], "runs": [None] * repetitions}
+        for case_id in sorted_case_ids
+    ]
+
+    def run_one(case_id: str) -> Tuple[str, Dict[str, Any]]:
         case = case_by_id[case_id]
         runtime_case = {
             key: case[key] for key in (
@@ -868,44 +1017,84 @@ def evaluate_verity_comparison_observations(
         }
         if case["objectType"] == "prompt":
             runtime_case["promptKind"] = case["promptKind"]
-        runs = []
-        for _ in range(repetitions):
-            observed, _detail = _run_case(
-                runtime_case, generator=generator, validator=validator,
-                generator_config=generator_config,
-                validator_config=validator_config)
-            runs.append({
-                "confirmed": "present",
-                "rejected": "absent",
-                "no_candidate": "absent",
-                "insufficient_evidence": "inconclusive",
-                "error": "error",
-            }[observed])
-        rows.append({"itemId": alias_by_case[case_id], "runs": runs})
+        observed, detail = _run_case(
+            runtime_case, generator=generator, validator=validator,
+            generator_config=generator_config,
+            validator_config=validator_config,
+            candidate_strategy=candidate_strategy)
+        stage_values = list((detail.get("stageStats") or {}).values())
+        return ({
+            "confirmed": "present",
+            "rejected": "absent",
+            "no_candidate": "absent",
+            "insufficient_evidence": "inconclusive",
+            "error": "error",
+        }[observed], {
+            "semanticStatus": detail["semanticStatus"],
+            "reasonCodes": list(detail["reasonCodes"]),
+            "candidateCount": detail["candidateCount"],
+            "assessmentCount": detail["assessmentCount"],
+            "findingCount": detail["findingCount"],
+            "callCounts": dict(detail["callCounts"]),
+            "stage": (
+                dict(stage_values[0])
+                if len(stage_values) == 1 else None),
+        })
+
+    tasks = []
+    with ThreadPoolExecutor(max_workers=max_concurrency) as pool:
+        for case_index, case_id in enumerate(sorted_case_ids):
+            for repetition in range(repetitions):
+                tasks.append((
+                    case_index,
+                    repetition,
+                    pool.submit(run_one, case_id),
+                ))
+        for case_index, repetition, future in tasks:
+            observed, diagnostic = future.result()
+            rows[case_index]["runs"][repetition] = observed
+            diagnostic_rows[case_index]["runs"][repetition] = diagnostic
     fingerprint = _config_fingerprint(
         generator_config, validator_config, temperature=temperature,
         max_output_tokens=max_output_tokens, repetitions=repetitions,
         role_prompt_version=role_prompt_version,
-        protocol_version=COMPARISON_PROTOCOL_VERSION,
-        corpus_fingerprint=packet["corpusFingerprint"])
+        protocol_version=packet["protocolVersion"],
+        corpus_fingerprint=packet["corpusFingerprint"],
+        candidate_strategy=candidate_strategy)
     observations = {
         "schemaVersion": 1,
         "protocolId": COMPARISON_PROTOCOL_ID,
-        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+        "protocolVersion": packet["protocolVersion"],
         "systemId": packet["systemId"],
         "configurationFingerprint": fingerprint,
         "corpusFingerprint": packet["corpusFingerprint"],
         "repetitions": repetitions,
         "observations": rows,
     }
-    return validate_observations(observations, packet)
+    observations = validate_observations(observations, packet)
+    if diagnostics_out is not None:
+        diagnostics_out.clear()
+        diagnostics_out.update({
+            "schemaVersion": 1,
+            "protocolId": COMPARISON_PROTOCOL_ID,
+            "protocolVersion": packet["protocolVersion"],
+            "systemId": packet["systemId"],
+            "configurationFingerprint": fingerprint,
+            "corpusFingerprint": packet["corpusFingerprint"],
+            "repetitions": repetitions,
+            "candidateStrategy": candidate_strategy,
+            "items": diagnostic_rows,
+        })
+    return observations
 
 
 def _label_reviewer_config_fingerprint(
         reviewer: ProviderConfig, *, temperature: float,
         max_output_tokens: int, repetitions: int,
         max_attempts_per_repetition: int,
-        role_prompt_version: str, corpus_fingerprint: str) -> str:
+        max_concurrency: int,
+        role_prompt_version: str, protocol_version: str,
+        corpus_fingerprint: str) -> str:
     """Fingerprint only public, quality-relevant label-review configuration."""
     safe = {
         "labelReviewer": {
@@ -918,9 +1107,10 @@ def _label_reviewer_config_fingerprint(
         "maxOutputTokens": max_output_tokens,
         "repetitions": repetitions,
         "maxAttemptsPerRepetition": max_attempts_per_repetition,
+        "maxConcurrency": max_concurrency,
         "egressPolicy": LABEL_REVIEW_EGRESS_POLICY,
         "rolePromptVersion": role_prompt_version,
-        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+        "protocolVersion": protocol_version,
         "corpusFingerprint": corpus_fingerprint,
     }
     raw = json.dumps(safe, ensure_ascii=False, sort_keys=True,
@@ -934,6 +1124,7 @@ def evaluate_independent_label_reviewer_observations(
         temperature: float = 0.0, max_output_tokens: int = 800,
         max_total_calls: int = DEFAULT_COMPARISON_MAX_TOTAL_CALLS,
         max_attempts_per_repetition: int = 1,
+        max_concurrency: int = 1,
         role_prompt_version: str = "unspecified",
         manifest_path: Path = COMPARISON_MANIFEST_PATH) -> Dict[str, Any]:
     """Run one independent answer-hidden reviewer without loading labels.
@@ -959,6 +1150,11 @@ def evaluate_independent_label_reviewer_observations(
             or not 1 <= max_attempts_per_repetition <= 3):
         raise CorpusError(
             "independent label review attempts must be 1..3")
+    if (not isinstance(max_concurrency, int)
+            or isinstance(max_concurrency, bool)
+            or not 1 <= max_concurrency <= 16):
+        raise CorpusError(
+            "independent label review concurrency must be 1..16")
     if reviewer_config.role != "label_reviewer":
         raise CorpusError("independent label review Provider role invalid")
     if not reviewer_config.credentials.resolve():
@@ -974,51 +1170,64 @@ def evaluate_independent_label_reviewer_observations(
             f"independent label review call budget requires at least "
             f"{required_calls}, configured {max_total_calls}")
 
-    rows = []
-    for item in packet["items"]:
+    def review_once(item: Dict[str, Any], repetition: int) -> str:
         # The packet has already been checked for answer fields. Keep the
         # local mapping out of this request path entirely.
         request = {"item": item, "reviewProtocol": packet["instructions"]}
         raw_request = json.dumps(
             request, ensure_ascii=False, sort_keys=True,
             separators=(",", ":")).encode("utf-8")
-        runs = []
-        for repetition in range(repetitions):
-            assessment = None
-            for attempt in range(max_attempts_per_repetition):
-                call = ProviderCall(
-                    review_id="semantic-comparison-label-review",
-                    egress_policy=LABEL_REVIEW_EGRESS_POLICY,
-                    call_role="label_reviewer",
-                    call_id=(
-                        f"label-{item['itemId']}-{repetition + 1}"
-                        f"-attempt-{attempt + 1}"),
-                    request_bytes=len(raw_request),
-                    request_digest_sha256=hashlib.sha256(
-                        raw_request).hexdigest(),
-                )
-                response = reviewer.review_label(call=call, request=request)
-                assessment = (
-                    response.payload.get("assessment")
-                    if response.ok and isinstance(response.payload, dict)
-                    and set(response.payload) == {"assessment"}
-                    else None)
-                if assessment in {"present", "absent"}:
-                    break
-            runs.append(
-                assessment if assessment in {"present", "absent"} else "error")
-        rows.append({"itemId": item["itemId"], "runs": runs})
+        assessment = None
+        for attempt in range(max_attempts_per_repetition):
+            call = ProviderCall(
+                review_id="semantic-comparison-label-review",
+                egress_policy=LABEL_REVIEW_EGRESS_POLICY,
+                call_role="label_reviewer",
+                call_id=(
+                    f"label-{item['itemId']}-{repetition + 1}"
+                    f"-attempt-{attempt + 1}"),
+                request_bytes=len(raw_request),
+                request_digest_sha256=hashlib.sha256(
+                    raw_request).hexdigest(),
+            )
+            response = reviewer.review_label(call=call, request=request)
+            assessment = (
+                response.payload.get("assessment")
+                if response.ok and isinstance(response.payload, dict)
+                and set(response.payload) == {"assessment"}
+                else None)
+            if assessment in {"present", "absent"}:
+                break
+        return assessment if assessment in {"present", "absent"} else "error"
+
+    rows = [
+        {"itemId": item["itemId"], "runs": ["error"] * repetitions}
+        for item in packet["items"]
+    ]
+    tasks = []
+    with ThreadPoolExecutor(max_workers=max_concurrency) as pool:
+        for item_index, item in enumerate(packet["items"]):
+            for repetition in range(repetitions):
+                tasks.append((
+                    item_index,
+                    repetition,
+                    pool.submit(review_once, item, repetition),
+                ))
+        for item_index, repetition, future in tasks:
+            rows[item_index]["runs"][repetition] = future.result()
 
     observations = {
         "schemaVersion": 1,
         "protocolId": COMPARISON_PROTOCOL_ID,
-        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+        "protocolVersion": packet["protocolVersion"],
         "systemId": packet["systemId"],
         "configurationFingerprint": _label_reviewer_config_fingerprint(
             reviewer_config, temperature=temperature,
             max_output_tokens=max_output_tokens, repetitions=repetitions,
             max_attempts_per_repetition=max_attempts_per_repetition,
+            max_concurrency=max_concurrency,
             role_prompt_version=role_prompt_version,
+            protocol_version=packet["protocolVersion"],
             corpus_fingerprint=packet["corpusFingerprint"]),
         "corpusFingerprint": packet["corpusFingerprint"],
         "repetitions": repetitions,
@@ -1038,7 +1247,7 @@ def _label_map(label_attestation: Optional[Dict[str, Any]],
     if (label_attestation.get("schemaVersion") != 1
             or label_attestation.get("protocolId") != COMPARISON_PROTOCOL_ID
             or label_attestation.get("protocolVersion")
-            != COMPARISON_PROTOCOL_VERSION
+            != mapping.get("protocolVersion")
             or label_attestation.get("corpusFingerprint")
             != mapping.get("corpusFingerprint")):
         raise CorpusError("semantic label attestation identity invalid")
@@ -1114,27 +1323,36 @@ def _metrics(observations: Dict[str, Any],
     }
     tp = fp = tn = fn = inconclusive = errors = 0
     stable = 0
+    successful_runs = 0
     for item_id, expected in labels.items():
         runs = rows[item_id]
         stable += int(all(run == runs[0] for run in runs[1:]))
         for observed in runs:
             if observed == "error":
                 errors += 1
+                if expected == "present":
+                    fn += 1
             elif observed == "inconclusive":
                 inconclusive += 1
+                if expected == "present":
+                    fn += 1
             elif expected == "present":
+                successful_runs += 1
                 if observed == "present":
                     tp += 1
                 else:
                     fn += 1
             elif observed == "present":
+                successful_runs += 1
                 fp += 1
             else:
+                successful_runs += 1
                 tn += 1
     run_count = len(labels) * observations["repetitions"]
     return {
         "caseCount": len(labels),
         "runCount": run_count,
+        "successfulRuns": successful_runs,
         "confusion": {"tp": tp, "fp": fp, "tn": tn, "fn": fn},
         "inconclusive": inconclusive,
         "errors": errors,
@@ -1144,6 +1362,69 @@ def _metrics(observations: Dict[str, Any],
         "stabilityRate": _ratio(stable, len(labels)),
         "inconclusiveRate": _ratio(inconclusive, run_count),
         "errorRate": _ratio(errors, run_count),
+        "successfulRunRate": _ratio(successful_runs, run_count),
+    }
+
+
+def _butler_baseline_health(
+        observations: Dict[str, Any],
+        metrics: Dict[str, Any]) -> Dict[str, Any]:
+    maximum_error_rate = COMPARISON_THRESHOLDS["maximumErrorRate"]
+    minimum_successful_run_rate = round(1.0 - maximum_error_rate, 6)
+    reasons = []
+    run_health = observations.get("runHealth")
+    if run_health is None:
+        reasons.append("butler_baseline_health_missing")
+        budget_exhausted = None
+    else:
+        budget_exhausted = run_health["budgetExhausted"]
+        if budget_exhausted:
+            reasons.append("butler_baseline_budget_exhausted")
+    if (metrics["errorRate"] is None
+            or metrics["errorRate"] > maximum_error_rate):
+        reasons.append("butler_baseline_error_rate_exceeded")
+    if (metrics["successfulRunRate"] is None
+            or metrics["successfulRunRate"] < minimum_successful_run_rate):
+        reasons.append(
+            "butler_baseline_success_coverage_insufficient")
+    return {
+        "eligible": not reasons,
+        "reasonCodes": reasons,
+        "budgetExhausted": budget_exhausted,
+        "errorRate": metrics["errorRate"],
+        "successfulRuns": metrics["successfulRuns"],
+        "runCount": metrics["runCount"],
+        "successfulRunRate": metrics["successfulRunRate"],
+        "thresholds": {
+            "maximumErrorRate": maximum_error_rate,
+            "minimumSuccessfulRunRate": minimum_successful_run_rate,
+        },
+    }
+
+
+def _label_quality_summary(
+        mapping: Dict[str, Any],
+        canonical_labels: Dict[str, str]) -> Dict[str, Any]:
+    """Quarantine blind-review labels that contradict the frozen seed."""
+    provisional = {
+        metadata["caseId"]: metadata["authorAssessment"]
+        for metadata in mapping["aliases"].values()
+    }
+    if set(provisional) != set(canonical_labels):
+        raise CorpusError("semantic label quality case sets differ")
+    disagreements = sorted(
+        case_id
+        for case_id, assessment in canonical_labels.items()
+        if provisional[case_id] != assessment
+    )
+    return {
+        "status": (
+            "passed" if not disagreements else "requires_adjudication"),
+        "policy": (
+            "blind_consensus_must_match_precommitted_provisional_labels"),
+        "caseCount": len(canonical_labels),
+        "disagreementCount": len(disagreements),
+        "disagreementCaseIds": disagreements,
     }
 
 
@@ -1165,10 +1446,15 @@ def compare_semantic_systems(
     if (verity_packet["corpusFingerprint"]
             != butler_packet["corpusFingerprint"]):
         raise CorpusError("semantic comparison corpora differ")
+    if (verity_packet["protocolVersion"]
+            != butler_packet["protocolVersion"]):
+        raise CorpusError("semantic comparison protocols differ")
+    protocol_version = verity_packet["protocolVersion"]
 
     breadth = butler_breadth_summary(butler_crosswalk)
     status, canonical_labels = _label_map(
         label_attestation, mapping=verity_mapping)
+    label_quality = None
     eligibility_reasons = []
     if not breadth["claimReady"]:
         eligibility_reasons.append("butler_breadth_gaps_open")
@@ -1188,16 +1474,26 @@ def compare_semantic_systems(
         if reviewer_configurations & evaluated_configurations:
             eligibility_reasons.append(
                 "label_reviewer_configuration_not_independent")
+        if protocol_version in {
+                COMPARISON_PROTOCOL_V4, COMPARISON_PROTOCOL_V5}:
+            label_quality = _label_quality_summary(
+                verity_mapping, canonical_labels)
+            if label_quality["status"] != "passed":
+                eligibility_reasons.append(
+                    "labels_require_adjudication")
     if eligibility_reasons:
-        return {
+        report = {
             "schemaVersion": 1,
             "protocolId": COMPARISON_PROTOCOL_ID,
-            "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+            "protocolVersion": protocol_version,
             "status": "not_eligible",
             "reasonCodes": eligibility_reasons,
             "claim": None,
             "butlerBreadth": breadth,
         }
+        if label_quality is not None:
+            report["labelQuality"] = label_quality
+        return report
 
     verity_cases = {
         metadata["caseId"] for metadata in verity_mapping["aliases"].values()
@@ -1233,6 +1529,27 @@ def compare_semantic_systems(
     butler_canonical = remap(butler_mapping, butler_observations)
     verity_metrics = _metrics(verity_canonical, canonical_labels)
     butler_metrics = _metrics(butler_canonical, canonical_labels)
+    butler_health = _butler_baseline_health(
+        butler_observations, butler_metrics)
+    if not butler_health["eligible"]:
+        report = {
+            "schemaVersion": 1,
+            "protocolId": COMPARISON_PROTOCOL_ID,
+            "protocolVersion": protocol_version,
+            "status": "not_eligible",
+            "reasonCodes": butler_health["reasonCodes"],
+            "claim": None,
+            "butlerBreadth": breadth,
+            "butlerHealth": butler_health,
+            "verity": verity_metrics,
+            "limitations": [
+                "butler_baseline_invalid_no_relative_comparison",
+                "independent_ai_review_not_human_expert_review",
+            ],
+        }
+        if label_quality is not None:
+            report["labelQuality"] = label_quality
+        return report
     risk_count = len({
         metadata["riskId"] for metadata in verity_mapping["aliases"].values()
     })
@@ -1287,10 +1604,10 @@ def compare_semantic_systems(
         [name for name, passed in absolute_checks.items() if not passed]
         + [name for name, passed in relative_checks.items() if not passed])
     passed = not failed
-    return {
+    report = {
         "schemaVersion": 1,
         "protocolId": COMPARISON_PROTOCOL_ID,
-        "protocolVersion": COMPARISON_PROTOCOL_VERSION,
+        "protocolVersion": protocol_version,
         "status": "passed" if passed else "failed",
         "reasonCodes": failed,
         "claim": (
@@ -1300,6 +1617,7 @@ def compare_semantic_systems(
         "riskCount": risk_count,
         "findingTypeCount": finding_type_count,
         "butlerBreadth": breadth,
+        "butlerHealth": butler_health,
         "verity": verity_metrics,
         "butler": butler_metrics,
         "absoluteChecks": absolute_checks,
@@ -1311,3 +1629,6 @@ def compare_semantic_systems(
             "butler_reference_uses_targeted_checks_without_final_consolidation",
         ],
     }
+    if label_quality is not None:
+        report["labelQuality"] = label_quality
+    return report

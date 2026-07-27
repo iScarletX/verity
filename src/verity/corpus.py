@@ -543,9 +543,15 @@ def evaluate_semantic_replay(*, repetitions: int = 2) -> Dict[str, Any]:
             stable_count += 1
         first = observed_runs[0]
         should_emit = case["expectedAssessment"] == "confirmed"
-        correct = (first["assessment"] == case["expectedAssessment"]
-                   and ((case["findingType"] in first["emittedFindingTypes"])
-                        == should_emit))
+        emitted_expected = case["findingType"] in first["emittedFindingTypes"]
+        assessment_matches = first["assessment"] == case["expectedAssessment"]
+        gated_rejection = (
+            case["expectedAssessment"] == "rejected"
+            and first["assessment"] == "no_assessment"
+            and not first["emittedFindingTypes"])
+        correct = (
+            (assessment_matches or gated_rejection)
+            and emitted_expected == should_emit)
         if correct:
             correct_count += 1
         results.append({

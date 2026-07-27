@@ -3,6 +3,7 @@ from jsonschema import Draft202012Validator
 
 from verity.semantic.config import ProviderConfig, ProviderCredentials
 from verity.semantic.eval_provider import (EVAL_ROLE_PROMPT_VERSION,
+                                           LABEL_REVIEW_PROMPT_VERSION,
                                            _system_prompt)
 from verity.semantic.provider import ProviderResponse
 from verity.semantic.schemas import VALIDATION_RESULT_SCHEMA
@@ -39,13 +40,23 @@ def test_contradictory_or_empty_validator_reasons_are_rejected():
 
 def test_eval_validator_prompt_states_materiality_and_coherence_boundary():
     prompt = _system_prompt("validator")
-    assert EVAL_ROLE_PROMPT_VERSION == "3.0.0"
+    assert EVAL_ROLE_PROMPT_VERSION == "4.0.0"
     assert "materially supports" in prompt
     assert "keyword overlap" in prompt
     assert "applicability first" in prompt
     assert "rejection condition defeats" in prompt
     assert "match booleans" in prompt
+    assert "complete_reviewed_prompt" in prompt
+    assert "false supports it" in prompt
     assert "Decision and reasonCodes must agree" in prompt
+
+
+def test_label_reviewer_prompt_applies_v4_catalog_rubric():
+    prompt = _system_prompt("label_reviewer")
+    assert LABEL_REVIEW_PROMPT_VERSION == "2.0.0"
+    assert "targetRisk.judgmentPolicy" in prompt
+    assert "controlling rubric" in prompt
+    assert "rejection condition defeats" in prompt
 
 
 def test_role_prompt_version_is_reported_and_changes_fingerprint(monkeypatch):
@@ -59,7 +70,7 @@ def test_role_prompt_version_is_reported_and_changes_fingerprint(monkeypatch):
     kwargs["validator"] = Validator(decisions_for_split("calibration", 2))
     second = evaluate_semantic_model_quality(
         **kwargs, role_prompt_version=EVAL_ROLE_PROMPT_VERSION)
-    assert second["configuration"]["rolePromptVersion"] == "3.0.0"
+    assert second["configuration"]["rolePromptVersion"] == "4.0.0"
     assert len(second["configuration"]["corpusFingerprint"]) == 64
     assert (first["configuration"]["configurationFingerprint"]
             != second["configuration"]["configurationFingerprint"])

@@ -5,13 +5,13 @@
 <!-- verify_repo.py: begin verified_against block -->
 ```yaml
 verified_against:
-  date: "2026-07-24"
+  date: "2026-07-27"
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "3201e865"
-  tests_collected: 669
-  tests_passed: 669
+  commit: "436caa35"
+  tests_collected: 752
+  tests_passed: 752
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -29,15 +29,192 @@ Strings below MUST match the runtime literals.
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 46 unified risks, 83 mapped runtime components (54 deterministic rules + 1 capability extractor + 28 semantic finding types) and four mature-tool decisions. Current L0 breadth: 19 none / 18 signal / 9 partial. Current L1 breadth: 16 none / 29 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
-**Corpus baseline.** The Corpus has 80 synthetic L0 cases across 24 risks, 56 fixed semantic contract replays, and frozen semantic-quality protocol v2 with 42 cases (14 calibration / 14 consumed selection / 14 sealed test). Protocol v3 has 112 development-comparison cases covering all 28 semantic types, with two positive and two safe cases per type. Its manifest labels remain `provisional_single_review`, but a local, answer-hidden three-reviewer run derived a separate digest-bound 112-case `independent_ai_review` attestation; this is cross-model blind AI review, not human expertise. 26 L0 and 28 non-Test v2 semantic-quality labels also have digest-bound `independent_ai_review`. The other 54 L0 cases are `provisional_single_review`, correctly excluded from the frozen 54-item attestation pending a future review round. The 56 fixed contract labels and 14 sealed-Test labels remain provisional. Fixed reports remain reproducible and score-free; contract replay is 56/56 and `modelQualityMeasured=false`.
+**Corpus baseline.** The Corpus has 80 synthetic L0 cases across 24 risks, 56 fixed semantic contract replays, and frozen semantic-quality protocol v2 with 42 cases (14 calibration / 14 consumed selection / 14 sealed test). Protocol v3 and hidden holdouts v4/v5 each cover 112 cases across all 28 semantic types and are consumed diagnostic evidence. Authorized v5 runs exposed two independent blockers: the first formal Verity run used evaluation-only `model_only` instead of the shipped `catalog_first` strategy, and the original three-model label attestation disagreed with the precommitted provisional labels on 18/112 cases. The comparator now quarantines any such hidden-holdout disagreement and v5 returns `labels_require_adjudication`, with no claim. A later GPT-OSS/Qwen answer-hidden diagnostic agreed on 108/112 cases. After catalog-first repairs, the final consumed-v5 diagnostic over those 108 shared-consensus cases measured precision `1.0`, recall `0.990566`, safe false-positive rate `0.0`, stability `0.990741`, and error rate `0.004630`; four label disagreements were excluded, v5 had already been used for tuning, and this is not formal ground truth. Butler's v5 run also failed the health gate. Fresh local hidden v6 is now frozen before any remote observation: 112/112 extractor coverage, 56 catalog hypotheses for precommitted positive cases, 56 catalog-suppressed safe cases, and zero payload overlap with v3/v4/v5. Its fingerprint is `07f8ea85f39d5653554cce48bc037226c44779da10c369b755d9e7ecf3b73df4`; v6 remote payload egress remains unauthorized. Fixed reports remain reproducible and score-free; contract replay is 56/56 and `modelQualityMeasured=false`.
 
-**V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection returned `not_eligible`, and the first independently labelled protocol-v3 comparison failed recall (`0.685714 < 0.90`) and recall non-inferiority (`0.685714 < 0.944444` on Butler's error-filtered decisions). Butler's reference run itself had a `0.767857` error rate, so it is not a healthy product-quality baseline despite the formal relative metric. No claim that Verity equals or exceeds Butler is authorized. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
+**V1 closure decision.** `release_candidate` under closure policy **v2.0.0**, scoped to the **deterministic static auditor** (rules + Bandit + gitleaks + JSON/HTML/SARIF + Web/CLI + explainable score/coverage). Engineering acceptance is green and reproducible; this is an honest engineering preview with **no evaluated-accuracy claim** and disclosed breadth limits. The **controlled semantic (LLM-assisted) review is a separate experimental track, default-OFF, `experimental_not_ready`, and NOT in the release gate**: protocol-v1 Selection is invalid after label adjudication, the first frozen protocol-v2 Selection returned `not_eligible`, and the consumed protocol-v3 Verity run has coverage-adjusted recall `0.631579` when positive Provider errors/inconclusives are counted as false negatives. The historical Butler reference completed only `52/224` runs (`0.232143` successful-run coverage; `0.767857` error rate), so the corrected comparator marks that baseline `not_eligible` and emits no relative checks. No claim that Verity equals or exceeds Butler is authorized. The decision is reproducible in `evals/reports/v1-closure.json` (`decision` = deterministic scope; `semanticQualityTrack` = open experimental blockers); it is not an aggregate score.
 
-**Next step.** Repair the six zero-recall types first (`semantic.skill.declared_behavior_mismatch`, `semantic.skill.permission_capability_mismatch`, `semantic.prompt.verification_step_gap`, `semantic.prompt.tool_call_contract_gap`, `semantic.prompt.sensitive_data_handling_gap`, and `semantic.prompt.error_response_contract_gap`), then the weak streaming, field-constraint, and attention-dilution types. Improve deterministic evidence and judgment policies before changing model choice. Because protocol v3 labels and misses are now consumed for diagnosis, measure the repaired system on a fresh answer-hidden protocol version rather than tuning and reclaiming v3. Also make the Butler adapter refuse budget-exhausted observations instead of reporting them as model errors. Prompt black-box and Skill sandbox remain blocked until the full semantic gate passes.
+**Next step.** Let the founder exercise the local review workbench and decide whether to start the separately gated Prompt black-box and Skill sandbox implementation. The fresh v6 corpus and five answer-hidden packets are locally frozen, but sending any v6 payload remotely still requires separate v6 authorization. After authorization, independent strong-reasoning reviews must agree with the precommitted labels or enter adjudication before any formal comparison. Round 64 repaired product recall without consuming v6: prompt types with no deterministic seed receive one closed-catalog, bounded full-prompt sweep, and every proposed candidate still requires the independent Validator.
 
-**What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned) subprocess integration, JSON / HTML / SARIF 2.1.0 reports, Chinese remediation catalog, deterministic explainable safety score plus separate review-confidence grade and proposal-only remediation/re-review checks, and a default-OFF experimental semantic pipeline with 28 controlled Finding Types, catalog-owned judgment policies, structured evidence and a bounded JSON-over-HTTPS Provider adapter. The repository also includes a fresh 112-case same-corpus comparison protocol, two eval-only answer-hidden label-reviewer runners with scrubbed budget audits, independently derived label attestation plumbing, strict run budgets, a read-only Butler source adapter, and a complete pinned Butler inventory crosswalk. Standalone CLI/Web review and trusted Web-first Skill project history remain available. Confirmed Findings from completed stages use one report-consumer projection across verdict, gate, score, Web, HTML and SARIF.
+**What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned), JSON / HTML / SARIF reports, and a Chinese review workbench with score, confidence, prioritized findings, source-byte highlighting, a Prompt editing draft, direct re-review, downloads, and Skill project history. Web Skill reviews always use the gitleaks-enabled `standard` profile. Non-secret Provider preferences persist in owner-only local JSON, while the API key is held only in the current macOS user's Keychain and is never returned to the browser. The default-OFF controlled semantic pipeline has 28 Finding Types. Catalog-first structured hypotheses, paragraph-scoped safe controls, and one closed-catalog full-prompt sweep reduce Candidate Generator recall vetoes without allowing the model to invent Finding Types, severity, or evidence; every accepted hypothesis still requires the independent Validator. `model_only` remains an explicit evaluation strategy so Provider quality can be measured without product catalog shortcuts. Confirmed semantic Evidence now reaches every report consumer, including remediation and source positioning. An explicitly requested semantic review that fails or remains incomplete now has no numeric score or pass verdict.
 
-**Deliberately absent.** No accepted semantic quality result and no claim that Verity equals or exceeds Butler. A local v3 independent label attestation and paired observation report now exist, but the report failed and remains gitignored research evidence; Butler's error-heavy run is also unsuitable as a healthy baseline. There is no automatic remediation/PatchSet apply. The Web UI has a loopback-only Provider-config surface for the experimental semantic path (advisory only, below its quality gate). No Skill execution or sandbox. No prompt black-box runner. No Semgrep / YARA. No ZIP or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
+**Deliberately absent.** No accepted semantic quality result and no claim that Verity equals or exceeds Butler. v3, v4, and v5 are consumed diagnostic evidence; the strong-reasoning v5 report is explicitly non-formal. There is no automatic remediation/PatchSet apply: the UI edits a draft and reruns review only. No Skill execution or sandbox, Prompt black-box runner, Semgrep/YARA, ZIP intake, or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
+
+---
+
+## Round 65 (2026-07-27) → persist Provider configuration and remove Web downgrade paths
+
+- Added strict owner-only persistence for Provider URL and selected models.
+  API keys are stored only in the current macOS user's Keychain; they never
+  enter persisted JSON, browser storage, process arguments, reports, logs, or
+  responses, and unsupported credential stores fail without a plaintext
+  fallback.
+- Added loopback GET/PUT/DELETE settings endpoints. The response exposes only
+  non-secret preferences and `keySaved`; saving with an empty key preserves an
+  existing Keychain item, while clear removes both stores.
+- Removed the Web egress-policy and Skill-profile controls. Standalone and
+  project Skill routes force `standard`, while semantic routes force
+  `redacted_evidence`; stale clients cannot downgrade either policy.
+- Bound saved credentials to the saved Provider address at the application
+  boundary: request-supplied addresses cannot inherit Keychain credentials,
+  and changing an address requires a new key. Preference writes roll back on
+  Keychain failure, clear removes the credential first, and all Keychain
+  subprocess work runs in Starlette's thread pool. Keychain writes provide the
+  bounded secret twice over stdin and detach from any controlling TTY so the
+  `security` subprocess cannot stall waiting for terminal input.
+- Locked Provider controls until restoration completes, blocked review/model
+  actions when edits are unsaved, and added operation sequencing so stale
+  restore/save/clear/model responses cannot overwrite newer UI state.
+- Added focused storage, endpoint, stale-client, UI-contract, and refresh
+  tests. Web tests inject isolated credentials and never depend on the current
+  user's Keychain contents. A live desktop/narrow-viewport walkthrough
+  confirmed configuration restoration, no removed controls, no horizontal
+  overflow, and no browser console warnings or errors.
+- Full verification: 752 tests and `python3 tools/verify_repo.py`.
+
+---
+
+## Round 64 (2026-07-27) → close the no-seed semantic recall hole
+
+- Added one bounded, source-positioned full-prompt sweep for registered Prompt
+  Finding Types that produced no deterministic seed. The Provider receives a
+  closed type/subject catalog and may return at most one strongest candidate
+  per type; unknown types, subjects, evidence ids, or duplicate types fail the
+  semantic run closed. Candidates still pass the normal independent Validator.
+- Added a general ambiguity route and a controlled visual-style task-anchor
+  policy. A detailed visual specification with no concrete task or subject can
+  now become a validated finding, while complete visual tasks and subjective
+  style presets remain safe counterexamples.
+- Replaced whole-document mitigation counts with paragraph-scoped controls for
+  trust, budget, authority, failure, grounding, reasoning, and verification
+  gaps. A protection in a separate section can no longer suppress an unrelated
+  risky instruction, while a trailing control in the same authored rule block
+  remains effective.
+- Made semantic failure visible and non-green: a requested semantic stage that
+  does not complete has no numeric score or pass verdict, shows a rerun action,
+  and retains semantic claim/evidence positions plus scrubbed per-type stage
+  diagnostics in the workbench.
+- Re-audited the unconsumed local v6 contract without sending payloads:
+  56/56 positive catalog hypotheses, 56/56 safe pre-model suppressions, and
+  zero unreachable positives. Corpus reports are reproducible; all 735 tests
+  and `python3 tools/verify_repo.py` pass.
+
+---
+
+## Round 63 (2026-07-26) → freeze a clean v6 product-path gate
+
+- Added a local holdout builder that composes four independently authored
+  groups, enforces exactly four cases per Finding Type (two present and two
+  absent), rejects duplicate payloads, builds hidden artifacts atomically, and
+  proves payload disjointness against v3, v4, and v5.
+- Added a product-path catalog audit and made it a freeze requirement. All 56
+  positive v6 cases produce bounded catalog hypotheses, all 56 safe cases skip
+  Candidate generation, and no positive case is unreachable.
+- Fixed matched `when`/`unless` exception scopes, documentation-only external
+  references, and complete sensitive-data controls so safe cases are suppressed
+  before model calls without weakening positive hypotheses.
+- Froze five independently shuffled 112-item packets for Verity, Butler, and
+  three label reviewers. Packet inspection found no author assessment or risk
+  id leakage. The freeze binds `catalog_first`, the label disagreement gate,
+  the catalog contract, manifest hash, and corpus fingerprint; it records
+  `remotePayloadAuthorized=false` and `remoteObservationsStarted=false`.
+- Replayed the corpus baseline, completed a local UI walkthrough, found no
+  browser console errors or mobile horizontal overflow, and passed all 723
+  tests plus `verify_repo.py --skip-tests`.
+
+---
+
+## Round 62 (2026-07-26) → quarantine weak labels and close v5 product-path misses
+
+- Ran the explicitly authorized hidden-v5 payload through three independent
+  label configurations, repeated Verity observations, and the read-only Butler
+  adapter. Closed GPT/Gemini/Claude routes returned Provider TOS errors, so the
+  accepted legacy attestation used Mistral, Cohere, and Llama configurations.
+  Butler exceeded the 5% error ceiling and supplied no valid relative result.
+- Found that the first v5 Verity command used evaluation-only `model_only`.
+  Candidate strategy is now an explicit CLI option and part of the
+  configuration fingerprint; product comparisons default to `catalog_first`,
+  while legacy provider-quality runs remain explicitly `model_only`.
+- Added a hidden-holdout label-quality gate. Independent AI consensus is
+  compared locally with the precommitted provisional labels after blind review;
+  any disagreement returns `labels_require_adjudication` and suppresses all
+  accuracy or superiority claims. The legacy v5 attestation has 18 quarantined
+  disagreements.
+- Ran separate GPT-OSS and Qwen answer-hidden diagnostics. They agreed on
+  108/112 cases, with 106 also matching the precommitted labels. The four
+  reviewer disagreements and two shared disagreements are retained as evidence
+  for rewriting/adjudication, not silently majority-voted.
+- Repaired same-target instruction conflicts, explicit streaming omissions,
+  normative enum/prohibition examples, conversational error-response
+  applicability, short-prompt attention dilution, and example subject
+  normalization. Compatible examples now gate off free-form model candidates
+  in the product path instead of allowing stochastic false positives.
+- Final consumed-v5 product diagnostic on the 108 strong-reasoning consensus
+  cases: TP 105, FP 0, TN 110, FN 1; precision `1.0`, recall `0.990566`,
+  safe false-positive rate `0.0`, stability `0.990741`, error rate `0.004630`.
+  The single miss was a Provider protocol error. Because v5 was consumed and
+  tuned, these numbers guide v6 but authorize no formal Butler claim.
+- Full suite: 717 passed, 0 skipped. Corpus reports remain reproducible.
+
+---
+
+## Round 61 (2026-07-26) → catalog-first precision and a usable review workbench
+
+- Extended catalog-first hypotheses and safe-negative gates across structured
+  Prompt and Skill contracts. Instruction conflict now requires an evidenced
+  same-target or final-stage opposing constraint before a candidate exists;
+  vague metadata pairs no longer let the Candidate Generator invent a
+  conflict. Natural-language tool declarations, Markdown/YAML field lists,
+  numeric ranges, URL-valued fields, and explicit prohibitions have regression
+  coverage.
+- Added an evaluation-only `model_only` candidate strategy. Product review
+  remains `catalog_first`; controlled model benchmarks can still exercise both
+  Provider roles without catalog shortcuts.
+- Preserved semantic Evidence in the report projection. Web findings,
+  remediation records, JSON/HTML, and the new source workbench now resolve the
+  same semantic evidence ids and byte ranges.
+- Rebuilt the local UI as a two-column review workbench with score and
+  confidence, prioritized findings, source highlighting, Prompt draft editing,
+  one-click re-review, report downloads, and responsive mobile layout.
+  Browser walkthrough at 1440x1000 and 390x844 showed no horizontal overflow.
+- Live OpenRouter walkthrough with separate DeepSeek generator and Mistral
+  validator found four controlled problems in a synthetic risky Prompt
+  (score 67, four source highlights), while the corrected bounded Prompt
+  returned zero findings. This is a product-path smoke test, not an accuracy
+  estimate.
+- Full suite: 704 passed, 0 skipped. Corpus reports are reproducible.
+
+---
+
+## Round 60 (2026-07-24) → remove semantic recall vetoes and freeze a clean v4 gate
+
+- Added catalog-owned candidate hypotheses for the six v3 zero-recall types
+  and three weak types: declared behavior, permission/capability,
+  verification, tool-call contract, sensitive-data handling, error-response
+  contract, streaming recovery, field constraints, and attention dilution.
+  Hints use only bounded allowlisted facts and still require the independent
+  Validator. A valid empty generator response can no longer veto these
+  hypotheses; provider errors or schema failures still fail closed.
+- Added per-Finding-Type stage statistics and a scrubbed comparison sidecar
+  covering extractor seeds, evidence, catalog/model candidates, queued
+  candidates, and Validator states. Catalog hypotheses take precedence over
+  competing model hypotheses for the same seed, preventing duplicate Findings
+  and duplicate validation spend.
+- Corrected metric accounting so a positive case ending in Provider error or
+  inconclusive state is a false negative for recall. Added a strict Butler
+  health gate: missing run health, budget exhaustion, error rate above 5%, or
+  successful-run coverage below 95% blocks all relative checks. Replaying v3
+  now correctly reports Butler `not_eligible` at 52/224 successful runs.
+- Added protocol-v4 support without mutating v3. v4 packets carry the same
+  versioned catalog judgment policy to Verity, Butler, and label reviewers;
+  the CLI binds packet and runner operations to an explicit manifest. The
+  gitignored v4 holdout was frozen before first observation with 112 unique
+  v3-disjoint artifacts, balanced coverage across all 28 Finding Types,
+  112/112 extractor coverage, and five independently shuffled answer-hidden
+  packets. Three independent reviewer runs and repeated Verity observations
+  were completed; the result missed the recall gate and is consumed diagnostic
+  evidence. Butler's run was unhealthy, so no relative result was accepted.
+- Full suite: 690 passed, 0 skipped. `python3 tools/verify_repo.py` passed all
+  repository, corpus, closure, standards and semantic protocol checks.
 
 ---
 

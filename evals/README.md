@@ -151,7 +151,7 @@ or used to tune this protocol version; a quality improvement requires a new
 protocol version with fresh, unseen splits. Sealed Test was not exposed or
 consumed. Scrubbed reports live only in gitignored `.verity-data/model-evals/`.
 
-## Fresh protocol-v3 Verity/Butler comparison
+## Versioned Verity/Butler comparison
 
 `evals/corpus/v1/semantic_comparison_v3.json` contains 112 fresh cases: two
 unsafe and two safe counterexamples for each of the twenty-eight current semantic
@@ -160,6 +160,13 @@ remain `provisional_single_review`. This committed development corpus therefore
 meets the minimum size for the comparison plumbing while remaining ineligible
 for a superiority claim until its payload-digest-bound labels are independently
 reviewed.
+
+Protocol v3 is consumed development evidence and cannot be reused to claim
+improvement after tuning. The same tooling accepts a protocol-v4
+`hidden_holdout` manifest through `--manifest`. v4 packets additionally carry
+the exact catalog applicability, confirmation, rejection and
+insufficient-evidence policy to Verity, Butler and every label reviewer.
+Hidden v4 payloads and mutable reports remain gitignored local research data.
 
 `evals/reference/butler_crosswalk.json` freezes the complete 45-check Butler
 built-in inventory at the reference commit and classifies every item as
@@ -175,25 +182,29 @@ it is not a complete-recall or evaluated-accuracy assertion.
 export VERITY_COMPARISON_SEED='<private random seed>'
 python3 tools/semantic_head_to_head.py packet \
   --system-id verity \
-  --seed-env VERITY_COMPARISON_SEED
+  --seed-env VERITY_COMPARISON_SEED \
+  --manifest '<frozen-versioned-manifest>'
 
 # Build separately shuffled, answer-hidden packets for the two label reviewers.
 export VERITY_LABEL_REVIEWER_A_SEED='<private random seed>'
 export VERITY_LABEL_REVIEWER_B_SEED='<different private random seed>'
 python3 tools/semantic_head_to_head.py packet \
   --system-id label-reviewer-a \
-  --seed-env VERITY_LABEL_REVIEWER_A_SEED
+  --seed-env VERITY_LABEL_REVIEWER_A_SEED \
+  --manifest '<frozen-versioned-manifest>'
 python3 tools/semantic_head_to_head.py packet \
   --system-id label-reviewer-b \
-  --seed-env VERITY_LABEL_REVIEWER_B_SEED
+  --seed-env VERITY_LABEL_REVIEWER_B_SEED \
+  --manifest '<frozen-versioned-manifest>'
 
 python3 tools/semantic_head_to_head.py run-label-reviewer \
   --packet .verity-data/semantic-comparison/label-reviewer-a/packet.json \
   --alias-map .verity-data/semantic-comparison/label-reviewer-a/alias-map.json \
+  --manifest '<frozen-versioned-manifest>' \
   --base-url https://trusted-provider.example/v1 \
   --model '<pinned-independent-reviewer-a>' \
   --api-key-env VERITY_EVAL_API_KEY \
-  --repetitions 2 \
+  --repetitions 3 \
   --max-output-tokens 256 \
   --max-total-calls 300 \
   --max-total-tokens '<approved-total-token-cap>' \
@@ -208,10 +219,12 @@ python3 tools/semantic_head_to_head.py run-label-reviewer \
 python3 tools/semantic_head_to_head.py run-verity \
   --packet .verity-data/semantic-comparison/verity/packet.json \
   --alias-map .verity-data/semantic-comparison/verity/alias-map.json \
+  --manifest '<frozen-versioned-manifest>' \
   --base-url https://trusted-provider.example/v1 \
   --generator-model '<pinned-generator-model>' \
   --validator-model '<pinned-validator-model>' \
   --api-key-env VERITY_EVAL_API_KEY \
+  --candidate-strategy catalog_first \
   --repetitions 2 \
   --max-output-tokens 800 \
   --max-total-calls 500 \
@@ -264,19 +277,26 @@ python3 tools/semantic_head_to_head.py compare \
 
 Packet output contains artifacts and one target-risk definition, but no case
 id, Finding Type, risk id, author answer, label status, source path, or payload
-digest. Verity, Butler and the two label reviewers receive separately shuffled
+digest. Verity, Butler and the label reviewers receive separately shuffled
 aliases; each local map row is bound to its packet-item digest.
 `run-label-reviewer` accepts only a non-`verity`/non-`butler` packet, sends its
 packet rather than its local map, and writes a scrubbed observation plus a
-budget audit. `attest-labels` requires exactly two reviewer systems and
-configuration fingerprints distinct from each other. The comparator also
+budget audit. `attest-labels` requires two or three reviewer systems with
+configuration fingerprints distinct from each other. Each reviewer uses an
+odd repetition count of at least three and needs two-thirds decisive internal
+consensus. Two reviewers must agree; three use per-case majority. The comparator also
 refuses an otherwise valid attestation when either reviewer configuration
-matches Verity or Butler. The built-in `run-verity` command accepts only a
+matches Verity or Butler. For hidden holdouts, blind consensus must also match
+the labels committed before any remote review; disagreements return
+`labels_require_adjudication` and suppress all claims rather than being
+silently majority-voted. The built-in `run-verity` command accepts only a
 `system-id=verity` packet and therefore cannot be used to manufacture either
-independent review. Every review must be stable, decisive and unanimous across
-reviewers; names alone cannot establish independence. Every packet is
+independent review. Names alone cannot establish independence. Every packet is
 rechecked for answer metadata when its alias map or observations cross a
-comparison boundary. The comparator requires at least
+comparison boundary. `run-verity` also writes a local scrubbed `-stages.json`
+sidecar with extractor, catalog-candidate, generated-candidate and Validator
+counts; it contains no case ids, Finding Types, labels, source text, claims,
+subjects or Provider responses. The comparator requires at least
 112 cases, all twenty-eight Finding Types, at least twenty-seven mapped risk ids, two
 repetitions, recall >=0.90, safe false-positive rate <=0.20, stability >=0.80,
 error rate <=0.05 and inconclusive rate <=0.10. It then additionally
@@ -285,10 +305,24 @@ positives to be strictly lower, and Verity errors to be no worse. Only that
 scoped, independently labelled benchmark may emit
 `verity_exceeds_butler_on_this_independently_labelled_benchmark`.
 
-No real v3 Provider run has been made in the repository. It still requires the
-operator to name the trusted provider endpoint, exact model ids, credential
-environment variable, repetitions, call/token/spend limits and local report
-path. Butler observations must come from Butler itself under a frozen
+The consumed local v3 run is research evidence only. Its Verity
+coverage-adjusted recall is `0.631579`; its Butler reference completed only
+52/224 planned runs and is `not_eligible` under the corrected health gate.
+Hidden v4 and v5 are also consumed. v5 exposed a legacy 18-case label
+disagreement, an initial `model_only`/product-strategy mismatch, and an
+unhealthy Butler baseline. A later tuned `catalog_first` diagnostic over 108
+GPT-OSS/Qwen consensus cases is useful repair evidence but is not a fresh
+formal result. Local hidden v6 is frozen with `catalog_first` before any remote
+observation at corpus fingerprint
+`07f8ea85f39d5653554cce48bc037226c44779da10c369b755d9e7ecf3b73df4`.
+It is disjoint from v3/v4/v5, has 112/112 extractor coverage, 56 positive
+catalog hypotheses, and 56 safe pre-model suppressions. Its freeze records
+that remote payload egress is not authorized; no v6 packet may be sent until
+that separate authorization is given.
+Future versions still require the operator to name the trusted provider
+endpoint, exact model ids, credential environment variable, repetitions,
+call/token/spend limits and local report path. Butler observations must come
+from Butler itself under a frozen
 configuration; Butler output is never used as the answer key. The read-only
 adapter builds a temporary Node bundle from the supplied Butler source and its
 already-installed dependencies, records a source fingerprint, and never writes
@@ -305,7 +339,10 @@ maximum output. Retries consume fresh call/token/spend reservation. They write
 a scrubbed sidecar budget audit beside the observation file and stop before a
 request that would exceed any approved cap. The Butler adapter also reads
 Provider responses incrementally and aborts as soon as the response-byte cap
-would be exceeded.
+would be exceeded. Its strict budget-exhaustion flag is copied into observation
+health. Missing health, exhausted budget, error rate above 5%, or successful
+run coverage below 95% makes Butler `not_eligible`; no filtered relative recall
+is reported.
 
 ## Binary V1 closure report
 

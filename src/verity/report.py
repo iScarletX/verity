@@ -136,7 +136,13 @@ def compute_verdict(review: Review) -> Dict[str, Any]:
     coverage_status = review.coverage.status
     reason_codes = []
     subject = None
-    if coverage_status == "sufficient":
+    semantic_incomplete = bool(
+        review.semantic
+        and review.semantic.get("status") not in {"off", "completed"}
+    )
+    if semantic_incomplete:
+        reason_codes.append("semantic_requested_but_incomplete")
+    elif coverage_status == "sufficient":
         if review.engine == "prompt":
             subject = {
                 "engine": "prompt",

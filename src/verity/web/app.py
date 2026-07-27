@@ -24,9 +24,10 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.middleware import Middleware
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -40,7 +41,7 @@ from ..intake import (IntakeBudget, IntakeError, intake_directory,
 from ..history import HistoryError, HistoryStore
 from ..models import PROMPT_KINDS as _PROMPT_KINDS  # kept for clarity
 from ..report import review_to_dict, to_html as report_html, to_json as report_json
-from ..review import ReviewInputs, SKILL_PROFILES, run_review
+from ..review import ReviewInputs, run_review
 from ..sarif import to_sarif_json
 from .store import ReportStore, StoredReport
 from .view import build_view_model
@@ -56,6 +57,14 @@ MAX_SKILL_FILES = 500
 MAX_SKILL_FILE_BYTES = 512 * 1024
 MAX_SKILL_TOTAL_BYTES = 8 * 1024 * 1024
 MAX_REQUEST_BYTES = 12 * 1024 * 1024         # multipart wrapper overhead
+MAX_WEB_EGRESS_POLICY = "redacted_evidence"
+MAX_WEB_SKILL_PROFILE = "standard"
+WEB_PROVIDER_FIELD_NAMES = {
+    "provider_base_url",
+    "provider_api_key",
+    "generator_model",
+    "validator_model",
+}
 
 
 # --- Middleware --------------------------------------------------------
@@ -214,7 +223,7 @@ def _maybe_semantic_config(payload: Dict[str, Any]):
         return _error_response("bad_semantic",
                                "semantic_enabled must be a boolean-ish flag",
                                400)
-    policy = payload.get("egress_policy") or "metadata_only"
+    policy = MAX_WEB_EGRESS_POLICY
     from ..semantic import SemanticConfig
     try:
         return SemanticConfig(enabled=True, egress_policy=str(policy))
@@ -227,12 +236,15 @@ def _semantic_enabled_flag(payload: Dict[str, Any]) -> bool:
     return v in (True, "true", "on", 1, "1")
 
 
-def _has_provider_fields(payload: Dict[str, Any]) -> bool:
-    return bool(payload.get("provider_base_url") or payload.get("provider_api_key")
-                or payload.get("generator_model") or payload.get("validator_model"))
+def _resolved_provider_settings(store):
+    preferences, key_saved = store.public_settings()
+    api_key = store.resolve_key() or "" if key_saved else ""
+    return preferences, api_key
 
 
-def _maybe_semantic_run(payload: Dict[str, Any]):
+def _maybe_semantic_run(
+        payload: Dict[str, Any], settings_store=None,
+        resolved_settings=None):
     """Resolve the semantic execution plan for a review request.
 
     Returns one of:
@@ -245,8 +257,29 @@ def _maybe_semantic_run(payload: Dict[str, Any]):
     """
     if not _semantic_enabled_flag(payload):
         return None
-    policy = str(payload.get("egress_policy") or "metadata_only")
-    if not _has_provider_fields(payload):
+    policy = MAX_WEB_EGRESS_POLICY
+    has_request_provider_config = bool(
+        WEB_PROVIDER_FIELD_NAMES.intersection(payload))
+    base_url = str(payload.get("provider_base_url") or "")
+    api_key = str(payload.get("provider_api_key") or "")
+    generator_model = str(payload.get("generator_model") or "")
+    validator_model = str(payload.get("validator_model") or "")
+    if resolved_settings is not None and not has_request_provider_config:
+        preferences, saved_key = resolved_settings
+        base_url = preferences.base_url
+        generator_model = preferences.generator_model
+        validator_model = preferences.validator_model
+        api_key = saved_key
+    elif settings_store is not None and not has_request_provider_config:
+        from .provider_settings import ProviderSettingsError
+        try:
+            preferences, api_key = _resolved_provider_settings(settings_store)
+            base_url = preferences.base_url
+            generator_model = preferences.generator_model
+            validator_model = preferences.validator_model
+        except ProviderSettingsError as exc:
+            return _error_response(exc.code, exc.message, 409)
+    if not any((base_url, api_key, generator_model, validator_model)):
         # Legacy honest path: enabled but not configured.
         from ..semantic import SemanticConfig
         try:
@@ -258,14 +291,30 @@ def _maybe_semantic_run(payload: Dict[str, Any]):
                                build_semantic_config_with_ephemeral_key)
     try:
         sem_cfg, gen, val, env_name = build_semantic_config_with_ephemeral_key(
-            base_url=str(payload.get("provider_base_url") or ""),
-            api_key=str(payload.get("provider_api_key") or ""),
-            generator_model=str(payload.get("generator_model") or ""),
-            validator_model=str(payload.get("validator_model") or ""),
+            base_url=base_url,
+            api_key=api_key,
+            generator_model=generator_model,
+            validator_model=validator_model,
             egress_policy=policy)
     except ProviderWebError as exc:
         return _error_response(exc.code, exc.message, 400)
     return (sem_cfg, gen, val, env_name)
+
+
+async def _maybe_semantic_run_for_request(payload, settings_store):
+    if (
+        not _semantic_enabled_flag(payload)
+        or WEB_PROVIDER_FIELD_NAMES.intersection(payload)
+    ):
+        return _maybe_semantic_run(payload)
+    from .provider_settings import ProviderSettingsError
+    try:
+        resolved = await run_in_threadpool(
+            _resolved_provider_settings, settings_store)
+    except ProviderSettingsError as exc:
+        return _error_response(exc.code, exc.message, 409)
+    return _maybe_semantic_run(
+        payload, resolved_settings=resolved)
 
 
 async def list_models(request: Request) -> Response:
@@ -290,13 +339,96 @@ async def list_models(request: Request) -> Response:
         return _error_response("bad_json", "invalid JSON body", 400)
     if not isinstance(payload, dict):
         return _error_response("bad_shape", "expected an object", 400)
+    from .provider_settings import ProviderSettingsError
     from .provider_web import ProviderWebError, list_models as _list
+    base_url = str(payload.get("provider_base_url") or "")
+    api_key = str(payload.get("provider_api_key") or "")
+    if (
+        "provider_base_url" not in payload
+        and "provider_api_key" not in payload
+    ):
+        try:
+            preferences, api_key = await run_in_threadpool(
+                _resolved_provider_settings,
+                request.app.state.provider_settings,
+            )
+            base_url = preferences.base_url
+        except ProviderSettingsError as exc:
+            return _error_response(exc.code, exc.message, 409)
     try:
-        models = _list(str(payload.get("provider_base_url") or ""),
-                       str(payload.get("provider_api_key") or ""))
+        models = _list(base_url, api_key)
     except ProviderWebError as exc:
         return _error_response(exc.code, exc.message, 400)
     return JSONResponse({"models": models, "count": len(models)})
+
+
+def _provider_settings_body(store) -> Dict[str, Any]:
+    preferences, key_saved = store.public_settings()
+    return {
+        "baseUrl": preferences.base_url,
+        "generatorModel": preferences.generator_model,
+        "validatorModel": preferences.validator_model,
+        "keySaved": key_saved,
+    }
+
+
+async def provider_settings(request: Request) -> Response:
+    from .provider_settings import (ProviderPreferences,
+                                    ProviderSettingsError)
+    store = request.app.state.provider_settings
+    try:
+        if request.method == "GET":
+            body = await run_in_threadpool(_provider_settings_body, store)
+            return JSONResponse(body)
+        if request.method == "DELETE":
+            await run_in_threadpool(store.clear)
+            return JSONResponse({
+                "baseUrl": "",
+                "generatorModel": "",
+                "validatorModel": "",
+                "keySaved": False,
+            })
+        if request.headers.get("content-type", "").split(
+                ";", 1)[0].strip() != "application/json":
+            return _error_response(
+                "bad_content_type", "expects application/json", 415)
+        raw = await request.body()
+        if len(raw) > 64 * 1024:
+            return _error_response(
+                "request_too_large", "request too large", 413)
+        payload = json.loads(raw.decode("utf-8"))
+        if (
+            not isinstance(payload, dict)
+            or not set(payload) <= {
+                "baseUrl", "apiKey", "generatorModel", "validatorModel"}
+        ):
+            return _error_response(
+                "bad_provider_settings",
+                "Provider settings have an invalid shape", 400)
+        preferences = ProviderPreferences(
+            base_url=payload.get("baseUrl", ""),
+            generator_model=payload.get("generatorModel", ""),
+            validator_model=payload.get("validatorModel", ""),
+        )
+        api_key = payload.get("apiKey", "")
+        if not isinstance(api_key, str):
+            return _error_response(
+                "bad_provider_settings", "apiKey must be a string", 400)
+        await run_in_threadpool(
+            store.save, preferences, api_key=api_key)
+        body = await run_in_threadpool(_provider_settings_body, store)
+        return JSONResponse(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return _error_response("bad_json", "invalid JSON body", 400)
+    except ProviderSettingsError as exc:
+        status = 400 if exc.code in {
+            "bad_base_url",
+            "bad_model",
+            "bad_provider_settings",
+            "api_key_required",
+            "api_key_too_large",
+        } else 409
+        return _error_response(exc.code, exc.message, status)
 
 
 async def index(request: Request) -> Response:
@@ -369,7 +501,8 @@ async def review_prompt(request: Request) -> Response:
     except IntakeError as e:
         return _error_response("intake_error", str(e), 400)
 
-    plan = _maybe_semantic_run(payload)
+    plan = await _maybe_semantic_run_for_request(
+        payload, request.app.state.provider_settings)
     if isinstance(plan, JSONResponse):
         return plan
     sem_cfg = generator = validator = env_name = None
@@ -403,10 +536,17 @@ async def review_skill(request: Request) -> Response:
     except Exception:
         return _error_response("bad_multipart", "invalid multipart body", 400)
 
-    profile = str(form.get("profile", "standard"))
-    if profile not in SKILL_PROFILES:
-        return _error_response("bad_profile",
-                               "profile must be standard or minimal", 400)
+    requested_profiles = form.getlist("profile")
+    if (
+        len(requested_profiles) > 1
+        or (
+            requested_profiles
+            and requested_profiles[0] not in {"", "minimal", "standard"}
+        )
+    ):
+        return _error_response(
+            "bad_profile", "profile must be minimal or standard", 400)
+    profile = MAX_WEB_SKILL_PROFILE
 
     files = [v for v in form.getlist("files") if isinstance(v, UploadFile)]
     if not files:
@@ -468,14 +608,16 @@ async def review_skill(request: Request) -> Response:
                 ))
         except IntakeError as e:
             return _error_response("intake_error", str(e), 400)
-        plan = _maybe_semantic_run({
+        semantic_payload = {
             "semantic_enabled": form.get("semantic_enabled"),
             "egress_policy": form.get("egress_policy"),
-            "provider_base_url": form.get("provider_base_url"),
-            "provider_api_key": form.get("provider_api_key"),
-            "generator_model": form.get("generator_model"),
-            "validator_model": form.get("validator_model"),
-        })
+        }
+        for field_name in WEB_PROVIDER_FIELD_NAMES:
+            field_value = form.get(field_name)
+            if field_value not in (None, ""):
+                semantic_payload[field_name] = field_value
+        plan = await _maybe_semantic_run_for_request(
+            semantic_payload, request.app.state.provider_settings)
         if isinstance(plan, JSONResponse):
             return plan
         sem_cfg = generator = validator = env_name = None
@@ -600,8 +742,17 @@ async def project_version(request: Request) -> Response:
         form=await request.form(max_files=MAX_SKILL_FILES+4,max_fields=MAX_SKILL_FILES+32)
     except Exception:
         return _error_response("bad_multipart","invalid multipart body",400)
-    profile=str(form.get("profile","standard"))
-    if profile not in SKILL_PROFILES: return _error_response("bad_profile","profile must be standard or minimal",400)
+    requested_profiles = form.getlist("profile")
+    if (
+        len(requested_profiles) > 1
+        or (
+            requested_profiles
+            and requested_profiles[0] not in {"", "minimal", "standard"}
+        )
+    ):
+        return _error_response(
+            "bad_profile", "profile must be minimal or standard", 400)
+    profile = MAX_WEB_SKILL_PROFILE
     files=[v for v in form.getlist("files") if isinstance(v,UploadFile)]
     if not files or len(files)>MAX_SKILL_FILES: return _error_response("bad_files","Choose a bounded Skill folder.",400)
     tmpdir=tempfile.mkdtemp(prefix="verity-web-project-")
@@ -693,7 +844,7 @@ def _is_valid_review_id(rid: str) -> bool:
 # --- App factory -------------------------------------------------------
 
 def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600,
-               history_root=None) -> Starlette:
+               history_root=None, provider_settings_store=None) -> Starlette:
     """Build the ASGI app. Tests call this and drive it with httpx."""
     # Force mimetypes for CSS/JS/HTML to what we serve; older Pythons may
     # otherwise return application/octet-stream on some systems.
@@ -707,6 +858,8 @@ def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600,
         Route("/api/review/prompt", review_prompt, methods=["POST"]),
         Route("/api/review/skill", review_skill, methods=["POST"]),
         Route("/api/models", list_models, methods=["POST"]),
+        Route("/api/provider-settings", provider_settings,
+              methods=["GET", "PUT", "DELETE"]),
         Route("/api/projects", list_projects, methods=["GET"]),
         Route("/api/projects", create_project, methods=["POST"]),
         Route("/api/projects/{project_ref}", project_detail, methods=["GET"]),
@@ -725,4 +878,9 @@ def create_app(*, store_capacity: int = 32, store_ttl_seconds: int = 24 * 3600,
     app.state.store = ReportStore(capacity=store_capacity,
                                    ttl_seconds=store_ttl_seconds)
     app.state.history = HistoryStore(history_root)
+    if provider_settings_store is None:
+        from .provider_settings import create_provider_settings_store
+        provider_settings_store = create_provider_settings_store(
+            root=history_root)
+    app.state.provider_settings = provider_settings_store
     return app

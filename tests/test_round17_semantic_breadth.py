@@ -198,10 +198,14 @@ def test_new_extractors_expose_only_relative_paths_and_normal_evidence(tmp_path)
     assert all(set(m) <= {
         "evidenceRole", "capabilityCategory", "capabilityOperation",
         "capabilityFamily", "capabilityTarget", "declaredBehaviorMatch",
+        "declaredBehaviorDenied",
         "declaredPermissionMatch", "declaredPermissionFamilies",
         "declaredProcessTargets", "declaredCapabilityFamilies",
-        "deniedCapabilityFamilies",
-    } for m in metadata if m)
+        "deniedCapabilityFamilies", "evidenceScope",
+            "observedCapabilityFactCount", "includedCapabilityFactCount",
+            "capabilityFactsTruncated", "externalReferenceCount",
+            "externalInstructionUrlCount", "externalTrustControlCount",
+        } for m in metadata if m)
 
 
 def test_egress_drops_arbitrary_capability_metadata():

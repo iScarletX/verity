@@ -236,8 +236,16 @@ def _semantic_view(sem_result) -> Dict[str, Any]:
         "reasonCode": sem_result.reasonCode,
         "egressPolicy": sem_result.egressPolicy,
         "callCounts": dict(sem_result.callCounts),
+        "stageStats": {
+            finding_type: {
+                **dict(stats),
+                "validatorStates": dict(stats["validatorStates"]),
+            }
+            for finding_type, stats in sem_result.stageStats.items()
+        },
         "candidates": [_asdict(c) for c in sem_result.candidates],
         "assessments": [_asdict(a) for a in sem_result.assessments],
+        "evidences": [dict(e) for e in sem_result.evidences],
         "findings": [_asdict(f) for f in sem_result.findings],
         "planItems": [_asdict(p) for p in sem_result.planItems],
         "payloadAudit": [_asdict(a) for a in sem_result.payloadAudit],

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -22,6 +23,7 @@ from verity.corpus import CorpusError, canonical_report_json
 from verity.semantic_benchmark import (
     BUTLER_REFERENCE_SKILLS,
     BUTLER_REFERENCE_SKILL_MAP_VERSION,
+    COMPARISON_MANIFEST_PATH,
     _validate_mapping,
     build_independent_label_attestation,
     build_semantic_comparison_packet,
@@ -32,7 +34,11 @@ from verity.semantic_benchmark import (
     validate_observations,
 )
 from verity.semantic.catalog import CATALOG
-from verity.semantic.config import ProviderConfig, ProviderCredentials
+from verity.semantic.config import (
+    CANDIDATE_STRATEGIES,
+    ProviderConfig,
+    ProviderCredentials,
+)
 from verity.semantic.eval_provider import (
     EVAL_ROLE_PROMPT_VERSION,
     EvalRunBudget,
@@ -65,7 +71,8 @@ def _packet(args) -> int:
         raise CorpusError(
             f"seed environment variable {args.seed_env!r} is missing or empty")
     packet, mapping = build_semantic_comparison_packet(
-        system_id=args.system_id, seed=seed)
+        system_id=args.system_id, seed=seed,
+        manifest_path=Path(args.manifest).expanduser())
     output_dir = (
         Path(args.output_dir).expanduser() if args.output_dir
         else REPO / ".verity-data" / "semantic-comparison" / args.system_id)
@@ -80,7 +87,7 @@ def _packet(args) -> int:
         encoding="utf-8")
     print(f"wrote answer-free packet: {packet_path}")
     print(f"wrote local alias map: {mapping_path}")
-    print("claim eligible: false (development calibration only)")
+    print("claim eligible: false (comparison has not been performed)")
     return 0
 
 
@@ -169,18 +176,25 @@ def _run_verity(args) -> int:
         run_budget=run_budget,
         input_price_per_million=args.validator_input_price_per_million,
         output_price_per_million=args.validator_output_price_per_million)
+    diagnostics = {}
     observations = evaluate_verity_comparison_observations(
         packet=_read(args.packet), mapping=_read(args.alias_map),
         repetitions=args.repetitions, generator=generator, validator=validator,
         generator_config=generator_config, validator_config=validator_config,
         temperature=args.temperature, max_output_tokens=args.max_output_tokens,
         max_total_calls=args.max_total_calls,
-        role_prompt_version=EVAL_ROLE_PROMPT_VERSION)
+        max_concurrency=args.max_concurrency,
+        candidate_strategy=args.candidate_strategy,
+        role_prompt_version=EVAL_ROLE_PROMPT_VERSION,
+        manifest_path=Path(args.manifest).expanduser(),
+        diagnostics_out=diagnostics)
     frozen_limits = {
         "maxTotalCalls": args.max_total_calls,
         "maxTotalTokens": args.max_total_tokens,
         "maxSpendUsd": args.max_spend_usd,
         "maxOutputTokens": args.max_output_tokens,
+        "maxConcurrency": args.max_concurrency,
+        "candidateStrategy": args.candidate_strategy,
         "generatorInputPricePerMillion": (
             args.generator_input_price_per_million),
         "generatorOutputPricePerMillion": (
@@ -199,9 +213,13 @@ def _run_verity(args) -> int:
         sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     observations = {
         **observations, "configurationFingerprint": bound_fingerprint}
+    diagnostics["configurationFingerprint"] = bound_fingerprint
     output = _output_path(args.output, "verity-observations.json")
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(canonical_report_json(observations), encoding="utf-8")
+    diagnostics_output = output.with_name(output.stem + "-stages.json")
+    diagnostics_output.write_text(
+        canonical_report_json(diagnostics), encoding="utf-8")
     budget_output = output.with_name(output.stem + "-budget.json")
     budget_output.write_text(canonical_report_json({
         "schemaVersion": 1,
@@ -213,6 +231,7 @@ def _run_verity(args) -> int:
         "reservation": run_budget.snapshot(),
     }), encoding="utf-8")
     print(f"wrote scrubbed Verity observations: {output}")
+    print(f"wrote scrubbed stage diagnostics: {diagnostics_output}")
     print(f"wrote conservative budget audit: {budget_output}")
     print("labels sent to Provider: false")
     print("claim eligible: false (comparison not yet performed)")
@@ -245,13 +264,16 @@ def _run_label_reviewer(args) -> int:
         max_output_tokens=args.max_output_tokens,
         max_total_calls=args.max_total_calls,
         max_attempts_per_repetition=args.max_attempts_per_repetition,
-        role_prompt_version=LABEL_REVIEW_PROMPT_VERSION)
+        max_concurrency=args.max_concurrency,
+        role_prompt_version=LABEL_REVIEW_PROMPT_VERSION,
+        manifest_path=Path(args.manifest).expanduser())
     frozen_limits = {
         "maxTotalCalls": args.max_total_calls,
         "maxTotalTokens": args.max_total_tokens,
         "maxSpendUsd": args.max_spend_usd,
         "maxOutputTokens": args.max_output_tokens,
         "maxAttemptsPerRepetition": args.max_attempts_per_repetition,
+        "maxConcurrency": args.max_concurrency,
         "inputPricePerMillion": args.input_price_per_million,
         "outputPricePerMillion": args.output_price_per_million,
     }
@@ -332,6 +354,46 @@ def _butler_source_fingerprint(root: Path) -> str:
     if fingerprint != crosswalk["referenceSourceFingerprint"]:
         raise CorpusError("Butler source fingerprint differs from crosswalk")
     return fingerprint
+
+
+def _validate_butler_budget_snapshot(value, frozen_limits):
+    expected_keys = {
+        "schemaVersion", "method", "maxCalls", "maxTotalTokens",
+        "maxSpendUsd", "reservedCalls", "reservedTokens",
+        "reservedSpendUsd", "budgetExhausted",
+    }
+    if not isinstance(value, dict) or set(value) != expected_keys:
+        raise CorpusError("Butler reference budget schema invalid")
+    if (value.get("schemaVersion") != 1
+            or value.get("method")
+            != "utf8_request_bytes_plus_1024_and_max_output_reservation"
+            or value.get("maxCalls") != frozen_limits["maxTotalCalls"]
+            or value.get("maxTotalTokens")
+            != frozen_limits["maxTotalTokens"]
+            or not isinstance(value.get("budgetExhausted"), bool)):
+        raise CorpusError("Butler reference budget identity invalid")
+    max_spend = value.get("maxSpendUsd")
+    reserved_spend = value.get("reservedSpendUsd")
+    if (not isinstance(max_spend, (int, float))
+            or isinstance(max_spend, bool)
+            or not math.isfinite(float(max_spend))
+            or abs(float(max_spend)
+                   - float(frozen_limits["maxSpendUsd"])) > 1e-8
+            or not isinstance(reserved_spend, (int, float))
+            or isinstance(reserved_spend, bool)
+            or not math.isfinite(float(reserved_spend))
+            or not 0 <= float(reserved_spend) <= float(max_spend) + 1e-8):
+        raise CorpusError("Butler reference budget spend invalid")
+    for used_key, max_key in (
+            ("reservedCalls", "maxCalls"),
+            ("reservedTokens", "maxTotalTokens")):
+        used = value.get(used_key)
+        limit = value.get(max_key)
+        if (not isinstance(used, int) or isinstance(used, bool)
+                or not isinstance(limit, int) or isinstance(limit, bool)
+                or not 0 <= used <= limit):
+            raise CorpusError("Butler reference budget count invalid")
+    return value
 
 
 def _run_butler(args) -> int:
@@ -510,7 +572,13 @@ def _run_butler(args) -> int:
         result = _read(str(runner_output))
     if set(result) != {"observations", "budget"}:
         raise CorpusError("Butler reference output schema invalid")
-    observations = validate_observations(result["observations"], packet)
+    budget = _validate_butler_budget_snapshot(result["budget"], frozen_limits)
+    observations = validate_observations({
+        **result["observations"],
+        "runHealth": {
+            "budgetExhausted": budget["budgetExhausted"],
+        },
+    }, packet)
     output.write_text(canonical_report_json(observations), encoding="utf-8")
     audit_output = output.with_name(output.stem + "-budget.json")
     audit_output.write_text(canonical_report_json({
@@ -522,7 +590,7 @@ def _run_butler(args) -> int:
         "butlerSourceFingerprint": source_fingerprint,
         "skillMapVersion": BUTLER_REFERENCE_SKILL_MAP_VERSION,
         "limits": frozen_limits,
-        "reservation": result["budget"],
+        "reservation": budget,
     }), encoding="utf-8")
     print(f"wrote scrubbed Butler observations: {output}")
     print(f"wrote conservative budget audit: {audit_output}")
@@ -541,12 +609,17 @@ def main(argv=None) -> int:
     packet.add_argument("--seed-env", required=True,
                         help="environment-variable NAME containing a private shuffle seed")
     packet.add_argument("--output-dir", default="")
+    packet.add_argument(
+        "--manifest", default=str(COMPARISON_MANIFEST_PATH),
+        help="versioned semantic comparison manifest")
     packet.set_defaults(handler=_packet)
 
     run_verity = sub.add_parser(
         "run-verity", help="run a frozen Verity model configuration on its packet")
     run_verity.add_argument("--packet", required=True)
     run_verity.add_argument("--alias-map", required=True)
+    run_verity.add_argument(
+        "--manifest", default=str(COMPARISON_MANIFEST_PATH))
     run_verity.add_argument("--repetitions", type=int, default=2)
     run_verity.add_argument("--base-url", required=True)
     run_verity.add_argument("--generator-model", required=True)
@@ -557,6 +630,13 @@ def main(argv=None) -> int:
     run_verity.add_argument(
         "--max-total-calls", type=int,
         required=True)
+    run_verity.add_argument("--max-concurrency", type=int, default=1)
+    run_verity.add_argument(
+        "--candidate-strategy",
+        choices=CANDIDATE_STRATEGIES,
+        default="catalog_first",
+        help="catalog_first evaluates the shipped product path; model_only is diagnostic",
+    )
     run_verity.add_argument("--max-total-tokens", type=int, required=True)
     run_verity.add_argument("--max-spend-usd", type=float, required=True)
     run_verity.add_argument(
@@ -576,6 +656,8 @@ def main(argv=None) -> int:
         help="run one independent answer-hidden label reviewer on its packet")
     run_reviewer.add_argument("--packet", required=True)
     run_reviewer.add_argument("--alias-map", required=True)
+    run_reviewer.add_argument(
+        "--manifest", default=str(COMPARISON_MANIFEST_PATH))
     run_reviewer.add_argument("--repetitions", type=int, required=True)
     run_reviewer.add_argument("--base-url", required=True)
     run_reviewer.add_argument("--model", required=True)
@@ -585,6 +667,7 @@ def main(argv=None) -> int:
     run_reviewer.add_argument("--max-total-calls", type=int, required=True)
     run_reviewer.add_argument(
         "--max-attempts-per-repetition", type=int, default=1)
+    run_reviewer.add_argument("--max-concurrency", type=int, default=1)
     run_reviewer.add_argument("--max-total-tokens", type=int, required=True)
     run_reviewer.add_argument("--max-spend-usd", type=float, required=True)
     run_reviewer.add_argument(

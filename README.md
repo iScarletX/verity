@@ -33,9 +33,11 @@
 > gitleaks integration + SARIF 2.1.0
 > export + a local Web MVP for non-technical users + an **experimental,
 > default-OFF controlled semantic-review path** (Evidence →
-> SemanticCandidate → Validator → CandidateAssessment → semantic Finding)
+> closed-catalog candidate sweep → Validator → CandidateAssessment →
+> semantic Finding)
 > with twenty-eight controlled semantic Finding Types, per-type judgment policy,
-> structured bounded evidence, fixed contract replays, and an
+> structured bounded evidence, one no-seed full-prompt recall pass constrained
+> to registered Finding Types/subjects, fixed contract replays, and an
 > optional bounded JSON-over-HTTPS Provider adapter, plus a deterministic
 > explainable safety score / separate review-confidence grade / controlled
 > remediation-and-re-review projection.
@@ -186,7 +188,7 @@ report infrastructure but have separate rule registries. See
 2. 运行 `./start-verity.command`（或命令行 `python3 tools/start_local_web.py`）
 3. 浏览器自动打开 `http://127.0.0.1:8765/`：可继续做 standalone Prompt/Skill 检查，也可在“Skill 项目与版本历史”中新建项目，从项目页选择文件夹并点击“检查新版本”，随后查看历史和五状态版本差异。
 
-项目身份只由 Verity 注册表及当前项目上下文决定。Skill 名称、路径、digest、相似度及被审内容中的字段都不能选择或覆盖身份。项目历史保存在本机 gitignored `.verity-data/`；不保存原始文件内容、Secret、Provider payload/response、API key、RedactionMap 或宿主/临时/工具路径。项目版本审查默认使用含 gitleaks 的 `standard` profile；选择 `minimal` 属于用户明确降级。版本差异同时显示五状态总数和可展开的问题详情。用户可对发现添加处置标记（确认/接受风险/误报/不修复），纯建议性，不改变严重度或默认退出码；CLI 传 `--respect-dispositions` 时才让接受风险的高危问题不阻塞 CI。停止服务：在启动它的终端按 `Ctrl+C`。不会后台留守进程。
+项目身份只由 Verity 注册表及当前项目上下文决定。Skill 名称、路径、digest、相似度及被审内容中的字段都不能选择或覆盖身份。项目历史保存在本机 gitignored `.verity-data/`；不保存原始文件内容、Secret、Provider payload/response、API key、RedactionMap 或宿主/临时/工具路径。Web 的 standalone Skill 和项目版本审查都固定使用含 gitleaks 的 `standard` profile，不提供降级入口；CLI 仍保留显式 `--profile minimal` 供受控诊断。版本差异同时显示五状态总数和可展开的问题详情。用户可对发现添加处置标记（确认/接受风险/误报/不修复），纯建议性，不改变严重度或默认退出码；CLI 传 `--respect-dispositions` 时才让接受风险的高危问题不阻塞 CI。停止服务：在启动它的终端按 `Ctrl+C`。不会后台留守进程。
 
 ### 常见错误
 
@@ -675,12 +677,18 @@ than copied into reports.
 The local Web UI now has a loopback-only Provider configuration surface for
 the **experimental** semantic path: paste an OpenAI-compatible base URL
 (default OpenRouter) + API key, list models, and pick generator/validator
-models. The key is held only in a random, transient environment variable and
-cleared after the review; it never enters config serialization, reports,
-SARIF, the payload audit, logs, or responses. Enabling semantic without
-Provider fields still returns `provider_not_configured`. Semantic results are
-advisory and EXPERIMENTAL (they have not passed the frozen protocol quality
-gate); the deterministic outcome, coverage, gate and score are unchanged.
+models. “保存配置” persists the non-secret URL/model preferences in owner-only
+`.verity-data/web-provider.json` and stores the API key in the current macOS
+user's Keychain. The browser receives only `keySaved`; it never receives the
+stored key. During one review the key is copied into a random, transient
+environment variable and then cleared; it never enters config serialization,
+reports, SARIF, payload audit, logs, process arguments, or API responses. The
+Web path fixes semantic egress to `redacted_evidence` and Skill scanning to
+`standard`; stale clients cannot request the weaker modes. Semantic execution
+still requires the explicit enable checkbox. Enabling it without complete
+Provider fields returns an honest configuration error or
+`provider_not_configured`. Semantic results remain EXPERIMENTAL and have not
+passed the frozen protocol quality gate.
 
 ## Known limitations
 

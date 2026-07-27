@@ -19,6 +19,7 @@ Each entry declares:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -157,7 +158,7 @@ def _constraint_line_metadata(raw: bytes, line_index: int) -> Dict[str, Any]:
         stages.append("later_segment")
     if _contains_any(text, (
             "final answer", "final response", "final output", "最终回答",
-            "最终答复", "最终输出")):
+            "final explanation", "最终答复", "最终输出", "最终解释")):
         stages.append("final_output")
     if not stages:
         stages.append("unspecified")
@@ -187,17 +188,48 @@ def _constraint_line_metadata(raw: bytes, line_index: int) -> Dict[str, Any]:
         ("prohibition", (
             "never ", "must not", "do not", "不得", "禁止", "绝不")),
         ("requirement", (
-            "must ", "required", "shall ", "必须", "务必", "需要")),
+            "must ", "required", "shall ", "always ", "必须", "务必",
+            "需要", "始终")),
     )
     for name, terms in signal_terms:
         if _contains_any(text, terms):
             signals.append(name)
+    if re.match(
+            r"\s*(?:return|provide|include|answer|output)\b", text,
+            flags=re.IGNORECASE):
+        signals.append("requirement")
+    directive = re.sub(
+        r"^\s*(?:(?:you\s+)?must\s+(?:always|never|not)|"
+        r"(?:you\s+)?must|always|never|do\s+not|required\s+to|"
+        r"shall\s+not|必须|务必|始终|永远不|绝不|不得|禁止)\s+",
+        "", text, count=1, flags=re.IGNORECASE)
+    directive = re.sub(
+        r"[^a-z0-9\u4e00-\u9fff]+", " ", directive).strip()
+    directive_digest = (
+        hashlib.sha256(directive.encode()).hexdigest()[:16]
+        if len(directive) >= 8 else "")
+    condition_mode = ""
+    condition_digest = ""
+    condition_match = re.search(
+        r"\b(when|unless|if)\s+(.+?)(?:[.;]|$)", text,
+        flags=re.IGNORECASE)
+    if condition_match:
+        condition_mode = condition_match.group(1).lower()
+        condition = re.sub(
+            r"[^a-z0-9\u4e00-\u9fff]+", " ",
+            condition_match.group(2)).strip()
+        if len(condition) >= 8:
+            condition_digest = hashlib.sha256(
+                condition.encode()).hexdigest()[:16]
     return {
         "evidenceRole": "prompt_constraint",
         "lineIndex": line_index,
         "outputStages": stages[:3],
         "contentTargets": targets[:4],
         "constraintSignals": signals[:4],
+        "directiveTargetDigest": directive_digest,
+        "conditionMode": condition_mode,
+        "conditionClauseDigest": condition_digest,
     }
 
 
@@ -230,6 +262,8 @@ def _output_contract_metadata(text: str) -> Dict[str, Any]:
     # Count only declaration-like names, not every noun in prose.
     field_patterns = (
         r"\bfields?\s*[:=]\s*[a-z_][a-z0-9_-]*",
+        r"\bcolumns?\s+[a-z_][a-z0-9_-]*",
+        r"(?m)^\s*[-*]\s*[a-z_][a-z0-9_-]*\s*:",
         r"\b[a-z_][a-z0-9_-]*\s*\((?:string|integer|number|boolean|array|object|list)",
         r'["\'][a-z_][a-z0-9_-]*["\']\s*:',
         r"(?:字段|包含)\s*[:：]?\s*[A-Za-z_\u4e00-\u9fff][^。\n]{0,80}",
@@ -312,6 +346,54 @@ def _select_conflict_candidate_lines(lines, *, max_total: int):
     return combined
 
 
+def _instruction_conflict_candidate_hints(left_metadata, right_metadata):
+    left_signals = set(left_metadata.get("constraintSignals") or [])
+    right_signals = set(right_metadata.get("constraintSignals") or [])
+    opposed = (
+        ("maximum_length" in left_signals
+         and "minimum_length" in right_signals)
+        or ("minimum_length" in left_signals
+            and "maximum_length" in right_signals)
+        or ("prohibition" in left_signals
+            and "requirement" in right_signals)
+        or ("requirement" in left_signals
+            and "prohibition" in right_signals)
+    )
+    if not opposed:
+        return []
+    condition_digest = left_metadata.get("conditionClauseDigest")
+    matched_exception_scopes = (
+        condition_digest
+        and condition_digest == right_metadata.get("conditionClauseDigest")
+        and "unless" in {
+            left_metadata.get("conditionMode"),
+            right_metadata.get("conditionMode"),
+        }
+    )
+    if matched_exception_scopes:
+        return []
+    left_targets = set(left_metadata.get("contentTargets") or []) - {
+        "unspecified"}
+    right_targets = set(right_metadata.get("contentTargets") or []) - {
+        "unspecified"}
+    left_stages = set(left_metadata.get("outputStages") or []) - {
+        "unspecified"}
+    right_stages = set(right_metadata.get("outputStages") or []) - {
+        "unspecified"}
+    same_target = bool(left_targets & right_targets)
+    same_target = same_target or bool(
+        left_metadata.get("directiveTargetDigest")
+        and left_metadata.get("directiveTargetDigest")
+        == right_metadata.get("directiveTargetDigest"))
+    same_final_stage = "final_output" in (left_stages & right_stages)
+    if not (same_target or same_final_stage):
+        return []
+    return [_candidate_hint(
+        {"conflictKind": "contradictory_directive"},
+        "Two directives impose opposing constraints on the same output "
+        "target or final-output stage.")]
+
+
 def extract_instruction_conflict(review_dict, file_bytes):
     """For prompt engine: pair up candidate lines as a possible conflict
     seed. This is intentionally noisy on purpose: the semantic Validator
@@ -346,8 +428,17 @@ def extract_instruction_conflict(review_dict, file_bytes):
     for left, right in combinations(range(len(selected)), 2):
         i, j = selected[left], selected[right]
         a, b = evs[left], evs[right]
+        source = {"lineAIndex": i, "lineBIndex": j}
+        candidate_hints = _instruction_conflict_candidate_hints(
+            selected_metadata[left], selected_metadata[right])
+        if candidate_hints:
+            source["candidateHints"] = candidate_hints
+        else:
+            source["modelCandidatePolicy"] = "skip_without_catalog_hint"
+            source["modelCandidateSkipReason"] = (
+                "no_structured_opposing_constraint")
         out.append((
-            {"lineAIndex": i, "lineBIndex": j},
+            source,
             [a["evidenceId"], b["evidenceId"]],
             [a, b],
         ))
@@ -387,13 +478,30 @@ def extract_missing_output_contract(review_dict, file_bytes):
                                   producer_id="extractor.prompt.missing_output_contract",
                                   metadata_by_index=[
                                       _output_contract_metadata(text)])
-    return [({"triggers": [t for t in triggers if t in text]},
-             [evs[0]["evidenceId"]], evs)]
+    metadata = evs[0]["metadata"]
+    expected = "structured_text"
+    requested = metadata.get("requestedFormats") or []
+    if "json" in requested:
+        expected = "json"
+    elif "yaml" in requested:
+        expected = "yaml"
+    source = {"triggers": [t for t in triggers if t in text]}
+    if metadata.get("namedFieldSignalCount", 0) == 0:
+        source["candidateHints"] = [_candidate_hint(
+            {"expectedFormat": expected, "gapKind": "missing_fields"},
+            "A machine-structured output format is requested without "
+            "evidenced required fields or schema.")]
+    else:
+        source["modelCandidatePolicy"] = "skip_without_catalog_hint"
+        source["modelCandidateSkipReason"] = "structured_fields_declared"
+    return [(source, [evs[0]["evidenceId"]], evs)]
 
 
 def _whole_prompt_seed(review_dict, file_bytes, *, triggers, producer_id,
-                       metadata_builder=None, require_all_groups=None,
-                       system_prompt_only=False):
+                       metadata_builder=None, candidate_hint_builder=None,
+                       model_candidate_gate=None, require_all_groups=None,
+                       system_prompt_only=False,
+                       allow_without_trigger=False):
     if review_dict.get("engine") != "prompt":
         return []
     snap = review_dict.get("snapshot") or {}
@@ -406,7 +514,7 @@ def _whole_prompt_seed(review_dict, file_bytes, *, triggers, producer_id,
     data = file_bytes.get(prompt_file["fileId"], b"")
     text = data.decode("utf-8", errors="replace").lower()
     found = [t for t in triggers if t in text]
-    if not found:
+    if not found and not allow_without_trigger:
         return []
     if require_all_groups and not all(
             any(term in text for term in group) for group in require_all_groups):
@@ -419,26 +527,171 @@ def _whole_prompt_seed(review_dict, file_bytes, *, triggers, producer_id,
     metadata = (metadata_builder(text) if metadata_builder else {
         "evidenceRole": "prompt_analysis",
         "signalFamilies": ["trigger_present"],
+        "evidenceScope": "complete_reviewed_prompt",
     })
+    candidate_hints = (
+        candidate_hint_builder(metadata) if candidate_hint_builder else [])
     ev = _make_evidence_records([loc], snapshot_id=snap.get("snapshotId", ""),
                                 producer_id=producer_id,
                                 metadata_by_index=[metadata])[0]
-    return [({"triggerCount": len(found)}, [ev["evidenceId"]], [ev])]
+    source = {"triggerCount": len(found)}
+    if candidate_hints:
+        source["candidateHints"] = candidate_hints
+    if model_candidate_gate:
+        gate = model_candidate_gate(metadata)
+        if isinstance(gate, tuple):
+            allow_model_candidates, reason = gate
+        else:
+            allow_model_candidates, reason = bool(gate), ""
+        if not allow_model_candidates:
+            source["modelCandidatePolicy"] = "skip_without_catalog_hint"
+            if reason:
+                source["modelCandidateSkipReason"] = str(reason)[:120]
+    return [(source, [ev["evidenceId"]], [ev])]
+
+
+def extract_prompt_catalog_sweep(review_dict, file_bytes):
+    """Return one whole-prompt Evidence record for the bounded catalog sweep.
+
+    This extractor deliberately proposes no Finding. It gives the Candidate
+    Generator up to eight source-positioned chunks from which it may propose
+    an already registered Finding Type. Short and medium prompts are covered
+    completely; longer prompts are sampled across the full byte range and
+    explicitly marked as sampled so omission claims cannot treat them as full
+    evidence. The orchestrator still enforces every type's subject taxonomy
+    and independent Validator policy.
+    """
+    if review_dict.get("engine") != "prompt":
+        return []
+    snap = review_dict.get("snapshot") or {}
+    prompt_file = next(
+        (item for item in (snap.get("files") or [])
+         if item.get("status") == "included"),
+        None,
+    )
+    if prompt_file is None:
+        return []
+    data = file_bytes.get(prompt_file["fileId"], b"")
+    if not data:
+        return []
+
+    chunk_size = 1800
+    max_chunks = 8
+    if len(data) <= chunk_size:
+        starts = [0]
+    else:
+        last_start = max(0, len(data) - chunk_size)
+        starts = sorted({
+            round(last_start * index / (max_chunks - 1))
+            for index in range(max_chunks)
+        })
+    locations = []
+    for raw_start in starts:
+        start = raw_start
+        while start > 0 and data[start] & 0xC0 == 0x80:
+            start -= 1
+        end = min(len(data), start + chunk_size)
+        while end < len(data) and end > start and data[end] & 0xC0 == 0x80:
+            end -= 1
+        locations.append({
+            "fileId": prompt_file["fileId"],
+            "artifactPath": prompt_file["normalizedPath"],
+            "fileDigest": prompt_file.get("contentDigest") or "",
+            "sourceByteRange": {"start": start, "end": end},
+            "locationSchemaVersion": "1",
+        })
+
+    covered_intervals = sorted(
+        (loc["sourceByteRange"]["start"], loc["sourceByteRange"]["end"])
+        for loc in locations
+    )
+    covered_until = 0
+    coverage_complete = True
+    for start, end in covered_intervals:
+        if start > covered_until:
+            coverage_complete = False
+            break
+        covered_until = max(covered_until, end)
+    coverage_complete = coverage_complete and covered_until >= len(data)
+    text = data.decode("utf-8", errors="replace")
+    metadata = [
+        _prompt_analysis_metadata(
+            signal_families=["catalog_sweep"],
+            promptCharacterCount=len(text),
+            promptLineCount=max(1, len(text.splitlines())),
+            sweepChunkIndex=index,
+            sweepChunkCount=len(locations),
+            sweepCoverageCompleteCount=int(coverage_complete),
+        )
+        for index in range(len(locations))
+    ]
+    scope = (
+        "complete_reviewed_prompt"
+        if coverage_complete else "sampled_reviewed_prompt"
+    )
+    for item in metadata:
+        item["evidenceScope"] = scope
+    evidences = _make_evidence_records(
+        locations,
+        snapshot_id=snap.get("snapshotId", ""),
+        producer_id="extractor.prompt.catalog_sweep",
+        metadata_by_index=metadata,
+    )
+    return [(
+        {"triggerCount": 0, "coverageComplete": coverage_complete},
+        [item["evidenceId"] for item in evidences],
+        evidences,
+    )]
 
 
 def _prompt_analysis_metadata(*, signal_families, **counts):
     metadata: Dict[str, Any] = {
         "evidenceRole": "prompt_analysis",
         "signalFamilies": list(signal_families)[:12],
+        "evidenceScope": "complete_reviewed_prompt",
     }
     for key, value in counts.items():
         if isinstance(value, bool):
             metadata[key] = value
         elif isinstance(value, int):
-            metadata[key] = min(max(value, 0), 128)
+            maximum = 8192 if key == "promptCharacterCount" else 128
+            metadata[key] = min(max(value, 0), maximum)
         elif isinstance(value, list):
             metadata[key] = value[:12]
     return metadata
+
+
+def _candidate_hint(subject: Dict[str, str], claim: str) -> Dict[str, Any]:
+    """Return one catalog-owned hypothesis for independent validation."""
+    return {"subject": dict(subject), "claim": claim}
+
+
+def _scoped_gap_count(text, *, signal_groups, control_terms,
+                      defeating_terms=()):
+    """Count locally unsupported signal windows without cross-section vetoes.
+
+    Whole-document counts are useful routing facts, but a control in one
+    paragraph must not silently cancel a risky operation in another. Treat a
+    paragraph as one authored rule block so a trailing exception, continuation
+    rule, or anti-invention clause can govern its preceding sentences, but
+    never cross a blank-line section boundary.
+    """
+    total = 0
+    uncovered = 0
+    paragraphs = re.split(r"\n\s*\n", text)
+    for paragraph in paragraphs:
+        window = paragraph.strip()
+        if not window:
+            continue
+        if not all(any(term in window for term in group)
+                   for group in signal_groups):
+            continue
+        total += 1
+        has_control = any(term in window for term in control_terms)
+        defeated = any(term in window for term in defeating_terms)
+        if not has_control or defeated:
+            uncovered += 1
+    return total, uncovered
 
 
 _TRUST_SOURCE_TERMS = (
@@ -454,20 +707,62 @@ _TRUST_BOUNDARY_TERMS = (
 
 
 def _trust_boundary_metadata(text):
+    _total, uncovered = _scoped_gap_count(
+        text,
+        signal_groups=(_TRUST_SOURCE_TERMS,),
+        control_terms=_TRUST_BOUNDARY_TERMS,
+    )
     return _prompt_analysis_metadata(
         signal_families=["untrusted_content_boundary"],
         sourceSignalCount=sum(text.count(x) for x in _TRUST_SOURCE_TERMS),
         mitigationSignalCount=sum(text.count(x) for x in _TRUST_BOUNDARY_TERMS),
+        unboundedSourceSegmentCount=uncovered,
     )
+
+
+def _trust_boundary_candidate_hints(metadata):
+    if metadata.get("sourceSignalCount", 0) == 0:
+        return []
+    if metadata.get("unboundedSourceSegmentCount", 0) == 0:
+        return []
+    return [_candidate_hint(
+        {"boundaryKind": "retrieved_content"},
+        "Untrusted external, retrieved, user, or tool-produced content lacks "
+        "an evidenced data-only instruction boundary.")]
+
+
+def _trust_boundary_model_gate(metadata):
+    if _trust_boundary_candidate_hints(metadata):
+        return True, "untrusted_content_without_data_boundary"
+    return False, "trust_boundary_controls_present_or_unproven"
 
 
 _TOOL_SCOPE_TERMS = (
     "allowed_tools", "allowed-tools", "permissions:", "tools:",
+    "use read", "use write", "use edit", "use bash", "use shell",
+    "use delete", "use webfetch", "use websearch",
     "工具权限", "允许工具",
 )
 _TOOL_BOUNDARY_TERMS = (
     "least privilege", "only when needed", "approval", "confirm before",
-    "最小权限", "仅在需要时", "批准", "确认后",
+    "do not write", "do not execute", "do not use", "never use",
+    "must not use", "human approval", "draft only",
+    "最小权限", "仅在需要时", "批准", "确认后", "禁止写入", "禁止执行",
+    "禁止使用", "不得使用",
+)
+_TOOL_HIGH_IMPACT_TERMS = (
+    "delete", "write", "edit", "bash", "shell", "terminal", "execute",
+    "send ", "publish", "deploy", "network", "webfetch", "websearch",
+    "删除", "写入", "编辑", "命令", "执行", "发送", "发布", "部署", "网络",
+)
+_TOOL_READ_ONLY_TASK_TERMS = (
+    "only read", "read the", "read supplied", "summarize", "summarization",
+    "summary task", "classify",
+    "只需读取", "读取摘要", "只读", "摘要", "分类",
+)
+_TOOL_NO_APPROVAL_TERMS = (
+    "without approval", "without asking", "act immediately", "无需批准",
+    "无需询问", "立即执行",
 )
 
 
@@ -476,7 +771,35 @@ def _tool_scope_metadata(text):
         signal_families=["declared_tool_scope"],
         toolDeclarationCount=sum(text.count(x) for x in _TOOL_SCOPE_TERMS),
         approvalSignalCount=sum(text.count(x) for x in _TOOL_BOUNDARY_TERMS),
+        highImpactToolSignalCount=sum(
+            text.count(x) for x in _TOOL_HIGH_IMPACT_TERMS),
+        readOnlyTaskSignalCount=sum(
+            text.count(x) for x in _TOOL_READ_ONLY_TASK_TERMS),
+        noApprovalSignalCount=sum(
+            text.count(x) for x in _TOOL_NO_APPROVAL_TERMS),
     )
+
+
+def _tool_scope_candidate_hints(metadata):
+    if metadata.get("toolDeclarationCount", 0) == 0:
+        return []
+    if metadata.get("highImpactToolSignalCount", 0) == 0:
+        return []
+    if (metadata.get("approvalSignalCount", 0) > 0
+            and metadata.get("noApprovalSignalCount", 0) == 0):
+        return []
+    if metadata.get("readOnlyTaskSignalCount", 0) == 0:
+        return []
+    return [_candidate_hint(
+        {"scopeKind": "unnecessary_tool"},
+        "A read-only task declares high-impact tools without an evidenced "
+        "human approval or least-privilege boundary.")]
+
+
+def _tool_scope_model_gate(metadata):
+    if _tool_scope_candidate_hints(metadata):
+        return True, "high_impact_tool_for_read_only_task"
+    return False, "tool_scope_controls_or_no_high_impact_tool"
 
 
 _BUDGET_PRESSURE_TERMS = (
@@ -498,13 +821,37 @@ _CONTINUATION_TERMS = (
 
 
 def _budget_metadata(text):
+    _total, uncovered = _scoped_gap_count(
+        text,
+        signal_groups=(_BUDGET_PRESSURE_TERMS, _BUDGET_LIMIT_TERMS),
+        control_terms=_PRIORITY_TERMS + _CONTINUATION_TERMS,
+    )
     return _prompt_analysis_metadata(
         signal_families=["output_volume", "output_limit"],
         pressureSignalCount=sum(text.count(x) for x in _BUDGET_PRESSURE_TERMS),
         limitSignalCount=sum(text.count(x) for x in _BUDGET_LIMIT_TERMS),
         prioritySignalCount=sum(text.count(x) for x in _PRIORITY_TERMS),
         continuationSignalCount=sum(text.count(x) for x in _CONTINUATION_TERMS),
+        uncoveredBudgetTradeoffCount=uncovered,
     )
+
+
+def _budget_candidate_hints(metadata):
+    if (metadata.get("pressureSignalCount", 0) == 0
+            or metadata.get("limitSignalCount", 0) == 0):
+        return []
+    if metadata.get("uncoveredBudgetTradeoffCount", 0) == 0:
+        return []
+    return [_candidate_hint(
+        {"pressureKind": "missing_priority"},
+        "A detailed or exhaustive output is bounded by a short limit without "
+        "an evidenced priority or continuation rule.")]
+
+
+def _budget_model_gate(metadata):
+    if _budget_candidate_hints(metadata):
+        return True, "volume_limit_without_tradeoff_controls"
+    return False, "budget_tradeoff_controls_present_or_unproven"
 
 
 def extract_output_budget_pressure(review_dict, file_bytes):
@@ -513,7 +860,9 @@ def extract_output_budget_pressure(review_dict, file_bytes):
         triggers=_BUDGET_PRESSURE_TERMS + _BUDGET_LIMIT_TERMS,
         require_all_groups=(_BUDGET_PRESSURE_TERMS, _BUDGET_LIMIT_TERMS),
         producer_id="extractor.prompt.output_budget_pressure",
-        metadata_builder=_budget_metadata)
+        metadata_builder=_budget_metadata,
+        candidate_hint_builder=_budget_candidate_hints,
+        model_candidate_gate=_budget_model_gate)
 
 
 _AUTONOMY_TERMS = (
@@ -530,6 +879,10 @@ _APPROVAL_TERMS = (
     "human approval", "draft only", "用户确认", "人工批准", "先请求批准",
     "仅生成草稿", "确认后",
 )
+_NO_APPROVAL_TERMS = (
+    "without approval", "without asking", "do not ask", "immediately",
+    "无需批准", "无需询问", "不要询问", "立即",
+)
 
 
 def _authority_metadata(text):
@@ -543,13 +896,39 @@ def _authority_metadata(text):
             ("access_control", ("approve", "reject", "修改账户", "批准", "拒绝")),
         ) if any(term in text for term in terms)
     ]
+    _total, uncovered = _scoped_gap_count(
+        text,
+        signal_groups=(_AUTONOMY_TERMS, _SIDE_EFFECT_TERMS),
+        control_terms=_APPROVAL_TERMS,
+        defeating_terms=_NO_APPROVAL_TERMS,
+    )
     return _prompt_analysis_metadata(
         signal_families=["autonomous_action", "external_side_effect"],
         autonomySignalCount=sum(text.count(x) for x in _AUTONOMY_TERMS),
         sideEffectSignalCount=sum(text.count(x) for x in _SIDE_EFFECT_TERMS),
         approvalSignalCount=sum(text.count(x) for x in _APPROVAL_TERMS),
+        noApprovalSignalCount=sum(text.count(x) for x in _NO_APPROVAL_TERMS),
+        uncoveredAutonomousActionCount=uncovered,
         operationKinds=actions,
     )
+
+
+def _authority_candidate_hints(metadata):
+    if (metadata.get("autonomySignalCount", 0) == 0
+            or metadata.get("sideEffectSignalCount", 0) == 0):
+        return []
+    if metadata.get("uncoveredAutonomousActionCount", 0) == 0:
+        return []
+    return [_candidate_hint(
+        {"authorityKind": "approval_boundary"},
+        "A consequential autonomous side effect lacks an evidenced approval "
+        "and scope boundary.")]
+
+
+def _authority_model_gate(metadata):
+    if _authority_candidate_hints(metadata):
+        return True, "autonomous_side_effect_without_approval"
+    return False, "approval_boundary_present_or_not_consequential"
 
 
 def extract_authority_boundary_ambiguity(review_dict, file_bytes):
@@ -559,11 +938,14 @@ def extract_authority_boundary_ambiguity(review_dict, file_bytes):
         require_all_groups=(_AUTONOMY_TERMS, _SIDE_EFFECT_TERMS),
         producer_id="extractor.prompt.authority_boundary",
         metadata_builder=_authority_metadata,
+        candidate_hint_builder=_authority_candidate_hints,
+        model_candidate_gate=_authority_model_gate,
         system_prompt_only=True)
 
 
 _FAILURE_OPERATION_TERMS = (
-    "api", "http", "fetch", "retrieve", "search", "parse", "decode",
+    "api", "http request", "http call", "http endpoint", "fetch",
+    "retrieve", "search", "parse", "decode",
     "database", "tool call", "external service", "接口", "请求", "检索",
     "搜索", "解析", "解码", "数据库", "工具调用", "外部服务",
 )
@@ -577,7 +959,8 @@ _FAILURE_STRATEGY_TERMS = (
 def _failure_metadata(text):
     operations = [
         name for name, terms in (
-            ("network_call", ("api", "http", "fetch", "接口", "请求")),
+            ("network_call", ("api", "http request", "http call",
+                              "http endpoint", "fetch", "接口", "请求")),
             ("retrieval", ("retrieve", "search", "检索", "搜索")),
             ("parsing", ("parse", "decode", "解析", "解码")),
             ("database", ("database", "数据库")),
@@ -595,20 +978,45 @@ def _failure_metadata(text):
             ("partial_failure", ("partial failure", "部分失败")),
         ) if any(term in text for term in terms)
     ]
+    _total, uncovered = _scoped_gap_count(
+        text,
+        signal_groups=(_FAILURE_OPERATION_TERMS,),
+        control_terms=_FAILURE_STRATEGY_TERMS,
+    )
     return _prompt_analysis_metadata(
         signal_families=["failure_prone_operation"],
         operationKinds=operations,
         strategyKinds=strategies,
         operationSignalCount=sum(text.count(x) for x in _FAILURE_OPERATION_TERMS),
         strategySignalCount=sum(text.count(x) for x in _FAILURE_STRATEGY_TERMS),
+        uncoveredFailureOperationCount=uncovered,
     )
+
+
+def _failure_candidate_hints(metadata):
+    if metadata.get("operationSignalCount", 0) == 0:
+        return []
+    if metadata.get("uncoveredFailureOperationCount", 0) == 0:
+        return []
+    return [_candidate_hint(
+        {"gapKind": "fallback"},
+        "A required failure-prone operation lacks evidenced timeout, retry, "
+        "fallback, malformed-input, or structured-error behavior.")]
+
+
+def _failure_model_gate(metadata):
+    if _failure_candidate_hints(metadata):
+        return True, "failure_prone_operation_without_strategy"
+    return False, "failure_strategy_present_or_unproven"
 
 
 def extract_failure_strategy_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_FAILURE_OPERATION_TERMS,
         producer_id="extractor.prompt.failure_strategy_gap",
-        metadata_builder=_failure_metadata)
+        metadata_builder=_failure_metadata,
+        candidate_hint_builder=_failure_candidate_hints,
+        model_candidate_gate=_failure_model_gate)
 
 
 _VAGUE_CRITERIA_TERMS = (
@@ -623,21 +1031,89 @@ _BOUNDARY_CRITERIA_TERMS = (
     "characters", "words", "items", "至少", "至多", "恰好", "介于",
     "如果", "当", "字", "条",
 )
+_VISUAL_STYLE_TERMS = (
+    "photorealistic", "cinematic", "film still", "realistic actor",
+    "natural lighting", "skin texture", "fabric detail", "visual style",
+    "真人写实", "电影剧照", "真实演员", "实景光源", "皮肤纹理",
+    "布料细节", "环境质感", "画风", "视觉风格",
+)
+_VISUAL_TASK_DIRECTIVES = (
+    "create ", "generate ", "depict ", "show ", "render ",
+    "生成", "创作", "描绘", "展示", "画出", "制作",
+)
+_VISUAL_SUBJECT_ANCHORS = (
+    "subject:", "main subject", "a person", "a woman", "a man", "a child",
+    "a product", "an object", "主体", "主角", "人物：", "角色：", "产品：",
+    "一位", "一名", "一个", "一只", "一辆", "一座",
+)
 
 
 def _ambiguity_metadata(text):
     return _prompt_analysis_metadata(
-        signal_families=["vague_operational_criterion"],
+        signal_families=[
+            "vague_operational_criterion",
+            "task_context_completeness",
+        ],
         vagueCriterionCount=sum(text.count(x) for x in _VAGUE_CRITERIA_TERMS),
         boundaryMarkerCount=sum(text.count(x) for x in _BOUNDARY_CRITERIA_TERMS),
+        visualStyleSignalCount=sum(text.count(x) for x in _VISUAL_STYLE_TERMS),
+        visualTaskDirectiveCount=sum(
+            text.count(x) for x in _VISUAL_TASK_DIRECTIVES),
+        visualSubjectAnchorCount=sum(
+            text.count(x) for x in _VISUAL_SUBJECT_ANCHORS),
+        promptCharacterCount=len(text),
     )
+
+
+def _ambiguity_candidate_hints(metadata):
+    hints = []
+    if (
+        metadata.get("visualStyleSignalCount", 0) >= 3
+        and metadata.get("visualTaskDirectiveCount", 0) == 0
+        and metadata.get("visualSubjectAnchorCount", 0) == 0
+    ):
+        hints.append(_candidate_hint(
+            {"criterionKind": "missing_task_anchor"},
+            "The reviewed prompt specifies a detailed visual style but does "
+            "not identify a concrete generation task or primary subject."))
+    if metadata.get("vagueCriterionCount", 0) == 0:
+        return hints
+    if metadata.get("boundaryMarkerCount", 0) < 2:
+        hints.append(_candidate_hint(
+            {"criterionKind": "undefined_boundary"},
+            "A vague operational criterion controls behavior without an "
+            "evidenced threshold, referent, example, or decision rule."))
+    return hints
+
+
+def _ambiguity_model_gate(metadata):
+    if _ambiguity_candidate_hints(metadata):
+        return True, "bounded_ambiguity_hypothesis"
+    if (
+        metadata.get("vagueCriterionCount", 0) > 0
+        and metadata.get("boundaryMarkerCount", 0) >= 2
+    ):
+        return False, "vague_criterion_has_local_boundary"
+    if (
+        metadata.get("visualStyleSignalCount", 0) >= 3
+        and metadata.get("visualTaskDirectiveCount", 0) > 0
+        and metadata.get("visualSubjectAnchorCount", 0) > 0
+    ):
+        return False, "visual_task_anchors_present"
+    if metadata.get("promptCharacterCount", 0) >= 24:
+        return True, "general_ambiguity_review"
+    return False, "prompt_too_short_for_general_ambiguity_review"
 
 
 def extract_ambiguous_operational_criteria(review_dict, file_bytes):
     return _whole_prompt_seed(
-        review_dict, file_bytes, triggers=_VAGUE_CRITERIA_TERMS,
+        review_dict, file_bytes,
+        triggers=_VAGUE_CRITERIA_TERMS + _VISUAL_STYLE_TERMS,
         producer_id="extractor.prompt.ambiguous_operational_criteria",
-        metadata_builder=_ambiguity_metadata)
+        metadata_builder=_ambiguity_metadata,
+        candidate_hint_builder=_ambiguity_candidate_hints,
+        model_candidate_gate=_ambiguity_model_gate,
+        allow_without_trigger=True)
 
 
 _GROUNDING_TASK_TERMS = (
@@ -662,19 +1138,44 @@ def _grounding_metadata(text):
             ("citations", ("citation", "source", "引用", "来源")),
         ) if any(term in text for term in terms)
     ]
+    _total, uncovered = _scoped_gap_count(
+        text,
+        signal_groups=(_GROUNDING_TASK_TERMS,),
+        control_terms=_GROUNDING_CONTROL_TERMS,
+    )
     return _prompt_analysis_metadata(
         signal_families=["consequential_or_verifiable_claim"],
         operationKinds=domains,
         groundingSignalCount=sum(text.count(x) for x in _GROUNDING_TASK_TERMS),
         mitigationSignalCount=sum(text.count(x) for x in _GROUNDING_CONTROL_TERMS),
+        uncoveredGroundingTaskCount=uncovered,
     )
+
+
+def _grounding_candidate_hints(metadata):
+    if metadata.get("groundingSignalCount", 0) == 0:
+        return []
+    if metadata.get("uncoveredGroundingTaskCount", 0) == 0:
+        return []
+    return [_candidate_hint(
+        {"groundingKind": "verification_required"},
+        "A consequential factual task lacks evidenced source verification, "
+        "uncertainty, anti-invention, or human-review controls.")]
+
+
+def _grounding_model_gate(metadata):
+    if _grounding_candidate_hints(metadata):
+        return True, "grounding_task_without_controls"
+    return False, "grounding_controls_present_or_unproven"
 
 
 def extract_grounding_requirement_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_GROUNDING_TASK_TERMS,
         producer_id="extractor.prompt.grounding_requirement_gap",
-        metadata_builder=_grounding_metadata)
+        metadata_builder=_grounding_metadata,
+        candidate_hint_builder=_grounding_candidate_hints,
+        model_candidate_gate=_grounding_model_gate)
 
 
 _REASONING_TERMS = (
@@ -688,25 +1189,53 @@ _REASONING_EXPOSURE_TERMS = (
 )
 _REASONING_CONTAINMENT_TERMS = (
     "do not reveal", "keep internal", "final answer only", "brief rationale",
-    "不要透露", "仅内部", "只输出最终", "简短理由",
+    "private", "brief evidence-based rationale", "不要透露", "仅内部",
+    "只输出最终", "简短理由",
 )
 
 
 def _reasoning_metadata(text):
+    _total, uncovered = _scoped_gap_count(
+        text,
+        signal_groups=(_REASONING_TERMS, _REASONING_EXPOSURE_TERMS),
+        control_terms=_REASONING_CONTAINMENT_TERMS,
+    )
     return _prompt_analysis_metadata(
         signal_families=["reasoning_or_internal_policy"],
         reasoningSignalCount=sum(text.count(x) for x in _REASONING_TERMS),
         exposureSignalCount=sum(text.count(x) for x in _REASONING_EXPOSURE_TERMS),
         containmentSignalCount=sum(
             text.count(x) for x in _REASONING_CONTAINMENT_TERMS),
+        uncoveredReasoningExposureCount=uncovered,
     )
+
+
+def _reasoning_candidate_hints(metadata):
+    if metadata.get("reasoningSignalCount", 0) == 0:
+        return []
+    if metadata.get("exposureSignalCount", 0) == 0:
+        return []
+    if metadata.get("uncoveredReasoningExposureCount", 0) == 0:
+        return []
+    return [_candidate_hint(
+        {"exposureKind": "chain_of_thought"},
+        "The prompt asks to expose chain-of-thought, scratchpad, or hidden "
+        "internal policy without an evidenced containment rule.")]
+
+
+def _reasoning_model_gate(metadata):
+    if _reasoning_candidate_hints(metadata):
+        return True, "reasoning_exposure_without_containment"
+    return False, "reasoning_containment_present_or_no_exposure"
 
 
 def extract_sensitive_reasoning_exposure(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_REASONING_TERMS,
         producer_id="extractor.prompt.sensitive_reasoning_exposure",
-        metadata_builder=_reasoning_metadata)
+        metadata_builder=_reasoning_metadata,
+        candidate_hint_builder=_reasoning_candidate_hints,
+        model_candidate_gate=_reasoning_model_gate)
 
 
 _VERIFICATION_TASK_TERMS = (
@@ -718,6 +1247,11 @@ _VERIFICATION_CONTROL_TERMS = (
     "verify", "validate", "check before", "self-check", "checklist",
     "核对", "验证", "输出前检查", "自检", "检查清单",
 )
+_VERIFICATION_BYPASS_TERMS = (
+    "without another review", "without another check", "applied directly",
+    "publish the result directly", "直接应用", "直接执行", "无需复核",
+    "不再检查", "直接发布",
+)
 _DOWNSTREAM_TERMS = (
     "downstream", "parser", "automation", "production", "decision",
     "下游", "解析器", "自动化", "生产", "决策",
@@ -725,20 +1259,58 @@ _DOWNSTREAM_TERMS = (
 
 
 def _verification_metadata(text):
+    _total, uncovered = _scoped_gap_count(
+        text,
+        signal_groups=(
+            _VERIFICATION_TASK_TERMS,
+            _DOWNSTREAM_TERMS + _VERIFICATION_BYPASS_TERMS,
+        ),
+        control_terms=_VERIFICATION_CONTROL_TERMS,
+    )
     return _prompt_analysis_metadata(
         signal_families=["multi_constraint_output"],
         requirementSignalCount=sum(text.count(x) for x in _VERIFICATION_TASK_TERMS),
         verificationSignalCount=sum(
             text.count(x) for x in _VERIFICATION_CONTROL_TERMS),
         downstreamSignalCount=sum(text.count(x) for x in _DOWNSTREAM_TERMS),
+        bypassReviewSignalCount=sum(
+            text.count(x) for x in _VERIFICATION_BYPASS_TERMS),
+        uncoveredVerificationRequirementCount=uncovered,
     )
+
+
+def _verification_candidate_hints(metadata):
+    consequential = (
+        metadata.get("downstreamSignalCount", 0) > 0
+        or metadata.get("bypassReviewSignalCount", 0) > 0)
+    if (metadata.get("requirementSignalCount", 0) > 0
+            and consequential
+            and metadata.get("uncoveredVerificationRequirementCount", 0) > 0):
+        return [_candidate_hint(
+            {"verificationKind": "downstream_validity"},
+            "A constrained output is used downstream without an evidenced "
+            "validation step in the complete reviewed prompt.")]
+    return []
+
+
+def _verification_model_gate(metadata):
+    if metadata.get("uncoveredVerificationRequirementCount", 0) > 0:
+        return True, "missing_downstream_validation_controls"
+    consequential = (
+        metadata.get("downstreamSignalCount", 0) > 0
+        or metadata.get("bypassReviewSignalCount", 0) > 0)
+    if not consequential or metadata.get("requirementSignalCount", 0) == 0:
+        return False, "not_consequential_constrained_output"
+    return False, "verification_controls_present"
 
 
 def extract_verification_step_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_VERIFICATION_TASK_TERMS,
         producer_id="extractor.prompt.verification_step_gap",
-        metadata_builder=_verification_metadata)
+        metadata_builder=_verification_metadata,
+        candidate_hint_builder=_verification_candidate_hints,
+        model_candidate_gate=_verification_model_gate)
 
 
 _INPUT_DEPENDENCY_TERMS = (
@@ -780,11 +1352,41 @@ def _input_contract_metadata(text):
     )
 
 
+def _input_contract_candidate_hints(metadata):
+    if metadata.get("inputSignalCount", 0) == 0:
+        return []
+    if metadata.get("requirednessSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"gapKind": "missing_input"},
+            "A required input dependency lacks evidenced required or "
+            "optional status.")]
+    if metadata.get("defaultSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"gapKind": "default_behavior"},
+            "A required input dependency lacks evidenced missing-value or "
+            "default behavior.")]
+    if (metadata.get("invalidInputSignalCount", 0) == 0
+            or metadata.get("handlingSignalCount", 0) == 0):
+        return [_candidate_hint(
+            {"gapKind": "invalid_input"},
+            "A required input dependency lacks evidenced invalid-input "
+            "handling.")]
+    return []
+
+
+def _input_contract_model_gate(metadata):
+    if _input_contract_candidate_hints(metadata):
+        return True, "input_dependency_missing_contract_controls"
+    return False, "input_contract_controls_complete_or_unproven"
+
+
 def extract_input_and_default_contract_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_INPUT_DEPENDENCY_TERMS,
         producer_id="extractor.prompt.input_and_default_contract_gap",
-        metadata_builder=_input_contract_metadata)
+        metadata_builder=_input_contract_metadata,
+        candidate_hint_builder=_input_contract_candidate_hints,
+        model_candidate_gate=_input_contract_model_gate)
 
 
 _EXAMPLE_TERMS = (
@@ -811,9 +1413,76 @@ _EXAMPLE_QUALITY_TERMS = (
 )
 
 
+def _required_example_fields(text):
+    fields = set()
+    plural = re.search(r"\brequired\s+fields?\s+([^.\n]+)", text)
+    if plural:
+        ignored = {
+            "a", "an", "and", "field", "fields", "json", "or", "the",
+        }
+        fields.update(
+            token for token in re.findall(
+                r"\b[a-z_][a-z0-9_-]*\b", plural.group(1))
+            if token not in ignored
+        )
+    fields.update(re.findall(
+        r"\brequired\s+[\"']([a-z_][a-z0-9_-]*)[\"']\s+field\b",
+        text))
+    return fields
+
+
+def _first_example_object_keys(text):
+    marker = re.search(r"\b(?:example|sample output)\b", text)
+    if not marker:
+        return set()
+    for raw in re.findall(r"\{[^{}\n]{1,2000}\}", text[marker.end():]):
+        try:
+            value = json.loads(raw)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(value, dict):
+            return {
+                key for key in value
+                if isinstance(key, str) and re.fullmatch(
+                    r"[a-z_][a-z0-9_-]*", key)
+            }
+    return set()
+
+
 def _example_contract_metadata(text):
+    violations = []
+    if (re.search(r"\b(?:never|do not|must not)\s+output\b.{0,40}\bemail\b",
+                  text)
+            and re.search(
+                r"\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@"
+                r"[a-z0-9.-]+\.[a-z]{2,}\b",
+                text)):
+        violations.append("prohibited_email_disclosed")
+    enum_rule = re.search(
+        r"(?:field\s+)?([a-z_][a-z0-9_-]*)\s+must\s+be\s+one\s+of\s+"
+        r"([^.\n]+)",
+        text)
+    if enum_rule:
+        field_name = enum_rule.group(1)
+        allowed = {
+            value for value in re.findall(
+                r"\b[a-z][a-z0-9_-]*\b", enum_rule.group(2))
+            if value not in {"or", "and"}
+        }
+        example = re.search(
+            rf'["\']{re.escape(field_name)}["\']\s*:\s*'
+            r'["\']([^"\']+)["\']',
+            text)
+        if example and example.group(1) not in allowed:
+            violations.append("enum_value_outside_allowed_set")
+    required_fields = _required_example_fields(text)
+    example_fields = _first_example_object_keys(text)
+    if required_fields and example_fields and not required_fields <= example_fields:
+        violations.append("required_fields_omitted")
     return _prompt_analysis_metadata(
         signal_families=["normative_examples"],
+        strategyKinds=violations,
+        normativeExampleViolationCount=len(violations),
         exampleSignalCount=sum(text.count(x) for x in _EXAMPLE_TERMS),
         ruleSignalCount=sum(text.count(x) for x in _EXAMPLE_RULE_TERMS),
         boundaryExampleSignalCount=sum(
@@ -825,12 +1494,38 @@ def _example_contract_metadata(text):
     )
 
 
+def _example_contract_candidate_hints(metadata):
+    kinds = metadata.get("strategyKinds") or []
+    if not kinds:
+        return []
+    gap_kind = (
+        "schema_mismatch"
+        if kinds[0] in {
+            "enum_value_outside_allowed_set",
+            "required_fields_omitted",
+        }
+        else "rule_mismatch"
+    )
+    return [_candidate_hint(
+        {"exampleGapKind": gap_kind},
+        "A normative example directly violates an evidenced prohibition "
+        "or allowed-value contract.")]
+
+
+def _example_contract_model_gate(metadata):
+    if _example_contract_candidate_hints(metadata):
+        return True, "structured_example_rule_violation"
+    return False, "no_structured_example_rule_violation"
+
+
 def extract_example_contract_mismatch(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes,
         triggers=_EXAMPLE_TERMS,
         producer_id="extractor.prompt.example_contract_mismatch",
-        metadata_builder=_example_contract_metadata)
+        metadata_builder=_example_contract_metadata,
+        candidate_hint_builder=_example_contract_candidate_hints,
+        model_candidate_gate=_example_contract_model_gate)
 
 
 _TOOL_CALL_TERMS = (
@@ -840,11 +1535,17 @@ _TOOL_CALL_TERMS = (
 )
 _TOOL_INVOCATION_TERMS = (
     "when to call", "call only when", "precondition", "trigger condition",
-    "何时调用", "仅当", "前置条件", "触发条件",
+    "whenever", "only when", "何时调用", "仅当", "前置条件", "触发条件",
 )
 _TOOL_PARAMETER_TERMS = (
     "parameter", "argument", "json schema", "parameter source",
     "参数", "入参", "参数 schema", "参数来源",
+)
+_TOOL_PARAMETER_CONTROL_TERMS = (
+    "validated request", "validate the parameter", "validate parameters",
+    "trusted source", "registered json schema", "allowlist",
+    "经过校验的请求", "校验参数", "验证参数", "可信来源", "已注册 schema",
+    "白名单",
 )
 _TOOL_RESULT_TERMS = (
     "return schema", "result schema", "tool result", "response field",
@@ -860,6 +1561,8 @@ def _tool_contract_metadata(text):
             text.count(x) for x in _TOOL_INVOCATION_TERMS),
         parameterSignalCount=sum(
             text.count(x) for x in _TOOL_PARAMETER_TERMS),
+        parameterControlSignalCount=sum(
+            text.count(x) for x in _TOOL_PARAMETER_CONTROL_TERMS),
         resultContractSignalCount=sum(
             text.count(x) for x in _TOOL_RESULT_TERMS),
         strategySignalCount=sum(
@@ -867,11 +1570,46 @@ def _tool_contract_metadata(text):
     )
 
 
+def _tool_contract_candidate_hints(metadata):
+    if metadata.get("toolCallSignalCount", 0) == 0:
+        return []
+    hints = []
+    if metadata.get("invocationSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"contractGapKind": "invocation_condition"},
+            "A required tool invocation has no bounded invocation condition "
+            "in the complete reviewed prompt."))
+    if metadata.get("parameterControlSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"contractGapKind": "parameter_provenance"},
+            "A required tool invocation lacks validated parameter provenance "
+            "in the complete reviewed prompt."))
+    if metadata.get("resultContractSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"contractGapKind": "result_schema"},
+            "A required tool invocation has no downstream result contract "
+            "in the complete reviewed prompt."))
+    if metadata.get("strategySignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"contractGapKind": "error_handling"},
+            "A required tool invocation has no bounded failure behavior "
+            "in the complete reviewed prompt."))
+    return hints[:1]
+
+
+def _tool_contract_model_gate(metadata):
+    if _tool_contract_candidate_hints(metadata):
+        return True, "tool_call_missing_contract_controls"
+    return False, "tool_call_contract_controls_complete_or_unproven"
+
+
 def extract_tool_call_contract_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_TOOL_CALL_TERMS,
         producer_id="extractor.prompt.tool_call_contract_gap",
-        metadata_builder=_tool_contract_metadata)
+        metadata_builder=_tool_contract_metadata,
+        candidate_hint_builder=_tool_contract_candidate_hints,
+        model_candidate_gate=_tool_contract_model_gate)
 
 
 _CAPABILITY_DEPENDENCY_TERMS = (
@@ -919,11 +1657,45 @@ def _capability_dependency_metadata(text):
     )
 
 
+def _capability_dependency_candidate_hints(metadata):
+    if metadata.get("capabilitySignalCount", 0) == 0:
+        return []
+    if (metadata.get("provisionSignalCount", 0) > 0
+            or metadata.get("fallbackSignalCount", 0) > 0):
+        return []
+    kinds = metadata.get("operationKinds") or []
+    dependency = "web_access"
+    if "realtime" in kinds:
+        dependency = "realtime_data"
+    elif "vision" in kinds:
+        dependency = "vision"
+    elif "audio" in kinds:
+        dependency = "audio"
+    elif "memory" in kinds:
+        dependency = "persistent_memory"
+    elif "context" in kinds:
+        dependency = "context_capacity"
+    elif "plugin" in kinds:
+        dependency = "plugin"
+    return [_candidate_hint(
+        {"dependencyKind": dependency},
+        "The task requires a non-intrinsic model capability without an "
+        "evidenced supplied tool, input, platform guarantee, or fallback.")]
+
+
+def _capability_dependency_model_gate(metadata):
+    if _capability_dependency_candidate_hints(metadata):
+        return True, "required_capability_without_provider_or_fallback"
+    return False, "capability_provider_or_fallback_present"
+
+
 def extract_capability_dependency_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_CAPABILITY_DEPENDENCY_TERMS,
         producer_id="extractor.prompt.capability_dependency_gap",
-        metadata_builder=_capability_dependency_metadata)
+        metadata_builder=_capability_dependency_metadata,
+        candidate_hint_builder=_capability_dependency_candidate_hints,
+        model_candidate_gate=_capability_dependency_model_gate)
 
 
 _SENSITIVE_DATA_TERMS = (
@@ -941,6 +1713,25 @@ _SENSITIVE_DATA_CONTROL_TERMS = (
     "minimize", "redact", "mask", "consent", "authorized", "access control",
     "retention period", "do not expose", "最小化", "脱敏", "掩码", "同意",
     "授权", "访问控制", "保留期限", "不得泄露",
+)
+_SENSITIVE_MINIMIZATION_TERMS = (
+    "minimum", "minimize", "only needed", "最少", "最小化", "仅收集必要",
+)
+_SENSITIVE_REDACTION_TERMS = (
+    "redact", "mask", "do not expose", "脱敏", "掩码", "不得泄露",
+)
+_SENSITIVE_AUTHORIZATION_TERMS = (
+    "consent", "authorized", "access control", "同意", "授权", "访问控制",
+)
+_SENSITIVE_RETENTION_TERMS = (
+    "retention period", "delete after", "retention limit",
+    "保留期限", "到期删除", "保留限制",
+)
+_SENSITIVE_OUTBOUND_ACTION_TERMS = (
+    "send", "share", "display", "output", "发送", "共享", "展示", "输出",
+)
+_SENSITIVE_COLLECTION_ACTION_TERMS = (
+    "collect", "store", "retain", "process", "收集", "存储", "保留", "处理",
 )
 
 
@@ -965,7 +1756,56 @@ def _sensitive_data_metadata(text):
             text.count(x) for x in _SENSITIVE_DATA_ACTION_TERMS),
         dataControlSignalCount=sum(
             text.count(x) for x in _SENSITIVE_DATA_CONTROL_TERMS),
+        minimizationSignalCount=sum(
+            text.count(x) for x in _SENSITIVE_MINIMIZATION_TERMS),
+        redactionSignalCount=sum(
+            text.count(x) for x in _SENSITIVE_REDACTION_TERMS),
+        authorizationControlSignalCount=sum(
+            text.count(x) for x in _SENSITIVE_AUTHORIZATION_TERMS),
+        retentionControlSignalCount=sum(
+            text.count(x) for x in _SENSITIVE_RETENTION_TERMS),
+        outboundDisclosureSignalCount=sum(
+            text.count(x) for x in _SENSITIVE_OUTBOUND_ACTION_TERMS),
+        collectionStorageSignalCount=sum(
+            text.count(x) for x in _SENSITIVE_COLLECTION_ACTION_TERMS),
     )
+
+
+def _sensitive_data_candidate_hints(metadata):
+    if (metadata.get("sensitiveDataSignalCount", 0) == 0
+            or metadata.get("dataActionSignalCount", 0) == 0):
+        return []
+    hints = []
+    if (metadata.get("outboundDisclosureSignalCount", 0) > 0
+            and metadata.get("redactionSignalCount", 0) == 0):
+        hints.append(_candidate_hint(
+            {"dataPolicyKind": "redaction"},
+            "The prompt directs sensitive-data disclosure without an "
+            "evidenced masking or redaction boundary."))
+    if (metadata.get("collectionStorageSignalCount", 0) > 0
+            and metadata.get("minimizationSignalCount", 0) == 0):
+        hints.append(_candidate_hint(
+            {"dataPolicyKind": "minimization"},
+            "The prompt directs sensitive-data collection or storage without "
+            "an evidenced minimization boundary."))
+    if metadata.get("authorizationControlSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"dataPolicyKind": "authorization"},
+            "The prompt directs sensitive-data handling without an evidenced "
+            "authorization boundary."))
+    if (metadata.get("collectionStorageSignalCount", 0) > 0
+            and metadata.get("retentionControlSignalCount", 0) == 0):
+        hints.append(_candidate_hint(
+            {"dataPolicyKind": "retention"},
+            "The prompt directs sensitive-data storage without an evidenced "
+            "retention boundary."))
+    return hints[:1]
+
+
+def _sensitive_data_model_gate(metadata):
+    if _sensitive_data_candidate_hints(metadata):
+        return True, "sensitive_data_handling_missing_controls"
+    return False, "sensitive_data_controls_complete_or_action_unproven"
 
 
 def extract_sensitive_data_handling_gap(review_dict, file_bytes):
@@ -975,7 +1815,9 @@ def extract_sensitive_data_handling_gap(review_dict, file_bytes):
         require_all_groups=(_SENSITIVE_DATA_TERMS,
                             _SENSITIVE_DATA_ACTION_TERMS),
         producer_id="extractor.prompt.sensitive_data_handling_gap",
-        metadata_builder=_sensitive_data_metadata)
+        metadata_builder=_sensitive_data_metadata,
+        candidate_hint_builder=_sensitive_data_candidate_hints,
+        model_candidate_gate=_sensitive_data_model_gate)
 
 
 _ROLE_IDENTITY_TERMS = (
@@ -984,11 +1826,13 @@ _ROLE_IDENTITY_TERMS = (
 )
 _ROLE_AUDIENCE_TERMS = (
     "audience", "serve", "for users", "customer", "operator",
-    "面向", "服务对象", "用户", "客户", "操作员",
+    "learner", "learners", "account holders", "retail learners",
+    "面向", "服务对象", "用户", "客户", "操作员", "学习者",
 )
 _ROLE_DUTY_TERMS = (
     "responsible for", "duties", "responsibility", "can help", "must handle",
-    "负责", "职责", "责任", "可以帮助", "必须处理",
+    "explain", "draft", "负责", "职责", "责任", "可以帮助", "必须处理",
+    "解释", "起草",
 )
 _ROLE_EXCLUSION_TERMS = (
     "out of scope", "cannot", "must not", "do not", "refuse", "escalate",
@@ -1007,11 +1851,39 @@ def _role_scope_metadata(text):
     )
 
 
+def _role_scope_candidate_hints(metadata):
+    if metadata.get("roleSignalCount", 0) == 0:
+        return []
+    if metadata.get("exclusionSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"roleGapKind": "exclusions"},
+            "A persistent operational role lacks evidenced out-of-scope, "
+            "refusal, or escalation boundaries.")]
+    if metadata.get("audienceSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"roleGapKind": "audience"},
+            "A persistent operational role lacks an evidenced audience or "
+            "request-routing boundary.")]
+    if metadata.get("dutySignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"roleGapKind": "duties"},
+            "A persistent operational role lacks evidenced material duties.")]
+    return []
+
+
+def _role_scope_model_gate(metadata):
+    if _role_scope_candidate_hints(metadata):
+        return True, "operational_role_missing_scope_controls"
+    return False, "role_scope_controls_complete_or_unproven"
+
+
 def extract_role_scope_contract_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_ROLE_IDENTITY_TERMS,
         producer_id="extractor.prompt.role_scope_contract_gap",
-        metadata_builder=_role_scope_metadata)
+        metadata_builder=_role_scope_metadata,
+        candidate_hint_builder=_role_scope_candidate_hints,
+        model_candidate_gate=_role_scope_model_gate)
 
 
 _WORKFLOW_TERMS = (
@@ -1031,9 +1903,35 @@ _WORKFLOW_BRANCH_TERMS = (
     "otherwise", "if it fails", "skip", "stop", "else",
     "否则", "失败时", "跳过", "停止",
 )
+_WORKFLOW_SIDE_EFFECT_TERMS = (
+    "publish", "deploy", "notify", "send ", "delete", "transfer",
+    "发布", "部署", "通知", "发送", "删除", "转账",
+)
+_WORKFLOW_VALIDATION_TERMS = (
+    "validate", "verify", "acceptance test", "acceptance tests",
+    "checksum", "checksums", "test", "tests", "检查", "验证", "校验", "测试",
+)
+_WORKFLOW_PREPARATION_TERMS = (
+    "build", "import", "generate", "produce", "calculate", "create",
+    "构建", "导入", "生成", "计算", "创建",
+)
+
+
+def _first_term_index(text: str, terms: Tuple[str, ...]) -> int:
+    indexes = [text.find(term) for term in terms if text.find(term) >= 0]
+    return min(indexes) if indexes else -1
 
 
 def _workflow_dependency_metadata(text):
+    side_effect_index = _first_term_index(text, _WORKFLOW_SIDE_EFFECT_TERMS)
+    validation_index = _first_term_index(text, _WORKFLOW_VALIDATION_TERMS)
+    preparation_index = _first_term_index(text, _WORKFLOW_PREPARATION_TERMS)
+    side_effect_before_validation = (
+        side_effect_index >= 0 and validation_index >= 0
+        and side_effect_index < validation_index)
+    side_effect_before_preparation = (
+        side_effect_index >= 0 and preparation_index >= 0
+        and side_effect_index < preparation_index)
     return _prompt_analysis_metadata(
         signal_families=["multi_step_workflow"],
         workflowSignalCount=sum(text.count(x) for x in _WORKFLOW_TERMS),
@@ -1043,14 +1941,42 @@ def _workflow_dependency_metadata(text):
             text.count(x) for x in _WORKFLOW_RESULT_TERMS),
         workflowBranchSignalCount=sum(
             text.count(x) for x in _WORKFLOW_BRANCH_TERMS),
+        sideEffectBeforeValidationSignalCount=(
+            1 if side_effect_before_validation else 0),
+        sideEffectBeforePreparationSignalCount=(
+            1 if side_effect_before_preparation else 0),
     )
+
+
+def _workflow_dependency_candidate_hints(metadata):
+    if metadata.get("workflowSignalCount", 0) == 0:
+        return []
+    if metadata.get("sideEffectBeforeValidationSignalCount", 0) > 0:
+        return [_candidate_hint(
+            {"dependencyGapKind": "reversed_order"},
+            "A side-effect step appears before the validation or acceptance "
+            "step that should gate it.")]
+    if metadata.get("sideEffectBeforePreparationSignalCount", 0) > 0:
+        return [_candidate_hint(
+            {"dependencyGapKind": "missing_prerequisite"},
+            "A side-effect step appears before the preparation step that "
+            "should produce its required input.")]
+    return []
+
+
+def _workflow_dependency_model_gate(metadata):
+    if _workflow_dependency_candidate_hints(metadata):
+        return True, "workflow_side_effect_before_prerequisite"
+    return False, "workflow_dependencies_appear_ordered_or_unproven"
 
 
 def extract_workflow_dependency_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_WORKFLOW_TERMS,
         producer_id="extractor.prompt.workflow_dependency_gap",
-        metadata_builder=_workflow_dependency_metadata)
+        metadata_builder=_workflow_dependency_metadata,
+        candidate_hint_builder=_workflow_dependency_candidate_hints,
+        model_candidate_gate=_workflow_dependency_model_gate)
 
 
 _FIELD_CONTRACT_TERMS = (
@@ -1059,8 +1985,9 @@ _FIELD_CONTRACT_TERMS = (
     "枚举", "整数", "小数",
 )
 _FIELD_TYPE_TERMS = (
-    "string", "number", "integer", "boolean", "type", "类型", "字符串",
-    "数字", "整数", "布尔",
+    "string", "number", "integer", "boolean", "array", "list", "object",
+    "type", "类型", "字符串", "数字", "整数", "布尔", "数组", "列表",
+    "对象",
 )
 _FIELD_UNIT_PRECISION_TERMS = (
     "unit", "precision", "decimal places", "currency", "timezone",
@@ -1068,32 +1995,78 @@ _FIELD_UNIT_PRECISION_TERMS = (
 )
 _FIELD_RANGE_TERMS = (
     "range", "minimum", "maximum", "between", "one of", "enum",
-    "范围", "最小", "最大", "介于", "取值", "枚举",
+    "at most", "up to", "no more than", "范围", "最小", "最大", "介于",
+    "取值", "枚举", "不超过", "至多",
 )
 _FIELD_BOUNDARY_TERMS = (
-    "empty", "null", "duplicate", "rollover", "overflow", "zero",
+    "empty", "null", "duplicate", "unique", "missing", "omitted",
+    "rollover", "overflow", "zero",
     "空值", "空输入", "重复", "跨日", "溢出", "零",
+)
+_FIELD_MACHINE_CONSUMER_TERMS = (
+    "json", "schema", "parser", "downstream", "automation", "api",
+    "request body", "csv", "database", "机器", "解析器", "下游", "自动化",
+    "接口", "数据库",
 )
 
 
 def _field_constraint_metadata(text):
+    numeric_ranges = len(re.findall(
+        r"\b\d+\s*(?:-|–|to)\s*\d+\b", text, flags=re.IGNORECASE))
     return _prompt_analysis_metadata(
         signal_families=["typed_or_bounded_field"],
         fieldSignalCount=sum(text.count(x) for x in _FIELD_CONTRACT_TERMS),
+        machineConsumerSignalCount=sum(
+            text.count(x) for x in _FIELD_MACHINE_CONSUMER_TERMS),
         fieldTypeSignalCount=sum(text.count(x) for x in _FIELD_TYPE_TERMS),
         unitPrecisionSignalCount=sum(
             text.count(x) for x in _FIELD_UNIT_PRECISION_TERMS),
-        rangeSignalCount=sum(text.count(x) for x in _FIELD_RANGE_TERMS),
+        rangeSignalCount=(
+            sum(text.count(x) for x in _FIELD_RANGE_TERMS) + numeric_ranges),
         boundaryValueSignalCount=sum(
             text.count(x) for x in _FIELD_BOUNDARY_TERMS),
     )
+
+
+def _field_constraint_candidate_hints(metadata):
+    material_field = (
+        metadata.get("fieldSignalCount", 0) >= 2
+        or metadata.get("machineConsumerSignalCount", 0) > 0)
+    if not material_field:
+        return []
+    hints = []
+    if (metadata.get("fieldTypeSignalCount", 0) == 0
+            and metadata.get("unitPrecisionSignalCount", 0) == 0):
+        hints.append(_candidate_hint(
+            {"fieldGapKind": "type_or_unit"},
+            "Named machine-consumed fields lack type or unit constraints "
+            "in the complete reviewed prompt."))
+    if metadata.get("rangeSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"fieldGapKind": "enum_or_range"},
+            "Named machine-consumed fields lack enum or range constraints "
+            "in the complete reviewed prompt."))
+    if metadata.get("boundaryValueSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"fieldGapKind": "boundary_behavior"},
+            "Named machine-consumed fields lack material boundary behavior "
+            "in the complete reviewed prompt."))
+    return hints[:1]
+
+
+def _field_constraint_model_gate(metadata):
+    if _field_constraint_candidate_hints(metadata):
+        return True, "material_field_missing_constraints"
+    return False, "field_constraints_complete_or_not_machine_consumed"
 
 
 def extract_field_constraint_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_FIELD_CONTRACT_TERMS,
         producer_id="extractor.prompt.field_constraint_gap",
-        metadata_builder=_field_constraint_metadata)
+        metadata_builder=_field_constraint_metadata,
+        candidate_hint_builder=_field_constraint_candidate_hints,
+        model_candidate_gate=_field_constraint_model_gate)
 
 
 _ERROR_RESPONSE_TERMS = (
@@ -1120,17 +2093,50 @@ def _error_response_metadata(text):
         signal_families=["declared_failure_response"],
         errorResponseSignalCount=sum(
             text.count(x) for x in _ERROR_RESPONSE_TERMS),
+        machineConsumerSignalCount=sum(
+            text.count(x) for x in _FIELD_MACHINE_CONSUMER_TERMS),
         errorSchemaSignalCount=sum(text.count(x) for x in _ERROR_SCHEMA_TERMS),
         recoverySignalCount=sum(text.count(x) for x in _ERROR_RECOVERY_TERMS),
         errorFormatSignalCount=sum(text.count(x) for x in _ERROR_FORMAT_TERMS),
     )
 
 
+def _error_response_candidate_hints(metadata):
+    if (metadata.get("errorResponseSignalCount", 0) == 0
+            or metadata.get("machineConsumerSignalCount", 0) == 0):
+        return []
+    hints = []
+    if metadata.get("errorSchemaSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"errorGapKind": "schema"},
+            "Declared failure behavior lacks a stable response schema "
+            "in the complete reviewed prompt."))
+    if metadata.get("recoverySignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"errorGapKind": "recoverability"},
+            "Declared failure behavior does not tell the caller whether to "
+            "retry, clarify, or stop."))
+    if metadata.get("errorFormatSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"errorGapKind": "format_consistency"},
+            "Declared failure classes lack a consistent output format "
+            "in the complete reviewed prompt."))
+    return hints[:1]
+
+
+def _error_response_model_gate(metadata):
+    if _error_response_candidate_hints(metadata):
+        return True, "failure_response_missing_contract_controls"
+    return False, "error_response_controls_complete_or_unproven"
+
+
 def extract_error_response_contract_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_ERROR_RESPONSE_TERMS,
         producer_id="extractor.prompt.error_response_contract_gap",
-        metadata_builder=_error_response_metadata)
+        metadata_builder=_error_response_metadata,
+        candidate_hint_builder=_error_response_candidate_hints,
+        model_candidate_gate=_error_response_model_gate)
 
 
 _ATTENTION_STRUCTURE_TERMS = (
@@ -1140,7 +2146,8 @@ _ATTENTION_STRUCTURE_TERMS = (
 )
 _ATTENTION_HIERARCHY_TERMS = (
     "summary", "priority", "must follow", "non-negotiable", "摘要", "优先级",
-    "必须遵守", "不可覆盖",
+    "authoritative rules", "ordered procedure", "cannot override",
+    "必须遵守", "不可覆盖", "权威规则",
 )
 _ATTENTION_REPETITION_TERMS = (
     "repeated", "duplicate", "again", "重复", "反复", "再次",
@@ -1148,6 +2155,11 @@ _ATTENTION_REPETITION_TERMS = (
 
 
 def _attention_dilution_metadata(text):
+    lines = text.splitlines()
+    critical_indexes = [
+        index for index, line in enumerate(lines, start=1)
+        if any(term in line for term in ("critical rule", "关键规则"))
+    ]
     return _prompt_analysis_metadata(
         signal_families=["long_or_multi_section_prompt"],
         structureSignalCount=sum(
@@ -1158,14 +2170,34 @@ def _attention_dilution_metadata(text):
             text.count(x) for x in _ATTENTION_REPETITION_TERMS),
         promptLineCount=text.count("\n") + 1,
         promptCharacterCount=len(text),
+        criticalRuleLineIndex=max(critical_indexes, default=0),
     )
+
+
+def _attention_dilution_candidate_hints(metadata):
+    line_count = metadata.get("promptLineCount", 0)
+    character_count = metadata.get("promptCharacterCount", 0)
+    critical_line = metadata.get("criticalRuleLineIndex", 0)
+    if (line_count >= 12 and character_count >= 500
+            and critical_line >= max(10, line_count * 2 // 3)
+            and metadata.get("hierarchySignalCount", 0) == 0):
+        return [_candidate_hint(
+            {"dilutionKind": "buried_critical_rule"},
+            "A critical rule appears late in a long prompt without an "
+            "authoritative priority summary.")]
+    return []
 
 
 def extract_attention_dilution(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_ATTENTION_STRUCTURE_TERMS,
         producer_id="extractor.prompt.attention_dilution",
-        metadata_builder=_attention_dilution_metadata)
+        metadata_builder=_attention_dilution_metadata,
+        candidate_hint_builder=_attention_dilution_candidate_hints,
+        model_candidate_gate=lambda metadata: (
+            True, "buried_critical_rule_without_hierarchy")
+        if _attention_dilution_candidate_hints(metadata) else (
+            False, "attention_hierarchy_present_or_not_buried"))
 
 
 _STREAMING_TERMS = (
@@ -1191,23 +2223,84 @@ _STREAM_PARTIAL_TERMS = (
 
 
 def _streaming_recovery_metadata(text):
+    def explicitly_missing(terms):
+        for term in terms:
+            start = 0
+            while True:
+                index = text.find(term, start)
+                if index < 0:
+                    break
+                prefix = text[max(0, index - 120):index]
+                if re.search(
+                        r"(?:do not define|does not define|without|omit(?:s|ted)?|"
+                        r"missing|lacks?|no)\b.{0,100}$",
+                        prefix):
+                    return 1
+                start = index + len(term)
+        return 0
+
+    framing_missing = explicitly_missing(_STREAM_FRAMING_TERMS)
+    completion_missing = explicitly_missing(_STREAM_COMPLETION_TERMS)
+    resume_missing = explicitly_missing(_STREAM_RESUME_TERMS)
+    partial_missing = explicitly_missing(_STREAM_PARTIAL_TERMS)
     return _prompt_analysis_metadata(
         signal_families=["streaming_output"],
         streamingSignalCount=sum(text.count(x) for x in _STREAMING_TERMS),
-        framingSignalCount=sum(text.count(x) for x in _STREAM_FRAMING_TERMS),
+        framingSignalCount=(
+            0 if framing_missing
+            else sum(text.count(x) for x in _STREAM_FRAMING_TERMS)),
         completionSignalCount=sum(
-            text.count(x) for x in _STREAM_COMPLETION_TERMS),
-        resumeSignalCount=sum(text.count(x) for x in _STREAM_RESUME_TERMS),
+            text.count(x) for x in _STREAM_COMPLETION_TERMS)
+        if not completion_missing else 0,
+        resumeSignalCount=(
+            0 if resume_missing
+            else sum(text.count(x) for x in _STREAM_RESUME_TERMS)),
         partialStreamSignalCount=sum(
-            text.count(x) for x in _STREAM_PARTIAL_TERMS),
+            text.count(x) for x in _STREAM_PARTIAL_TERMS)
+        if not partial_missing else 0,
+        explicitMissingFramingCount=framing_missing,
+        explicitMissingCompletionCount=completion_missing,
+        explicitMissingResumeCount=resume_missing,
+        explicitMissingPartialCount=partial_missing,
     )
+
+
+def _streaming_recovery_candidate_hints(metadata):
+    if metadata.get("streamingSignalCount", 0) == 0:
+        return []
+    hints = []
+    if metadata.get("framingSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"streamingGapKind": "framing"},
+            "Streamed output lacks an evidenced frame or ordering contract."))
+    if metadata.get("completionSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"streamingGapKind": "completion"},
+            "Streamed output lacks an evidenced completion contract."))
+    if metadata.get("resumeSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"streamingGapKind": "resume"},
+            "Streamed output lacks an evidenced interruption and resume contract."))
+    if metadata.get("partialStreamSignalCount", 0) == 0:
+        hints.append(_candidate_hint(
+            {"streamingGapKind": "partial_parse"},
+            "Streamed output lacks an evidenced partial-parse rule."))
+    return hints[:1]
+
+
+def _streaming_recovery_model_gate(metadata):
+    if _streaming_recovery_candidate_hints(metadata):
+        return True, "streaming_output_missing_recovery_controls"
+    return False, "streaming_controls_complete_or_not_streamed"
 
 
 def extract_streaming_recovery_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_STREAMING_TERMS,
         producer_id="extractor.prompt.streaming_recovery_gap",
-        metadata_builder=_streaming_recovery_metadata)
+        metadata_builder=_streaming_recovery_metadata,
+        candidate_hint_builder=_streaming_recovery_candidate_hints,
+        model_candidate_gate=_streaming_recovery_model_gate)
 
 
 _MULTI_TURN_TERMS = (
@@ -1216,11 +2309,13 @@ _MULTI_TURN_TERMS = (
     "上一轮", "对话记忆",
 )
 _STATE_INHERITANCE_TERMS = (
-    "inherit", "carry forward", "persist", "remember", "继承", "沿用",
-    "保持", "记住",
+    "inherit", "carry forward", "persist", "remember",
+    "conversation memory", "previous turn", "继承", "沿用",
+    "保持", "记住", "对话记忆", "上一轮",
 )
 _STATE_UPDATE_TERMS = (
     "update preference", "change preference", "override", "latest request",
+    "updates", "later request", "after confirmation", "confirmed preferences",
     "更新偏好", "修改偏好", "覆盖", "最新请求",
 )
 _STATE_RESET_TERMS = (
@@ -1246,11 +2341,42 @@ def _multi_turn_state_metadata(text):
     )
 
 
+def _multi_turn_state_candidate_hints(metadata):
+    if metadata.get("multiTurnSignalCount", 0) == 0:
+        return []
+    if metadata.get("stateInheritanceSignalCount", 0) == 0:
+        return []
+    if metadata.get("stateResetSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"stateGapKind": "reset"},
+            "A multi-turn task carries state forward but lacks an evidenced "
+            "reset or new-session boundary.")]
+    if metadata.get("stateUpdateSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"stateGapKind": "update"},
+            "A multi-turn task carries state forward but lacks an evidenced "
+            "update precedence rule for later turns.")]
+    if metadata.get("stateInvariantSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"stateGapKind": "non_overridable_rule"},
+            "A multi-turn task carries state forward but lacks an evidenced "
+            "non-overridable-rule boundary.")]
+    return []
+
+
+def _multi_turn_state_model_gate(metadata):
+    if _multi_turn_state_candidate_hints(metadata):
+        return True, "multi_turn_state_missing_contract"
+    return False, "multi_turn_state_controls_complete_or_unproven"
+
+
 def extract_multi_turn_state_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_MULTI_TURN_TERMS,
         producer_id="extractor.prompt.multi_turn_state_gap",
-        metadata_builder=_multi_turn_state_metadata)
+        metadata_builder=_multi_turn_state_metadata,
+        candidate_hint_builder=_multi_turn_state_candidate_hints,
+        model_candidate_gate=_multi_turn_state_model_gate)
 
 
 _SAFETY_DOMAIN_TERMS = (
@@ -1264,7 +2390,8 @@ _SAFETY_REFUSAL_TERMS = (
 )
 _SAFETY_ALTERNATIVE_TERMS = (
     "safe alternative", "safer help", "benign", "安全替代", "安全帮助",
-    "无害",
+    "prevention guidance", "storage and disposal", "allowed prevention",
+    "无害", "预防指导", "存储和处置",
 )
 _SAFETY_ESCALATION_TERMS = (
     "emergency", "professional help", "escalate", "human review", "紧急",
@@ -1285,11 +2412,37 @@ def _safety_policy_metadata(text):
     )
 
 
+def _safety_policy_candidate_hints(metadata):
+    if metadata.get("safetyDomainSignalCount", 0) == 0:
+        return []
+    if metadata.get("refusalSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"safetyGapKind": "refusal_boundary"},
+            "A high-risk content domain lacks an evidenced refusal boundary.")]
+    if metadata.get("safeAlternativeSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"safetyGapKind": "safe_alternative"},
+            "A high-risk refusal boundary lacks an evidenced safe alternative.")]
+    if metadata.get("escalationSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"safetyGapKind": "escalation"},
+            "A high-risk refusal boundary lacks an evidenced escalation path.")]
+    return []
+
+
+def _safety_policy_model_gate(metadata):
+    if _safety_policy_candidate_hints(metadata):
+        return True, "high_risk_domain_missing_safety_controls"
+    return False, "safety_controls_complete_or_unproven"
+
+
 def extract_safety_policy_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_SAFETY_DOMAIN_TERMS,
         producer_id="extractor.prompt.safety_policy_gap",
-        metadata_builder=_safety_policy_metadata)
+        metadata_builder=_safety_policy_metadata,
+        candidate_hint_builder=_safety_policy_candidate_hints,
+        model_candidate_gate=_safety_policy_model_gate)
 
 
 _SOURCE_USE_TERMS = (
@@ -1298,8 +2451,8 @@ _SOURCE_USE_TERMS = (
     "文章", "书籍", "长段落", "引用", "复刻", "复制", "逐字",
 )
 _SOURCE_ATTRIBUTION_TERMS = (
-    "attribute", "citation", "credit", "name the source", "标注来源", "引用",
-    "署名", "出处",
+    "attribute", "attribution", "citation", "credit", "name the source",
+    "标注来源", "引用", "署名", "出处",
 )
 _SOURCE_TRANSFORMATION_TERMS = (
     "summarize", "transform", "paraphrase", "extract", "摘要", "转换", "改写",
@@ -1307,7 +2460,9 @@ _SOURCE_TRANSFORMATION_TERMS = (
 )
 _SOURCE_LIMIT_TERMS = (
     "short excerpt", "limit quotation", "do not reproduce", "public domain",
-    "user-provided", "短摘录", "限制引用", "不得复刻", "公版", "用户提供",
+    "public-domain", "licensed", "license", "user-provided",
+    "bounded excerpt", "brief excerpt", "短摘录", "限制引用", "不得复刻",
+    "公版", "用户提供", "许可",
 )
 
 
@@ -1323,11 +2478,40 @@ def _source_use_policy_metadata(text):
     )
 
 
+def _source_use_candidate_hints(metadata):
+    if metadata.get("sourceUseSignalCount", 0) == 0:
+        return []
+    if metadata.get("sourceLimitSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"sourceGapKind": "reproduction_limit"},
+            "A third-party source task lacks an evidenced short-excerpt, "
+            "license, user-provided, or public-domain boundary.")]
+    if metadata.get("transformationSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"sourceGapKind": "transformation"},
+            "A third-party source task lacks an evidenced summary, paraphrase, "
+            "or transformation boundary.")]
+    if metadata.get("attributionSignalCount", 0) == 0:
+        return [_candidate_hint(
+            {"sourceGapKind": "attribution"},
+            "A third-party source task lacks evidenced attribution or source "
+            "identity requirements.")]
+    return []
+
+
+def _source_use_model_gate(metadata):
+    if _source_use_candidate_hints(metadata):
+        return True, "third_party_source_missing_use_controls"
+    return False, "source_use_controls_complete_or_unproven"
+
+
 def extract_source_use_policy_gap(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes, triggers=_SOURCE_USE_TERMS,
         producer_id="extractor.prompt.source_use_policy_gap",
-        metadata_builder=_source_use_policy_metadata)
+        metadata_builder=_source_use_policy_metadata,
+        candidate_hint_builder=_source_use_candidate_hints,
+        model_candidate_gate=_source_use_model_gate)
 
 
 def extract_trust_boundary_ambiguity(review_dict, file_bytes):
@@ -1336,16 +2520,22 @@ def extract_trust_boundary_ambiguity(review_dict, file_bytes):
         triggers=("external content", "retrieved", "user input", "tool output",
                   "网页内容", "检索内容", "用户输入", "工具输出"),
         producer_id="extractor.prompt.trust_boundary",
-        metadata_builder=_trust_boundary_metadata)
+        metadata_builder=_trust_boundary_metadata,
+        candidate_hint_builder=_trust_boundary_candidate_hints,
+        model_candidate_gate=_trust_boundary_model_gate)
 
 
 def extract_tool_necessity(review_dict, file_bytes):
     return _whole_prompt_seed(
         review_dict, file_bytes,
         triggers=("allowed_tools", "allowed-tools", "permissions:", "tools:",
+                  "use read", "use write", "use edit", "use bash",
+                  "use shell", "use delete", "use webfetch", "use websearch",
                   "工具权限", "允许工具"),
         producer_id="extractor.prompt.tool_necessity",
-        metadata_builder=_tool_scope_metadata)
+        metadata_builder=_tool_scope_metadata,
+        candidate_hint_builder=_tool_scope_candidate_hints,
+        model_candidate_gate=_tool_scope_model_gate)
 
 
 def _capability_family(category: str, operation: str) -> str:
@@ -1399,7 +2589,8 @@ def _declared_behavior_families(description: str) -> Tuple[List[str], List[str]]
             "network", "endpoint", "api", "url", "web", "fetch", "retrieve",
             "网络", "接口", "网址", "网页", "获取", "检索")),
         ("process_execution", (
-            "command", "shell", "subprocess", "execute", "命令", "进程", "执行")),
+            "command", "shell", "subprocess", "execute", "process",
+            "命令", "进程", "执行")),
         ("file_read", (
             "read file", "reads ", "read-only", "读取文件", "只读")),
         ("file_write", (
@@ -1514,8 +2705,25 @@ def _skill_manifest_and_capability_seed(review_dict, file_bytes, *,
     })
     declared_behavior, denied_behavior = _declared_behavior_families(
         str(manifest.get("description") or ""))
+    manifest_metadata = manifest.get("metadata") or {}
+    trust_policy_text = (
+        " ".join(str(value) for value in manifest_metadata.values())
+        if isinstance(manifest_metadata, dict) else "")
+    trust_policy_text = trust_policy_text.lower()
+    external_instruction_urls = [
+        item for item in (manifest.get("external_instruction_urls") or [])
+        if isinstance(item, str)
+    ]
+    external_trust_control_count = sum(
+        trust_policy_text.count(term) for term in (
+            "verify", "digest", "parse as data", "untrusted data",
+            "never execute", "do not execute", "not instructions",
+            "not fetched", "not followed", "documentation only",
+            "for humans only",
+            "校验", "摘要", "仅作为数据", "不执行", "不是指令"))
     metadata = [{
         "evidenceRole": "manifest_declaration",
+        "evidenceScope": "bounded_static_skill_snapshot",
         "declaredPermissionFamilies": declared_permission_families[:12],
         "declaredProcessTargets": sorted({
             target for family, target in descriptors
@@ -1524,7 +2732,17 @@ def _skill_manifest_and_capability_seed(review_dict, file_bytes, *,
         "declaredCapabilityFamilies": sorted(set(
             declared_permission_families + declared_behavior))[:12],
         "deniedCapabilityFamilies": denied_behavior[:12],
+        "observedCapabilityFactCount": min(len(observed_facts), 128),
+        "includedCapabilityFactCount": min(len(observed_facts[:7]), 128),
+        "capabilityFactsTruncated": len(observed_facts) > 7,
+        "externalReferenceCount": min(
+            int(manifest.get("external_reference_count") or 0), 128),
+        "externalInstructionUrlCount": min(
+            len(external_instruction_urls), 128),
+        "externalTrustControlCount": min(external_trust_control_count, 128),
     }]
+    behavior_mismatch_count = 0
+    permission_mismatch_count = 0
     for fact in observed_facts[:7]:
         f = files.get(fact.get("artifactPath"))
         if f:
@@ -1533,24 +2751,69 @@ def _skill_manifest_and_capability_seed(review_dict, file_bytes, *,
                 str(fact.get("category", "")),
                 str(fact.get("operation", "")))
             target = str(fact.get("target", ""))[:80]
+            behavior_denied = family in denied_behavior
+            behavior_match = (
+                family in declared_behavior and not behavior_denied)
+            permission_match = _permission_matches(
+                family, target, descriptors)
+            behavior_mismatch_count += int(behavior_denied)
+            permission_mismatch_count += int(
+                not permission_match
+                and (family != "process_execution" or bool(target)))
             metadata.append({
                 "evidenceRole": "capability_fact",
+                "evidenceScope": "bounded_static_skill_snapshot",
                 "capabilityCategory": str(fact.get("category", ""))[:80],
                 "capabilityOperation": str(fact.get("operation", ""))[:160],
                 "capabilityFamily": family,
                 "capabilityTarget": target,
-                "declaredBehaviorMatch": (
-                    family in declared_behavior
-                    and family not in denied_behavior),
-                "declaredPermissionMatch": _permission_matches(
-                    family, target, descriptors),
+                "declaredBehaviorMatch": behavior_match,
+                "declaredBehaviorDenied": behavior_denied,
+                "declaredPermissionMatch": permission_match,
             })
     evs = _make_evidence_records(locations,
                                   snapshot_id=snap.get("snapshotId", ""),
                                   producer_id=producer_id,
                                   metadata_by_index=metadata)
-    source = {"declaredPermissionCount": len(permissions),
-              "observedCapabilityCount": len(observed_facts)}
+    source = {
+        "declaredPermissionCount": len(permissions),
+        "observedCapabilityCount": len(observed_facts),
+    }
+    candidate_hints = []
+    if (producer_id == "extractor.skill.declared_vs_observed"
+            and behavior_mismatch_count):
+        candidate_hints.append(_candidate_hint(
+            {"mismatchKind": "capability_undeclared"},
+            "A statically observed capability is explicitly denied by the "
+            "Skill behavior declaration."))
+    if (producer_id == "extractor.skill.permission_capability"
+            and permission_mismatch_count):
+        candidate_hints.append(_candidate_hint(
+            {"mismatchKind": "undeclared_capability"},
+            "A statically observed capability has no matching declared "
+            "permission family or fixed command target."))
+    if producer_id == "extractor.skill.external_instruction_trust":
+        if external_instruction_urls and external_trust_control_count == 0:
+            candidate_hints.append(_candidate_hint(
+                {"trustGapKind": "instruction_data_confusion"},
+                "The Skill declares fetched external runtime instructions "
+                "without an evidenced data-only trust boundary."))
+        elif (manifest.get("external_reference_count")
+              and external_trust_control_count == 0):
+            candidate_hints.append(_candidate_hint(
+                {"trustGapKind": "missing_integrity_boundary"},
+                "The Skill references external material without evidenced "
+                "integrity or data-only parsing controls."))
+    if candidate_hints:
+        source["candidateHints"] = candidate_hints
+    elif producer_id in {
+            "extractor.skill.declared_vs_observed",
+            "extractor.skill.permission_capability",
+            "extractor.skill.external_instruction_trust",
+    }:
+        source["modelCandidatePolicy"] = "skip_without_catalog_hint"
+        source["modelCandidateSkipReason"] = (
+            "static_skill_capability_controls_match")
     return [(source, [e["evidenceId"] for e in evs], evs)]
 
 
@@ -1687,14 +2950,16 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                 confirm=[
                     "An observed capability is denied or materially outside the declared behavior.",
                     "The observed scope is materially broader than the declaration.",
+                    "An explicit declaredBehaviorMatch=false caused by a denied capability plus a cited call-site fact supports a static behavior mismatch.",
                 ],
                 reject=[
                     "The normalized declared capability family matches the observed family.",
+                    "An explicit declaredBehaviorMatch=true falsifies the corresponding mismatch.",
                     "A declaration to retrieve a public endpoint is compatible with observed network access.",
                     "Different wording for the same narrow operation is not a mismatch.",
                 ],
                 insufficient=[
-                    "Static capability presence alone cannot prove a declared behavior is exercised.",
+                    "Mark insufficient when the fact is import-only, the behavior declaration is not explicit enough to normalize, or runtime reachability is required.",
                 ]),
             owaspAst10=["OWASP-AST04"],
         ), extract_declared_behavior_mismatch,
@@ -1778,9 +3043,11 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                 confirm=[
                     "An observed capability family has no matching declared permission.",
                     "A command-restricted permission names a different fixed command target.",
+                    "An explicit declaredPermissionMatch=false with a resolved static capability family or fixed command target supports a mismatch.",
                 ],
                 reject=[
                     "The normalized permission family matches the observed capability family.",
+                    "An explicit declaredPermissionMatch=true falsifies the corresponding mismatch.",
                     "Bash(command:*) matches a fixed invocation of that same command.",
                     "Different API names for the same narrow capability are equivalent.",
                 ],
@@ -1923,25 +3190,32 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
             subjectFields=[SemanticSubjectField(
                 "criterionKind", "enum",
                 enum=["vague_degree", "undefined_boundary",
-                      "ambiguous_referent"])],
+                      "ambiguous_referent", "missing_task_anchor",
+                      "missing_required_context",
+                      "missing_success_criteria",
+                      "unverifiable_quality_bar"])],
             subjectKeyFields=["criterionKind"],
             falsificationQuestion=(
-                "Does a vague term control a material decision without a "
-                "usable threshold, referent, or decision rule?"),
+                "Does the complete prompt omit a task anchor, required "
+                "context, success criterion, usable threshold, referent, or "
+                "decision rule needed for materially consistent execution?"),
             guidanceId="semantic.prompt.ambiguous_operational_criteria",
             judgmentPolicy=_policy(
                 applies=[
-                    "A vague degree, condition, or referent affects task behavior or output acceptance.",
+                    "A missing task anchor, required context, success criterion, vague degree, condition, or referent materially affects execution or output acceptance.",
                 ],
                 confirm=[
-                    "Reasonable implementations can make materially different decisions because no boundary is supplied.",
+                    "Reasonable implementations can produce materially different task interpretations or acceptance decisions because the required anchor, context, boundary, or criterion is absent.",
                 ],
                 reject=[
                     "The term is locally defined by examples, thresholds, or an explicit decision rule.",
                     "The term is a non-binding style preference with no material behavioral effect.",
+                    "The prompt explicitly declares itself to be a reusable style-only fragment or preset rather than a complete standalone task.",
+                    "The task is intentionally open-ended but still identifies the requested operation and primary subject or object.",
+                    "The alleged omission is merely optional creative detail and does not prevent a materially consistent task interpretation.",
                 ],
                 insufficient=[
-                    "Mark insufficient when the surrounding definition is outside the cited evidence.",
+                    "Mark insufficient when the prompt's intended composition context or surrounding definition is outside the cited evidence.",
                 ]),
         ), extract_ambiguous_operational_criteria,
     ),
@@ -2027,6 +3301,7 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                 ],
                 confirm=[
                     "No model-side or external validation step checks the material constraints before use.",
+                    "The prompt explicitly sends the result to production or downstream automation without another review or check.",
                 ],
                 reject=[
                     "The task is simple or open-ended enough that an explicit self-check is unnecessary.",
@@ -2034,7 +3309,7 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                     "A generic request for quality alone does not make self-check mandatory.",
                 ],
                 insufficient=[
-                    "Mark insufficient when unseen downstream validation may own the check.",
+                    "Mark insufficient when downstream validation is unseen and the prompt does not explicitly bypass or deny another review or check.",
                 ]),
         ), extract_verification_step_gap,
     ),
