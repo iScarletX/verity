@@ -510,7 +510,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-sensitive-path-safe",
@@ -526,7 +526,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-dangling-reference-positive",
@@ -580,7 +580,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-tls-verification-safe",
@@ -596,7 +596,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-secret-positive",
@@ -615,7 +615,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-secret-safe",
@@ -650,7 +650,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-credential-safe",
@@ -666,7 +666,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-external-instructions-positive",
@@ -684,7 +684,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-external-instructions-safe",
@@ -700,7 +700,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-deserialization-positive",
@@ -718,7 +718,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "high",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-deserialization-safe",
@@ -734,7 +734,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-network-destination-positive",
@@ -752,7 +752,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-network-destination-safe",
@@ -786,7 +786,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-output-rendering-safe",
@@ -820,7 +820,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-sql-injection-safe",
@@ -870,7 +870,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-weak-hash-positive",
@@ -888,7 +888,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "skill-weak-hash-safe",
@@ -904,7 +904,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-embedded-role-positive",
@@ -923,7 +923,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-embedded-role-safe",
@@ -940,7 +940,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-md-exfil-positive",
@@ -959,7 +959,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-md-exfil-safe",
@@ -976,7 +976,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-invisible-char-positive",
@@ -1012,7 +1012,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-encoded-injection-positive",
@@ -1031,7 +1031,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-encoded-injection-safe",
@@ -1048,7 +1048,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-named-dangling-positive",
@@ -1120,7 +1120,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-fullwidth-positive",
@@ -1228,7 +1228,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-endpoint-fallback-positive",
@@ -1283,7 +1283,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-format-conflict-safe",
@@ -1300,7 +1300,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-budget-conflict-positive",
@@ -1319,7 +1319,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-budget-conflict-safe",
@@ -1355,7 +1355,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-autonomy-approval-safe",
@@ -1391,7 +1391,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "low",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-failure-strategy-safe",
@@ -1427,7 +1427,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-invisible-channel-safe",
@@ -1444,7 +1444,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-system-prompt-extraction-positive",
@@ -1463,7 +1463,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": "medium",
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     },
     {
       "caseId": "prompt-system-prompt-extraction-safe",
@@ -1480,7 +1480,7 @@
       "provenance": "verity_synthetic",
       "license": "Apache-2.0",
       "expectedSeverity": null,
-      "labelStatus": "provisional_single_review"
+      "labelStatus": "independent_ai_review"
     }
   ]
 }

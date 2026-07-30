@@ -8,13 +8,26 @@ from typing import Any, Dict
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ATTESTATION_PATH = REPO_ROOT / "evals" / "reviews" / "corpus-v1-independent-ai-review.json"
+# Additional per-round review attestation files (frozen Round-22 record stays
+# separate and is never modified; new rounds append new files here).
+_SUPPLEMENTAL_ATTESTATION_PATHS = [
+    REPO_ROOT / "evals" / "reviews" / "corpus-v1-round67-provisional-review.json",
+]
 
 
 class ReviewEvidenceError(ValueError):
     pass
 
 
-def load_independent_ai_attestation(path: Path = ATTESTATION_PATH) -> Dict[str, Dict[str, Any]]:
+def load_independent_ai_attestation(path: Path = ATTESTATION_PATH,
+                                    *, supplemental: bool = True,
+                                    ) -> Dict[str, Dict[str, Any]]:
+    """Load the frozen Round-22 attestation and, if ``supplemental=True``,
+    merge in any additional per-round attestation files from
+    ``_SUPPLEMENTAL_ATTESTATION_PATHS``. Later entries for the same caseId
+    take precedence (a supplemental review can supersede an earlier one),
+    but only when the digest also matches.
+    """
     try:
         value = json.loads(path.read_text(encoding="utf-8"),
                            object_pairs_hook=_no_duplicates)
@@ -63,6 +76,54 @@ def load_independent_ai_attestation(path: Path = ATTESTATION_PATH) -> Dict[str, 
                 or len(case["payloadDigest"]) != 64):
             raise ReviewEvidenceError("independent review case value invalid")
         result[cid] = case
+
+    if not supplemental:
+        return result
+
+    # Merge supplemental per-round attestation files. These extend (or
+    # supersede) the frozen Round-22 record without modifying it. Each
+    # supplemental file uses the same per-case shape and the same
+    # schemaVersion/protocolVersion/reviewClass, but its reviewedScope and
+    # reviewProcess fields are allowed to differ (they describe THAT round only).
+    for sup_path in _SUPPLEMENTAL_ATTESTATION_PATHS:
+        if not sup_path.exists():
+            continue
+        try:
+            sup = json.loads(sup_path.read_text(encoding="utf-8"),
+                             object_pairs_hook=_no_duplicates)
+        except ReviewEvidenceError:
+            raise
+        except Exception as exc:
+            raise ReviewEvidenceError(
+                f"cannot read supplemental attestation {sup_path.name}") from exc
+        if (not isinstance(sup, dict)
+                or sup.get("schemaVersion") != 1
+                or sup.get("protocolVersion") != "1.0.0"
+                or sup.get("reviewClass") != "independent_ai_review"):
+            raise ReviewEvidenceError(
+                f"supplemental attestation {sup_path.name} identity invalid")
+        sup_cases = sup.get("cases")
+        if not isinstance(sup_cases, list):
+            raise ReviewEvidenceError(
+                f"supplemental attestation {sup_path.name} cases invalid")
+        for case in sup_cases:
+            if not isinstance(case, dict) or set(case) != {
+                    "caseId", "sourceClass", "payloadDigest",
+                    "finalDecision", "reviewStatus"}:
+                raise ReviewEvidenceError(
+                    f"supplemental attestation {sup_path.name} case shape invalid")
+            cid = case.get("caseId")
+            if (not isinstance(cid, str) or not cid
+                    or case.get("sourceClass") not in {
+                        "l0", "semantic_quality_non_test"}
+                    or case.get("finalDecision") not in {"present", "absent"}
+                    or case.get("reviewStatus") != "independent_ai_review"
+                    or not isinstance(case.get("payloadDigest"), str)
+                    or len(case["payloadDigest"]) != 64):
+                raise ReviewEvidenceError(
+                    f"supplemental attestation {sup_path.name} case value invalid")
+            result[cid] = case  # later round supersedes earlier
+
     return result
 
 

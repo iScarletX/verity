@@ -115,18 +115,21 @@ def _risk_projection(risk: Dict[str, Any], *, semantic_type: str = "") -> Dict[s
 def _source_items() -> List[Dict[str, Any]]:
     """Return the fixed, already-reviewed 54-item non-sealed evidence set.
 
-    Only cases whose ``labelStatus`` is already ``independent_ai_review``
-    are included here. Newer L0/semantic cases added with
-    ``provisional_single_review`` (e.g. Round 31's VR-PROMPT-008 pair) are
-    intentionally excluded: this packet builder reproduces the frozen,
-    already-completed independent-review round, not a moving target. A new
-    review round for newly-added provisional cases is a separate, future
-    decision -- not something this function may silently expand into.
+    This reproduces the frozen Round-22 independent-review round exactly.
+    Only cases present in the FROZEN (non-supplemental) attestation are
+    included; supplemental rounds (e.g. Round-67 provisional review) promote
+    new cases to independent_ai_review in the corpus manifest, but those are
+    NOT automatically added to this packet builder -- they represent a
+    different evidence collection, not an expansion of Round-22's frozen set.
     """
+    from .review_evidence import load_independent_ai_attestation
+    frozen_attested_ids = set(
+        load_independent_ai_attestation(supplemental=False).keys())
     risks = load_risks()
     items = []
     for case in load_manifest()["cases"]:
-        if case["labelStatus"] != "independent_ai_review":
+        if (case["labelStatus"] != "independent_ai_review"
+                or case["caseId"] not in frozen_attested_ids):
             continue
         risk_id = case["assessedRiskIds"][0]
         items.append({

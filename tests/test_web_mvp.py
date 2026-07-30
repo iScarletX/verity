@@ -79,6 +79,9 @@ class Element {
   getAttribute(name) {
     return this.attributes[name] || null;
   }
+  removeAttribute(name) {
+    delete this.attributes[name];
+  }
   remove() {}
 }
 

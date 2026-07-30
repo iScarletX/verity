@@ -80,8 +80,8 @@
     "acceptedRealModelSelectionPresent": false,
     "evaluatedLayerCount": 0,
     "l0LabelStatuses": {
-      "independent_ai_review": 26,
-      "provisional_single_review": 58
+      "independent_ai_review": 61,
+      "provisional_single_review": 23
     },
     "sealedTestConsumed": false,
     "semanticLabelStatuses": {
@@ -93,39 +93,70 @@
   },
   "note": "`decision` covers only the deterministic static engineering preview and its honestly-disclosed limits. It is not a claim of evaluated detection accuracy. The controlled semantic review is a separate experimental track and does not gate this release; its open blockers are listed under semanticQualityTrack.",
   "policyId": "verity-v1-closure",
-  "policyVersion": "2.0.0",
+  "policyVersion": "2.1.0",
   "qualityEvidenceReady": false,
   "releaseScope": "deterministic_static_v1_engineering_preview",
   "schemaVersion": 2,
   "semanticQualityTrack": {
-    "blockers": [
-      {
-        "class": "quality_evidence",
-        "code": "evaluation_labels_provisional",
-        "detail": "Some Corpus labels remain provisional single-review; independent AI review is tracked separately from human expertise."
-      },
-      {
-        "class": "quality_evidence",
-        "code": "accepted_real_model_selection_absent",
-        "detail": "No frozen real-model Selection report has passed the predeclared quality gate; Calibration alone is not release evidence."
-      },
-      {
-        "class": "quality_evidence",
-        "code": "sealed_semantic_test_unconsumed",
-        "detail": "The sealed semantic test split has not been consumed."
-      },
-      {
-        "class": "quality_evidence",
-        "code": "no_substantial_or_evaluated_risk_coverage",
-        "detail": "No unified risk currently has substantial/evaluated evidence."
-      },
-      {
-        "class": "quality_evidence",
-        "code": "human_expert_review_absent",
-        "detail": "AI cross-model review is not human/domain-expert review; a public production-quality claim would require the latter."
-      }
-    ],
+    "engineeringVerifiedTier": {
+      "blockers": [
+        {
+          "class": "quality_evidence",
+          "code": "evaluation_labels_provisional",
+          "detail": "Some Corpus labels remain provisional single-review; independent AI review is tracked separately from human expertise."
+        },
+        {
+          "class": "quality_evidence",
+          "code": "accepted_real_model_selection_absent",
+          "detail": "No frozen real-model Selection report has passed the predeclared quality gate; Calibration alone is not release evidence."
+        },
+        {
+          "class": "quality_evidence",
+          "code": "sealed_semantic_test_unconsumed",
+          "detail": "The sealed semantic test split has not been consumed."
+        },
+        {
+          "class": "quality_evidence",
+          "code": "no_substantial_or_evaluated_risk_coverage",
+          "detail": "No unified risk currently has substantial/evaluated evidence."
+        }
+      ],
+      "description": "The four blockers an AI-only team can close through more engineering work. 'ready' here means AI cross-verification is as thorough as this project makes it; it is NOT a production-quality or human-expert-equivalent claim.",
+      "ready": false
+    },
     "inReleaseGate": false,
+    "productionTier": {
+      "blockers": [
+        {
+          "class": "quality_evidence",
+          "code": "evaluation_labels_provisional",
+          "detail": "Some Corpus labels remain provisional single-review; independent AI review is tracked separately from human expertise."
+        },
+        {
+          "class": "quality_evidence",
+          "code": "accepted_real_model_selection_absent",
+          "detail": "No frozen real-model Selection report has passed the predeclared quality gate; Calibration alone is not release evidence."
+        },
+        {
+          "class": "quality_evidence",
+          "code": "sealed_semantic_test_unconsumed",
+          "detail": "The sealed semantic test split has not been consumed."
+        },
+        {
+          "class": "quality_evidence",
+          "code": "no_substantial_or_evaluated_risk_coverage",
+          "detail": "No unified risk currently has substantial/evaluated evidence."
+        },
+        {
+          "class": "policy_standing",
+          "code": "human_expert_review_absent",
+          "detail": "AI cross-model review is not human/domain-expert review. This project has no human review program and does not plan one; this blocker is a standing policy reality, not a temporary gap. It is reported here permanently and honestly rather than being silently dropped, but it is excluded from the engineering-verified tier so that tier can reflect achievable AI-only verification progress."
+        }
+      ],
+      "description": "All five blockers including human_expert_review_absent, which is a standing policy reality for this project. This tier is permanently unreachable under the current no-human-review policy and is reported that way honestly; the blocker is never silently dropped.",
+      "permanentlyUnreachableUnderCurrentPolicy": true,
+      "ready": false
+    },
     "status": "experimental_not_ready"
   }
 }

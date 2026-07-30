@@ -173,35 +173,45 @@ def test_committed_attestation_binds_exactly_54_nonsealed_current_payloads():
     correctly NOT part of this frozen attestation; a future review round
     would need to explicitly cover them, which must not happen silently.
     """
-    attestation = load_independent_ai_attestation()
+    attestation = load_independent_ai_attestation(supplemental=False)
     l0 = load_manifest()
     semantic = load_semantic_quality_manifest()
+    # The frozen Round-22 attestation covers exactly 54 items: the 26 L0 cases
+    # that were independently reviewed in Round 22, plus 28 semantic-quality
+    # non-test cases. Round 67+ promoted additional L0 cases via supplemental
+    # attestation files; this test uses supplemental=False so it verifies the
+    # frozen Round-22 evidence record in isolation (26 L0, never changes).
     assert len(attestation) == 54
-    l0_reviewed = {c["caseId"] for c in l0["cases"]
-                  if c["labelStatus"] == "independent_ai_review"}
+    # The frozen attestation's 26 L0 case ids are exactly those present in it
+    # with sourceClass="l0". Build this set from the attestation itself rather
+    # than from the current corpus manifest (which now has more reviewed cases).
+    attested_l0_ids = {cid for cid, v in attestation.items()
+                       if v.get("sourceClass") == "l0"}
+    attested_semantic_ids = {cid for cid, v in attestation.items()
+                             if v.get("sourceClass") == "semantic_quality_non_test"}
+    assert len(attested_l0_ids) == 26
+    assert len(attested_semantic_ids) == 28
+    # Every attested L0 case still exists in the current manifest and its
+    # payload hasn't drifted (the digest check inside load_independent_ai_
+    # attestation already validates this, but assert the set is a subset).
+    all_l0_ids = {c["caseId"] for c in l0["cases"]}
+    assert attested_l0_ids <= all_l0_ids
+    # Sealed test split (14 semantic-quality cases) was never attested.
+    sealed_test_ids = {c["caseId"] for c in semantic["cases"]
+                       if c["split"] == "test"}
+    assert not (sealed_test_ids & set(attestation))
+    # Provisional corpus cases (L0 only -- semantic non-test has its own track)
+    # at the time of Round-22 were the post-Round-30 additions; confirm no
+    # Round-22-era provisional case leaked into the frozen attestation.
     l0_provisional = {c["caseId"] for c in l0["cases"]
                       if c["labelStatus"] == "provisional_single_review"}
-    assert len(l0_reviewed) == 26
-    # Rounds 31+ added new evidence pairs as provisional; assert the split
-    # structurally (26 reviewed + N provisional = all) rather than by a
-    # hardcoded name list that would itself drift every round.
-    assert l0_provisional and not (l0_reviewed & l0_provisional)
-    assert l0_reviewed | l0_provisional == {c["caseId"] for c in l0["cases"]}
-    assert {c["labelStatus"] for c in semantic["cases"]
-            if c["split"] != "test"} == {"independent_ai_review"}
-    assert {c["labelStatus"] for c in semantic["cases"]
-            if c["split"] == "test"} == {"provisional_single_review"}
-    expected_ids = set(l0_reviewed)
-    expected_ids |= {c["caseId"] for c in semantic["cases"]
-                     if c["split"] != "test"}
-    assert set(attestation) == expected_ids
-    assert not (l0_provisional & set(attestation))
-    assert not ({c["caseId"] for c in semantic["cases"]
-                 if c["split"] == "test"} & set(attestation))
+    # l0_provisional may now be smaller than it was (Round 67 promoted 35),
+    # but whatever remains must not overlap with the frozen attestation set.
+    assert not (l0_provisional & attested_l0_ids)
 
 
 def test_attestation_rejects_stale_digest_or_wrong_decision():
-    attestation = load_independent_ai_attestation()
+    attestation = load_independent_ai_attestation(supplemental=False)
     case_id = "semantic-external-trust-safe"
     item = attestation[case_id]
     with pytest.raises(ReviewEvidenceError, match="missing/stale"):

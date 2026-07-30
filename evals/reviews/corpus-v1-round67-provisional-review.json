@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "protocolVersion": "1.0.0",
+  "reviewClass": "independent_ai_review",
+  "reviewedScope": {
+    "l0CaseCount": 35,
+    "semanticNonTestCaseCount": 0,
+    "sealedTestReviewed": false,
+    "totalCaseCount": 35
+  },
+  "reviewProcess": {
+    "round": "67",
+    "reviewerModels": [
+      "openai/gpt-4o-mini",
+      "anthropic/claude-3-haiku"
+    ],
+    "tool": "tools/run_provisional_review.py",
+    "pilotValidated": true,
+    "pilotFindings": "Pilot confirmed model agreement structure is sound. 3 disagreements with author labels manually verified: 2 found author correct (model over-sensitive), 1 found genuinely ambiguous (prompt-version-naming-positive, kept provisional). 35 unanimous-agree-with-author cases promoted.",
+    "validInitialReviewerCount": 2,
+    "adjudicatedCaseCount": 0,
+    "revisedCaseReReviewCount": 0,
+    "invalidatedReviewerCount": 0
+  },
+  "limitations": [
+    "AI cross-model review (2 models) is independent AI verification, not human/domain-expert adjudication.",
+    "20 cases had no majority consensus (models disagreed with each other) and remain provisional.",
+    "3 cases where both models disagreed with the author were manually audited: 2 confirmed author-correct, 1 flagged as genuinely ambiguous and kept provisional.",
+    "This review covers only L0 cases; semantic-quality provisional cases are not included in this round."
+  ],
+  "cases": [
+    {
+      "caseId": "prompt-autonomy-approval-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "44d4490baa2ef6cbf9060f8059fc586484c6ddde96977849b02e9fa5ab6d89b0",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-budget-conflict-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "b1ab9d170f7582c2ac5b69ca54d9ec788067d6deccc6cb6232694e72f78052bf",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-duplicate-line-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "126a93acb35e7974add344dec264975f52eeed75c28f32168445cef56082184a",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-embedded-role-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "e4843e47b06a960ee4184eb87aca82f2c8e37950358659fd701ac57abbf52848",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-embedded-role-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "0451639213e0a4edcfe9dc4037a6a9fc7c354a3d760eae15159b9acbf55ae17f",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-encoded-injection-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "7a5b089cbef89e387190afffb8eec7613f61ea650449ade187975ee087301982",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-encoded-injection-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "c8d5e731ae62dd65b611fbf61c198d766f4049619c9006a6ca11d4941ef8eef9",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-failure-strategy-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "ab61be1d44cdd6f2bf42e74125d72b19d8b6a7dc123220ec86fa483fcefec5b8",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-format-conflict-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "5de858670ef7f1cf5b722e475a7750f68729719fa4b06f21580049548dd5f48c",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-format-conflict-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "5e3099c865632d63528e08078f66487f5d501ee4f8f41e46b005f17fa32fde97",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-invisible-channel-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "ee0590da7b05d65a682837c300a025f4c7936171933c179dab828d3e3cfd7c7a",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-invisible-channel-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "7b6d835a679ed7efe211c194f732cec2666499cd560c12796ac8f0833482ad9f",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-invisible-char-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "d539653f09b2643a0aea32f20d0b70ca5b593168a052b3f10767b04641b5f363",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-md-exfil-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "c8bb9fc9d2566566d342d735dc5df6f38daf506cf7f3c8c1335dff333788f209",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-md-exfil-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "d5cba7b6f6bde866ccc52a59033aff74cc11ba222c1f89b32b95ff9f0bf2ba69",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-secret-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "690f858bc27b8934726a0012fde548d849ce6cddbf3407816c6daa2e4d12bb27",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-system-prompt-extraction-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "cdce90d1fd17770e134d99a786421c23e73c01657df0534fd31d334ed97973d8",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-system-prompt-extraction-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "3c3917a9a4c06adda11949d8ff3d1e3267b7ed3822ebb4eed1e591540836e78e",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "prompt-version-naming-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "788cca8ffe5e1fc3c00d5f96a9b059e03fe70a9a85fee0623c5b4db235ef5e37",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-credential-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "995d60fc622c8bebffb914227e7399113f35732959c5fc6efd5d229a9024dd84",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-credential-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "e6ef290c649b85b141dad5743bcc64ff18ec777ddc3b4aa5757aea88e70e5228",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-deserialization-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "56e7edd5cccff09f265542f45067d0ae1d2c8eb04b79211dd07c3dc13774da10",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-deserialization-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "fb212c0209efdae2f846160543977ead0ae86b0d84df7bf8efcf65dc8821fd8d",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-external-instructions-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "f9904d9e7ff78fc316867b04cbff54b75e1cc1bb6d265ac16f8e88e26663f20f",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-external-instructions-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "3e1ffee0b4b7732e5b7359fcacc62df561af2117dd21814199eb0da650332ece",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-network-destination-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "a557c89f5fc2caee5d32a6b0e76c436a007d43d10d843c8bef1dd8c34edc69b9",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-output-rendering-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "9e48d6d627833ddfae9528804c8f363f20152c8c5ba1c04d8a387426fcd439e3",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-sensitive-path-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "6f743696ebb3cec2feca66c4efff8212ed992bcd66f10dcde3afdd7a7cb0653b",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-sensitive-path-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "948557d9a38f31320b311be6a4f81baab21f9738e6a6b3887f0c01199a3667e3",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-sql-injection-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "a61a225de8cf1be56666ee8df657cf18422407ff5c2aba99459c013580bcacdd",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-tls-verification-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "94dfc1241ae1ecd03b5aa3afbb36ba0a3b611dd31651c25522f14bef69e1b8d8",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-tls-verification-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "9caedf6c521f54759b122b27835fdb717138d6348a39423377df69362a923aa3",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-weak-hash-positive",
+      "sourceClass": "l0",
+      "payloadDigest": "824e17e87854b101faee68ac030e47fe25465a297d4f126d3e7d108a510ed2bf",
+      "finalDecision": "present",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-weak-hash-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "8bf53b6ae6ad602ca14b487b2a296625cb5897af8607b8b6917b45778fa6bc03",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    },
+    {
+      "caseId": "skill-xml-parser-safe",
+      "sourceClass": "l0",
+      "payloadDigest": "0dd01f15786ccd555d9b093bdcfb2fc09d0318167d61c820f529812d4b2b6308",
+      "finalDecision": "absent",
+      "reviewStatus": "independent_ai_review"
+    }
+  ]
+}

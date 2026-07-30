@@ -35,11 +35,15 @@ def semantic_case(finding_type, assessment="confirmed"):
 
 
 def test_deterministic_static_is_release_candidate_semantic_stays_experimental():
-    # Policy v2.0.0: the deterministic static engineering preview is a release
+    # Policy v2.1.0: the deterministic static engineering preview is a release
     # candidate on green engineering acceptance. The semantic/evaluated-accuracy
     # track is separate, honestly not-ready, and NOT a release gate.
+    # v2.1.0 splits the semantic quality track into two tiers so the
+    # human_expert_review_absent blocker (a standing founder-confirmed policy
+    # decision, never closeable by AI work alone) does not permanently prevent
+    # the engineering-verified tier from ever reaching ready.
     report = evaluate_v1_closure(engineering_checks=ENGINEERING_GREEN)
-    assert report["policyVersion"] == "2.0.0"
+    assert report["policyVersion"] == "2.1.0"
     assert report["decision"] == "release_candidate"
     assert report["engineeringReady"] is True
     assert report["deterministicStaticReady"] is True
@@ -51,14 +55,23 @@ def test_deterministic_static_is_release_candidate_semantic_stays_experimental()
     assert track["inReleaseGate"] is False
     assert track["status"] == "experimental_not_ready"
     assert report["qualityEvidenceReady"] is False
-    codes = {x["code"] for x in track["blockers"]}
-    assert codes == {
+    # Engineering-verified tier: the 4 AI-closeable blockers only.
+    ev_tier = track["engineeringVerifiedTier"]
+    assert ev_tier["ready"] is False
+    ev_codes = {x["code"] for x in ev_tier["blockers"]}
+    assert ev_codes == {
         "evaluation_labels_provisional",
         "accepted_real_model_selection_absent",
         "sealed_semantic_test_unconsumed",
         "no_substantial_or_evaluated_risk_coverage",
-        "human_expert_review_absent",
     }
+    assert "human_expert_review_absent" not in ev_codes
+    # Production tier: all 5, including the one that's permanently unreachable.
+    prod_tier = track["productionTier"]
+    assert prod_tier["ready"] is False
+    assert prod_tier["permanentlyUnreachableUnderCurrentPolicy"] is True
+    prod_codes = {x["code"] for x in prod_tier["blockers"]}
+    assert prod_codes == ev_codes | {"human_expert_review_absent"}
     # Limitations remain disclosed, never hidden by the release decision.
     limits = {x["code"] for x in report["disclosedLimitations"]}
     assert "detection_breadth_not_evaluated" in limits

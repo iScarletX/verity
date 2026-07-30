@@ -35,19 +35,18 @@ def test_manifest_is_balanced_traceable_and_independent_of_rule_ids():
                and c["labelStatus"] in ("independent_ai_review",
                                         "provisional_single_review")
                for c in manifest["cases"])
-    # Rounds 31+ add new evidence pairs as provisional_single_review
-    # pending an independent review round; the original 26 remain
-    # independent_ai_review. Assert the split structurally rather than by
-    # a hardcoded name list (which was itself a maintenance-drift risk):
-    # exactly 26 independently-reviewed, the rest provisional, and every
-    # provisional case is one of the post-Round-30 additions (its caseId
-    # is NOT among the 26 frozen-attestation ids).
+    # Rounds 31+ add new evidence pairs as provisional_single_review pending
+    # an independent review round. Round 67 ran a multi-model independent
+    # review over 72 provisional cases and promoted 35 to independent_ai_review,
+    # so the reviewed count is now larger than the original 26 from Round-22.
+    # Assert the structural invariants (>= original 26, no unknown status)
+    # rather than a hardcoded exact count that would break on each promotion.
     label_status = {c["caseId"]: c["labelStatus"] for c in manifest["cases"]}
     reviewed = {cid for cid, s in label_status.items()
                 if s == "independent_ai_review"}
     provisional = {cid for cid, s in label_status.items()
                    if s == "provisional_single_review"}
-    assert len(reviewed) == 26
+    assert len(reviewed) >= 26  # can only grow as more rounds complete
     assert reviewed | provisional == set(label_status)
     assert all(s in ("independent_ai_review", "provisional_single_review")
                for s in label_status.values())

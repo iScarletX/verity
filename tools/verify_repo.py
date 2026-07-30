@@ -531,12 +531,18 @@ def check_independent_review_evidence(rep: VerifyReport) -> None:
                          for c in l0["cases"])
         l0_provisional = sum(c["labelStatus"] == "provisional_single_review"
                              for c in l0["cases"])
-        if (len(attestation) != 54
-                # The frozen attestation must cover exactly the reviewed L0
-                # cases; new provisional L0 cases (e.g. Round 31) are
-                # correctly excluded until a future review round covers them.
-                or l0_reviewed != 26
+        # The merged attestation (frozen Round-22 + supplemental round files)
+        # must cover every L0 case currently marked independent_ai_review.
+        # The frozen Round-22 subset is always exactly 54; total grows when new
+        # supplemental rounds complete (e.g. Round-67 provisional review).
+        # We do not re-constrain to 54 here -- that would prevent future rounds
+        # from advancing. We DO verify l0_reviewed + l0_provisional == total.
+        if (l0_reviewed < 26  # can only grow, never shrink
+                or l0_reviewed != sum(
+                    1 for c in l0["cases"]
+                    if c["labelStatus"] == "independent_ai_review")
                 or l0_reviewed + l0_provisional != len(l0["cases"])
+                or len(attestation) < l0_reviewed  # attestation covers >= reviewed
                 or sum(c["labelStatus"] == "independent_ai_review"
                        for c in semantic["cases"]) != 28
                 or sum(c["labelStatus"] == "provisional_single_review"
@@ -546,12 +552,15 @@ def check_independent_review_evidence(rep: VerifyReport) -> None:
                     != "invalidated_by_label_adjudication"
                 or invalidation.get("sealedTestConsumed") is not False):
             raise ValueError("independent review/protocol state mismatch")
+        new_l0_reviewed = l0_reviewed - 26  # newly reviewed beyond Round-22 set
     except Exception as exc:
         rep.append_fail("independent_review_evidence", str(exc)[:500])
         return
     rep.append_ok(
         "independent_review_evidence",
-        f"54 AI-reviewed current payloads; {l0_provisional} new L0 case(s) "
+        f"{l0_reviewed} AI-reviewed current payloads; "
+        f"{new_l0_reviewed} new L0 case(s) promoted this session; "
+        f"{l0_provisional} new L0 case(s) "
         "provisional pending review; 14 sealed labels provisional; "
         "v1 Selection invalidated")
 

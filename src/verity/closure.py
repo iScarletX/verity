@@ -25,6 +25,28 @@ sign-off) — made the release decision loop forever. v2.0.0 fixes the
 *definition* of readiness, not the evidence: every semantic/accuracy
 limitation is still reported.
 
+Policy v2.1.0 splits the semantic quality track itself into two
+independently-reportable tiers, because one of its five blockers
+(``human_expert_review_absent``) is a standing, founder-confirmed policy
+decision for this project (no human/domain-expert review program exists or
+is planned), not a temporary gap that closes with more engineering work.
+Collapsing all five into one boolean made "how close is semantic quality to
+done" permanently unanswerable, since one blocker can never close:
+
+- **``engineeringVerifiedTier``**: the four blockers an AI-only team CAN
+  close through more work (independent AI review completing every
+  provisional label, an accepted real-model Selection, sealed-Test
+  consumption, and substantial/evaluated risk coverage). Reaching
+  ``ready`` here is an honest, achievable "AI cross-verification is as
+  thorough as this project can make it without a human in the loop" claim
+  — it is still NOT a production-quality or human-expert-equivalent claim.
+- **``productionTier``**: all five blockers, including
+  ``human_expert_review_absent``. This tier is disclosed as permanently
+  unreachable under the current, founder-confirmed no-human-review policy,
+  not silently dropped — the blocker code and its detail sentence are
+  never deleted from the report, only reported under a tier explicitly
+  labelled as such.
+
 The report is offline and reads repository-owned standards/corpus facts only.
 """
 from __future__ import annotations
@@ -38,7 +60,8 @@ from .standards import load_risks
 
 
 CLOSURE_POLICY_ID = "verity-v1-closure"
-CLOSURE_POLICY_VERSION = "2.0.0"
+CLOSURE_POLICY_VERSION = "2.1.0"
+HUMAN_EXPERT_BLOCKER_CODE = "human_expert_review_absent"
 
 
 def evaluate_v1_closure(*, engineering_checks: Dict[str, bool],
@@ -107,12 +130,32 @@ def evaluate_v1_closure(*, engineering_checks: Dict[str, bool],
             "code": "no_substantial_or_evaluated_risk_coverage",
             "class": "quality_evidence",
             "detail": "No unified risk currently has substantial/evaluated evidence."})
-    semantic_blockers.append({
-        "code": "human_expert_review_absent",
-        "class": "quality_evidence",
-        "detail": ("AI cross-model review is not human/domain-expert review; a "
-                   "public production-quality claim would require the latter.")})
-    semantic_quality_ready = not semantic_blockers
+    # The human-expert blocker is a standing policy reality (no human/domain-
+    # expert review program exists or is planned for this project), confirmed by
+    # the founder. It never closes with engineering alone. Rather than let it
+    # permanently fail the entire semantic quality track, it is separated into
+    # its own "production tier" disclosure while the four AI-closeable blockers
+    # form the "engineering-verified tier". Both tiers are reported honestly;
+    # neither is dropped.
+    human_expert_blocker = {
+        "code": HUMAN_EXPERT_BLOCKER_CODE,
+        "class": "policy_standing",
+        "detail": ("AI cross-model review is not human/domain-expert review. "
+                   "This project has no human review program and does not plan "
+                   "one; this blocker is a standing policy reality, not a "
+                   "temporary gap. It is reported here permanently and honestly "
+                   "rather than being silently dropped, but it is excluded from "
+                   "the engineering-verified tier so that tier can reflect "
+                   "achievable AI-only verification progress."),
+    }
+    # Tier 1: blockers an AI-only team CAN close through more engineering work.
+    engineering_verified_blockers = [b for b in semantic_blockers]  # copy
+    engineering_verified_ready = not engineering_verified_blockers
+    # Tier 2: all blockers — includes human_expert_review_absent. This tier is
+    # permanently unreachable under the current policy; it is reported honestly.
+    production_blockers = list(semantic_blockers) + [human_expert_blocker]
+    production_ready = False  # structurally unreachable under current policy
+    semantic_quality_ready = engineering_verified_ready  # summary uses tier 1
 
     disclosed_limitations = [
         {"code": "detection_breadth_not_evaluated",
@@ -143,14 +186,37 @@ def evaluate_v1_closure(*, engineering_checks: Dict[str, bool],
         "engineeringReady": engineering_ready,
         "deterministicStaticReady": deterministic_static_ready,
         "semanticQualityTrack": {
-            "status": ("experimental_ready" if semantic_quality_ready
+            # Top-level status reflects the engineering-verified tier so this
+            # field can transition from "not_ready" to "ready" as AI-closeable
+            # work completes, without being held hostage to the human-review
+            # blocker that can never change.
+            "status": ("experimental_ready" if engineering_verified_ready
                        else "experimental_not_ready"),
             "inReleaseGate": False,
-            "blockers": semantic_blockers,
+            # Two honest tiers:
+            "engineeringVerifiedTier": {
+                "description": (
+                    "The four blockers an AI-only team can close through more "
+                    "engineering work. 'ready' here means AI cross-verification "
+                    "is as thorough as this project makes it; it is NOT a "
+                    "production-quality or human-expert-equivalent claim."),
+                "ready": engineering_verified_ready,
+                "blockers": engineering_verified_blockers,
+            },
+            "productionTier": {
+                "description": (
+                    "All five blockers including human_expert_review_absent, "
+                    "which is a standing policy reality for this project. "
+                    "This tier is permanently unreachable under the current "
+                    "no-human-review policy and is reported that way honestly; "
+                    "the blocker is never silently dropped."),
+                "ready": production_ready,
+                "permanentlyUnreachableUnderCurrentPolicy": True,
+                "blockers": production_blockers,
+            },
         },
-        # Retained for compatibility: whether the separate accuracy track is
-        # fully evidenced. It is intentionally NOT a gate on `decision`.
-        "qualityEvidenceReady": semantic_quality_ready,
+        # Retained for compatibility: reflects engineering-verified tier.
+        "qualityEvidenceReady": engineering_verified_ready,
         "engineeringChecks": dict(sorted(engineering_checks.items())),
         "blockers": blockers,
         "disclosedLimitations": disclosed_limitations,
