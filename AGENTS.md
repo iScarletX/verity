@@ -126,21 +126,29 @@ code, install its dependencies, or contact an external LLM Provider.
 Other phases below relax specific parts of this under explicit,
 audited conditions.
 
-**Controlled semantic (V1 experimental).** Verity may call an
-external LLM Provider **only** when: the user explicitly enables it
-(`--semantic` on the CLI, or the loopback-only Web Provider-config
-surface where the user pastes a trusted base URL + key and picks
-models), the Provider config comes from a trusted source (never from
-the reviewed artifact), a non-`off` egress policy is chosen, the JSON
-schemas + payload audit + budget gates are enforced, and the
-deterministic pipeline path is unaffected. A bounded JSON-over-HTTPS
-Provider adapter is available through explicit trusted CLI config; the
-Web path uses an OpenAI-compatible adapter with the user's API key held
-only in a transient env var and cleared after the review. Remote
-redirects are refused and credentials are resolved only from named
-environment variables. Semantic results are experimental and advisory.
-Opting in without complete config returns
-`provider_not_configured` and cannot exit as a successful full review.
+**Controlled semantic (V1 experimental, attempted by default).** Verity
+attempts semantic review whenever a trusted Provider config is present
+(CLI flags, or the loopback-only Web Provider-config surface where the
+user pastes a trusted base URL + key and picks models). The Provider
+config must always come from a trusted source (never from the reviewed
+artifact), a non-`off` egress policy is required, the JSON schemas +
+payload audit + budget gates are enforced, and the deterministic
+pipeline path is unaffected. A bounded JSON-over-HTTPS Provider adapter
+is available through explicit trusted CLI config; the Web path uses an
+OpenAI-compatible adapter with the user's API key held only in a
+transient env var and cleared after the review. Remote redirects are
+refused and credentials are resolved only from named environment
+variables. Every candidate may be judged by more than one independently
+configured Validator Provider (2-3 different models is the recommended
+range); the outcome is decided by majority vote and a tie becomes
+`insufficient_evidence` rather than being silently resolved either way.
+Semantic results remain experimental and advisory regardless of this
+execution default — accuracy has not passed its frozen evaluation
+protocol (see `closure.py`'s `semantic_review_experimental_quality_unproven`
+disclosed limitation). Without a configured Provider, a run honestly
+reports `provider_not_configured`; `--no-semantic` on the CLI skips
+semantic review entirely. Missing/incomplete Provider config does not
+by itself turn a passing CI-facing exit code into a failing one.
 
 **Local specialist-model layer (roadmap, needs founder go-ahead).** A
 local, offline, deterministic classifier layer (e.g. sentence-embedding
@@ -256,9 +264,10 @@ Before doing anything else:
    confirm.
 
 Baseline constraints:
-- Read-only V1. Controlled semantic Provider calls are default-OFF and
-  require explicit trusted config; no Skill execution or sandbox. Do
-  not fake progress on V1.5 or V2.
+- Read-only V1. Controlled semantic review is attempted by default when
+  a trusted Provider is configured (still experimental/unevaluated
+  accuracy; `--no-semantic` on the CLI skips it); no Skill execution or
+  sandbox. Do not fake progress on V1.5 or V2.
 - Public GitHub repo: never commit secrets, API keys, real
   credentials, private chat logs, or host absolute paths.
 - Round-based development. If the task is not covered by

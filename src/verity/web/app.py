@@ -65,6 +65,15 @@ WEB_PROVIDER_FIELD_NAMES = {
     "generator_model",
     "validator_model",
 }
+# Separate from WEB_PROVIDER_FIELD_NAMES on purpose: this field only adds
+# EXTRA validator votes on top of whichever base_url/api_key/generator_model/
+# validator_model end up resolved (from the request OR the persisted
+# settings store). It must never gate that resolution the way the four
+# connection fields above do -- a request that supplies only
+# ``validator_models`` (no explicit base_url etc.) should still fall back
+# to the persisted settings store for the connection details.
+WEB_VALIDATOR_MODELS_FIELD_NAME = "validator_models"
+MAX_WEB_VALIDATOR_MODELS = 3
 
 
 # --- Middleware --------------------------------------------------------
@@ -205,41 +214,41 @@ def _sanitize_upload_path(raw: str) -> str:
 
 # ---------------- Endpoints --------------------------------------------
 
-def _maybe_semantic_config(payload: Dict[str, Any]):
-    """Parse an optional semantic opt-in from a Prompt (JSON) or Skill
-    (form) payload. Returns either ``None``, a ``SemanticConfig``, or a
-    ready-to-return ``JSONResponse`` describing the config error.
-
-    Backwards compatible: without provider fields this yields an
-    honest ``provider_not_configured`` semantic axis (as before). This
-    variant returns a config only; it does NOT build real providers or
-    hold a key. Use :func:`_maybe_semantic_run` for the real-provider
-    path with an ephemeral key.
-    """
-    enabled = payload.get("semantic_enabled")
-    if enabled in (None, False, "", "false", "off", 0, "0"):
-        return None
-    if enabled not in (True, "true", "on", 1, "1"):
-        return _error_response("bad_semantic",
-                               "semantic_enabled must be a boolean-ish flag",
-                               400)
-    policy = MAX_WEB_EGRESS_POLICY
-    from ..semantic import SemanticConfig
-    try:
-        return SemanticConfig(enabled=True, egress_policy=str(policy))
-    except ValueError as exc:
-        return _error_response("bad_semantic", str(exc), 400)
-
-
-def _semantic_enabled_flag(payload: Dict[str, Any]) -> bool:
-    v = payload.get("semantic_enabled")
-    return v in (True, "true", "on", 1, "1")
-
-
 def _resolved_provider_settings(store):
     preferences, key_saved = store.public_settings()
     api_key = store.resolve_key() or "" if key_saved else ""
     return preferences, api_key
+
+
+def _validator_models_from_payload(payload: Dict[str, Any],
+                                   fallback_model: str) -> list:
+    """Return the requested list of validator model ids from a Prompt/Skill
+    payload's ``validator_models`` field (a JSON array of model id strings),
+    or ``[fallback_model]`` when absent/empty/singular — this keeps today's
+    exact single-``validator=`` behaviour for anyone not using the new
+    multi-vote control.
+    """
+    raw = payload.get("validator_models")
+    if raw in (None, "", []):
+        return [fallback_model]
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            raise _BadSemanticPayload(
+                "bad_model", "validator_models must be a JSON array of model ids")
+    if not isinstance(raw, list) or not all(isinstance(m, str) for m in raw):
+        raise _BadSemanticPayload(
+            "bad_model", "validator_models must be a JSON array of model ids")
+    models = [m for m in raw if m.strip()]
+    return models if models else [fallback_model]
+
+
+class _BadSemanticPayload(Exception):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
 
 
 def _maybe_semantic_run(
@@ -247,16 +256,23 @@ def _maybe_semantic_run(
         resolved_settings=None):
     """Resolve the semantic execution plan for a review request.
 
+    Semantic review is now attempted automatically whenever a trusted
+    Provider config can be resolved — from the request payload, or else
+    from the persisted settings store — with no separate on/off flag to
+    gate it. If no Provider config can be resolved at all, this still
+    returns the honest ``provider_not_configured`` legacy path below rather
+    than silently skipping.
+
     Returns one of:
-      * ``None`` — semantic not requested;
-      * ``(sem_cfg, generator, validator, env_name)`` — real provider run
-        using an EPHEMERAL key env var the caller MUST clear afterwards;
-      * ``(sem_cfg, None, None, None)`` — opt-in without provider config
-        (honest ``provider_not_configured`` axis);
+      * ``(sem_cfg, generator, validator_or_validators, env_name)`` — real
+        provider run using an EPHEMERAL key env var the caller MUST clear
+        afterwards. The third element is a single validator provider unless
+        more than one ``validator_models`` entry was requested, in which
+        case it is a list (pass through as ``validators=``).
+      * ``(sem_cfg, None, None, None)`` — no provider config resolved
+        anywhere (honest ``provider_not_configured`` axis);
       * a ``JSONResponse`` error.
     """
-    if not _semantic_enabled_flag(payload):
-        return None
     policy = MAX_WEB_EGRESS_POLICY
     has_request_provider_config = bool(
         WEB_PROVIDER_FIELD_NAMES.intersection(payload))
@@ -280,21 +296,41 @@ def _maybe_semantic_run(
         except ProviderSettingsError as exc:
             return _error_response(exc.code, exc.message, 409)
     if not any((base_url, api_key, generator_model, validator_model)):
-        # Legacy honest path: enabled but not configured.
+        # Legacy honest path: no provider config resolved anywhere.
         from ..semantic import SemanticConfig
         try:
             return (SemanticConfig(enabled=True, egress_policy=policy),
                     None, None, None)
         except ValueError as exc:
             return _error_response("bad_semantic", str(exc), 400)
-    from .provider_web import (ProviderWebError,
-                               build_semantic_config_with_ephemeral_key)
     try:
+        validator_models = _validator_models_from_payload(
+            payload, validator_model)
+    except _BadSemanticPayload as exc:
+        return _error_response(exc.code, exc.message, 400)
+    if len(validator_models) > MAX_WEB_VALIDATOR_MODELS:
+        return _error_response(
+            "bad_model",
+            f"validator_models must have at most {MAX_WEB_VALIDATOR_MODELS} "
+            "entries", 400)
+    from .provider_web import ProviderWebError
+    try:
+        if len(validator_models) > 1:
+            from .provider_web import build_semantic_config_with_multi_validators_key
+            sem_cfg, gen, vals, env_name = (
+                build_semantic_config_with_multi_validators_key(
+                    base_url=base_url,
+                    api_key=api_key,
+                    generator_model=generator_model,
+                    validator_models=validator_models,
+                    egress_policy=policy))
+            return (sem_cfg, gen, vals, env_name)
+        from .provider_web import build_semantic_config_with_ephemeral_key
         sem_cfg, gen, val, env_name = build_semantic_config_with_ephemeral_key(
             base_url=base_url,
             api_key=api_key,
             generator_model=generator_model,
-            validator_model=validator_model,
+            validator_model=validator_models[0],
             egress_policy=policy)
     except ProviderWebError as exc:
         return _error_response(exc.code, exc.message, 400)
@@ -302,10 +338,7 @@ def _maybe_semantic_run(
 
 
 async def _maybe_semantic_run_for_request(payload, settings_store):
-    if (
-        not _semantic_enabled_flag(payload)
-        or WEB_PROVIDER_FIELD_NAMES.intersection(payload)
-    ):
+    if WEB_PROVIDER_FIELD_NAMES.intersection(payload):
         return _maybe_semantic_run(payload)
     from .provider_settings import ProviderSettingsError
     try:
@@ -315,6 +348,17 @@ async def _maybe_semantic_run_for_request(payload, settings_store):
         return _error_response(exc.code, exc.message, 409)
     return _maybe_semantic_run(
         payload, resolved_settings=resolved)
+
+
+def _validator_kwargs(validator_or_validators) -> Dict[str, Any]:
+    """Translate the third element of a semantic plan tuple into the
+    ``run_review`` kwarg it belongs in: ``validator=`` for the single-model
+    (today's exact behaviour, unchanged) case, ``validators=`` for the
+    multi-model vote case.
+    """
+    if isinstance(validator_or_validators, list):
+        return {"validators": validator_or_validators}
+    return {"validator": validator_or_validators}
 
 
 async def list_models(request: Request) -> Response:
@@ -505,14 +549,16 @@ async def review_prompt(request: Request) -> Response:
         payload, request.app.state.provider_settings)
     if isinstance(plan, JSONResponse):
         return plan
-    sem_cfg = generator = validator = env_name = None
+    sem_cfg = generator = validator_or_validators = env_name = None
     if plan is not None:
-        sem_cfg, generator, validator, env_name = plan
+        sem_cfg, generator, validator_or_validators, env_name = plan
+    validator_kwargs = _validator_kwargs(validator_or_validators)
     try:
         review = run_review(ReviewInputs(engine="prompt", snapshot=snap,
                                           file_bytes=byts,
                                           semantic_config=sem_cfg),
-                            candidate_generator=generator, validator=validator)
+                            candidate_generator=generator,
+                            **validator_kwargs)
     finally:
         if env_name:
             from .provider_web import clear_ephemeral_key
@@ -609,10 +655,11 @@ async def review_skill(request: Request) -> Response:
         except IntakeError as e:
             return _error_response("intake_error", str(e), 400)
         semantic_payload = {
-            "semantic_enabled": form.get("semantic_enabled"),
             "egress_policy": form.get("egress_policy"),
         }
-        for field_name in WEB_PROVIDER_FIELD_NAMES:
+        for field_name in (
+            WEB_PROVIDER_FIELD_NAMES | {WEB_VALIDATOR_MODELS_FIELD_NAME}
+        ):
             field_value = form.get(field_name)
             if field_value not in (None, ""):
                 semantic_payload[field_name] = field_value
@@ -620,14 +667,16 @@ async def review_skill(request: Request) -> Response:
             semantic_payload, request.app.state.provider_settings)
         if isinstance(plan, JSONResponse):
             return plan
-        sem_cfg = generator = validator = env_name = None
+        sem_cfg = generator = validator_or_validators = env_name = None
         if plan is not None:
-            sem_cfg, generator, validator, env_name = plan
+            sem_cfg, generator, validator_or_validators, env_name = plan
+        validator_kwargs = _validator_kwargs(validator_or_validators)
         try:
             review = run_review(ReviewInputs(engine="skill", snapshot=snap,
                                              file_bytes=byts, profile=profile,
                                              semantic_config=sem_cfg),
-                                candidate_generator=generator, validator=validator)
+                                candidate_generator=generator,
+                                **validator_kwargs)
         except ValueError as e:
             # e.g. unknown profile (already guarded, but be safe)
             return _error_response("review_error", str(e), 400)

@@ -133,6 +133,86 @@ class TestEphemeralKey:
         pw.clear_ephemeral_key("VERITY_WEB_KEY_NONEXISTENT")
 
 
+class TestMultiValidatorEphemeralKey:
+    """Multi-validator vote feature: 2-3 independently configured validator
+    Providers sharing one base_url/api_key. Configuring only one validator
+    model must keep using the singular helper unchanged (covered above);
+    these tests cover the plural sibling and its extra safety checks.
+    """
+
+    def _snapshot_verity_web_keys(self):
+        return {k for k in os.environ if k.startswith("VERITY_WEB_KEY_")}
+
+    def test_two_validator_models_share_one_key_and_vote_independently(self):
+        before = self._snapshot_verity_web_keys()
+        sem_cfg, gen, vals, env_name = \
+            pw.build_semantic_config_with_multi_validators_key(
+                base_url="https://openrouter.ai/api/v1",
+                api_key="sk-shared-key",
+                generator_model="gen-model",
+                validator_models=["val-model-a", "val-model-b"],
+                egress_policy="redacted_evidence")
+        try:
+            assert isinstance(vals, list) and len(vals) == 2
+            assert vals[0] is not vals[1]
+            assert gen not in vals
+            # All three providers share the SAME ephemeral env var; the key
+            # is never duplicated into a second env var.
+            assert env_name.startswith("VERITY_WEB_KEY_")
+            assert env_name not in before
+            assert os.environ[env_name] == "sk-shared-key"
+            gen_cfg = sem_cfg.provider_config["candidate_generator"]
+            assert gen_cfg.credentials.api_key_env == env_name
+            for v in vals:
+                assert v.config.credentials.api_key_env == env_name
+            assert vals[0].config.model_id == "val-model-a"
+            assert vals[1].config.model_id == "val-model-b"
+            assert "sk-shared-key" not in repr(sem_cfg)
+        finally:
+            pw.clear_ephemeral_key(env_name)
+        assert env_name not in os.environ
+        assert self._snapshot_verity_web_keys() == before
+
+    def test_three_validator_models_is_the_max_allowed(self):
+        sem_cfg, gen, vals, env_name = \
+            pw.build_semantic_config_with_multi_validators_key(
+                base_url="https://openrouter.ai/api/v1", api_key="k",
+                generator_model="g",
+                validator_models=["v1", "v2", "v3"],
+                egress_policy="metadata_only")
+        try:
+            assert len(vals) == 3
+        finally:
+            pw.clear_ephemeral_key(env_name)
+
+    def test_four_validator_models_is_rejected(self):
+        with pytest.raises(pw.ProviderWebError):
+            pw.build_semantic_config_with_multi_validators_key(
+                base_url="https://openrouter.ai/api/v1", api_key="k",
+                generator_model="g",
+                validator_models=["v1", "v2", "v3", "v4"],
+                egress_policy="metadata_only")
+
+    def test_single_validator_model_rejected_by_plural_helper(self):
+        # The plural helper is only for 2+ votes; one model must go through
+        # build_semantic_config_with_ephemeral_key instead.
+        with pytest.raises(pw.ProviderWebError):
+            pw.build_semantic_config_with_multi_validators_key(
+                base_url="https://openrouter.ai/api/v1", api_key="k",
+                generator_model="g", validator_models=["only-one"],
+                egress_policy="metadata_only")
+
+    def test_bad_model_in_list_clears_key_and_raises(self):
+        before = self._snapshot_verity_web_keys()
+        with pytest.raises(pw.ProviderWebError):
+            pw.build_semantic_config_with_multi_validators_key(
+                base_url="https://openrouter.ai/api/v1", api_key="k",
+                generator_model="g", validator_models=["ok-model", ""],
+                egress_policy="metadata_only")
+        after = self._snapshot_verity_web_keys()
+        assert after == before  # no leaked env var
+
+
 class TestPartialSemanticView:
     """When a semantic run fails midway but confirmed some candidates, the
     view must surface those advisory findings with a ``partial`` flag, without
@@ -529,8 +609,10 @@ class TestPersistentProviderSettings:
 
         monkeypatch.setattr(
             pw, "build_semantic_config_with_ephemeral_key", fake_build)
+        # No on/off flag any more: a saved Provider config is enough to
+        # attempt semantic automatically; the request need not (and does
+        # not) set any semantic-enabled-style field at all.
         plan = web_app._maybe_semantic_run({
-            "semantic_enabled": True,
             "egress_policy": "metadata_only",
         }, store)
 
@@ -542,6 +624,94 @@ class TestPersistentProviderSettings:
             "validator_model": "validator",
             "egress_policy": "redacted_evidence",
         }
+
+    def test_request_validator_models_routes_to_multi_validator_builder(
+            self, tmp_path, monkeypatch):
+        from verity.web import app as web_app
+
+        credentials = _MemoryCredentials()
+        store = ProviderSettingsStore(
+            ProviderPreferenceStore(tmp_path), credentials)
+        store.save(ProviderPreferences(
+            base_url="https://openrouter.ai/api/v1",
+            generator_model="generator",
+            validator_model="validator-fallback",
+        ), api_key="saved-key")
+        seen = {}
+
+        def fake_build(**kwargs):
+            seen.update(kwargs)
+            return ("config", "generator", ["val-a", "val-b"], "env")
+
+        monkeypatch.setattr(
+            pw, "build_semantic_config_with_multi_validators_key", fake_build)
+        plan = web_app._maybe_semantic_run({
+            "egress_policy": "metadata_only",
+            "validator_models": json.dumps(["val-model-a", "val-model-b"]),
+        }, store)
+
+        assert plan == ("config", "generator", ["val-a", "val-b"], "env")
+        assert seen == {
+            "base_url": "https://openrouter.ai/api/v1",
+            "api_key": "saved-key",
+            "generator_model": "generator",
+            "validator_models": ["val-model-a", "val-model-b"],
+            "egress_policy": "redacted_evidence",
+        }
+
+    def test_request_single_entry_validator_models_uses_singular_builder(
+            self, tmp_path, monkeypatch):
+        # A validator_models list with exactly one entry must behave
+        # identically to today's single-validator_model field: it routes
+        # through the singular builder, not the plural one.
+        from verity.web import app as web_app
+
+        credentials = _MemoryCredentials()
+        store = ProviderSettingsStore(
+            ProviderPreferenceStore(tmp_path), credentials)
+        store.save(ProviderPreferences(
+            base_url="https://openrouter.ai/api/v1",
+            generator_model="generator",
+            validator_model="validator-fallback",
+        ), api_key="saved-key")
+        seen = {}
+
+        def fake_build(**kwargs):
+            seen.update(kwargs)
+            return ("config", "generator", "validator", "env")
+
+        monkeypatch.setattr(
+            pw, "build_semantic_config_with_ephemeral_key", fake_build)
+        plan = web_app._maybe_semantic_run({
+            "egress_policy": "metadata_only",
+            "validator_models": json.dumps(["only-model"]),
+        }, store)
+
+        assert plan == ("config", "generator", "validator", "env")
+        assert seen["validator_model"] == "only-model"
+
+    def test_request_too_many_validator_models_is_rejected(
+            self, tmp_path):
+        from starlette.responses import JSONResponse
+        from verity.web import app as web_app
+
+        credentials = _MemoryCredentials()
+        store = ProviderSettingsStore(
+            ProviderPreferenceStore(tmp_path), credentials)
+        store.save(ProviderPreferences(
+            base_url="https://openrouter.ai/api/v1",
+            generator_model="generator",
+            validator_model="validator",
+        ), api_key="saved-key")
+
+        plan = web_app._maybe_semantic_run({
+            "egress_policy": "metadata_only",
+            "validator_models": json.dumps(["v1", "v2", "v3", "v4"]),
+        }, store)
+
+        assert isinstance(plan, JSONResponse)
+        assert plan.status_code == 400
+        assert json.loads(plan.body)["error"]["code"] == "bad_model"
 
     def test_request_url_cannot_reuse_key_saved_for_another_provider(
             self, tmp_path):

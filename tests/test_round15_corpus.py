@@ -19,12 +19,12 @@ REPO = Path(__file__).parent.parent
 
 def test_manifest_is_balanced_traceable_and_independent_of_rule_ids():
     manifest = load_manifest()
-    assert manifest["corpusVersion"] == "1.15.0"
-    assert len(manifest["cases"]) == 80
+    assert manifest["corpusVersion"] == "1.16.0"
+    assert len(manifest["cases"]) == 84
     positives = [c for c in manifest["cases"] if c["label"] == "unsafe"]
     safe = [c for c in manifest["cases"]
             if c["label"] == "safe_counterexample"]
-    assert len(positives) == len(safe) == 40
+    assert len(positives) == len(safe) == 42
     text = (REPO / "evals/corpus/v1/manifest.json").read_text()
     # Answer keys use stable risks only, never detector/rule names.
     mappings = load_detector_mappings()
@@ -57,9 +57,9 @@ def test_l0_metrics_are_per_risk_and_never_a_safety_score():
     report = evaluate()
     assert report["baselineClass"] == "minimal_pair_baseline"
     assert report["aggregateSafetyScore"] is None
-    assert report["caseCount"] == 80
+    assert report["caseCount"] == 84
     assert report["stability"] == {
-        "stableCases": 80, "unstableCases": 0, "rate": 1.0}
+        "stableCases": 84, "unstableCases": 0, "rate": 1.0}
     assert report["highOrCriticalUnsafeCases"] == {
         "caseCount": 11, "tp": 11, "fn": 0}  # Round 37 added skill-sql-injection-positive (medium, not high/critical)
     measured = [r for r in report["riskResults"]
@@ -99,10 +99,11 @@ def test_case_scoring_ignores_unrelated_out_of_scope_findings():
     assert all(set(c["observedRiskIds"]) <= set(c["assessedRiskIds"])
                for c in report["caseResults"])
     rows = {r["riskId"]: r for r in report["riskResults"]}
-    # VR-PROMPT-001 now has three balanced pairs (override marker,
-    # embedded system-role token, markdown exfil), all detected cleanly.
+    # VR-PROMPT-001 now has five balanced pairs (override marker,
+    # embedded system-role token, markdown exfil, encoded payload,
+    # system-prompt-extraction request), all detected cleanly.
     assert rows["VR-PROMPT-001"]["confusion"] == {
-        "tp": 4, "fp": 0, "tn": 4, "fn": 0}
+        "tp": 5, "fp": 0, "tn": 5, "fn": 0}
 
 
 def test_semantic_replay_is_contract_only_not_model_quality():

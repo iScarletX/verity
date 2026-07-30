@@ -62,7 +62,7 @@ def test_deterministic_static_is_release_candidate_semantic_stays_experimental()
     # Limitations remain disclosed, never hidden by the release decision.
     limits = {x["code"] for x in report["disclosedLimitations"]}
     assert "detection_breadth_not_evaluated" in limits
-    assert "semantic_review_experimental_default_off" in limits
+    assert "semantic_review_experimental_quality_unproven" in limits
     assert report["evidenceSummary"]["evaluatedLayerCount"] == 0
     assert report["evidenceSummary"]["acceptedRealModelSelectionPresent"] is False
     assert report["evidenceSummary"]["sealedTestConsumed"] is False
@@ -102,7 +102,7 @@ def test_confirmed_high_semantic_finding_blocks_web_cli_html_and_sarif():
     assert "high_or_critical_finding_present" in report["verdict"]["reasonCodes"]
 
     gate, code, finding_count, high_count = _gate_from_report(
-        report, semantic_requested=True)
+        report, semantic_requires_pass=True)
     assert (gate, code) == ("findings_block", 1)
     assert finding_count >= 1 and high_count >= 1
 

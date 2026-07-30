@@ -25,7 +25,9 @@ from verity.semantic import (SEMANTIC_DEFAULT, CandidateGeneratorProvider,
 from verity.semantic.config import (ProviderConfig, ProviderCredentials,
                                      SemanticBudget)
 from verity.semantic.egress import scan_payload_for_leaks
-from verity.semantic.orchestrator import SemanticRunResult
+from verity.semantic.orchestrator import (SemanticRunResult,
+                                           SemanticVoteRecord,
+                                           _aggregate_votes)
 from verity.semantic.provider import ProviderCall, ProviderResponse
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -75,11 +77,11 @@ def _sem_config(*, enabled=True, egress="metadata_only",
 
 
 def _prompt_review(text: str, sem_cfg: Optional[SemanticConfig] = None,
-                   *, gen=None, val=None):
+                   *, gen=None, val=None, vals=None):
     snap, b = intake_text(text)
     return run_review(ReviewInputs(engine="prompt", snapshot=snap, file_bytes=b,
                                     semantic_config=sem_cfg),
-                      candidate_generator=gen, validator=val)
+                      candidate_generator=gen, validator=val, validators=vals)
 
 
 def _skill_review(path, sem_cfg=None, *, gen=None, val=None,
@@ -108,9 +110,15 @@ class TestDefaultOff:
         with pytest.raises(ValueError):
             SemanticConfig(enabled=True, egress_policy="off")
 
-    def test_default_config_is_off(self):
-        assert SEMANTIC_DEFAULT.enabled is False
-        assert SEMANTIC_DEFAULT.egress_policy == "off"
+    def test_default_config_attempts_semantic_with_redacted_evidence(self):
+        # Semantic review now defaults to attempted (enabled=True) whenever
+        # a caller constructs SemanticConfig with no overrides; without a
+        # configured Provider it still honestly reports
+        # provider_not_configured rather than silently skipping (see
+        # test_enabled_but_no_provider_marks_failed below). Quality remains
+        # experimental regardless of this execution default.
+        assert SEMANTIC_DEFAULT.enabled is True
+        assert SEMANTIC_DEFAULT.egress_policy == "redacted_evidence"
 
     def test_enabled_but_no_provider_marks_failed(self):
         cfg = _sem_config()
@@ -306,6 +314,218 @@ class TestValidatorContainment:
             }, response_bytes=1)
         r = self._run(val_resp)
         assert r.semantic["assessments"][0]["state"] == "validation_failed"
+
+    def test_validator_rationale_surfaces_in_report_for_audit(self):
+        """A short rationale is advisory/audit-only: it must reach the report
+        so a human can see WHY a candidate was rejected without rerunning the
+        model, but it must never be consulted for the decision itself."""
+        def val_resp(req):
+            return ProviderResponse(ok=True, payload={
+                "candidateId": req["candidate"]["candidateId"],
+                "decision": "rejected",
+                "reasonCodes": ["candidate_out_of_scope"],
+                "rationale": "The cited evidence describes an authorized "
+                             "workflow, not an unscoped one.",
+            }, response_bytes=1)
+        r = self._run(val_resp)
+        assessment = r.semantic["assessments"][0]
+        assert assessment["state"] == "rejected"
+        assert assessment["rationale"] == (
+            "The cited evidence describes an authorized workflow, "
+            "not an unscoped one.")
+
+    def test_validator_missing_rationale_is_none(self):
+        def val_resp(req):
+            return ProviderResponse(ok=True, payload={
+                "candidateId": req["candidate"]["candidateId"],
+                "decision": "confirmed",
+                "reasonCodes": ["evidence_supports_claim"],
+            }, response_bytes=1)
+        r = self._run(val_resp)
+        assert r.semantic["assessments"][0]["rationale"] is None
+
+
+# ---------------------------------------------------------------- #
+# 3b. Multi-Validator vote aggregation                             #
+# ---------------------------------------------------------------- #
+
+def _decision_response(decision, reason):
+    def val_resp(req):
+        return ProviderResponse(ok=True, payload={
+            "candidateId": req["candidate"]["candidateId"],
+            "decision": decision,
+            "reasonCodes": [reason],
+        }, response_bytes=1)
+    return val_resp
+
+
+def _vote(state, *reasons, rationale=None):
+    return SemanticVoteRecord(state=state, reasonCodes=list(reasons),
+                              rationale=rationale)
+
+
+class TestAggregateVotesUnit:
+    """Direct unit tests of the pure aggregation function, independent of
+    the full orchestrator/Provider machinery exercised by
+    TestMultiValidatorVoting below."""
+
+    def test_single_vote_passes_through(self):
+        state, reasons, rationale = _aggregate_votes(
+            [_vote("confirmed", "evidence_supports_claim")])
+        assert state == "confirmed"
+        assert reasons == ["evidence_supports_claim"]
+
+    def test_empty_votes_is_validation_failed(self):
+        state, reasons, _ = _aggregate_votes([])
+        assert state == "validation_failed"
+
+    def test_three_two_one_majority(self):
+        state, _reasons, _ = _aggregate_votes([
+            _vote("rejected", "evidence_contradicts_claim"),
+            _vote("rejected", "candidate_out_of_scope"),
+            _vote("confirmed", "evidence_supports_claim"),
+        ])
+        assert state == "rejected"
+
+    def test_two_way_tie_is_insufficient_with_vote_split(self):
+        state, reasons, rationale = _aggregate_votes([
+            _vote("confirmed", "evidence_supports_claim"),
+            _vote("rejected", "evidence_contradicts_claim"),
+        ])
+        assert state == "insufficient_evidence"
+        assert reasons == ["vote_split"]
+        assert rationale is None
+
+    def test_three_way_tie_is_insufficient_with_vote_split(self):
+        state, reasons, _ = _aggregate_votes([
+            _vote("confirmed", "evidence_supports_claim"),
+            _vote("rejected", "evidence_contradicts_claim"),
+            _vote("insufficient_evidence", "not_enough_evidence"),
+        ])
+        assert state == "insufficient_evidence"
+        assert reasons == ["vote_split"]
+
+    def test_failed_votes_excluded_from_denominator(self):
+        # 2 confirmed decisive votes out of 2 decisive votes (the failed
+        # vote never enters the count) is a real majority, not a tie.
+        state, _reasons, _ = _aggregate_votes([
+            _vote("confirmed", "evidence_supports_claim"),
+            _vote("confirmed", "evidence_supports_claim"),
+            _vote("validation_failed", "http_error"),
+        ])
+        assert state == "confirmed"
+
+    def test_all_failed_votes_is_validation_failed_not_vote_split(self):
+        state, reasons, _ = _aggregate_votes([
+            _vote("validation_failed", "http_error"),
+            _vote("validation_failed", "schema_violation"),
+        ])
+        assert state == "validation_failed"
+        assert reasons == ["http_error", "schema_violation"]
+
+    def test_winning_reason_codes_deduplicated_and_ordered(self):
+        _state, reasons, _ = _aggregate_votes([
+            _vote("rejected", "evidence_contradicts_claim", "candidate_out_of_scope"),
+            _vote("rejected", "candidate_out_of_scope"),
+        ])
+        assert reasons == ["evidence_contradicts_claim", "candidate_out_of_scope"]
+
+    def test_losing_side_rationale_never_surfaces(self):
+        _state, _reasons, rationale = _aggregate_votes([
+            _vote("confirmed", "evidence_supports_claim",
+                  rationale="winning side rationale"),
+            _vote("confirmed", "evidence_supports_claim",
+                  rationale=None),
+            _vote("rejected", "evidence_contradicts_claim",
+                  rationale="losing side rationale -- must not appear"),
+        ])
+        assert rationale == "winning side rationale"
+
+
+class TestMultiValidatorVoting:
+    def _run(self, *val_responders):
+        cfg = _sem_config()
+        gen = RecordingProvider(_confirming_gen)
+        vals = [RecordingProvider(r) for r in val_responders]
+        return _prompt_review(
+            "Return only JSON.\nAlso answer in prose, never JSON.",
+            sem_cfg=cfg, gen=gen, vals=vals), vals
+
+    def test_three_voters_two_one_majority_confirms(self):
+        r, vals = self._run(
+            _decision_response("confirmed", "evidence_supports_claim"),
+            _decision_response("confirmed", "evidence_supports_claim"),
+            _decision_response("rejected", "evidence_contradicts_claim"),
+        )
+        assessment = r.semantic["assessments"][0]
+        assert assessment["state"] == "confirmed"
+        assert assessment["reasonCodes"] == ["evidence_supports_claim"]
+        assert len(assessment["votes"]) == 3
+        assert r.semantic["findings"]
+        # Every configured voter was actually called once.
+        assert all(len(v.calls) == 1 for v in vals)
+
+    def test_three_voters_two_one_majority_rejects(self):
+        r, _vals = self._run(
+            _decision_response("rejected", "evidence_contradicts_claim"),
+            _decision_response("rejected", "candidate_out_of_scope"),
+            _decision_response("confirmed", "evidence_supports_claim"),
+        )
+        assessment = r.semantic["assessments"][0]
+        assert assessment["state"] == "rejected"
+        assert not r.semantic["findings"]
+
+    def test_two_voters_split_becomes_insufficient_evidence(self):
+        r, _vals = self._run(
+            _decision_response("confirmed", "evidence_supports_claim"),
+            _decision_response("rejected", "evidence_contradicts_claim"),
+        )
+        assessment = r.semantic["assessments"][0]
+        assert assessment["state"] == "insufficient_evidence"
+        assert assessment["reasonCodes"] == ["vote_split"]
+        assert not r.semantic["findings"]
+
+    def test_three_way_split_becomes_insufficient_evidence(self):
+        r, _vals = self._run(
+            _decision_response("confirmed", "evidence_supports_claim"),
+            _decision_response("rejected", "evidence_contradicts_claim"),
+            _decision_response("insufficient_evidence", "not_enough_evidence"),
+        )
+        assessment = r.semantic["assessments"][0]
+        assert assessment["state"] == "insufficient_evidence"
+        assert assessment["reasonCodes"] == ["vote_split"]
+
+    def test_failed_voter_does_not_count_toward_majority(self):
+        def broken_resp(req):
+            return ProviderResponse(ok=False, reason_code="http_error")
+        r, _vals = self._run(
+            _decision_response("confirmed", "evidence_supports_claim"),
+            _decision_response("confirmed", "evidence_supports_claim"),
+            broken_resp,
+        )
+        assessment = r.semantic["assessments"][0]
+        # Two decisive confirms out of two decisive votes: still a majority
+        # even though a third voter's call failed and cast no vote.
+        assert assessment["state"] == "confirmed"
+        votes = assessment["votes"]
+        assert len(votes) == 3
+        assert sum(1 for v in votes if v["state"] == "validation_failed") == 1
+
+    def test_all_voters_failing_marks_validation_failed(self):
+        def broken_resp(req):
+            return ProviderResponse(ok=False, reason_code="http_error")
+        r, _vals = self._run(broken_resp, broken_resp)
+        assessment = r.semantic["assessments"][0]
+        assert assessment["state"] == "validation_failed"
+        assert not r.semantic["findings"]
+
+    def test_single_validator_backward_compatible_with_vals_of_one(self):
+        # validators=[single] behaves identically to validator=single.
+        r, _vals = self._run(
+            _decision_response("confirmed", "evidence_supports_claim"))
+        assessment = r.semantic["assessments"][0]
+        assert assessment["state"] == "confirmed"
+        assert len(assessment["votes"]) == 1
 
 
 # ---------------------------------------------------------------- #
@@ -804,7 +1024,8 @@ class TestRoleIsolation:
 
 
 # ---------------------------------------------------------------- #
-# 12. Web MVP: default off + provider_not_configured surface        #
+# 12. Web MVP: semantic attempted by default (no on/off flag);      #
+#     honest provider_not_configured when no Provider is set up    #
 # ---------------------------------------------------------------- #
 
 class _EmptyWebCredentials:
@@ -840,32 +1061,39 @@ class TestWebSemantic:
             ),
             base_url="http://127.0.0.1")
 
-    def test_prompt_default_response_has_capabilities_and_not_enabled(
+    def test_prompt_default_response_with_no_provider_anywhere_is_honest(
             self, tmp_path):
+        # No on/off flag exists any more: semantic is attempted whenever a
+        # Provider CAN be resolved (request or persisted settings). With
+        # nothing configured anywhere, it still honestly reports
+        # provider_not_configured rather than silently reporting
+        # not_enabled -- see AGENTS.md's "Controlled semantic (attempted by
+        # default)" wording.
         c = self._client(tmp_path)
         r = c.post("/api/review/prompt", json={
             "text": "hi", "prompt_kind": "user_prompt"})
         v = r.json()
         rid = v["reviewId"]
         j = c.get(f"/api/report/{rid}/report.json").json()
-        assert j["capabilities"]["semantic"]["status"] == "not_enabled"
-        assert v["semantic"] is None
+        assert j["capabilities"]["semantic"]["status"] == "failed"
+        assert v["semantic"]["status"] == "provider_not_configured"
 
-    def test_prompt_opt_in_without_provider_yields_provider_not_configured(
+    def test_prompt_request_egress_policy_without_provider_still_yields_provider_not_configured(
             self, tmp_path):
         c = self._client(tmp_path)
         r = c.post("/api/review/prompt", json={
             "text": "hi", "prompt_kind": "user_prompt",
-            "semantic_enabled": True, "egress_policy": "metadata_only"})
+            "egress_policy": "metadata_only"})
         v = r.json()
         assert v["semantic"]["status"] == "provider_not_configured"
         assert v["semantic"]["egressPolicy"] == "redacted_evidence"
 
-    def test_prompt_opt_in_with_off_egress_is_upgraded(self, tmp_path):
+    def test_prompt_request_off_egress_without_provider_is_upgraded(
+            self, tmp_path):
         c = self._client(tmp_path)
         r = c.post("/api/review/prompt", json={
             "text": "hi", "prompt_kind": "user_prompt",
-            "semantic_enabled": True, "egress_policy": "off"})
+            "egress_policy": "off"})
         assert r.status_code == 200
         assert r.json()["semantic"]["status"] == "provider_not_configured"
         assert r.json()["semantic"]["egressPolicy"] == "redacted_evidence"
@@ -881,18 +1109,33 @@ class TestCliSemantic:
         return subprocess.run([_sys.executable, "-m", "verity.cli"] + args,
                                cwd=REPO, env=env, capture_output=True, text=True)
 
-    def test_cli_default_off(self, tmp_path):
+    def test_cli_default_attempts_semantic_but_unconfigured_stays_exit_0(
+            self, tmp_path):
+        # Semantic now defaults to attempted (no --semantic flag needed).
+        # With no Provider configured, the run honestly reports
+        # provider_not_configured but that must NOT by itself flip a
+        # CI-facing exit code, since attempting-by-default must not break
+        # every existing script that never configured a Provider.
         p = self._cli(["review", "--engine", "prompt",
+                       "--text", "hi", "--out", str(tmp_path)], tmp_path)
+        assert p.returncode == 0, p.stderr
+        j = json.loads((tmp_path / "report.json").read_text())
+        assert j["semantic"]["status"] == "provider_not_configured"
+        assert j["capabilities"]["semantic"]["status"] == "failed"
+
+    def test_cli_no_semantic_flag_disables_it(self, tmp_path):
+        p = self._cli(["review", "--engine", "prompt", "--no-semantic",
                        "--text", "hi", "--out", str(tmp_path)], tmp_path)
         assert p.returncode == 0, p.stderr
         j = json.loads((tmp_path / "report.json").read_text())
         assert j["capabilities"]["semantic"]["status"] == "not_enabled"
         assert "semantic" not in j or j.get("semantic") is None
 
-    def test_cli_opt_in_reports_provider_not_configured(self, tmp_path):
-        p = self._cli(["review", "--engine", "prompt", "--semantic",
+    def test_cli_opt_in_without_complete_provider_config_is_usage_error(
+            self, tmp_path):
+        # A partial provider config (only some of the 4 required flags) is
+        # a CLI usage error, distinct from "no provider fields at all".
+        p = self._cli(["review", "--engine", "prompt",
+                       "--semantic-generator-url", "https://example.test",
                        "--text", "hi", "--out", str(tmp_path)], tmp_path)
-        assert p.returncode == 3, p.stderr
-        j = json.loads((tmp_path / "report.json").read_text())
-        assert j["semantic"]["status"] == "provider_not_configured"
-        assert j["capabilities"]["semantic"]["status"] == "failed"
+        assert p.returncode == 2, p.stderr

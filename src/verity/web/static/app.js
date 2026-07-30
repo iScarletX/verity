@@ -151,8 +151,11 @@
   }
 
   function semanticOpts() {
-    var box = $("semantic-enabled");
-    if (!box || !box.checked) return {};
+    // Semantic review has no separate on/off flag any more: whenever a
+    // Provider is configured (one-time setup step above), it is attempted
+    // automatically. These two guards still protect the settings-save
+    // workflow: don't submit a review while settings are still loading or
+    // have unsaved edits.
     if (!providerSettingsLoaded) {
       showError({
         code: "provider_settings_loading",
@@ -167,10 +170,27 @@
       });
       return null;
     }
-    return {
-      semantic_enabled: true,
-      egress_policy: "redacted_evidence",
-    };
+    var opts = { egress_policy: "redacted_evidence" };
+    var validatorModels = collectValidatorModels();
+    if (validatorModels.length > 1) {
+      opts.validator_models = JSON.stringify(validatorModels);
+    }
+    return opts;
+  }
+
+  // Collect every non-empty selected validator model: the primary
+  // #validator-model select, plus any .validator-model-extra rows added
+  // via "+ 添加校验模型". Configuring only one keeps today's exact
+  // single-validator behaviour (the caller only sends validator_models
+  // when there is more than one).
+  function collectValidatorModels() {
+    var models = [];
+    var primary = $("validator-model");
+    if (primary && primary.value) models.push(primary.value);
+    document.querySelectorAll(".validator-model-extra").forEach(function (sel) {
+      if (sel.value) models.push(sel.value);
+    });
+    return models;
   }
 
   // ---------------- provider model listing ----------------
@@ -189,7 +209,12 @@
     "provider-save-btn",
     "provider-clear-btn",
     "fetch-models-btn",
+    "add-validator-model-btn",
   ];
+  // Recommended range for the multi-validator vote feature is 2-3 models
+  // total (see AGENTS.md); this caps the primary select plus extra rows.
+  var MAX_VALIDATOR_MODELS = 3;
+  var lastFetchedModels = [];
   if (providerBaseUrlEl && !providerBaseUrlEl.value) {
     // Scheme assembled from parts so this source file contains no external
     // URL literal (keeps the strict no-external-asset asset test valid).
@@ -201,6 +226,54 @@
     providerControlIds.forEach(function (id) {
       var control = $(id);
       if (control) control.disabled = disabled;
+    });
+    document.querySelectorAll(
+      ".validator-model-extra, .validator-model-extra-remove"
+    ).forEach(function (el) { el.disabled = disabled; });
+  }
+
+  // ---------------- optional extra validator-model rows ----------------
+  // Repeatable UI for the multi-vote feature: each row is one extra
+  // validator model. Configuring zero extra rows (just the primary
+  // #validator-model select) keeps today's exact single-validator
+  // behaviour; this list only matters when the user explicitly adds rows.
+  function extraValidatorRowCount() {
+    return document.querySelectorAll(".validator-model-extra").length;
+  }
+
+  function addValidatorModelRow() {
+    var list = $("validator-model-extra-list");
+    if (!list || extraValidatorRowCount() >= MAX_VALIDATOR_MODELS - 1) return;
+    var row = mk("div", { className: "validator-model-extra-row" });
+    var sel = mk("select", { className: "validator-model-extra" });
+    sel.disabled = !providerSettingsLoaded;
+    fillModelSelect(sel, lastFetchedModels, "");
+    var removeBtn = mk("button", {
+      className: "validator-model-extra-remove", text: "移除",
+      attrs: { type: "button" },
+    });
+    removeBtn.disabled = !providerSettingsLoaded;
+    removeBtn.addEventListener("click", function () {
+      list.removeChild(row);
+      if (providerSettingsLoaded) {
+        providerConfigDirty = true;
+        setProviderSettingsStatus("有未保存的 Provider 配置更改");
+      }
+    });
+    sel.addEventListener("change", function () {
+      if (!providerSettingsLoaded) return;
+      providerConfigDirty = true;
+      setProviderSettingsStatus("有未保存的 Provider 配置更改");
+    });
+    row.appendChild(sel);
+    row.appendChild(removeBtn);
+    list.appendChild(row);
+  }
+
+  var addValidatorModelBtn = $("add-validator-model-btn");
+  if (addValidatorModelBtn) {
+    addValidatorModelBtn.addEventListener("click", function () {
+      addValidatorModelRow();
     });
   }
 
@@ -351,12 +424,17 @@
         });
       }).then(function (j) {
         if (operationId !== providerOperationId) return;
+        lastFetchedModels = j.models || [];
         var generatorSelected = ($("generator-model") || {}).value || "";
         var validatorSelected = ($("validator-model") || {}).value || "";
         fillModelSelect(
           $("generator-model"), j.models, generatorSelected);
         fillModelSelect(
           $("validator-model"), j.models, validatorSelected);
+        document.querySelectorAll(".validator-model-extra").forEach(
+          function (sel) {
+            fillModelSelect(sel, j.models, sel.value || "");
+          });
         setProviderControlsDisabled(false);
         if (status) status.textContent = "已加载 " + j.count + " 个模型，请选择";
       }).catch(function (e) {
@@ -421,9 +499,9 @@
     fd.append("profile", "standard");
     var opts = semanticOpts();
     if (opts === null) return;
-    if (opts.semantic_enabled) {
-      fd.append("semantic_enabled", "true");
-      fd.append("egress_policy", opts.egress_policy);
+    fd.append("egress_policy", opts.egress_policy);
+    if (opts.validator_models) {
+      fd.append("validator_models", opts.validator_models);
     }
     var sourceFiles = {};
     for (var i = 0; i < files.length; i++) {
@@ -630,16 +708,25 @@
     else if (st) stText = "未完成（" + st + "）";
     $("secret-status").textContent = stText;
 
-    // Findings
+    // Findings — ONE unified list mixing deterministic-rule and semantic
+    // (model-suggested) findings; each item carries a small inline origin
+    // tag, and a partial/incomplete semantic run's findings additionally
+    // carry a distinct "not scored" badge (findingsDisplay is a pure
+    // display-layer merge; view.counts / view.score are computed upstream
+    // from the already-safe view.findings list and are NOT affected here).
     var findingsEl = $("findings");
     findingsEl.textContent = "";
-    findingsEl.appendChild(mk("h3", { text: "发现的问题（" + view.findings.length + "）" }));
-    if (!view.findings.length) {
+    var findingsForDisplay = view.findingsDisplay || view.findings || [];
+    var scoredCount = findingsForDisplay.filter(function (f) {
+      return !f.notScored;
+    }).length;
+    findingsEl.appendChild(mk("h3", { text: "发现的问题（" + scoredCount + "）" }));
+    if (!findingsForDisplay.length) {
       findingsEl.appendChild(mk("p", { className: "muted",
         text: "本次未发现问题；这不能替代运行时验证，也不代表安全。" }));
     }
     // Sort findings: P0 first, then P1, P2, then severity as tiebreaker.
-    var findingsSorted = (view.findings || []).slice().sort(function (a, b) {
+    var findingsSorted = findingsForDisplay.slice().sort(function (a, b) {
       var pri = { P0: 0, P1: 1, P2: 2 };
       var pa = pri[((a.guidance || {}).priority) || "P1"] || 1;
       var pb = pri[((b.guidance || {}).priority) || "P1"] || 1;
@@ -657,6 +744,13 @@
       if (g.priority) {
         top.appendChild(mk("span", { className: "badge prio-" + g.priority,
           text: "优先级 " + g.priority }));
+      }
+      top.appendChild(mk("span", { className: "badge origin-tag",
+        text: f.originTag || (f.originKind === "semantic_validation"
+          ? "模型建议" : "确定性规则") }));
+      if (f.notScored) {
+        top.appendChild(mk("span", { className: "badge not-scored",
+          text: "模型建议，未计入评分" }));
       }
       top.appendChild(mk("strong", { text: g.plainTitle || f.type }));
       card.appendChild(top);
@@ -799,11 +893,16 @@
       capEl.appendChild(t);
     }
 
-    // Semantic sub-block
+    // Semantic run diagnostics. The findings themselves are no longer
+    // rendered separately here — they are merged into the unified
+    // #findings list above (each tagged "模型建议", with a "未计入评分"
+    // badge for a partial/incomplete run). This block keeps only the
+    // execution status / stage-path diagnostics that don't belong in a
+    // per-finding card.
     var semEl = $("semantic-view");
     semEl.textContent = "";
     if (view.semantic) {
-      semEl.appendChild(mk("h3", { text: "语义审查（实验性）" }));
+      semEl.appendChild(mk("h3", { text: "语义审查状态（实验性）" }));
       var s = view.semantic;
       semEl.appendChild(mk("div", { text: "状态：" + s.status
         + (s.reasonCode ? "（" + s.reasonCode + "）" : "") }));
@@ -846,41 +945,18 @@
       }
 
       // Partial-run warning: the run did not fully complete (e.g. a network
-      // error) but some candidates were confirmed. Those results are shown
-      // for reference only and may be incomplete.
+      // error) but some candidates were confirmed. Those findings appear in
+      // the unified list above with a "未计入评分" badge; this note just
+      // explains why.
       if (s.partial) {
         var warn = mk("div", { attrs: { class: "warn-box" } });
         warn.appendChild(mk("strong", { text: "⚠️ 本次语义审查中途未完成" }));
         warn.appendChild(mk("span", { text:
-          "（" + (s.reasonCode || s.status) + "）。以下为已确认的部分结果，"
-          + "可能不完整，仅供参考；建议检查网络后重试一次。" }));
+          "（" + (s.reasonCode || s.status) + "）。下方“发现的问题”中标记为"
+          + "“模型建议，未计入评分”的条目就是本次已确认但可能不完整的部分结果，"
+          + "建议检查网络后重试一次。" }));
         semEl.appendChild(warn);
-      }
-
-      // Render the confirmed semantic findings (advisory / experimental).
-      var semFindings = s.findings || [];
-      if (semFindings.length) {
-        semEl.appendChild(mk("div", { attrs: { class: "muted" },
-          text: "语义发现（实验性，仅供参考，非可信判定）：" }));
-        var list = mk("ul");
-        for (var i = 0; i < semFindings.length; i++) {
-          var sf = semFindings[i];
-          var li = mk("li");
-          li.appendChild(mk("strong", { text: "[" + (sf.severity || "?") + "] " }));
-          li.appendChild(mk("span", { text: sf.type || "" }));
-          if (sf.claim) {
-            li.appendChild(mk("div", { attrs: { class: "muted" }, text: sf.claim }));
-          }
-          (sf.evidences || []).forEach(function (ev) {
-            li.appendChild(mk("div", { attrs: { class: "evidence" }, text:
-              (ev.artifactPath || "(no path)") + " bytes "
-              + String(ev.startByte) + "–" + String(ev.endByte)
-            }));
-          });
-          list.appendChild(li);
-        }
-        semEl.appendChild(list);
-      } else if (s.status === "completed") {
+      } else if (!(s.findings || []).length && s.status === "completed") {
         semEl.appendChild(mk("div", { attrs: { class: "muted" },
           text: "本次语义审查未确认任何问题（不代表安全）。" }));
       }

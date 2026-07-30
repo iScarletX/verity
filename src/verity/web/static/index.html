@@ -13,8 +13,7 @@
     <p class="tagline">Prompt / Agent Skill 风险审查、证据定位与整改复查。</p>
   </div>
   <div class="status-strip" aria-label="能力状态">
-    <span>静态检查</span>
-    <span>受控语义</span>
+    <span>审查</span>
     <span>本地报告</span>
   </div>
 </header>
@@ -39,10 +38,9 @@
     <button role="tab" aria-selected="false" data-tab="skill">检查 Agent Skill</button>
   </nav>
 
-  <details class="experimental panel" id="semantic-panel">
-    <summary>受控语义审查</summary>
-    <p class="warn-box"><strong>模型审查需要复核。</strong>语义结论会进入证据链与评分，但仍受 Provider 可用性、样本覆盖和证据质量影响；高风险结论请结合原文定位复查。</p>
-    <label><input type="checkbox" id="semantic-enabled"> 启用语义审查（需配置下方 Provider）</label>
+  <section class="panel" id="semantic-panel">
+    <h2>模型 Provider 配置</h2>
+    <p class="warn-box"><strong>模型审查需要复核。</strong>配置好 Provider 后，语义结论会自动纳入本次审查的证据链与评分，但仍受 Provider 可用性、样本覆盖和证据质量影响；高风险结论请结合原文定位复查。未配置 Provider 时会如实提示未配置，不影响静态检查结果。</p>
 
     <div id="provider-config" class="provider-config">
       <label>Provider 地址（OpenAI 兼容，如 OpenRouter）
@@ -64,9 +62,12 @@
       <label>校验器模型
         <select id="validator-model" disabled><option value="">（先拉取模型）</option></select>
       </label>
+      <div id="validator-model-extra-list"></div>
+      <button type="button" id="add-validator-model-btn" disabled>+ 添加校验模型</button>
+      <p class="muted">可选：添加最多两个额外校验模型，多个校验模型会对同一候选各自投票，按多数结果判定；只配置一个校验模型时行为与之前完全一致。</p>
     </div>
     <p class="muted">不会发送完整原文、绝对路径或 RedactionMap；语义审查固定使用脱敏证据片段。API Key 只保存在当前 macOS 用户的钥匙串中。</p>
-  </details>
+  </section>
 
   <section id="tab-prompt" class="tab-panel panel" role="tabpanel">
     <h2>粘贴一段 Prompt / System Prompt</h2>

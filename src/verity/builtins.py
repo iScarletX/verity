@@ -297,6 +297,18 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="low",
         requiredEvidenceKinds=["source_span"],
     ))
+    ftr.register(FindingTypeDefinition(
+        findingType="prompt.system_prompt_extraction_request",
+        engine="prompt",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("extractionCategory", "literal_enum",
+                         allowedValues=["system_prompt_extraction_request"]),
+        ],
+        subjectKeyFields=["artifactPath", "extractionCategory"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # --- Skill engine ---------------------------------------------------
     # Manifest / metadata findings
     ftr.register(FindingTypeDefinition(
@@ -555,10 +567,13 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         ruleVersion="1.0.0",
         supersedes=[],
         engine="prompt",
-        title=("Prompt text contains an ASCII control character or Unicode "
-               "bidi override. Bidi overrides are a documented prompt-"
-               "injection vector; other control chars are usually copy/"
-               "paste accidents."),
+        title=("Prompt text contains an ASCII control character, Unicode "
+               "bidi override, invisible-formatting character, or a RUN of "
+               "variation-selector / invisible-math-operator characters "
+               "(PyRIT variation-selector / \"sneaky bits\" smuggling "
+               "channels). Bidi override and invisible-channel runs are "
+               "documented prompt-injection/data-smuggling vectors; other "
+               "control chars are usually copy/paste accidents."),
         findingType="prompt.control_character",
         implementationId="impl.prompt.control_character.v1",
         applicableKinds=["prompt"],
@@ -853,6 +868,26 @@ def build_prompt_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         requiredEvidenceKinds=["source_span"],
         defaultSeverity="low",
         controlIds=["quality.resilience"],
+    ))
+    rr.register(RuleDefinition(
+        ruleId="prompt.system_prompt_extraction_request",
+        ruleVersion="1.0.0",
+        supersedes=[],
+        engine="prompt",
+        title=("Text asks the model to reveal/show/display/print/repeat its "
+               "system prompt, system message, or hidden/original "
+               "instructions (OWASP LLM07 system-prompt-leakage request). A "
+               "defensive same-keyword instruction not to disclose is not "
+               "flagged. Adapted from Microsoft PyRIT's "
+               "StaticPromptInjectionScorer System-Prompt-Extraction / "
+               "Prompt-Leaking pattern family, which PyRIT itself classifies "
+               "as an OWASP LLM01 prompt-injection sub-category."),
+        findingType="prompt.system_prompt_extraction_request",
+        implementationId="impl.prompt.system_prompt_extraction_request.v1",
+        applicableKinds=["prompt"],
+        requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium",
+        controlIds=["OWASP-LLM01:2025"],
     ))
     return rr
 

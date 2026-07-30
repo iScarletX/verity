@@ -21,7 +21,7 @@ _HEADLINES = {
     "semantic_block": {
         "code": "semantic_block",
         "title": "语意检查未完成，暂不能下结论",
-        "detail": "你已开启语意审查，但模型调用、预算或验证链路没有完整完成。本次不显示安全分，请查看语意状态后重试。",
+        "detail": "已配置模型 Provider，但本次调用、预算或验证链路没有完整完成。本次不显示安全分，请查看语意状态后重试。",
         "tone": "warning",
     },
     "coverage_block": {
@@ -45,7 +45,7 @@ _HEADLINES = {
     "review_required_skill": {
         "code": "review_required_skill",
         "title": "需要人工复核后再安装",
-        "detail": "本次静态检查发现中低危问题，建议人工过一遍再决定是否安装。",
+        "detail": "本次检查发现中低危问题，建议人工过一遍再决定是否安装。",
         "tone": "warning",
     },
     "needs_revision_prompt": {
@@ -56,13 +56,13 @@ _HEADLINES = {
     },
     "pass_skill": {
         "code": "pass_skill",
-        "title": "本次静态检查未发现阻断项",
-        "detail": "已完成的检查未发现高危问题。仍请自行确认，静态检查不能替代运行时验证。",
+        "title": "本次审查未发现阻断项",
+        "detail": "已完成的检查未发现高危问题。仍请自行确认，本次审查不能替代运行时验证。",
         "tone": "ok",
     },
     "pass_prompt": {
         "code": "pass_prompt",
-        "title": "本次静态检查未发现阻断项",
+        "title": "本次审查未发现阻断项",
         "detail": "已完成的检查未发现高危问题；仍建议在真实使用前小范围试运行。",
         "tone": "ok",
     },
@@ -73,11 +73,17 @@ def headline_for(review_dict: Dict[str, Any]) -> Dict[str, str]:
     verdict = review_dict.get("verdict") or {}
     coverage = verdict.get("coverage") or "unknown"
     engine = review_dict.get("engine")
-    semantic_status = (
-        ((review_dict.get("capabilities") or {}).get("semantic") or {})
-        .get("status")
-    )
-    if semantic_status == "failed":
+    # Use the RAW semantic status here, not capabilities.semantic.status --
+    # the latter deliberately collapses provider_not_configured into
+    # "failed" so the CLI's exit-code ladder treats "never configured" and
+    # "configured but broke" alike. The headline must NOT make the same
+    # collapse: an unconfigured Provider is an honest non-event (semantic
+    # was simply never attempted with real credentials) and must never
+    # outrank a High/Critical deterministic finding's own headline. Only a
+    # Provider that WAS configured and then genuinely failed/ran out of
+    # budget mid-run is worth its own warning headline.
+    semantic_status = ((review_dict.get("semantic") or {}).get("status"))
+    if semantic_status in ("failed", "budget_exhausted"):
         return _HEADLINES["semantic_block"]
     if coverage != "sufficient":
         return _HEADLINES["coverage_block"]
@@ -176,6 +182,47 @@ def _blocked_view(review_dict: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
+_ORIGIN_TAGS = {
+    "deterministic_rule": "确定性规则",
+    "semantic_validation": "模型建议",
+}
+
+
+def _findings_display(findings: List[Dict[str, Any]],
+                      semantic_view: Dict[str, Any] | None
+                      ) -> List[Dict[str, Any]]:
+    """Build ONE merged, display-only list of deterministic + semantic
+    findings for the unified findings section in the Web UI.
+
+    Safety invariant this must NOT break (see ``findings_view.completed_findings``
+    and the ``semantic_view["partial"]`` comment above): an incomplete/failed
+    semantic run's findings never affect score/pass. ``findings`` (passed in)
+    already encodes that — it only ever contains semantic findings when the
+    semantic run fully ``completed``. This function is purely a DISPLAY-layer
+    merge: it never changes counts/score, it only adds an origin tag to each
+    already-scored finding, and — for a partial/incomplete semantic run only —
+    ALSO appends that run's findings with an explicit "not scored" badge so
+    the user still sees them without them silently counting anywhere.
+    """
+    display: List[Dict[str, Any]] = []
+    for f in findings:
+        origin_kind = f.get("originKind") or "deterministic_rule"
+        display.append({
+            **f,
+            "originTag": _ORIGIN_TAGS.get(origin_kind, origin_kind),
+            "notScored": False,
+        })
+    if semantic_view and semantic_view.get("partial"):
+        for f in semantic_view.get("findings") or []:
+            origin_kind = f.get("originKind") or "semantic_validation"
+            display.append({
+                **f,
+                "originTag": _ORIGIN_TAGS.get(origin_kind, origin_kind),
+                "notScored": True,
+            })
+    return display
+
+
 def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, Any]:
     all_findings, ev_by_id = completed_findings(review_dict)
     findings = [_finding_view(f, ev_by_id) for f in all_findings]
@@ -241,7 +288,9 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
             # True when the run did not fully complete but still confirmed
             # some candidates. Those findings are advisory + possibly
             # incomplete; the UI must label them clearly and they are NOT
-            # merged into the main completed-findings list or the score.
+            # merged into the main completed-findings list or the score
+            # (see ``findings_display`` below, which surfaces them for
+            # DISPLAY ONLY with an explicit not-scored marker).
             "partial": bool(sem_status != "completed" and sem_findings),
             "planItems": [
                 {"planItemId": p.get("planItemId"),
@@ -312,6 +361,7 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
         ],
         "nextSteps": next_steps,
         "findings": findings,
+        "findingsDisplay": _findings_display(findings, semantic_view),
         "blocked": _blocked_view(review_dict),
         "analyzers": _analyzer_view(am),
         "secretScan": {

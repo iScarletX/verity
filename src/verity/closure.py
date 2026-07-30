@@ -10,18 +10,20 @@ Policy v2.0.0 separates two release scopes that used to be conflated:
   engineering acceptance is green. It does NOT claim evaluated detection
   accuracy; its breadth limits are disclosed, not hidden.
 
-- The **controlled semantic review** (LLM-assisted, default-OFF, experimental)
-  and any *evaluated accuracy* claim. This is a separate track that is NOT a
-  gate on the deterministic engineering-preview release. It remains
-  `experimental_not_ready` until a frozen protocol Selection passes its
-  predeclared gate, sealed Test is consumed under approval, and (for a public
-  production-quality claim) human/domain-expert review is obtained.
+- The **controlled semantic review** (LLM-assisted, attempted by default when
+  a Provider is configured, experimental) and any *evaluated accuracy* claim.
+  This is a separate track that is NOT a gate on the deterministic
+  engineering-preview release. It remains `experimental_not_ready` until a
+  frozen protocol Selection passes its predeclared gate, sealed Test is
+  consumed under approval, and (for a public production-quality claim)
+  human/domain-expert review is obtained.
 
 Rationale: gating a working, honestly-scoped deterministic tool on an
-experimental, default-off, probabilistic feature — one whose last blocker is
-structurally unreachable by any AI alone (human expert sign-off) — made the
-release decision loop forever. v2.0.0 fixes the *definition* of readiness, not
-the evidence: every semantic/accuracy limitation is still reported.
+experimental, probabilistic feature whose accuracy is unproven — one whose
+last blocker is structurally unreachable by any AI alone (human expert
+sign-off) — made the release decision loop forever. v2.0.0 fixes the
+*definition* of readiness, not the evidence: every semantic/accuracy
+limitation is still reported.
 
 The report is offline and reads repository-owned standards/corpus facts only.
 """
@@ -117,9 +119,10 @@ def evaluate_v1_closure(*, engineering_checks: Dict[str, bool],
          "detail": ("The engineering preview does not claim evaluated detection "
                     "accuracy; unified-risk breadth remains none/signal/partial "
                     "and is reported honestly in every review.")},
-        {"code": "semantic_review_experimental_default_off",
-         "detail": ("Controlled semantic review is experimental, default-off and "
-                    "below its frozen protocol Selection gate as last measured; "
+        {"code": "semantic_review_experimental_quality_unproven",
+         "detail": ("Controlled semantic review is attempted by default when a "
+                    "Provider is configured, but its accuracy remains experimental "
+                    "and below its frozen protocol Selection gate as last measured; "
                     "it is not part of the deterministic release scope.")},
     ]
 

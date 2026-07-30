@@ -175,8 +175,30 @@ def test_intake_root_name_override_is_bounded_and_path_free(tmp_path):
         intake_directory(root, artifact_root_name="../escape")
 
 
+def _isolated_provider_settings(tmp_path):
+    from verity.web.provider_settings import (
+        ProviderPreferenceStore, ProviderSettingsStore)
+
+    class _EmptyCredentials:
+        def save_key(self, value):
+            raise AssertionError("this test credential store must remain empty")
+
+        def load_key(self):
+            return None
+
+        def has_key(self):
+            return False
+
+        def delete_key(self):
+            return None
+
+    return ProviderSettingsStore(
+        ProviderPreferenceStore(tmp_path / "provider"), _EmptyCredentials())
+
+
 def test_web_upload_uses_browser_root_not_temp_directory(tmp_path):
-    with TestClient(create_app(history_root=tmp_path / "history"),
+    with TestClient(create_app(history_root=tmp_path / "history",
+                               provider_settings_store=_isolated_provider_settings(tmp_path)),
                     base_url="http://localhost") as client:
         files = [("files", ("browser-root/SKILL.md",
                             b"---\nname: browser-root\ndescription: Web.\n---\n",
@@ -191,7 +213,8 @@ def test_web_upload_uses_browser_root_not_temp_directory(tmp_path):
 
 
 def test_web_rejects_mixed_upload_roots(tmp_path):
-    with TestClient(create_app(history_root=tmp_path / "history"),
+    with TestClient(create_app(history_root=tmp_path / "history",
+                               provider_settings_store=_isolated_provider_settings(tmp_path)),
                     base_url="http://localhost") as client:
         response = client.post("/api/review/skill", files=[
             ("files", ("one/SKILL.md", b"---\nname: one\ndescription: One.\n---\n", "text/plain")),

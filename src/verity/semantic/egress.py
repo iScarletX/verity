@@ -339,8 +339,13 @@ def build_generator_request(
             "hypothesis; true match booleans falsify it. "
             "You may only propose semantic candidates whose evidence "
             "references are drawn from the list above. Do not invent new "
-            "evidence, do not set severity or ruleId. Return JSON matching "
-            "the candidate response schema."
+            "evidence, do not set severity or ruleId. "
+            "IMPORTANT: `subject` is a FLAT object mapping each catalog "
+            "fieldName directly to one of its enum values, e.g. "
+            '{"someFieldName": "someEnumValue"} -- NOT {"fields": [...]}. '
+            "Copy `subjectTaxonomy.fields[].fieldName` and `.enum` values "
+            "directly; do not wrap them in a `fields` array or any other "
+            "structure. Return JSON matching the candidate response schema."
         ),
     }
 
@@ -421,6 +426,12 @@ def build_catalog_sweep_request(
             "and intentionally open-ended choice are not defects by themselves. "
             "When evidenceScope is sampled_reviewed_prompt, do not infer that "
             "an omitted control is absent from the unseen regions. "
+            "IMPORTANT: `subject` is a FLAT object mapping each catalog "
+            "fieldName directly to one of its enum values, e.g. "
+            '{"someFieldName": "someEnumValue"} -- NOT {"fields": [...]}. '
+            "Copy `findingCatalog[].subjectTaxonomy.fields[].fieldName` and "
+            "`.enum` values directly; do not wrap them in a `fields` array or "
+            "any other structure. "
             "Return JSON matching the candidate response schema."
         ),
     }

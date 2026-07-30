@@ -106,8 +106,10 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
                     "note": ("execution status only; current detection breadth "
                              "is signal/partial in the standards taxonomy")},
         "semantic": {"status": semantic_status,
-                      "note": ("experimental, default OFF; execution status "
-                               "does not imply semantic breadth")},
+                      "note": ("experimental, attempted by default when a "
+                               "Provider is configured; execution status "
+                               "does not imply semantic breadth or "
+                               "evaluated accuracy")},
         "promptBlackbox": {"status": "not_implemented",
                             "note": "V1.5 planned; not part of V1"},
         "skillSandbox": {"status": "not_implemented",
@@ -459,7 +461,7 @@ def to_html(review: Review) -> str:
    &nbsp;Prompt kind: <code>{html.escape(str(d['snapshot'].get('promptKind') or 'n/a'))}</code>
    &nbsp;Snapshot: <code>{html.escape(d['snapshot']['snapshotId'])}</code>
 </p>
-<p class="muted">V1 engineering preview: this report covers only checks that actually completed. Controlled semantic review is default-OFF; V1.5 prompt black-box evaluation and the V2 isolated Skill sandbox are not implemented. A numeric score is not a safety guarantee.</p>
+<p class="muted">V1 engineering preview: this report covers only checks that actually completed. Controlled semantic review is attempted by default when a Provider is configured (experimental, unevaluated accuracy); V1.5 prompt black-box evaluation and the V2 isolated Skill sandbox are not implemented. A numeric score is not a safety guarantee.</p>
 
 {_score_block()}
 {_remediation_block()}

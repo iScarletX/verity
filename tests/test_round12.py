@@ -367,5 +367,31 @@ def test_project_web_defaults_to_standard_secret_scan(tmp_path):
 
 
 def test_standalone_web_regression(tmp_path):
-    with TestClient(create_app(history_root=tmp_path/"h"),base_url="http://localhost") as c:
+    # Isolated (never-real-Keychain) credential store: semantic review is
+    # now attempted automatically whenever a Provider resolves from ANY
+    # source, so this regression test must not depend on whatever the
+    # current machine's real macOS Keychain happens to hold from an
+    # unrelated manual/real-Provider session -- same discipline as
+    # test_semantic.py::TestWebSemantic._client.
+    from verity.web.provider_settings import (
+        ProviderPreferenceStore, ProviderSettingsStore)
+
+    class _EmptyCredentials:
+        def save_key(self, value):
+            raise AssertionError("this test credential store must remain empty")
+
+        def load_key(self):
+            return None
+
+        def has_key(self):
+            return False
+
+        def delete_key(self):
+            return None
+
+    provider_settings = ProviderSettingsStore(
+        ProviderPreferenceStore(tmp_path / "provider"), _EmptyCredentials())
+    with TestClient(create_app(history_root=tmp_path/"h",
+                               provider_settings_store=provider_settings),
+                    base_url="http://localhost") as c:
         assert c.post("/api/review/prompt",json={"text":"hello","prompt_kind":"user_prompt"}).status_code==200

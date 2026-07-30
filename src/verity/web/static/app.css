@@ -91,19 +91,23 @@ button.primary:disabled { background: #999; cursor: default; }
 .badge.prio-P0 { background: #fbe4e4; color: #9a1f1f; }
 .badge.prio-P1 { background: #fff2cc; color: #7a5c00; }
 .badge.prio-P2 { background: #eef4ff; color: #244d99; }
+.badge.origin-tag { background: #eef2f6; color: #44546b; }
+.badge.not-scored { background: #fff5db; color: #7a5c00; border: 1px solid #dda94a; }
 .next-steps { background: #fff; border: 1px solid #d9e2ec; border-radius: 8px; padding: .8rem 1rem; margin-bottom: 1rem; }
 .next-steps h3 { margin: 0 0 .3rem; font-size: 1rem; }
 .next-steps ol { margin: 0 0 0 1.2rem; padding: 0; }
 #loading { padding: 1rem; background: #fff; border: 1px solid #d9e2ec; border-radius: 8px; margin: 1rem 0; }
-.experimental { background: #fff; }
-.experimental summary { cursor: pointer; font-weight: 500; }
-.experimental label { margin-top: .4rem; display: block; }
-.experimental input[type=text], .experimental input[type=password], .experimental select { width: 100%; box-sizing: border-box; padding: .35rem .5rem; margin-top: .2rem; }
+#semantic-panel label { margin-top: .4rem; display: block; }
+#semantic-panel input[type=text], #semantic-panel input[type=password], #semantic-panel select { width: 100%; box-sizing: border-box; padding: .35rem .5rem; margin-top: .2rem; }
 .warn-box { background: #fff5db; border: 1px solid #dda94a; color: #594200; padding: .6rem .8rem; border-radius: 6px; font-size: .9rem; }
 .provider-config { margin-top: .6rem; padding-top: .4rem; border-top: 1px solid #d9e2ec; }
 .provider-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .65rem; }
 .provider-actions button { padding: .35rem .7rem; cursor: pointer; }
 #models-status, #provider-settings-status { margin: .35rem 0 0; min-height: 1.35rem; }
+#add-validator-model-btn { margin-top: .4rem; padding: .35rem .7rem; cursor: pointer; }
+.validator-model-extra-row { display: flex; gap: .4rem; align-items: center; margin-top: .4rem; }
+.validator-model-extra-row select { flex: 1; }
+.validator-model-extra-row button { padding: .25rem .5rem; cursor: pointer; }
 button:focus-visible, a:focus-visible, textarea:focus-visible, select:focus-visible, input[type=file]:focus-visible {
   outline: 3px solid #1668dc; outline-offset: 2px;
 }

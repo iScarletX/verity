@@ -44,16 +44,27 @@ from .sarif import to_sarif_json
 from .schema import export_schema
 
 
-def _gate_from_report(report: dict, *, semantic_requested: bool) -> tuple[str, int, int, int]:
-    """Return gate, exit code, finding count and High/Critical count."""
+def _gate_from_report(report: dict, *, semantic_requires_pass: bool
+                      ) -> tuple[str, int, int, int]:
+    """Return gate, exit code, finding count and High/Critical count.
+
+    ``semantic_requires_pass`` should be True only when the caller supplied
+    a complete trusted Provider configuration for semantic review (i.e. it
+    was actually attempted with real credentials), not merely whenever
+    ``--semantic`` was passed -- semantic now defaults to attempted, and an
+    unconfigured Provider honestly reporting ``provider_not_configured``
+    must not by itself flip a CI-facing exit code from 0 to 3. A caller who
+    explicitly wants that stricter gate can still get it: it is exactly
+    "did I hand this run real credentials".
+    """
     from .findings_view import completed_findings
     findings, _ = completed_findings(report)
     high = sum(1 for f in findings
                if f.get("severity") in ("high", "critical"))
     coverage_ok = (report.get("coverage") or {}).get("status") == "sufficient"
-    semantic_status = ((report.get("semantic") or {}).get("status")
-                       if semantic_requested else "not_enabled")
-    semantic_ok = not semantic_requested or semantic_status == "completed"
+    semantic_status = (report.get("semantic") or {}).get("status")
+    semantic_ok = (not semantic_requires_pass
+                  or semantic_status == "completed")
     if high:
         return "findings_block", 1, len(findings), high
     if not coverage_ok or not semantic_ok:
@@ -86,7 +97,8 @@ def _cmd_review(args: argparse.Namespace) -> int:
 
     sem_cfg = None
     candidate_generator = None
-    validator = None
+    validators = None
+    has_complete_provider_config = False
     if args.semantic:
         from .semantic import (JsonCandidateGeneratorProvider,
                                JsonValidatorProvider, ProviderConfig,
@@ -105,36 +117,73 @@ def _cmd_review(args: argparse.Namespace) -> int:
             return 2
         try:
             if has_complete_provider_config:
+                provider_kind = args.semantic_provider_kind
                 gen_cfg = ProviderConfig(
                     role="candidate_generator",
-                    provider_id="json_http",
+                    provider_id=provider_kind,
                     model_id=args.semantic_generator_model,
                     base_url=args.semantic_generator_url,
                     credentials=ProviderCredentials(
                         api_key_env=args.semantic_generator_api_key_env),
                     timeout_seconds=args.semantic_timeout,
                 )
-                val_cfg = ProviderConfig(
+                val_cfgs = [ProviderConfig(
                     role="validator",
-                    provider_id="json_http",
+                    provider_id=provider_kind,
                     model_id=args.semantic_validator_model,
                     base_url=args.semantic_validator_url,
                     credentials=ProviderCredentials(
                         api_key_env=args.semantic_validator_api_key_env),
                     timeout_seconds=args.semantic_timeout,
-                )
+                )]
+                for raw_vote in args.semantic_validator_vote:
+                    parts = raw_vote.split(",")
+                    if len(parts) != 3:
+                        print("invalid --semantic-validator-vote: expected "
+                              "URL,MODEL,API_KEY_ENV", file=sys.stderr)
+                        return 2
+                    vote_url, vote_model, vote_key_env = (
+                        p.strip() for p in parts)
+                    val_cfgs.append(ProviderConfig(
+                        role="validator",
+                        provider_id=provider_kind,
+                        model_id=vote_model,
+                        base_url=vote_url,
+                        credentials=ProviderCredentials(
+                            api_key_env=vote_key_env),
+                        timeout_seconds=args.semantic_timeout,
+                    ))
                 sem_cfg = SemanticConfig(
                     enabled=True,
                     egress_policy=args.egress_policy,
                     provider_config={
                         "candidate_generator": gen_cfg,
-                        "validator": val_cfg,
+                        # Product orchestrator reads validators= (the full
+                        # list); this single entry keeps has_provider("validator")
+                        # true for callers/tests that only check presence.
+                        "validator": val_cfgs[0],
                     },
                 )
-                # Deliberately distinct role-bound objects, even if the
-                # endpoint and model happen to be the same.
-                candidate_generator = JsonCandidateGeneratorProvider(gen_cfg)
-                validator = JsonValidatorProvider(val_cfg)
+                # Deliberately distinct role-bound objects per vote, even
+                # when two votes happen to share an endpoint/model, so no
+                # provider client accidentally shares state across votes.
+                if provider_kind == "openai_compatible":
+                    # Most real hosted providers (OpenRouter, OpenAI itself,
+                    # and OpenAI-compatible self-hosted gateways) serve
+                    # POST {base_url}/chat/completions, not Verity's custom
+                    # /v1/verity/candidate-generator contract. This wire
+                    # adapter is the same one the Web UI uses.
+                    from .semantic.eval_provider import OpenAICompatibleEvalProvider
+                    candidate_generator = OpenAICompatibleEvalProvider(
+                        config=gen_cfg, max_output_tokens=args.semantic_max_output_tokens)
+                    validators = [
+                        OpenAICompatibleEvalProvider(
+                            config=vc, max_output_tokens=args.semantic_max_output_tokens)
+                        for vc in val_cfgs
+                    ]
+                else:
+                    candidate_generator = JsonCandidateGeneratorProvider(gen_cfg)
+                    validators = [JsonValidatorProvider(vc) for vc in val_cfgs]
             else:
                 # Explicit opt-in without trusted Provider config remains
                 # a visible provider_not_configured result.
@@ -147,7 +196,7 @@ def _cmd_review(args: argparse.Namespace) -> int:
                                      file_bytes=byts, profile=args.profile,
                                      semantic_config=sem_cfg),
                         candidate_generator=candidate_generator,
-                        validator=validator)
+                        validators=validators)
 
     out_dir = Path(args.out) if args.out else Path("out")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -157,7 +206,7 @@ def _cmd_review(args: argparse.Namespace) -> int:
     (out_dir / "report.sarif").write_text(to_sarif_json(d), encoding="utf-8")
 
     gate, exit_code, n_findings, n_high = _gate_from_report(
-        d, semantic_requested=args.semantic)
+        d, semantic_requires_pass=has_complete_provider_config)
     semantic_status = ((review.semantic or {}).get("status")
                        if args.semantic else "not_enabled")
 
@@ -269,11 +318,14 @@ def main(argv=None) -> int:
                           "unavailable. `minimal` explicitly opts out of "
                           "secret scanning and the report says so."))
     pr.add_argument("--out", default="out")
-    pr.add_argument("--semantic", action="store_true",
-                    help=("Opt into the experimental semantic review "
-                          "(default OFF). Requires a configured Provider; "
+    pr.add_argument("--semantic", action=argparse.BooleanOptionalAction,
+                    default=True,
+                    help=("Attempt the experimental semantic review "
+                          "(default ON). Requires a configured Provider; "
                           "without one, the run honestly reports "
-                          "provider_not_configured."))
+                          "provider_not_configured and this does not by "
+                          "itself change the exit code. Pass "
+                          "--no-semantic to skip semantic review entirely."))
     pr.add_argument("--egress-policy",
                     choices=["off", "metadata_only", "redacted_evidence"],
                     default="metadata_only",
@@ -286,13 +338,35 @@ def main(argv=None) -> int:
         "All four URL/model flags are required together. Credentials are "
         "read only from the named environment variables; do not pass a key "
         "on the command line. The reviewed artifact cannot set these values.")
+    provider.add_argument(
+        "--semantic-provider-kind",
+        choices=["json_http", "openai_compatible"], default="json_http",
+        help=("'json_http' (default) speaks Verity's own "
+              "POST {base_url}/v1/verity/{candidate-generator,validator} "
+              "contract. 'openai_compatible' speaks POST "
+              "{base_url}/chat/completions, matching OpenRouter, OpenAI, "
+              "and most self-hosted OpenAI-compatible gateways."))
     provider.add_argument("--semantic-generator-url")
     provider.add_argument("--semantic-generator-model")
     provider.add_argument("--semantic-generator-api-key-env")
     provider.add_argument("--semantic-validator-url")
     provider.add_argument("--semantic-validator-model")
     provider.add_argument("--semantic-validator-api-key-env")
+    provider.add_argument(
+        "--semantic-validator-vote", action="append", default=[],
+        metavar="URL,MODEL,API_KEY_ENV",
+        help=("Add one more independent Validator vote from a DIFFERENT "
+              "model (repeatable, up to 4 additional votes on top of the "
+              "required --semantic-validator-* above -- 2-3 total votes "
+              "across different models is the recommended range). Every "
+              "candidate is judged by all configured validators and the "
+              "outcome is decided by majority; a tie becomes "
+              "insufficient_evidence. Comma-separated URL,MODEL,API_KEY_ENV "
+              "using the same --semantic-provider-kind wire contract as "
+              "the primary validator."))
     provider.add_argument("--semantic-timeout", type=float, default=30.0)
+    provider.add_argument("--semantic-max-output-tokens", type=int, default=800,
+                          help="only used with --semantic-provider-kind openai_compatible")
     pr.set_defaults(func=_cmd_review)
 
     pp=sub.add_parser("project",help="Trusted local Skill project history")

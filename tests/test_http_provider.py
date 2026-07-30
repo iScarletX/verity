@@ -339,8 +339,11 @@ def test_cli_catalog_first_provider_end_to_end_without_public_network(tmp_path):
         inp for inp in generator_inputs
         if inp["findingType"] == "semantic.catalog_sweep"
     ]
-    assert len(sweep_inputs) == 1
-    assert sweep_inputs[0]["findingCatalog"]
+    # One independent call per sweep-eligible Finding Type (not one packed
+    # call for all of them) -- this avoids a real model's attention being
+    # diluted across a large bundled catalog and silently dropping types.
+    assert len(sweep_inputs) > 1
+    assert all(len(inp["findingCatalog"]) == 1 for inp in sweep_inputs)
     assert all(
         inp["findingType"] == "semantic.catalog_sweep"
         or inp["findingType"].startswith("semantic.prompt.")
@@ -348,6 +351,213 @@ def test_cli_catalog_first_provider_end_to_end_without_public_network(tmp_path):
     )
     assert any(p.endswith("validator") for p in _SemanticHandler.seen_paths)
     assert set(_SemanticHandler.seen_authorization) == {"Bearer " + secret}
+    assert secret not in proc.stdout
+    assert secret not in proc.stderr
+    assert secret not in report_text
+
+
+class _OpenAICompatibleHandler(BaseHTTPRequestHandler):
+    """Minimal stand-in for OpenRouter/OpenAI's /chat/completions contract."""
+    seen_paths = []
+    seen_authorization = []
+
+    def do_POST(self):
+        size = int(self.headers.get("Content-Length", "0"))
+        wire = json.loads(self.rfile.read(size))
+        self.__class__.seen_paths.append(self.path)
+        self.__class__.seen_authorization.append(
+            self.headers.get("Authorization", ""))
+        user_content = wire["messages"][-1]["content"]
+        inp = json.loads(user_content)["input"]
+        if inp.get("findingType") == "semantic.catalog_sweep":
+            content = json.dumps({"candidates": []})
+        elif "candidate" in inp:
+            content = json.dumps({
+                "candidateId": inp["candidate"]["candidateId"],
+                "decision": "confirmed",
+                "reasonCodes": ["evidence_supports_claim"],
+            })
+        else:
+            evidence = inp.get("evidence") or []
+            if (inp.get("findingType") == "semantic.prompt.instruction_conflict"
+                    and len(evidence) >= 2):
+                content = json.dumps({"candidates": [{
+                    "proposedCandidateId": "remote-proposal",
+                    "findingType": inp["findingType"],
+                    "subject": {"conflictKind": "contradictory_directive"},
+                    "claim": "Controlled semantic candidate.",
+                    "evidenceIds": [evidence[0]["evidenceId"],
+                                    evidence[1]["evidenceId"]],
+                }]})
+            else:
+                content = json.dumps({"candidates": []})
+        payload = {"choices": [{"message": {"content": content}}]}
+        raw = json.dumps(payload).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def log_message(self, *_args):
+        pass
+
+
+def test_cli_openai_compatible_provider_kind_speaks_chat_completions(tmp_path):
+    """--semantic-provider-kind openai_compatible must hit /chat/completions,
+    not Verity's custom /v1/verity/* contract -- this is the wire shape real
+    hosted providers (OpenRouter, OpenAI, self-hosted gateways) actually
+    serve."""
+    _OpenAICompatibleHandler.seen_paths = []
+    _OpenAICompatibleHandler.seen_authorization = []
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _OpenAICompatibleHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    secret = "VERITY_TEST_ONLY_OPENAI_COMPAT_VALUE"
+    try:
+        root = Path(__file__).parent.parent
+        base = f"http://127.0.0.1:{server.server_port}"
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(root / "src")
+        env["VERITY_TEST_PROVIDER_KEY"] = secret
+        proc = subprocess.run([
+            sys.executable, "-m", "verity.cli", "review",
+            "--engine", "prompt", "--semantic",
+            "--egress-policy", "redacted_evidence",
+            "--semantic-provider-kind", "openai_compatible",
+            "--semantic-generator-url", base,
+            "--semantic-generator-model", "generator-test",
+            "--semantic-generator-api-key-env", "VERITY_TEST_PROVIDER_KEY",
+            "--semantic-validator-url", base,
+            "--semantic-validator-model", "validator-test",
+            "--semantic-validator-api-key-env", "VERITY_TEST_PROVIDER_KEY",
+            "--text",
+            'Rule: return JSON with a required "status" field.\n'
+            'Example: {"state":"ok"}.',
+            "--out", str(tmp_path),
+        ], cwd=root, env=env, capture_output=True, text=True, timeout=30)
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert proc.returncode == 0, proc.stderr
+    assert "semantic=completed" in proc.stdout
+    report_text = (tmp_path / "report.json").read_text()
+    report = json.loads(report_text)
+    assert report["semantic"]["status"] == "completed"
+    assert report["capabilities"]["semantic"]["status"] == "completed"
+    assert _OpenAICompatibleHandler.seen_paths
+    assert all(p.endswith("/chat/completions")
+               for p in _OpenAICompatibleHandler.seen_paths)
+    assert set(_OpenAICompatibleHandler.seen_authorization) == {
+        "Bearer " + secret}
+    assert secret not in proc.stdout
+    assert secret not in proc.stderr
+    assert secret not in report_text
+
+
+class _DissentingValidatorHandler(BaseHTTPRequestHandler):
+    """A second OpenAI-compatible validator model that always REJECTS,
+    disagreeing with _OpenAICompatibleHandler's always-CONFIRM validator --
+    used to prove --semantic-validator-vote actually reaches a second
+    Provider and its vote is counted."""
+    seen_paths = []
+
+    def do_POST(self):
+        size = int(self.headers.get("Content-Length", "0"))
+        wire = json.loads(self.rfile.read(size))
+        self.__class__.seen_paths.append(self.path)
+        user_content = wire["messages"][-1]["content"]
+        inp = json.loads(user_content)["input"]
+        if "candidate" in inp:
+            content = json.dumps({
+                "candidateId": inp["candidate"]["candidateId"],
+                "decision": "rejected",
+                "reasonCodes": ["evidence_contradicts_claim"],
+            })
+        else:
+            content = json.dumps({"candidates": []})
+        payload = {"choices": [{"message": {"content": content}}]}
+        raw = json.dumps(payload).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(raw)))
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def log_message(self, *_args):
+        pass
+
+
+def test_cli_semantic_validator_vote_flag_wires_a_second_validator(tmp_path):
+    """--semantic-validator-vote must add a genuinely independent second
+    Validator Provider whose vote is counted in the majority decision, not
+    just accepted as a CLI flag with no effect."""
+    _OpenAICompatibleHandler.seen_paths = []
+    _OpenAICompatibleHandler.seen_authorization = []
+    _DissentingValidatorHandler.seen_paths = []
+    confirm_server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), _OpenAICompatibleHandler)
+    reject_server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), _DissentingValidatorHandler)
+    confirm_thread = threading.Thread(
+        target=confirm_server.serve_forever, daemon=True)
+    reject_thread = threading.Thread(
+        target=reject_server.serve_forever, daemon=True)
+    confirm_thread.start()
+    reject_thread.start()
+    secret = "VERITY_TEST_ONLY_VOTE_VALUE"
+    try:
+        root = Path(__file__).parent.parent
+        confirm_base = f"http://127.0.0.1:{confirm_server.server_port}"
+        reject_base = f"http://127.0.0.1:{reject_server.server_port}"
+        env = dict(os.environ)
+        env["PYTHONPATH"] = str(root / "src")
+        env["VERITY_TEST_PROVIDER_KEY"] = secret
+        proc = subprocess.run([
+            sys.executable, "-m", "verity.cli", "review",
+            "--engine", "prompt", "--semantic",
+            "--egress-policy", "redacted_evidence",
+            "--semantic-provider-kind", "openai_compatible",
+            "--semantic-generator-url", confirm_base,
+            "--semantic-generator-model", "generator-test",
+            "--semantic-generator-api-key-env", "VERITY_TEST_PROVIDER_KEY",
+            "--semantic-validator-url", confirm_base,
+            "--semantic-validator-model", "validator-confirm",
+            "--semantic-validator-api-key-env", "VERITY_TEST_PROVIDER_KEY",
+            "--semantic-validator-vote",
+            f"{reject_base},validator-reject,VERITY_TEST_PROVIDER_KEY",
+            "--text",
+            'Rule: return JSON with a required "status" field.\n'
+            'Example: {"state":"ok"}.',
+            "--out", str(tmp_path),
+        ], cwd=root, env=env, capture_output=True, text=True, timeout=30)
+    finally:
+        confirm_server.shutdown()
+        confirm_server.server_close()
+        confirm_thread.join(timeout=5)
+        reject_server.shutdown()
+        reject_server.server_close()
+        reject_thread.join(timeout=5)
+
+    assert proc.returncode == 0, proc.stderr
+    assert "semantic=completed" in proc.stdout
+    report_text = (tmp_path / "report.json").read_text()
+    report = json.loads(report_text)
+    assert report["semantic"]["status"] == "completed"
+    # The second Provider was genuinely called.
+    assert _DissentingValidatorHandler.seen_paths
+    # One vote confirmed, one rejected -> tie -> insufficient_evidence, not
+    # silently defaulting to either side.
+    assessments = report["semantic"]["assessments"]
+    assert assessments
+    assert assessments[0]["state"] == "insufficient_evidence"
+    assert assessments[0]["reasonCodes"] == ["vote_split"]
+    assert len(assessments[0]["votes"]) == 2
+    assert {v["state"] for v in assessments[0]["votes"]} == {
+        "confirmed", "rejected"}
+    assert not report["semantic"]["findings"]
     assert secret not in proc.stdout
     assert secret not in proc.stderr
     assert secret not in report_text

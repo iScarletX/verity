@@ -22,8 +22,8 @@
       "detail": "The engineering preview does not claim evaluated detection accuracy; unified-risk breadth remains none/signal/partial and is reported honestly in every review."
     },
     {
-      "code": "semantic_review_experimental_default_off",
-      "detail": "Controlled semantic review is experimental, default-off and below its frozen protocol Selection gate as last measured; it is not part of the deterministic release scope."
+      "code": "semantic_review_experimental_quality_unproven",
+      "detail": "Controlled semantic review is attempted by default when a Provider is configured, but its accuracy remains experimental and below its frozen protocol Selection gate as last measured; it is not part of the deterministic release scope."
     }
   ],
   "engineeringChecks": {
@@ -81,7 +81,7 @@
     "evaluatedLayerCount": 0,
     "l0LabelStatuses": {
       "independent_ai_review": 26,
-      "provisional_single_review": 54
+      "provisional_single_review": 58
     },
     "sealedTestConsumed": false,
     "semanticLabelStatuses": {

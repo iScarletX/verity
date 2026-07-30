@@ -261,9 +261,39 @@ def _run_browser_scenario(scenario):
     return json.loads(result.stdout)
 
 
+class _EmptyWebCredentials:
+    """Never-real-Keychain credential store for tests. Semantic review is
+    attempted automatically whenever a Provider resolves from ANY source
+    (request fields or persisted settings), so any test app instance that
+    does not inject an isolated credential store would otherwise inherit
+    whatever the CURRENT MACHINE'S real macOS Keychain happens to hold from
+    an unrelated manual/real-Provider session -- which can make a plain
+    `/api/review/prompt` call silently fire a REAL outbound network request
+    to a real Provider. See docs/LESSONS.md's Round-65 entry on this exact
+    hazard."""
+
+    def save_key(self, value):
+        raise AssertionError("this test credential store must remain empty")
+
+    def load_key(self):
+        return None
+
+    def has_key(self):
+        return False
+
+    def delete_key(self):
+        return None
+
+
 @pytest.fixture
-def client():
-    app = create_app(store_capacity=8, store_ttl_seconds=60)
+def client(tmp_path):
+    from verity.web.provider_settings import (
+        ProviderPreferenceStore, ProviderSettingsStore)
+    provider_settings = ProviderSettingsStore(
+        ProviderPreferenceStore(tmp_path / "provider"), _EmptyWebCredentials())
+    app = create_app(store_capacity=8, store_ttl_seconds=60,
+                     history_root=tmp_path / "history",
+                     provider_settings_store=provider_settings)
     with TestClient(app, base_url="http://127.0.0.1") as c:
         yield c
 
@@ -657,9 +687,16 @@ class TestReportDownload:
             body = client.get(f"/api/report/{rid}/report.{fmt}").text
             assert "VERITY_FAKE_SECRET_ABCDEFGH12345678" not in body
 
-    def test_lru_evicts_oldest(self):
+    def test_lru_evicts_oldest(self, tmp_path):
         # Fill beyond capacity and verify old ids 404.
-        app = create_app(store_capacity=2, store_ttl_seconds=60)
+        from verity.web.provider_settings import (
+            ProviderPreferenceStore, ProviderSettingsStore)
+        provider_settings = ProviderSettingsStore(
+            ProviderPreferenceStore(tmp_path / "provider"),
+            _EmptyWebCredentials())
+        app = create_app(store_capacity=2, store_ttl_seconds=60,
+                         history_root=tmp_path / "history",
+                         provider_settings_store=provider_settings)
         with TestClient(app, base_url="http://127.0.0.1") as c:
             ids = []
             for _ in range(4):

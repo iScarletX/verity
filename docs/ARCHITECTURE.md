@@ -181,13 +181,31 @@
 - **Candidate strategy**: product CLI/Web review uses `catalog_first`.
   Structured positive facts create catalog hypotheses; structured safe controls
   can gate off model candidate generation. Prompt types with no deterministic
-  seed receive one bounded whole-prompt pass against only the registered
-  type/subject catalog. The sweep cannot invent evidence or severity, and every
-  accepted candidate still reaches the independent Validator. `model_only` is
+  seed each receive their OWN independent bounded whole-prompt pass against
+  only that single registered type/subject catalog entry -- not one call
+  packed with every no-seed type, which was found to silently starve some
+  types of a real model's attention as the catalog grew. The sweep cannot
+  invent evidence or severity, and every accepted candidate still reaches the
+  independent Validator (which may itself be backed by more than one
+  Provider for majority voting -- see below). `model_only` is
   reserved for controlled Provider benchmarks and transport tests so model
   quality remains measurable without changing the product precision policy.
   The comparison CLI defaults to `catalog_first`, and the selected strategy is
   included in both the configuration fingerprint and the budget sidecar.
+- **Validator majority voting**: the Validator role may be backed by more
+  than one independently configured Provider (2-3 different models is the
+  recommended range, matching Butler's own multi-model vote design). Every
+  candidate is judged by all configured Validator votes; the aggregate
+  decision is the three-state majority (`confirmed`/`rejected`/
+  `insufficient_evidence`). A tie (e.g. 1-1 with two voters) becomes
+  `insufficient_evidence` with a synthesized `vote_split` reason code rather
+  than being silently resolved either way. A vote whose own call fails
+  (timeout, malformed output) does not count toward the majority denominator
+  -- mirrors the "provider errors don't vote" rule from the label-review
+  consensus protocol (`semantic_benchmark.py::_independent_review_consensus`)
+  -- and does not by itself flip the overall run status to `failed` if the
+  remaining votes still reach a real majority. The default `validators=[validator]`
+  (a single Provider) preserves the pre-voting single-model behaviour exactly.
 - **Evidence projection**: deterministic and completed-semantic Findings remain
   physically separate in the Review object, but the read-only report consumer
   joins both evidence pools. Web source highlighting, remediations, JSON, HTML,

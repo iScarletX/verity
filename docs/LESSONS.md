@@ -14,6 +14,100 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-29 — A deterministic-only "structural padding" detector can be too broad on realistic safe prompts
+
+- **Symptom**: NeMo-Guardrails' `context_bloat_detection` (Shannon entropy +
+  longest-single-character-run + n-gram repetition ratio) looked like a
+  clean, dependency-free port for a padding-attack detector. Before writing
+  any code, a false-positive check against a REALISTIC long system prompt
+  (many short, differently-worded bullet rules, e.g. "Rule: Always confirm
+  identity before rule N actions." repeated with a different N) measured a
+  3-gram repetition ratio of 0.69-0.87 — well past NeMo's own default
+  `max_repetition_ratio=0.4` — essentially overlapping with an actual
+  padding attack's 0.97-0.98. The longest-run check has the same problem:
+  an ordinary markdown horizontal rule (`----------`) triggers it too.
+- **Root cause**: The upstream project's default thresholds were tuned for
+  its own use case (a live LLM input/retrieval rail with different traffic
+  characteristics), not validated against Verity's own realistic long
+  system-prompt shapes before being treated as a portable signature.
+- **Fix**: Rejected the port rather than shipping a broad detector; recorded
+  the specific quantitative false-positive evidence in
+  `docs/oss-mining-notes.md` instead of silently skipping it.
+- **Prevention**: Before porting ANY OSS detector — even a fully
+  deterministic, dependency-free one — run it against a realistic SAFE
+  fixture representative of what Verity actually reviews, not just the
+  upstream project's own attack examples. A pattern with real attack value
+  but no false-positive check is not ready to port; measure both sides
+  before deciding, and write down the numbers that killed it, not just "too
+  broad."
+- **Evidence**: `docs/oss-mining-notes.md` §4 (NeMo-Guardrails), rejected
+  `context_bloat_detection` candidate.
+
+### 2026-07-29 — A single failed vote must not poison an aggregate that still has a majority
+
+- **Symptom**: With multi-Validator voting enabled, a candidate that two out
+  of three voters correctly confirmed still made the WHOLE semantic run
+  report `status: failed`, because one voter's transient HTTP error
+  independently set `result.status = "failed"` before the three votes were
+  ever aggregated. The final assessment was correctly `confirmed`, but the
+  run-level status contradicted it.
+- **Root cause**: The single-Validator code this was refactored from set
+  `result.status`/`reasonCode` directly inside the per-call helper, which
+  was correct when there was only ever one vote (a failed call was always
+  the final word). After adding multiple votes, that per-vote side effect
+  was never removed, so any one voter's noise could override a majority the
+  other voters still reached.
+- **Fix**: `_cast_validator_vote` no longer sets `result.status` on a
+  per-vote failure (except a genuine `run_budget_exhausted` signal, which
+  really is global). Only the AGGREGATE state, computed once after every
+  vote is collected, decides whether the run-level status reflects failure.
+- **Prevention**: When turning a "single attempt, its own outcome is final"
+  code path into "N independent attempts aggregated by majority", audit
+  every side effect the single-attempt code had for whether it's still
+  correct once failure of one attempt no longer implies failure of the
+  whole. Test the specific case: majority succeeds despite one failure.
+- **Evidence**: `orchestrator.py::_cast_validator_vote`,
+  `test_failed_voter_does_not_count_toward_majority`.
+
+### 2026-07-29 — A candidate-generator call packed with many Finding Types silently drops some of them
+
+- **Symptom**: Real-model testing (not a synthetic fixture) against a
+  realistic system prompt found up to 17 of 25 prompt-engine semantic
+  Finding Types produced zero candidates on a single review, including
+  types whose deterministic extractor had a real lexical seed pointing at
+  a genuine risk. The model's response validated against schema and named
+  real Finding Types, so nothing failed loudly -- it simply stopped
+  proposing for a subset of the requested types with no error signal.
+- **Root cause**: The no-seed "catalog sweep" packed every sweep-eligible
+  Finding Type's taxonomy into ONE candidate-generator call and asked the
+  model to propose at most one candidate per type. Under a real model this
+  degrades as the packed catalog grows: attention is diluted across many
+  simultaneous judgment tasks in one context, and the model quietly
+  under-reports rather than erroring.
+- **Fix**: Split the sweep into one independent call per sweep-eligible
+  Finding Type. Call volume rises (one call per no-seed type instead of
+  one shared call) but the per-review budget was raised to comfortably
+  cover the full registered catalog. A second, related bug surfaced by the
+  same testing: some models echoed the input's `subjectTaxonomy.fields`
+  array shape back into `subject` (e.g. `{"fields":[{"gapKind":"x"}]}`
+  instead of the required flat `{"gapKind":"x"}`), which schema-validation
+  correctly rejected as `catalog_sweep_output_violation` -- fixed by making
+  the flat-object requirement explicit in the instruction text instead of
+  leaving it implicit in the schema alone.
+- **Prevention**: A synthetic fixture that always uses the same short
+  phrasing cannot surface this class of bug -- it only appears with a long,
+  realistic, multi-risk document under a real model. Before trusting a
+  "propose N things in one call" design at any catalog size, test it
+  against a real model with a genuinely long/dense document, not just a
+  short synthetic one. When a request's own JSON shape contains a
+  field-list structure the model must not imitate in its output, say so
+  explicitly in the instruction, even if the schema also forbids it --
+  models pattern-match on the input's shape.
+- **Evidence**: `orchestrator.py` sweep loop (one call per Finding Type),
+  `egress.py::build_catalog_sweep_request`/`build_generator_request`
+  instruction text (explicit flat-`subject` requirement),
+  `test_catalog_sweep_recovers_registered_type_without_lexical_seed`.
+
 ### 2026-07-27 — A green suite does not cover an unasked concurrency boundary
 
 - **Symptom**: The full suite and repository gate passed, but pre-merge review

@@ -805,6 +805,29 @@ _INVISIBLE_CHARS = re.compile(
     rb"|\xf3\xa0[\x80\x81][\x80-\xbf]"
 )
 
+# Round-2 OSS mining: Microsoft PyRIT's VariationSelectorSmugglerConverter and
+# SneakyBitsSmugglerConverter (pyrit/converter/token_smuggling/, MIT license)
+# demonstrate two additional invisible-channel data-smuggling encodings that
+# the Round-47 invisible_char coverage above does not catch: (1) Unicode
+# Variation Selectors VS1-16 (U+FE00-FE0F) and the VS supplement
+# (U+E0100-E01EF), which PyRIT uses to hide an arbitrary UTF-8 byte payload
+# per selector -- one byte per character, so a hidden instruction of any
+# length becomes a long RUN of these codepoints; and (2) the "invisible
+# math operator" characters U+2061-2065 (FUNCTION APPLICATION / INVISIBLE
+# TIMES / INVISIBLE SEPARATOR / INVISIBLE PLUS / reserved), which PyRIT's
+# "sneaky bits" converter repurposes as an invisible binary alphabet (8
+# characters encode 1 byte). A single stray variation selector on a visible
+# emoji (e.g. "❤️") is completely normal text, so this is only
+# flagged as a RUN of >=4 consecutive channel characters -- long enough to
+# carry a real payload, short enough to almost never occur by accident.
+_INVISIBLE_RUN_CHAR = (
+    rb"(?:\xef\xb8[\x80-\x8f]"           # VS1-16 (U+FE00-FE0F)
+    rb"|\xf3\xa0[\x84-\x86][\x80-\xbf]"  # VS supplement part 1 (U+E0100-E017F)
+    rb"|\xf3\xa0\x87[\x80-\xaf]"         # VS supplement part 2 (U+E0180-E01EF)
+    rb"|\xe2\x81[\xa1-\xa5])"            # invisible math operators U+2061-2065
+)
+_INVISIBLE_RUN = re.compile(_INVISIBLE_RUN_CHAR + rb"{4,}")
+
 
 def prompt_control_character(ctx: RuleContext) -> List[RuleHit]:
     """Flag control chars / bidi-override chars in a prompt.
@@ -814,6 +837,10 @@ def prompt_control_character(ctx: RuleContext) -> List[RuleHit]:
     - Severity MEDIUM: bidi override in particular is a documented
       prompt-injection vector, but the mere presence of a stray ESC is
       more likely a copy/paste accident. The claim text says so.
+    - A RUN of >=4 consecutive variation-selector / invisible-math-operator
+      characters (PyRIT's variation-selector / "sneaky bits" smuggling
+      channels) is reported once per run under ``invisible_char`` as well;
+      a single stray selector on a visible emoji is not flagged.
     """
     out: List[RuleHit] = []
     prod = Producer(componentId=ctx.rule.ruleId,
@@ -838,6 +865,19 @@ def prompt_control_character(ctx: RuleContext) -> List[RuleHit]:
             }
             out.append(RuleHit(evidences=[ev], subject=subject))
         for m in _INVISIBLE_CHARS.finditer(data):
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(m.start(), m.end()),
+                raw_bytes=m.group(0), producer=prod,
+            )
+            subject = {
+                "artifactPath": f.normalizedPath,
+                "controlCategory": "invisible_char",
+            }
+            out.append(RuleHit(evidences=[ev], subject=subject))
+        for m in _INVISIBLE_RUN.finditer(data):
             ev = make_source_span_evidence(
                 snapshot_id=ctx.snapshot.snapshotId,
                 file_id=f.fileId, artifact_path=f.normalizedPath,
@@ -2271,23 +2311,54 @@ def prompt_output_budget_conflict(ctx: RuleContext) -> List[RuleHit]:
 # --- P22: autonomy + high-impact action without approval ----------------
 
 _AUTONOMY_MANDATE = re.compile(
-    r"\b(?:act|work|operate)\s+(?:proactively|autonomously)\b"
-    r"|\b(?:proactively|autonomously)\s+(?:act|work|operate|decide|execute)\b"
-    r"|主动工作|主动执行|自主执行|自主操作|自行决定|自行处理",
+    r"\b(?:act|work|operate|perform|function)\s+(?:proactively|autonomously)\b"
+    r"|\b(?:proactively|autonomously)\s+(?:act|work|operate|decide|execute|perform)\b"
+    r"|\bact\s+immediately\b"
+    r"|\btake\s+independent\s+action\b"
+    r"|\bself-manage\b"
+    r"|\bwithout\s+(?:asking|waiting\s+for|escalating(?:\s+to)?|confirming|"
+    r"checking\s+with)\b"
+    r"|\b(?:do|does)\s+not\s+(?:need\s+to\s+)?ask\b|\bdon't\s+ask\b"
+    r"|\bno\s+need\s+to\s+(?:ask|confirm|escalate|wait)\b"
+    r"|\b(?:on\s+your\s+own|at\s+your\s+discretion|"
+    r"use\s+your\s+(?:best\s+)?judg[e]?ment)\b"
+    r"|\bwithout\s+(?:human|manual)\s+(?:review|approval|intervention)\b"
+    r"|\binstead\s+of\s+(?:stopping|waiting)\s+to\s+ask\b"
+    r"|\b(?:function|operate|act|work|decide|manage|handle)\s+independently\b"
+    r"|\bindependently\s+(?:function|operate|act|work|decide|handle|manage)\b"
+    r"|\bmanage\s+\w+\s+independently\b"
+    r"|主动工作|主动执行|自主执行|自主操作|自行决定|自行处理|自主判断|自行判断"
+    r"|无需(?:询问|上报|等待|确认)|不(?:用|必|要)(?:询问|上报|等待|确认)|"
+    r"不(?:用|必|要)等(?:人工|用户)?(?:审核|确认|批准|同意)"
+    r"|酌情处理|凭(?:你的|自己的|)判断",
     re.IGNORECASE,
 )
 _HIGH_IMPACT_ACTION = re.compile(
-    r"\b(?:delete|remove)\s+(?:files?|records?|data|accounts?)\b"
-    r"|\b(?:publish|deploy)\s+(?:changes?|content|releases?)\b"
+    r"\b(?:delet(?:e|ing)|remov(?:e|ing)|eliminat(?:e|ing)|clear(?:ing)?\s+away)\s+"
+    r"(?:\w+\s+){0,2}(?:files?|records?|data|accounts?|documents?)\b"
+    r"|\bget(?:ting)?\s+rid\s+of\s+(?:\w+\s+){0,2}"
+    r"(?:files?|records?|data|documents?)\b"
+    r"|\b(?:publish(?:ing)?|deploy(?:ing)?|releas(?:e|ing))\s+"
+    r"(?:changes?|content|releases?|updates?|revisions?)\b"
     r"|\bsend\s+(?:messages?|emails?|notifications?)\b"
     r"|\b(?:purchase|pay|charge)\b"
     r"|\b(?:modify|write|overwrite)\s+(?:files?|settings?|configuration|records?)\b"
     r"|\b(?:run|execute)\s+(?:commands?|scripts?)\b"
+    r"|\b(?:restart|scale(?:\s+up|\s+down)?|roll\s*back)\s+(?:the\s+)?"
+    r"(?:services?|deployments?|releases?)\b"
+    r"|\bmodify\s+(?:kubernetes|k8s)\s+configs?\b"
+    r"|\b(?:issue|process|approve)\s+(?:a\s+)?refunds?\b|\brefund\s+(?:the\s+)?"
+    r"(?:customer|buyer|user)\b"
+    r"|\b(?:open|merge)\s+(?:a\s+)?pull\s+requests?\b"
+    r"|\b(?:push|commit)\s+(?:code|changes)\b"
+    r"|\bexecute_wire_transfer\b|\bwire\s+transfers?\b"
     r"|删除(?:文件|记录|数据|账户)|移除(?:文件|记录|数据)"
     r"|发布(?:变更|内容|版本)|部署(?:变更|版本|服务)"
     r"|发送(?:消息|邮件|通知)|购买|付款|扣款"
     r"|修改(?:文件|设置|配置|记录)|写入(?:文件|设置|配置|记录)"
-    r"|执行(?:命令|脚本)",
+    r"|执行(?:命令|脚本)"
+    r"|重启(?:服务)?|扩容|缩容|回滚(?:服务|版本)?"
+    r"|(?:办理|发起|处理)?退款|合并(?:代码|PR|拉取请求)|提交代码|推送代码",
     re.IGNORECASE,
 )
 _APPROVAL_BOUNDARY = re.compile(
@@ -2405,6 +2476,87 @@ def prompt_failure_strategy_missing(ctx: RuleContext) -> List[RuleHit]:
     return out
 
 
+# --- P24: system-prompt / hidden-instruction extraction request ---------
+
+# Round-2 OSS mining: Microsoft PyRIT's StaticPromptInjectionScorer
+# (pyrit/score/true_false/regex/static_prompt_injection_scorer.py, MIT
+# license) includes a "System Prompt Extraction" / "Prompt Leaking" pattern
+# family that is a genuinely different attack shape from
+# prompt.instruction_override_marker: it does not try to override the
+# instruction hierarchy, it asks the model to DISCLOSE it (OWASP LLM07
+# system-prompt leakage / sensitive-information-disclosure), a class Verity
+# previously had zero coverage for. Adapted (narrowed for precision, not
+# copied) from PyRIT's pattern -- PyRIT's own docstring says its version
+# "favors recall over precision and has a known high false-positive rate"
+# on unrelated prose; this rewrite requires a REQUEST VERB directly
+# governing a system/hidden-prompt NOUN within a short span (verb-object
+# adjacency), rather than PyRIT's independent 30-40-char wildcard gaps that
+# can span unrelated clauses.
+_PROMPT_EXTRACTION_REQUEST = re.compile(
+    rb"(?i)\b(?:reveal|show|display|print|output|dump|echo|repeat|leak|"
+    rb"tell\s+me)\b[^\n]{0,30}\b(?:your|the|this)\b[^\n]{0,20}"
+    rb"\b(?:system\s?prompt|system\s?message|system\s?instructions?|"
+    rb"initial\s?prompt|hidden\s?instructions?|original\s?prompt|"
+    rb"secret\s?(?:instructions?|prompt|rules?)|pre-?prompt)\b"
+    rb"|\bwhat\s+(?:is|are|was)\b[^\n]{0,20}\b(?:your|the)\b[^\n]{0,20}"
+    rb"\b(?:system\s?prompt|system\s?message|system\s?instructions?|"
+    rb"initial\s?prompt|hidden\s?instructions?|original\s?prompt)\b"
+)
+# Precision guard (Round-49 lesson: a marker that RAISES a finding needs a
+# same-keyword DEFENSE test): a request-shaped match preceded within a short
+# window by an explicit negation/refusal verb is the prompt correctly
+# instructing the model to REFUSE disclosure, not an attack asking for it.
+_PROMPT_EXTRACTION_NEGATED_BEFORE = re.compile(
+    rb"(?i)\b(?:do\s+not|don.t|never|must\s+not|should\s+not|"
+    rb"refuse\s+(?:any|to)|will\s+not|won.t|cannot|can.t)\b[^\n]{0,20}$"
+)
+
+
+def prompt_system_prompt_extraction_request(ctx: RuleContext) -> List[RuleHit]:
+    """Flag a request that asks the model to disclose its system prompt,
+    system message, or hidden/original instructions.
+
+    Boundaries:
+    - Verb-object adjacency only (a request VERB directly governing a
+      system/hidden-prompt NOUN within a short span); ordinary requests to
+      "show"/"print"/"display" unrelated content (a receipt, the weather,
+      a riddle answer) do not match the required noun phrase.
+    - A short negation window before the match (the prompt's OWN defensive
+      instruction, e.g. "do not reveal your system prompt") suppresses the
+      finding -- same precision bar as prompt.instruction_override_marker.
+    - Fenced/inline code excluded.
+    - Severity MEDIUM: the request itself does not prove the model will
+      comply, but it is a concrete, well-known LLM07 disclosure vector.
+    """
+    out: List[RuleHit] = []
+    prod = Producer(componentId=ctx.rule.ruleId,
+                    componentVersion=ctx.rule.ruleVersion,
+                    executionId=ctx.execution_id)
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        data = ctx.file_bytes.get(f.fileId, b"")
+        excluded = _excluded_ranges(data)
+        for m in _PROMPT_EXTRACTION_REQUEST.finditer(data):
+            if _in_ranges(m.start(), excluded):
+                continue
+            preceding = data[max(0, m.start() - 40):m.start()]
+            if _PROMPT_EXTRACTION_NEGATED_BEFORE.search(preceding):
+                continue
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(m.start(), m.end()),
+                raw_bytes=m.group(0), producer=prod,
+            )
+            out.append(RuleHit(evidences=[ev], subject={
+                "artifactPath": f.normalizedPath,
+                "extractionCategory": "system_prompt_extraction_request",
+            }))
+    return out
+
+
 # Skill rules live in a separate module so this file stays focused on the
 # engine mechanics and legacy examples.
 from . import skill_rules as _sr  # noqa: E402
@@ -2448,6 +2600,8 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.prompt.output_budget_conflict.v1": prompt_output_budget_conflict,
     "impl.prompt.autonomy_without_approval.v1": prompt_autonomy_without_approval,
     "impl.prompt.failure_strategy_missing.v1": prompt_failure_strategy_missing,
+    "impl.prompt.system_prompt_extraction_request.v1":
+        prompt_system_prompt_extraction_request,
     "impl.skill.fake_secret.v1": skill_secret_like_fixture,
     "impl.skill.dangerous_shell.v1": skill_dangerous_shell,
     "impl.skill.sensitive_path_access.v1": skill_sensitive_path_access,

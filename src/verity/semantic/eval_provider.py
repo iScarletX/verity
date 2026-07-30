@@ -64,7 +64,9 @@ def _schema_summary(role: str) -> str:
             '"decision":"confirmed|rejected|insufficient_evidence",'
             '"reasonCodes":["evidence_supports_claim|evidence_contradicts_claim|'
             'candidate_out_of_scope|not_enough_evidence|candidate_claim_unclear|'
-            'candidate_shape_invalid|biased_evidence_selection|insufficient_context"]}')
+            'candidate_shape_invalid|biased_evidence_selection|insufficient_context"],'
+            '"rationale":"one short sentence citing which evidence/policy clause '
+            'drove the decision (optional, max 400 chars)"}')
     return '{"assessment":"present|absent"}'
 
 
@@ -116,7 +118,10 @@ def _system_prompt(role: str) -> str:
             "evidence_supports_claim; rejected uses evidence_contradicts_claim, "
             "candidate_out_of_scope, candidate_shape_invalid, or "
             "biased_evidence_selection; insufficient_evidence uses not_enough_evidence, "
-            "candidate_claim_unclear, or insufficient_context. Never change the "
+            "candidate_claim_unclear, or insufficient_context. Always include a short "
+            "rationale naming the specific evidence span or policy clause that drove "
+            "the decision, so a human reviewer can audit disagreements without "
+            "rerunning the model. Never change the "
             "candidate, severity, evidence, or identity. Required shape: "
             + _schema_summary(role)
         )

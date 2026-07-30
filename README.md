@@ -18,8 +18,9 @@
 > evaluated detection accuracy, and its breadth limits are disclosed in every
 > review.
 >
-> The **controlled semantic (LLM-assisted) review is a separate, experimental,
-> default-OFF track and is NOT part of this release gate.** It remains
+> The **controlled semantic (LLM-assisted) review is a separate, experimental
+> track and is NOT part of this release gate**, even though it is attempted by
+> default when a trusted Provider is configured. It remains
 > `experimental_not_ready`: 54 non-sealed Corpus labels have independent dual-AI
 > review (not human expert review), protocol-v1 Selection was invalidated after
 > that review found two mislabeled artifacts, the first frozen protocol-v2
@@ -31,20 +32,21 @@
 >
 > High-confidence deterministic Prompt/Skill rules + controlled Bandit and
 > gitleaks integration + SARIF 2.1.0
-> export + a local Web MVP for non-technical users + an **experimental,
-> default-OFF controlled semantic-review path** (Evidence →
-> closed-catalog candidate sweep → Validator → CandidateAssessment →
-> semantic Finding)
+> export + a local Web MVP for non-technical users + an **experimental
+> controlled semantic-review path, attempted by default when a trusted
+> Provider is configured** (Evidence →
+> one independent candidate-sweep call per applicable Finding Type →
+> multi-Provider Validator vote → CandidateAssessment → semantic Finding)
 > with twenty-eight controlled semantic Finding Types, per-type judgment policy,
-> structured bounded evidence, one no-seed full-prompt recall pass constrained
-> to registered Finding Types/subjects, fixed contract replays, and an
+> structured bounded evidence, an independent full-prompt recall pass per
+> registered Finding Type/subject, fixed contract replays, and an
 > optional bounded JSON-over-HTTPS Provider adapter, plus a deterministic
 > explainable safety score / separate review-confidence grade / controlled
 > remediation-and-re-review projection.
 > Read-only V1. **Not** a sandbox, **not** a runtime evaluator. Semantic
-> calls occur only after explicit opt-in and trusted caller configuration;
-> opting in without complete configuration honestly returns
-> `provider_not_configured`.
+> calls occur only with trusted caller configuration and can be skipped
+> entirely (`--no-semantic`); running without complete configuration
+> honestly returns `provider_not_configured` rather than failing the run.
 
 ## Mission & roadmap (must not be lost)
 
@@ -64,7 +66,7 @@ Verity grows through these layers:
 
 | Version | Layer | Status |
 |---|---|---|
-| **V1** (this repo) | Deterministic static checks (release scope) + a separate experimental controlled semantic review | **Deterministic static auditor: `release_candidate` engineering preview (no evaluated-accuracy claim). Semantic review: experimental, default-off, `experimental_not_ready`, not in the release gate.** |
+| **V1** (this repo) | Deterministic static checks (release scope) + a separate experimental controlled semantic review | **Deterministic static auditor: `release_candidate` engineering preview (no evaluated-accuracy claim). Semantic review: experimental, attempted by default when configured, `experimental_not_ready`, not in the release gate.** |
 | **Local model layer** | Optional, offline, deterministic specialist-classifier adapter for semantic judgments static rules can't make (topic coherence, role-boundary ambiguity). Gitleaks-style degradable; distinct from the failed generic-LLM-judge line. | **On roadmap.** Needs founder go-ahead before installing heavy deps / downloading weights. |
 | **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) — the mission's *dynamic* checking | **Not yet implemented.** Foundations (standards, corpus, static/semantic breadth) come first. |
 | **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill — the mission's *execution-process* checking | **Not yet implemented.** |
@@ -127,9 +129,11 @@ Remediation is proposal-only and must pass a same-scope re-review. Advisory
 **V1 is strictly read-only.** It does NOT execute the skill under review,
 install its dependencies, start unknown services, call into review-target
 code, or recursively expand unknown nested archives. External semantic
-Provider calls are default-OFF and allowed only after explicit user opt-in,
-trusted endpoint/model/credential configuration, a non-`off` egress policy,
-and schema/payload/budget gates. ZIP and GitHub intake remain later gates.
+Provider calls are attempted by default whenever trusted endpoint/model/
+credential configuration is present, still gated on a non-`off` egress
+policy and schema/payload/budget gates; without configuration the run
+honestly reports `provider_not_configured`, and `--no-semantic` skips
+semantic review entirely. ZIP and GitHub intake remain later gates.
 
 **Scope invariants (from `01-Verity工程规格-v0.3.md`):**
 
@@ -171,7 +175,7 @@ report infrastructure but have separate rule registries. See
 - `gitleaks_adapter.py` — Redacted gitleaks results -> secret-sensitivity Evidence (§5.1 secret path). `redactedPreview = "[gitleaks:<ruleId>]"`; the raw secret never enters `occurrenceFingerprint`, subjectKey, JSON, HTML, SARIF or exceptions.
 - `sarif.py` — SARIF 2.1.0 exporter with byte-offset regions, stable partialFingerprints, no secret leakage. Coverage and other Verity-specific fields live in the run's properties bag under flat, namespaced keys (`run.properties["verity.coverage"]`, `run.properties["verity.reviewId"]`, `run.properties["verity.verdict.subject"]`, etc.) — not as a nested `run.properties.coverage` object.
 - `web/` — Local Web MVP (Starlette ASGI app). `python -m verity.web` binds `127.0.0.1` only. UI is Chinese-first, no external assets, no `innerHTML`, strict CSP. Every request routes into the same `run_review` pipeline.
-- `semantic/` — Experimental, default-OFF semantic-review scaffold. Two-role Provider protocol (candidate generator + validator), strict output schemas, controlled subject taxonomy, egress gate + payload audit, budgets. The deterministic engine never imports this module.
+- `semantic/` — Experimental semantic-review scaffold, attempted by default when configured. Two-role Provider protocol (candidate generator + validator, validator optionally multi-Provider for majority voting), strict output schemas, controlled subject taxonomy, egress gate + payload audit, budgets. The deterministic engine never imports this module.
 - `intake.py` — Safe intake (text + local directory) with path escape / symlink / budget / NUL guards
 - `review.py` — Orchestrator; `not_applicable` gate counts as OK for coverage.
 - `baseline.py` — Cross-version five-state diff; resolution requires the relevant parser/analyzer/rule execution scope, not merely global coverage.
@@ -611,24 +615,35 @@ in its docstring. Behavioural coverage is expected to grow as later
 phases land (bandit/semgrep/gitleaks integration, LLM egress, patch
 apply, etc.).
 
-## Semantic review (experimental, default OFF)
+## Semantic review (experimental, attempted by default)
 
-Round 8 introduces the plumbing for controlled LLM-assisted review that
-never mutates deterministic results:
+Controlled LLM-assisted review that never mutates deterministic results.
+It is attempted automatically whenever a trusted Provider is configured;
+without one, a run honestly reports `provider_not_configured` rather than
+silently skipping, and this does not by itself change the CLI exit code.
+Pass `--no-semantic` to skip it entirely.
 
-- Two Provider roles (`candidate_generator`, `validator`) with strict
-  JSON schemas and controlled subject taxonomy.
+- Two Provider roles: `candidate_generator` and `validator`, with strict
+  JSON schemas and controlled subject taxonomy. The candidate generator
+  issues one independent full-prompt call per applicable Finding Type that
+  produced no deterministic seed (not one call packed with every type —
+  packing was found to silently starve some types of a real model's
+  attention). The validator role may be backed by more than one
+  independently configured Provider (2-3 different models is the
+  recommended range); every candidate is judged by all configured
+  validators and the outcome is decided by majority vote — a tie becomes
+  `insufficient_evidence` rather than being resolved either way.
 - Data-egress policies:
   - `metadata_only` — send location + finding-type shape only, no snippet.
-  - `redacted_evidence` — also include a short byte-range snippet from
-    non-sensitive Evidence. `raw_full_artifact` is intentionally NOT
-    implemented in this round.
-  - `off` — default; also refuses to be paired with `enabled=True`.
+  - `redacted_evidence` — default; also include a short byte-range snippet
+    from non-sensitive Evidence. `raw_full_artifact` is intentionally NOT
+    implemented.
+  - `off` — refuses to be paired with `enabled=True`.
 - Verity re-derives `candidateId` from subject + evidence occurrence +
   snapshot id, so the provider cannot pin identity or downgrade a
   deterministic finding.
 - Severity in confirmed semantic findings comes only from the semantic
-  catalog's policy; the validator has no severity input.
+  catalog's policy; no validator vote has severity input.
 - Every outbound request is size-capped and its digest goes into a
   payload-audit trail. Sensitive Evidence and RedactionMap NEVER reach
   a Provider payload.
@@ -636,23 +651,23 @@ never mutates deterministic results:
   (bad JSON, extra fields, id spoofing, prompt injection targeting the
   pipeline). This is asserted by tests.
 
-CLI opt-in without Provider configuration remains an honest failed
-semantic axis (`provider_not_configured`):
+Without Provider configuration, the semantic axis honestly reports
+`provider_not_configured`; the run still exits 0 unless a High/Critical
+deterministic Finding is present:
 
 ```bash
-python3 -m verity.cli review --engine prompt --text "..." \
-    --semantic --egress-policy metadata_only
+python3 -m verity.cli review --engine prompt --text "..."
 ```
 
-To use the bounded JSON Provider, configure both roles explicitly. API
-keys are read from named environment variables and must not be placed on
-the command line:
+To configure a real Provider, set both roles explicitly. API keys are read
+from named environment variables and must not be placed on the command
+line:
 
 ```bash
 export VERITY_GENERATOR_KEY='...'
 export VERITY_VALIDATOR_KEY='...'
 python3 -m verity.cli review --engine prompt --text "..." \
-  --semantic --egress-policy redacted_evidence \
+  --egress-policy redacted_evidence \
   --semantic-generator-url https://trusted-provider.example \
   --semantic-generator-model generator-model \
   --semantic-generator-api-key-env VERITY_GENERATOR_KEY \
@@ -661,12 +676,22 @@ python3 -m verity.cli review --engine prompt --text "..." \
   --semantic-validator-api-key-env VERITY_VALIDATOR_KEY
 ```
 
+Add one or more extra Validator votes from different models with
+`--semantic-validator-vote URL,MODEL,API_KEY_ENV` (repeatable):
+
+```bash
+  --semantic-validator-vote https://trusted-provider.example,other-model,VERITY_VOTE2_KEY
+```
+
 Provider wire contract:
 
 - `POST <base_url>/v1/verity/candidate-generator`
 - `POST <base_url>/v1/verity/validator`
 - body: `{ "model": "...", "role": "...", "input": { ... } }`
 - response: the strict candidate-list or validation-result JSON object.
+- `--semantic-provider-kind openai_compatible` instead speaks
+  `POST {base_url}/chat/completions`, matching OpenRouter, OpenAI, and most
+  self-hosted OpenAI-compatible gateways — this is what the Web UI uses.
 
 Remote URLs must be HTTPS; loopback HTTP is allowed for a trusted local
 Provider. Redirects, streaming, retries, arbitrary headers, tool calls,
@@ -674,19 +699,20 @@ and raw full-artifact egress are not supported. Request/response sizes
 and timeouts are bounded. Provider error bodies are discarded rather
 than copied into reports.
 
-The local Web UI now has a loopback-only Provider configuration surface for
+The local Web UI has a loopback-only Provider configuration surface for
 the **experimental** semantic path: paste an OpenAI-compatible base URL
 (default OpenRouter) + API key, list models, and pick generator/validator
-models. “保存配置” persists the non-secret URL/model preferences in owner-only
+models (optionally more than one validator model for majority voting).
+“保存配置” persists the non-secret URL/model preferences in owner-only
 `.verity-data/web-provider.json` and stores the API key in the current macOS
 user's Keychain. The browser receives only `keySaved`; it never receives the
 stored key. During one review the key is copied into a random, transient
 environment variable and then cleared; it never enters config serialization,
 reports, SARIF, payload audit, logs, process arguments, or API responses. The
 Web path fixes semantic egress to `redacted_evidence` and Skill scanning to
-`standard`; stale clients cannot request the weaker modes. Semantic execution
-still requires the explicit enable checkbox. Enabling it without complete
-Provider fields returns an honest configuration error or
+`standard`; stale clients cannot request the weaker modes. Semantic review is
+attempted automatically once a Provider is configured — no separate enable
+action is needed. Without complete Provider fields it returns an honest
 `provider_not_configured`. Semantic results remain EXPERIMENTAL and have not
 passed the frozen protocol quality gate.
 

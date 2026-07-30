@@ -141,7 +141,13 @@ def _build_engine(name: str, *, bandit_runner=None, gitleaks_runner=None,
 
 def run_review(ri: ReviewInputs, *, bandit_runner=None,
                gitleaks_runner=None,
-               candidate_generator=None, validator=None) -> Review:
+               candidate_generator=None, validator=None,
+               validators=None) -> Review:
+    """``validators``, if given, is a list of independently configured
+    Validator Provider objects (e.g. 2-3 different models) that each cast
+    one vote per candidate; see ``SemanticOrchestrator.run``. ``validator``
+    (singular) remains supported and is equivalent to ``validators=[validator]``.
+    """
     if ri.profile not in SKILL_PROFILES:
         raise ValueError(f"unknown profile: {ri.profile}")
     engine = _build_engine(ri.engine, bandit_runner=bandit_runner,
@@ -211,7 +217,8 @@ def run_review(ri: ReviewInputs, *, bandit_runner=None,
         orch = SemanticOrchestrator(cfg)
         sem_result = orch.run(proj, ri.file_bytes,
                               generator=candidate_generator,
-                              validator=validator)
+                              validator=validator,
+                              validators=validators)
         semantic_view = _semantic_view(sem_result)
 
     return Review(

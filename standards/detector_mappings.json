@@ -513,6 +513,14 @@
     },
     {
       "detectorType": "deterministic_rule",
+      "detectorId": "prompt.system_prompt_extraction_request",
+      "riskIds": [
+        "VR-PROMPT-001"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
       "detectorId": "prompt.named_dangling_reference",
       "riskIds": [
         "VR-PROMPT-010"

@@ -98,14 +98,17 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
     ),
     "prompt.control_character": Guidance(
         id="prompt.control_character",
-        plainTitle="Prompt 内出现控制字符 / Unicode 双向覆盖字符",
+        plainTitle="Prompt 内出现控制字符 / Unicode 双向覆盖字符 / 隐形编码序列",
         whyItMatters=(
             "ASCII 控制字符通常是复制粘贴的意外；Unicode 双向覆盖（U+202A-2E 等）"
-            "是有据可查的提示词注入手段。"
+            "是有据可查的提示词注入手段；一连串（4个以上）Variation Selector 或"
+            "不可见数学运算符字符，是把任意数据编码进不可见字符里的隐蔽传输通道"
+            "（PyRIT 的 variation-selector / \"sneaky bits\" 数据夹带手法）。"
         ),
         whatToDo=[
             "打开原文用支持 Unicode 可视化的编辑器查看这段字节。",
             "如无必要就删除；如果确需 bidi 显示，改为纯 HTML/CSS 排版而不是在文本里插入控制符。",
+            "对于连续的不可见字符序列，视为可能藏有编码数据，删除后确认可见内容含义不变。",
         ],
         priority="P1",
     ),
@@ -350,6 +353,21 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
             "明确空结果、无权限、响应格式错误时是停止、降级还是请求用户处理。",
         ],
         priority="P2",
+    ),
+    "prompt.system_prompt_extraction_request": Guidance(
+        id="prompt.system_prompt_extraction_request",
+        plainTitle="文本要求模型泄露系统提示词/隐藏指令",
+        whyItMatters=(
+            "\"展示/输出/复述你的系统提示词（或隐藏指令）\"是已知的系统提示词泄露"
+            "攻击（OWASP LLM07）：系统提示词里如果混有密钥、内部规则或权限结构，"
+            "一旦被诱导吐出就会全部暴露。"
+        ),
+        whatToDo=[
+            "删除该请求，或在系统提示词中加入明确的拒绝披露指令。",
+            "不要把密钥、内部规则当作系统提示词里的\"安全边界\"——系统提示词本身"
+            "不应被当作机密，敏感信息应放在系统提示词之外的受保护存储中。",
+        ],
+        priority="P1",
     ),
 
     # Skill engine — manifest / metadata ------------------------------

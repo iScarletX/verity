@@ -1,4 +1,4 @@
-"""Semantic-review configuration (default OFF).
+"""Semantic-review configuration (default ON; still experimental quality).
 
 Configuration is a plain immutable object. It comes from the caller
 (CLI / Web MVP settings / an app that embeds Verity) and NEVER from the
@@ -119,14 +119,15 @@ class SemanticBudget:
     processing with an explicit reason code; deterministic results are
     unaffected."""
     # One call per applicable Finding Type that produced a deterministic
-    # seed. Keep this above the controlled catalog size so the default does
-    # not silently skip later types; the bound still caps future expansion.
-    max_candidate_generation_calls: int = 32
+    # seed, PLUS one full-prompt catalog-sweep call. Kept well above the
+    # controlled catalog size (28 types + 1 sweep) so the default does not
+    # silently skip later types; the bound still caps future expansion.
+    max_candidate_generation_calls: int = 64
     # Initial validation plus one bounded schema/identity repair attempt.
     max_validation_calls_per_candidate: int = 2
-    max_total_validation_calls: int = 32
+    max_total_validation_calls: int = 128
     max_candidates_per_extractor: int = 20
-    max_candidates_total: int = 64
+    max_candidates_total: int = 128
     max_evidence_per_candidate: int = 8
 
 
@@ -134,12 +135,16 @@ class SemanticBudget:
 
 @dataclass(frozen=True)
 class SemanticConfig:
-    """Top-level knob. ``enabled=False`` (default) means the semantic
-    plan items are recorded as ``not_requested_by_profile`` and no
-    Provider is even instantiated.
+    """Top-level knob. ``enabled=True`` (default) means the caller wants
+    semantic review attempted whenever a trusted Provider is configured.
+    Without a configured Provider (``provider_config`` empty), the run
+    still honestly reports ``provider_not_configured`` rather than
+    silently skipping. Semantic review's ACCURACY remains experimental
+    and unproven regardless of this execution default — see
+    ``closure.py``'s disclosed semantic-quality-track limitation.
     """
-    enabled: bool = False
-    egress_policy: EgressPolicy = "off"
+    enabled: bool = True
+    egress_policy: EgressPolicy = "redacted_evidence"
     provider_config: Dict[str, ProviderConfig] = field(default_factory=dict)
     budget: SemanticBudget = field(default_factory=SemanticBudget)
     # Which semantic FindingTypes to attempt. Empty = every registered
