@@ -106,7 +106,17 @@ Before committing:
 4. Update `plans/ACTIVE.md` — either mark the round done and move it
    to `plans/archive/`, or roll forward to the next active plan.
 5. Add a `docs/LESSONS.md` entry if anything surprising happened.
-6. Commit with a change-log-style message. Push. Confirm CI is green.
+6. If this round changed any user-facing behavior, mechanism, or
+   number that the founder-facing explainer documents describe
+   (`docs/project-explainer.html`, `docs/verity-manual-zh.html`, and
+   any successor explainer doc the founder is actively using), update
+   the affected section(s) in the SAME round — do not wait to be
+   asked. Treat these documents as part of the deliverable, the same
+   way `docs/PROGRESS.md` is. If a change is purely internal (no
+   effect on what a user sees, configures, or benchmarks), no
+   explainer update is needed — say so explicitly rather than
+   silently skipping it.
+7. Commit with a change-log-style message. Push. Confirm CI is green.
 
 ---
 
