@@ -18,14 +18,18 @@ verified_against:
 <!-- verify_repo.py: end verified_against block -->
 
 **Capability matrix.** Kept in sync with `verity/report.py::review_to_dict`.
-Strings below MUST match the runtime literals.
+Strings below MUST match the runtime literals. Since Round 67, semantic
+review is attempted by default whenever a trusted Provider is configured;
+`not_enabled` below names one possible runtime status value (e.g. an
+explicit `--no-semantic`), not the default outcome — an unconfigured run's
+default outcome is `failed`/`provider_not_configured`, per the same runtime.
 
-| Capability                          | Status            |
-|-------------------------------------|-------------------|
-| Static (deterministic) auditing     | `completed`       |
-| Semantic (LLM-assisted) auditing    | `not_enabled`     |
-| V1.5 Prompt black-box               | `not_implemented` |
-| V2 Skill isolated sandbox           | `not_implemented` |
+| Capability                          | Possible status                    |
+|-------------------------------------|-------------------------------------|
+| Static (deterministic) auditing     | `completed`                        |
+| Semantic (LLM-assisted) auditing    | `completed` / `failed` / `not_enabled` |
+| V1.5 Prompt black-box               | `not_implemented`                  |
+| V2 Skill isolated sandbox           | `not_implemented`                  |
 
 **Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 46 unified risks, 84 mapped runtime components (55 deterministic rules + 1 capability extractor + 28 semantic finding types) and four mature-tool decisions. Current L0 breadth: 19 none / 18 signal / 9 partial. Current L1 breadth: 16 none / 29 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
