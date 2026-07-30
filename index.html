@@ -1535,6 +1535,37 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
 <section id="changelog">
   <div class="section-eyebrow">第 7 章</div>
   <h2>本轮变更记录</h2>
+  <details class="section-collapse" open>
+    <summary>Round 68：语料独立复核、认证两轨拆分、UI 重新设计（点击展开）</summary>
+    <div class="sc-body">
+      <div class="note">
+        <div class="note-title">本节状态</div>
+        落地 commit <code>53ff91a</code> + <code>8e71fda</code>，<strong>测试套件：856 通过；<code>verify_repo.py</code>：PASS。</strong>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">1. 语料库独立复核 —— 61/84 案例现已独立验证</h3>
+        <ul>
+          <li>Pilot 实验确认：单个便宜模型（gpt-4o-mini）在信任边界类风险上存在系统性误判——同一案例，claude-3-haiku 判断正确，gpt-4o-mini 判断错误。因此正式跑批时强制要求 ≥ 2 个独立模型，多数决。</li>
+          <li>对 58 个 <code>provisional_single_review</code> 的 L0 案例完整跑了独立复核：<strong>35 个晋升为 <code>independent_ai_review</code></strong>（双模型与作者标注一致），20 个因两模型相互分歧而留在 provisional，3 个两模型均与作者不一致——人工核查后 2 个原作者正确、1 个保留为真实模糊案例。</li>
+          <li>新增 <code>src/verity/provisional_review.py</code> 和 <code>tools/run_provisional_review.py</code>，以及补充证明文件 <code>evals/reviews/corpus-v1-round67-provisional-review.json</code>。不修改已冻结的 Round-22 证明记录。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">2. 关闭策略 v2.1.0 —— "工程可信"与"生产级"两轨拆分</h3>
+        <ul>
+          <li><code>human_expert_review_absent</code> 是一个由创始人确认的常设政策现实（本项目不设人工专家复核计划），把它与其他四个"AI 可以关闭的卡点"堆在一起，让整条语义质量通道永远无法"通过"。</li>
+          <li>v2.1.0 拆成两个独立报告层：<code>engineeringVerifiedTier</code>（4 个 AI 可关闭的卡点，可以真正向 ready 推进）和 <code>productionTier</code>（全部 5 个，人工专家那条标注 <code>permanentlyUnreachableUnderCurrentPolicy: true</code>，诚实记录而不删除）。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">3. UI 重新设计</h3>
+        <ul>
+          <li>从真实浏览器走查出发，不是猜测：等待 69 秒无反馈、页面高度 4925px 平铺、卡片信息拥挤、无过渡等具体问题。</li>
+          <li>完整 CSS 设计系统重写（token 化的颜色/间距/排版比例）、骨架屏与结果布局一致、分步加载提示、诊断抽屉仅在语义失败时自动打开、Provider 配置面板重构为带状态药丸的分步设置流程。</li>
+        </ul>
+      </div>
+    </div>
+  </details>
   <details class="section-collapse">
     <summary>Round 67：语义审查默认开启、按类型独立扫描、多 Provider 投票、开源挖矿第二轮（点击展开）</summary>
     <div class="sc-body">
