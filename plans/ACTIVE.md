@@ -1,6 +1,9 @@
 # Active implementation: semantic breadth and Butler superiority gate
 
-Status: **Round 66 audit hardening complete; remote v6 and dynamic execution not started**
+Status: **Round 67 complete: semantic review attempted by default (Provider
+still required), per-Finding-Type independent sweep calls, multi-Provider
+Validator majority voting, 2 more OSS ports, paraphrase-coverage probe tool.
+Remote v6 and dynamic execution not started.**
 Owner authorization: 2026-07-23
 
 ## Goal

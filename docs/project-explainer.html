@@ -380,13 +380,12 @@ figcaption .src { color: var(--text-muted); }
 
   <div class="note">
     <div class="note-title">How to read this document</div>
-    Everything below was read out of the working tree at the time of writing — source files, the
+    Everything below was read out of the repository at the time of writing — source files, the
     machine-readable <code>standards/</code> taxonomy, and the reproducible reports under
     <code>evals/reports/</code>. Counts and mechanism descriptions are exact as of this session
-    (working tree on <code>main</code>, after commit <code>9c9ad2b</code>, with uncommitted
-    round-67 work present). Benchmark numbers carry their source file and their disclosed limits
-    inline — where a number is provisional or non-formal, it says so <em>next to the number</em>,
-    not in a footnote.
+    (branch <code>main</code> at commit <code>4287d43</code>, "Round 67"). Benchmark numbers carry
+    their source file and their disclosed limits inline — where a number is provisional or
+    non-formal, it says so <em>next to the number</em>, not in a footnote.
   </div>
 
   <div class="grid g4" style="margin-top:18px">
@@ -1012,10 +1011,10 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   <h3 style="margin-top:24px">5.1 Engineering acceptance (this is what the release decision rests on)</h3>
   <div class="grid g4">
     <div class="tile">
-      <div class="label">Tests collected</div>
-      <div class="value">786</div>
-      <div class="sub">786 passed · 0 skipped</div>
-      <div class="caveat">PROGRESS.md <code>verified_against</code>, commit <code>5b4691c7</code>, 2026-07-27</div>
+      <div class="label">Tests passing</div>
+      <div class="value">856</div>
+      <div class="sub">856 passed · <code>verify_repo.py</code> PASS</div>
+      <div class="caveat">Round 67 commit message, <code>4287d43</code>. PROGRESS.md's <code>verified_against</code> block still records the previous 786 / <code>5b4691c7</code> figure.</div>
     </div>
     <div class="tile">
       <div class="label">Engineering checks</div>
@@ -1042,8 +1041,10 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     <code>score_confidence_remediation</code>, <code>history_v1_v2_diff</code>,
     <code>security_boundaries</code>, <code>install_start_preflight</code> — each with named test
     evidence in the report. The 3 deferred items are V1.5 black-box, V2 sandbox, and Provider Web
-    productization. <em>The 786-test count predates this session's uncommitted work, which adds
-    further tests; treat it as the last verified figure rather than the current one.</em>
+    productization. <em>Note the doc/runtime skew: Round 67 reports 856 passing tests and a green
+    repo gate, while PROGRESS.md's <code>verified_against</code> block still carries 786 measured at
+    <code>5b4691c7</code> — that block is refreshed per round and lags by design, since a document
+    cannot know its own future commit hash.</em>
   </p>
 
   <h3 style="margin-top:26px">5.2 L0 deterministic corpus — a minimal <em>paired</em> baseline</h3>
@@ -1546,14 +1547,14 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
 
 <section id="session">
   <div class="section-eyebrow">Section 7</div>
-  <h2>This session's changes (round 67, working tree)</h2>
-  <div class="note caution">
+  <h2>This session's changes (Round 67)</h2>
+  <div class="note">
     <div class="note-title">Status of this section</div>
-    Written against the <strong>uncommitted working tree</strong> at the time of writing: 35 modified
-    tracked files (+2,536 / −640 lines) plus 4 new corpus case directories, a new dev tool, a new test
-    module and a new mining-notes document. The last commit is <code>9c9ad2b</code> ("Round 66: close
-    audit integrity gaps"), so none of the below is in git history yet and the
-    <code>verified_against</code> test count (786) predates it.
+    Researched against the working tree mid-session and finalized after the round landed as commit
+    <code>4287d43</code>, "Round 67: semantic review default-on, per-type sweep, multi-Provider voting,
+    OSS mining round 2" — 35 modified tracked files (+2,536 / −640 lines) plus 4 new corpus case
+    directories, a new dev tool, a new test module and a new mining-notes document.
+    <strong>Full suite: 856 passed; <code>verify_repo.py</code>: PASS.</strong>
   </div>
 
   <div class="card">
@@ -1717,8 +1718,15 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
         exactly as the test suite does.</li>
     </ul>
     <h4>What it actually found and fixed</h4>
+    <p>
+      Concrete keyword gaps in <code>prompt.autonomy_without_approval</code>, with a measured
+      before/after on <strong>held-out paraphrases: 0/5 → 7/10 hit rate</strong>
+      <span class="provisional">DEV DIAGNOSTIC</span> — this is a keyword-coverage probe on
+      LLM-generated paraphrases of a synthetic fixture, not an accuracy benchmark, and 7/10 is
+      explicitly not "70% recall on real prompts".
+    </p>
     <p style="margin-bottom:0">
-      Concrete keyword gaps in <code>prompt.autonomy_without_approval</code>. The rule needs two
+      The rule needs two
       independent signals (an autonomy mandate <em>and</em> a high-impact action) and is suppressed by an
       approval boundary in the same text — but its vocabulary missed common real phrasings. Added this
       session: to the <strong>autonomy mandate</strong> list,
@@ -1775,6 +1783,13 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
         <code>test_web_provider_config.py</code> (+172).</li>
       <li>3 new <code>docs/LESSONS.md</code> entries dated 2026-07-29 (the two bugs above plus the
         rejected NeMo port).</li>
+      <li><strong>A latent test-isolation hazard was closed.</strong> Several tests constructed the Web
+        app <em>without</em> an isolated Provider credential store, so they silently inherited whatever
+        the real macOS Keychain and <code>.verity-data</code> preferences on the running machine
+        happened to hold. One such test was discovered <strong>firing a real outbound Provider call
+        during this session's own verification pass</strong> — the exact class of accident the
+        isolation rules exist to prevent. Tests now inject an isolated credential store rather than
+        inheriting the user's real Keychain.</li>
     </ul>
   </div>
 </section>
@@ -1838,8 +1853,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   </div>
 
   <p class="footer-note">
-    Generated as a documentation deliverable for the project owner, from the working tree as of this
-    session (2026-07-29/30, after commit <code>9c9ad2b</code>, round-67 work uncommitted). Self-contained:
+    Generated as a documentation deliverable for the project owner, from the repository as of this
+    session (2026-07-29/30, branch <code>main</code> at commit <code>4287d43</code>). Self-contained:
     no external stylesheets, scripts, fonts, or images — it loads nothing over the network. Mechanism
     descriptions are precise to the code that was read; numbers carry their own source and limits.
     Because a concurrent workstream may still be adjusting files, treat the counts as a snapshot of
