@@ -1536,6 +1536,32 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   <div class="section-eyebrow">第 7 章</div>
   <h2>本轮变更记录</h2>
   <details class="section-collapse" open>
+    <summary>Round 69：正式跑第二次协议 v2 Selection —— not_eligible（点击展开）</summary>
+    <div class="sc-body">
+      <div class="note">
+        <div class="note-title">本节状态</div>
+        落地 commit <code>43b2537</code>，纯文档记录（本轮未改动任何代码路径）。
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">真实模型跑了一次冻结的 Selection，没通过</h3>
+        <ul>
+          <li>用 <code>anthropic/claude-opus-4.8-fast</code> 做生成器和校验器，对协议 v2 冻结的 14 案例
+            selection 分割跑了一次真实评测（重复 2 次，创始人已授权真实花费，估算 $2–3）。</li>
+          <li><strong>结果：<code>not_eligible</code></strong>。recall 0.846154（门槛 ≥0.90）和错误率 0.178571
+            （门槛 ≤0.05）两项未达标；安全误报率、稳定性、不确定率三项全部通过。</li>
+          <li>逐案例细看：失败<strong>集中在 8 个类型里的 2 个</strong>（<code>instruction_conflict</code>、
+            <code>declared_behavior_mismatch</code>），另外 6 个类型全部判断正确——不是全面偏弱，是两个具体
+            类型的问题，未来排查应该从这两个类型入手，不是重新审视整个语义层。</li>
+          <li>按 Round 24 定下的"Selection 一次性、不重跑不调参"规则，这个结果被诚实记录，不会因为没过就重跑。
+            这次用的是协议自身的 <code>model_only</code> 评测模式（测模型判断力上限），不是产品实际使用的
+            <code>catalog_first</code> 路径——针对产品配置的 Selection 仍是未来一个独立、尚未授权的数据点。</li>
+          <li><code>closure.py</code> 里 <code>accepted_real_model_selection_absent</code> 和
+            <code>sealed_semantic_test_unconsumed</code> 两个工程可关闭卡点仍然打开，本轮没有改变这一点。</li>
+        </ul>
+      </div>
+    </div>
+  </details>
+  <details class="section-collapse">
     <summary>Round 68：语料独立复核、认证两轨拆分、UI 重新设计（点击展开）</summary>
     <div class="sc-body">
       <div class="note">
@@ -2677,6 +2703,22 @@ consumers: {
         "规模：42 个案例（14 校准 / 14 selection / 14 封存）。",
         "首次冻结的 Selection 返回 <code>not_eligible</code>。它的 Selection 结果不会被重跑或重新调参；仅作为最初 7 个类型的历史证据保留。",
         "<strong>封存的 14 案例分割集始终未被消费。</strong>"
+      ]
+    },
+    {
+      v: "v2-第二次", num: "0.846", badge: "not_eligible", color: "warn",
+      lead: "Round 69：用 claude-opus-4.8-fast 对同一个 14 案例 selection 分割再跑一次，同样 not_eligible。",
+      detail: [
+        "规模：14 个 selection 案例，重复 2 次，生成器/校验器均为 <code>anthropic/claude-opus-4.8-fast</code>，" +
+        "<code>candidate_strategy=model_only</code>（协议自身设计的评测专用模式，测的是模型判断力上限，" +
+        "<strong>不是</strong>产品实际路径 <code>catalog_first</code>）。",
+        "recall <strong>0.846154</strong>（门槛 ≥0.90，未过），错误率 <strong>0.178571</strong>（门槛 ≤0.05，未过）。" +
+        "安全误报率 0.0、稳定性 0.928571、不确定率 0.0 —— 这三项全部通过。",
+        "<strong>失败集中在 8 个类型里的 2 个</strong>（<code>instruction_conflict</code> 和 " +
+        "<code>declared_behavior_mismatch</code>），另外 6 个类型在这次 selection 上全部判断正确。" +
+        "不是全面偏弱，是两个具体类型的问题。",
+        "按 Round 24 定下的规则，Selection 结果一次性记录、不重跑不调参。这不是第一次 Selection 的重考，" +
+        "是同一个封存分割在不同模型配置下的第二个独立数据点——两次都没过，但原因不同。"
       ]
     },
     {
