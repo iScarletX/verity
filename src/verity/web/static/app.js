@@ -698,16 +698,6 @@
       + "中 " + (c.medium || 0) + "，"
       + "低 " + (c.low || 0);
 
-    // Secret scan card
-    var secret = view.secretScan || {};
-    var st = secret.status;
-    var stText = "未运行";
-    if (st === "completed") stText = "已完成";
-    else if (st === "not_requested_by_profile") stText = "已明确关闭（minimal profile）";
-    else if (st === "not_applicable_engine") stText = "不适用（Prompt 引擎）";
-    else if (st) stText = "未完成（" + st + "）";
-    $("secret-status").textContent = stText;
-
     // Findings — ONE unified list mixing deterministic-rule and semantic
     // (model-suggested) findings; each item carries a small inline origin
     // tag, and a partial/incomplete semantic run's findings additionally
@@ -779,26 +769,40 @@
         card.appendChild(actionsWrap);
       }
 
+      // Original-text location: rendered directly inline on each finding
+      // (not in a separate scroll-to-match section), so the reader sees
+      // the exact source snippet right where the claim is made.
+      (f.evidences || []).forEach(function (ev) {
+        var locBox = mk("div", { className: "finding-location" });
+        locBox.appendChild(mk("div", { className: "muted", text:
+          (ev.artifactPath || "prompt.txt") + formatByteRange(ev) }));
+        var source = ev.sensitivity === "normal"
+          ? readSourceForEvidence(ev) : "";
+        if (ev.sensitivity !== "normal") {
+          if (ev.redactedPreview) {
+            locBox.appendChild(mk("pre", { className: "source-snippet",
+              text: ev.redactedPreview }));
+          }
+        } else if (source) {
+          var parts = sliceUtf8Range(source, ev.startByte, ev.endByte);
+          var pre = mk("pre", { className: "source-snippet" });
+          pre.appendChild(mk("span", { text: parts.before }));
+          if (parts.hit) pre.appendChild(mk("mark", { text: parts.hit }));
+          pre.appendChild(mk("span", { text: parts.after }));
+          locBox.appendChild(pre);
+        } else if (ev.redactedPreview) {
+          locBox.appendChild(mk("pre", { className: "source-snippet",
+            text: ev.redactedPreview }));
+        }
+        card.appendChild(locBox);
+      });
+
       // Technical detail folded away by default
       var d = mk("details");
-      d.appendChild(mk("summary", { text: "技术详情 (Rule ID / OWASP / 证据)" }));
+      d.appendChild(mk("summary", { text: "技术详情 (Rule ID / OWASP)" }));
       d.appendChild(mk("div", { className: "muted",
         text: "Rule: " + f.type + "  layer: " + (f.sourceLayer || "unknown")
           + "  origin: " + f.originKind }));
-      // evidence list
-      (f.evidences || []).forEach(function (ev) {
-        var line = mk("div", { className: "evidence" });
-        line.appendChild(mk("code", { text: ev.artifactPath || "(no path)" }));
-        var range = "";
-        if (ev.startByte !== null && ev.endByte !== null && ev.startByte !== undefined) {
-          range = " bytes " + ev.startByte + "–" + ev.endByte;
-        }
-        line.appendChild(document.createTextNode(range));
-        if (ev.redactedPreview) {
-          line.appendChild(mk("span", { className: "muted", text: "  " + ev.redactedPreview }));
-        }
-        d.appendChild(line);
-      });
       Object.keys(f.subject || {}).forEach(function (k) {
         d.appendChild(mk("div", { text: k + ": " + String(f.subject[k]) }));
       });
@@ -813,7 +817,6 @@
       card.appendChild(d);
       findingsEl.appendChild(card);
     });
-    renderEvidenceWorkbench(findingsSorted);
     renderFixWorkbench(view, findingsSorted);
 
     // Blocked / failed
@@ -1035,58 +1038,6 @@
       hit: text.slice(startIdx, endIdx),
       after: text.slice(endIdx, Math.min(text.length, endIdx + pad)),
     };
-  }
-
-  function renderEvidenceWorkbench(findings) {
-    var box = $("evidence-workbench");
-    box.textContent = "";
-    box.appendChild(mk("h3", { text: "原文定位" }));
-    var rows = [];
-    (findings || []).forEach(function (f) {
-      (f.evidences || []).forEach(function (ev) {
-        rows.push({ finding: f, evidence: ev });
-      });
-    });
-    if (!rows.length) {
-      box.appendChild(mk("p", { className: "muted",
-        text: "本次没有可定位证据；请查看技术详情和报告。" }));
-      return;
-    }
-    rows.slice(0, 12).forEach(function (row) {
-      var ev = row.evidence;
-      var f = row.finding;
-      var item = mk("div", { className: "evidence-card" });
-      var title = mk("div", { className: "evidence-title" });
-      title.appendChild(mk("strong", { text: f.type }));
-      title.appendChild(mk("span", { className: "badge sev-" + f.severity,
-        text: sevLabel(f.severity) }));
-      item.appendChild(title);
-      item.appendChild(mk("div", { className: "muted", text:
-        (ev.artifactPath || "prompt.txt") + formatByteRange(ev) }));
-      var source = ev.sensitivity === "normal"
-        ? readSourceForEvidence(ev) : "";
-      if (ev.sensitivity !== "normal") {
-        if (ev.redactedPreview) {
-          item.appendChild(mk("pre", { className: "source-snippet",
-            text: ev.redactedPreview }));
-        }
-      } else if (source) {
-        var parts = sliceUtf8Range(source, ev.startByte, ev.endByte);
-        var pre = mk("pre", { className: "source-snippet" });
-        pre.appendChild(mk("span", { text: parts.before }));
-        if (parts.hit) pre.appendChild(mk("mark", { text: parts.hit }));
-        pre.appendChild(mk("span", { text: parts.after }));
-        item.appendChild(pre);
-      } else if (ev.redactedPreview) {
-        item.appendChild(mk("pre", { className: "source-snippet",
-          text: ev.redactedPreview }));
-      }
-      box.appendChild(item);
-    });
-    if (rows.length > 12) {
-      box.appendChild(mk("p", { className: "muted",
-        text: "已显示前 12 条定位；完整证据在 JSON / HTML 报告中。" }));
-    }
   }
 
   function formatByteRange(ev) {

@@ -211,7 +211,10 @@ async function main() {
     }
     await settle();
     process.stdout.write(JSON.stringify({
-      evidenceText: elementFor("evidence-workbench").textContent,
+      // Original-text location now renders inline inside each finding
+      // card in #findings; there is no separate evidence-workbench
+      // section any more.
+      evidenceText: elementFor("findings").textContent,
       reviewFetches,
     }));
     return;
@@ -345,12 +348,15 @@ class TestIndexAndAssets:
         # And must not import from external URLs.
         assert "http://" not in js.text and "https://" not in js.text
 
-    def test_index_exposes_evidence_and_fix_workbench(self, client):
+    def test_index_exposes_findings_and_fix_workbench(self, client):
+        # Original-text location is rendered inline inside each finding
+        # card in #findings, not in a separate evidence-workbench section.
         html = client.get("/").text
-        assert 'id="evidence-workbench"' in html
+        assert 'id="findings"' in html
         assert 'id="fix-workbench"' in html
+        assert 'id="evidence-workbench"' not in html
         js = client.get("/static/app.js").text
-        assert "renderEvidenceWorkbench" in js
+        assert "finding-location" in js
         assert "renderFixWorkbench" in js
         assert 'fd.append("provider_api_key"' not in js
 

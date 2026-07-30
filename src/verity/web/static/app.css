@@ -86,6 +86,7 @@ button.primary:disabled { background: #999; cursor: default; }
 .finding .actions { margin-top: .4rem; }
 .finding .actions ol { margin: .2rem 0 0 1.2rem; padding: 0; }
 .finding .evidence { color: #333; font-size: .9rem; margin-top: .3rem; }
+.finding-location { margin-top: .5rem; }
 .finding code { background: #f0f0f0; padding: .05rem .3rem; border-radius: 3px; }
 .finding details { margin-top: .5rem; color: #555; font-size: .85rem; }
 .badge.prio-P0 { background: #fbe4e4; color: #9a1f1f; }
@@ -121,11 +122,6 @@ a.download:hover { background: #eaf1ff; }
 
 .owasp-table { border-collapse: collapse; margin-top: .6rem; font-size: .9rem; }
 .owasp-table th, .owasp-table td { border: 1px solid #ccc; padding: .3rem .6rem; text-align: left; }
-.evidence-card {
-  border: 1px solid #e4e7ec; border-radius: 8px; padding: .8rem;
-  margin: .6rem 0; background: #fbfcfd;
-}
-.evidence-title { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
 .source-snippet {
   margin: .6rem 0 0; padding: .7rem; border-radius: 6px;
   background: #111827; color: #e5e7eb; white-space: pre-wrap;
