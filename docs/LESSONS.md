@@ -14,6 +14,34 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-07-31 — A failed Selection's aggregate numbers can hide a concentrated, not uniform, failure
+
+- **Symptom**: Round 69's frozen protocol-v2 Selection returned `not_eligible`
+  on `recall` (0.846 vs required 0.90) and `errorRate` (0.179 vs required
+  0.05). Read at the aggregate level, this reads as "the semantic layer is
+  broadly too weak," which would suggest a large, undirected fix effort.
+- **Root cause**: The two failing metrics were near-fully explained by 2 of
+  the 8 Finding Types the split covers (`instruction_conflict`,
+  `declared_behavior_mismatch`), which produced both false negatives and
+  most of the errors. The other 6 types scored perfectly on this split
+  (`safeFalsePositiveRate=0.0`, `stabilityRate=0.93` overall). The aggregate
+  metric doesn't surface this by itself -- you have to read `caseResults`
+  per-case, not just `metrics`/`selectionGate`.
+- **Fix**: None applied this round (the run is one-shot per Round 24's
+  binding lesson; this Selection is not retried or tuned against). Recorded
+  the per-case breakdown in `docs/PROGRESS.md`'s Round 69 entry so a future
+  root-cause investigation starts from "2 concentrated types," not "broadly
+  weak."
+- **Prevention**: When any frozen/one-shot evaluation returns an aggregate
+  fail, always read the per-case detail before writing the summary -- report
+  both the aggregate number AND whether the failure concentrates in a
+  specific subset (Finding Type, risk id, language, object type). A future
+  root-cause pass on THIS result should start with those 2 types, not a
+  general semantic-layer audit.
+- **Evidence**: Round 69; `.verity-data/model-evals/semantic-quality-
+  selection-round68.json` (gitignored, local only); `docs/PROGRESS.md` Round
+  69 entry has the durable per-type breakdown.
+
 ### 2026-07-29 — A deterministic-only "structural padding" detector can be too broad on realistic safe prompts
 
 - **Symptom**: NeMo-Guardrails' `context_bloat_detection` (Shannon entropy +

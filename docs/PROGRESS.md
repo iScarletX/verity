@@ -45,6 +45,50 @@ default outcome is `failed`/`provider_not_configured`, per the same runtime.
 
 ---
 
+## Round 69 (2026-07-31) → frozen protocol-v2 Selection run #2: not_eligible
+
+- Ran a real-model semantic-quality protocol-v2 Selection (`--split selection`,
+  14 cases, repetitions=2, `anthropic/claude-opus-4.8-fast` for both generator
+  and validator roles, `model_only` candidate strategy per the protocol's own
+  design — this measures the model's own judgment ceiling independent of the
+  product's `catalog_first` shortcuts, not the shipped product path). Owner
+  explicitly authorized the real spend before this run; per-round budget was
+  ~$2-3 estimated, no hard cap set.
+- Result: `selectionGate.status = "not_eligible"`. Failed 2 of 5 predeclared
+  thresholds: `recall` measured `0.846154` (threshold `>=0.90`) and `errorRate`
+  measured `0.178571` (threshold `<=0.05`). Passed: `safeFalsePositiveRate`
+  `0.0` (`<=0.20`), `stabilityRate` `0.928571` (`>=0.80`),
+  `inconclusiveRate` `0.0` (`<=0.10`). Full confusion: tp=11, fp=0, tn=10, fn=2.
+- Per Round 24's binding lesson ("Strong Calibration does not survive a frozen
+  held-out Selection" — see `docs/LESSONS.md`), this Selection is one-shot:
+  the result is recorded honestly and is NOT retried or tuned against. It does
+  not invalidate protocol v2 (unlike the first frozen Selection in Round 24,
+  which also returned `not_eligible` under a different model configuration);
+  it is a second independent data point on the same frozen split, both
+  showing the semantic layer has not yet cleared its own predeclared bar.
+- Root cause visible in the run's own case-level detail: 2 of the 5 errors
+  and both of the 2 false negatives concentrate in exactly 2 Finding Types
+  (`semantic.prompt.instruction_conflict`, `semantic.skill.
+  declared_behavior_mismatch`) out of the 8 types this split covers — not a
+  uniform failure across all types. The other 6 types produced correct
+  `rejected`/`no_candidate` outcomes on every repetition (`safeFalsePositiveRate
+  = 0.0`, `stabilityRate = 0.93`).
+- This run used `candidate_strategy=model_only` (the protocol's own eval-only
+  mode), so it does NOT measure Round 67/68's shipped `catalog_first` +
+  per-type-independent-sweep + multi-Provider-voting product path. A
+  Selection run against the shipped product configuration remains a separate,
+  not-yet-authorized future data point.
+- This closes neither `accepted_real_model_selection_absent` nor
+  `sealed_semantic_test_unconsumed` in `closure.py`'s `engineeringVerifiedTier`
+  — both remain open blockers. Full evaluation report is
+  gitignored under `.verity-data/model-evals/` (real-model run artifacts are
+  never committed) and is not reproduced by CI; this entry is the durable
+  record of what ran and what it measured.
+- Full suite unaffected (no code path changed by this round; this round is a
+  research-protocol run + documentation only).
+
+---
+
 ## Round 68 (2026-07-30) → provisional label review, closure two-tier split, UI redesign
 
 - Ran independent multi-model review (gpt-4o-mini + claude-3-haiku) over the
