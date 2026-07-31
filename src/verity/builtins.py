@@ -449,6 +449,45 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="low",
         requiredEvidenceKinds=["source_span"],
     ))
+    # S14 no-fabrication mandate prose only (Round 72)
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.no_fabrication_declared",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("mandateKind", "literal_enum",
+                         allowedValues=["no_fabrication"]),
+        ],
+        subjectKeyFields=["artifactPath", "mandateKind"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    # S15 strict single-JSON output contract prose only (Round 72)
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.strict_output_contract_prose_only",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("contractKind", "literal_enum",
+                         allowedValues=["single_json_object"]),
+        ],
+        subjectKeyFields=["artifactPath", "contractKind"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    # S16 Tool-unavailable fallback contract prose only (Round 72)
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.tool_unavailable_contract_prose_only",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("fallbackKind", "literal_enum",
+                         allowedValues=["tool_unavailable"]),
+        ],
+        subjectKeyFields=["artifactPath", "fallbackKind"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # Gitleaks findings (redacted).
     ftr.register(FindingTypeDefinition(
         findingType="skill.gitleaks_finding",
@@ -1089,6 +1128,52 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         implementationId="impl.skill.scope_restrictions_prose_only.v1",
         applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
         defaultSeverity="low", controlIds=["quality.authorization"],
+        requiresManifest=False,
+    ))
+    # S14 no-fabrication mandate prose only
+    rr.register(RuleDefinition(
+        ruleId="skill.no_fabrication_declared",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("SKILL.md body declares a no-fabrication mandate ('不得虚构' / "
+               "'不得自行补' / '不得脑补' / '不可伪造') in prose only, with no "
+               "corresponding `permissions` or `metadata` manifest field. "
+               "The prohibition relies solely on model instruction-following "
+               "with no automated enforcement."),
+        findingType="skill.no_fabrication_declared",
+        implementationId="impl.skill.no_fabrication_declared.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low", controlIds=["quality.authorization"],
+        requiresManifest=False,
+    ))
+    # S15 strict single-JSON output contract prose only
+    rr.register(RuleDefinition(
+        ruleId="skill.strict_output_contract_prose_only",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("SKILL.md body declares a strict single-JSON-object output "
+               "contract ('只返回一个完整JSON' / '不添加...说明' / '不输出内部"
+               "分析') in prose only, with no manifest `refs` entry pointing "
+               "at a schema file and no schema-related `metadata`. This is "
+               "informational: Verity has no machine-checkable schema to "
+               "validate actual output against."),
+        findingType="skill.strict_output_contract_prose_only",
+        implementationId="impl.skill.strict_output_contract_prose_only.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low", controlIds=["quality.consistency"],
+        requiresManifest=False,
+    ))
+    # S16 Tool-unavailable fallback contract prose only
+    rr.register(RuleDefinition(
+        ruleId="skill.tool_unavailable_contract_prose_only",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("SKILL.md body declares how the Skill behaves when an "
+               "injected Tool is unavailable ('Tool 不可用时返回X' / "
+               "'工具不可用') in prose only, with no machine-readable "
+               "fallback declaration in manifest `metadata`. No caller can "
+               "mechanically verify the declared fallback is honored."),
+        findingType="skill.tool_unavailable_contract_prose_only",
+        implementationId="impl.skill.tool_unavailable_contract_prose_only.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low", controlIds=["quality.resilience"],
         requiresManifest=False,
     ))
     # --- Bandit-normalised rules ------------------------------------

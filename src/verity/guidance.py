@@ -549,6 +549,57 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         priority="P2",
     ),
 
+    "skill.no_fabrication_declared": Guidance(
+        id="skill.no_fabrication_declared",
+        plainTitle="SKILL.md 声明了禁止虚构/脑补，但没有对应的 manifest 字段来机器强制执行",
+        whyItMatters=(
+            "这个 Skill 的 SKILL.md 正文中包含「不得虚构」、「不得自行补」、「不得脑补」或"
+            "「不可伪造」等禁止捏造数据的声明，但 manifest 的 permissions 和 metadata "
+            "字段均为空。这个约束仅依赖模型按自然语言指令执行，调用方无法自动验证模型"
+            "确实没有在缺少真实上游数据时编造结果。这是一个低严重度的信息性发现。"
+        ),
+        whatToDo=[
+            "考虑在黑盒测试中构造「上游数据缺失」场景，验证模型是否真的拒绝生成而不是编造。",
+            "如果可行，在 metadata 中标注该约束适用的字段，便于自动化回归检查覆盖到它。",
+            "该发现不代表已经检测到虚构行为，只说明缺少机器可检查的合同。",
+        ],
+        priority="P2",
+    ),
+
+    "skill.strict_output_contract_prose_only": Guidance(
+        id="skill.strict_output_contract_prose_only",
+        plainTitle="SKILL.md 声明了严格的单一 JSON 输出合同，但 manifest 未关联可校验的 schema",
+        whyItMatters=(
+            "这个 Skill 的 SKILL.md 正文中声明输出必须是「只返回一个完整 JSON」、"
+            "「不添加...说明」或「不输出内部分析」，但 manifest 的 refs 中没有指向 "
+            "schema 文件的条目，也没有 schema 相关的 metadata。"
+            "这是一个信息性发现，不代表该合同有缺陷——只是说明 Verity 目前没有可用于"
+            "校验实际输出是否符合合同的机器可读 schema。"
+        ),
+        whatToDo=[
+            "如果已经有输出 schema 文档（如 output-contract.md），考虑在 manifest 的 "
+            "refs 字段中显式声明，便于自动化校验实际输出。",
+            "如果没有正式 schema，考虑补充一份，用于回归测试或黑盒探测时比对输出结构。",
+        ],
+        priority="P2",
+    ),
+
+    "skill.tool_unavailable_contract_prose_only": Guidance(
+        id="skill.tool_unavailable_contract_prose_only",
+        plainTitle="SKILL.md 声明了 Tool 不可用时的兜底行为，但 manifest 中没有机器可读的声明",
+        whyItMatters=(
+            "这个 Skill 的 SKILL.md 正文中声明了「Tool 不可用时返回 X」或「工具不可用」"
+            "场景下的处理方式，但 manifest 的 metadata 字段为空，没有机器可读的兜底声明。"
+            "调用方无法在不做黑盒探测的情况下确认该 Skill 真的会在 Tool 不可用时按声明"
+            "返回，而不是继续生成或静默失败。"
+        ),
+        whatToDo=[
+            "考虑在 metadata 中声明 Tool 不可用时的预期返回码或行为，使其机器可读。",
+            "建议做一次黑盒测试：模拟 Tool 不可用，确认实际返回是否与声明一致。",
+        ],
+        priority="P2",
+    ),
+
     # Aggregation entries (dispatched below) --------------------------
     # skill.bandit_finding is per-testId; handled dynamically.
     # skill.gitleaks_finding is per-ruleID; handled dynamically.

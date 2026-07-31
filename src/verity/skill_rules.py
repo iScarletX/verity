@@ -800,3 +800,209 @@ def skill_scope_restrictions_prose_only(ctx: RuleContext) -> List[RuleHit]:
         "artifactPath": f.normalizedPath,
         "restrictionCount": len(restrictions),
     })]
+
+
+# --------------------------------------------------------------------- #
+# S14. SKILL.md body declares a no-fabrication mandate as prose only    #
+# --------------------------------------------------------------------- #
+
+# Chinese patterns forbidding the Skill from inventing / hallucinating
+# data instead of using a real upstream result.
+_NO_FABRICATION_PATTERNS = re.compile(
+    r"(?:不得虚构|不得自行补|不得脑补|不可伪造|不得伪造)",
+)
+
+
+def skill_no_fabrication_declared(ctx: RuleContext) -> List[RuleHit]:
+    """The SKILL.md body declares a no-fabrication mandate ('不得虚构' /
+    '不得自行补' / '不得脑补' / '不可伪造') in prose, but the manifest has
+    no corresponding ``permissions`` or ``metadata`` field that could make
+    the prohibition machine-checkable.
+
+    This is an advisory finding, not a defect: forbidding fabrication in
+    prose is legitimate design intent. But nothing in the manifest lets a
+    caller, CI, or router verify the model actually honored it — the
+    contract lives entirely in natural language. Added in Round 72 after
+    black-box analysis of 8 NexPlay production Skills showed the pattern
+    present in asset-voice-match and cover-0729_biz with no corresponding
+    Verity rule.
+    """
+    f = _skill_md(ctx)
+    if f is None:
+        return []
+    m = (ctx.artifact_model or {}).get("manifest") or {}
+
+    has_perms = bool(m.get("permissions"))
+    has_meta = bool(m.get("metadata"))
+    if has_perms or has_meta:
+        return []
+
+    raw = _skill_md_bytes(ctx)
+    body_start = 0
+    if b"\n---\n" in raw:
+        close = raw.find(b"\n---\n", 4)
+        if close != -1:
+            body_start = close + 5
+
+    body_text = raw[body_start:].decode("utf-8", errors="replace")
+
+    m_span = _NO_FABRICATION_PATTERNS.search(body_text)
+    if m_span is None:
+        return []
+
+    start = body_start + m_span.start()
+    end = body_start + m_span.end()
+
+    ev = make_source_span_evidence(
+        snapshot_id=ctx.snapshot.snapshotId,
+        file_id=f.fileId, artifact_path=f.normalizedPath,
+        file_digest=f.contentDigest or "",
+        byte_range=(start, min(end, start + 300)),
+        raw_bytes=raw[start:min(end, start + 300)],
+        producer=_prod(ctx),
+    )
+    return [RuleHit(evidences=[ev], subject={
+        "artifactPath": f.normalizedPath,
+        "mandateKind": "no_fabrication",
+    })]
+
+
+# --------------------------------------------------------------------- #
+# S15. SKILL.md body declares a strict single-JSON output contract as   #
+#      prose only, with no schema reference in the manifest             #
+# --------------------------------------------------------------------- #
+
+# Chinese patterns declaring output must be a single, pure JSON object
+# with no surrounding prose / markdown / internal analysis.
+_STRICT_OUTPUT_CONTRACT_PATTERNS = re.compile(
+    r"(?:"
+    r"只返回一个完整.{0,10}JSON"
+    r"|不添加.{0,20}说明"
+    r"|不输出内部"
+    r")",
+)
+
+# File-extension / name hints suggesting a manifest ref points at a
+# schema definition for the output contract.
+_SCHEMA_REF_HINT = re.compile(r"schema|contract", re.IGNORECASE)
+
+
+def skill_strict_output_contract_prose_only(ctx: RuleContext) -> List[RuleHit]:
+    """The SKILL.md body declares a strict single-JSON-object output
+    contract ('只返回一个完整JSON', '不添加...说明', '不输出内部分析') in
+    prose, but the manifest has no ``refs`` entry pointing at a schema
+    file and no schema-related ``metadata``.
+
+    This is an informational finding, not a defect: the contract itself
+    may be exactly right. It surfaces that Verity has no machine-checkable
+    schema to validate actual output against — the guarantee rests
+    entirely on the model following the prose instruction. Added in
+    Round 72; present in 5 of 8 sampled NexPlay Skills.
+    """
+    f = _skill_md(ctx)
+    if f is None:
+        return []
+    m = (ctx.artifact_model or {}).get("manifest") or {}
+
+    refs = m.get("refs") or []
+    has_schema_ref = any(_SCHEMA_REF_HINT.search(r) for r in refs if isinstance(r, str))
+    has_schema_meta = False
+    meta = m.get("metadata")
+    if isinstance(meta, dict):
+        has_schema_meta = any(_SCHEMA_REF_HINT.search(str(k)) or _SCHEMA_REF_HINT.search(str(v))
+                              for k, v in meta.items())
+    if has_schema_ref or has_schema_meta:
+        return []
+
+    raw = _skill_md_bytes(ctx)
+    body_start = 0
+    if b"\n---\n" in raw:
+        close = raw.find(b"\n---\n", 4)
+        if close != -1:
+            body_start = close + 5
+
+    body_text = raw[body_start:].decode("utf-8", errors="replace")
+
+    m_span = _STRICT_OUTPUT_CONTRACT_PATTERNS.search(body_text)
+    if m_span is None:
+        return []
+
+    start = body_start + m_span.start()
+    end = body_start + m_span.end()
+
+    ev = make_source_span_evidence(
+        snapshot_id=ctx.snapshot.snapshotId,
+        file_id=f.fileId, artifact_path=f.normalizedPath,
+        file_digest=f.contentDigest or "",
+        byte_range=(start, min(end, start + 300)),
+        raw_bytes=raw[start:min(end, start + 300)],
+        producer=_prod(ctx),
+    )
+    return [RuleHit(evidences=[ev], subject={
+        "artifactPath": f.normalizedPath,
+        "contractKind": "single_json_object",
+    })]
+
+
+# --------------------------------------------------------------------- #
+# S16. SKILL.md body declares a Tool-unavailable fallback as prose      #
+#      only, with no machine-readable declaration in the manifest       #
+# --------------------------------------------------------------------- #
+
+# Chinese patterns declaring what happens when an injected Tool is
+# unavailable at runtime.
+_TOOL_UNAVAILABLE_PATTERNS = re.compile(
+    r"(?:Tool.{0,10}不可用|工具不可用)",
+)
+
+
+def skill_tool_unavailable_contract_prose_only(ctx: RuleContext) -> List[RuleHit]:
+    """The SKILL.md body declares how the Skill behaves when an injected
+    Tool is unavailable ('Tool 不可用时返回X', '工具不可用') in prose, but
+    there is no machine-readable fallback declaration in the manifest
+    (``metadata`` is empty).
+
+    This is an advisory finding: the fallback behavior itself may be
+    entirely correct. Verity flags that the contract cannot be
+    mechanically verified — a caller has no way to confirm the declared
+    fallback (e.g. a specific error code) is actually what gets returned
+    without running a black-box probe. Added in Round 72; present in 3 of
+    8 sampled NexPlay Skills.
+    """
+    f = _skill_md(ctx)
+    if f is None:
+        return []
+    m = (ctx.artifact_model or {}).get("manifest") or {}
+
+    has_meta = bool(m.get("metadata"))
+    if has_meta:
+        return []
+
+    raw = _skill_md_bytes(ctx)
+    body_start = 0
+    if b"\n---\n" in raw:
+        close = raw.find(b"\n---\n", 4)
+        if close != -1:
+            body_start = close + 5
+
+    body_text = raw[body_start:].decode("utf-8", errors="replace")
+
+    m_span = _TOOL_UNAVAILABLE_PATTERNS.search(body_text)
+    if m_span is None:
+        return []
+
+    start = body_start + m_span.start()
+    end = body_start + m_span.end()
+
+    ev = make_source_span_evidence(
+        snapshot_id=ctx.snapshot.snapshotId,
+        file_id=f.fileId, artifact_path=f.normalizedPath,
+        file_digest=f.contentDigest or "",
+        byte_range=(start, min(end, start + 300)),
+        raw_bytes=raw[start:min(end, start + 300)],
+        producer=_prod(ctx),
+    )
+    return [RuleHit(evidences=[ev], subject={
+        "artifactPath": f.normalizedPath,
+        "fallbackKind": "tool_unavailable",
+    })]

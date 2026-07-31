@@ -695,6 +695,31 @@
         "VR-GOV-001"
       ],
       "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.no_fabrication_declared",
+      "riskIds": [
+        "VR-GOV-001"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.strict_output_contract_prose_only",
+      "riskIds": [
+        "VR-SKILL-012",
+        "VR-GOV-001"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.tool_unavailable_contract_prose_only",
+      "riskIds": [
+        "VR-SKILL-012"
+      ],
+      "contribution": "signal"
     }
   ]
 }

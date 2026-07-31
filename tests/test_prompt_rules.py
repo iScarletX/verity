@@ -367,6 +367,31 @@ class TestOpenEndedToolWildcard:
               and "open_ended_tool_wildcard" in e.planItemId]
         assert na
 
+    # -- Paraphrase regression tests (surfaced 0/6 hit rate) ----------------
+    def test_permitted_tools_star(self):
+        r = _run("permitted_tools: *\n", kind="system_prompt")
+        assert self.ft in _find_types(r), "permitted_tools: * must match"
+
+    def test_authorized_tools_star(self):
+        r = _run("authorized_tools: *\n", kind="system_prompt")
+        assert self.ft in _find_types(r), "authorized_tools: * must match"
+
+    def test_accessible_tools_star(self):
+        r = _run("accessible_tools: *\n", kind="system_prompt")
+        assert self.ft in _find_types(r), "accessible_tools: * must match"
+
+    def test_allowed_resources_star(self):
+        r = _run("allowed_resources: *\n", kind="system_prompt")
+        assert self.ft in _find_types(r), "allowed_resources: * must match"
+
+    def test_permissible_tools_star(self):
+        r = _run("permissible_tools: *\n", kind="system_prompt")
+        assert self.ft in _find_types(r), "permissible_tools: * must match"
+
+    def test_approved_tools_star(self):
+        r = _run("approved_tools: *\n", kind="system_prompt")
+        assert self.ft in _find_types(r), "approved_tools: * must match"
+
 
 # =========================================================================
 # Round 29: untrusted_input_boundary_undeclared (maps VR-PROMPT-008)
@@ -584,6 +609,44 @@ class TestDanglingSectionReference:
             "# Section 1\nSome rules here.\nSee section 7 for more details.\n",
             kind="user_prompt")
         assert self.ft in _find_types(r)
+
+    # -- Paraphrase regression tests (surfaced 83% miss rate) ---------------
+    def test_refer_to_section_of_this_document(self):
+        r = _run(
+            "Part 1: Role\nYou are a support agent.\n\n"
+            "For the complete escalation process, refer to section 8 of this document.\n",
+            kind="system_prompt")
+        assert self.ft in _find_types(r), "refer to section N of this document must match"
+
+    def test_consult_section_of_this_document(self):
+        r = _run(
+            "Section 1: Role\nYou serve as a support agent.\n\n"
+            "For the complete escalation procedure, consult section 8 of this document.\n",
+            kind="system_prompt")
+        assert self.ft in _find_types(r), "consult section N of this document must match"
+
+    def test_look_at_section_of_this_document(self):
+        r = _run(
+            "1. Role: You will act as a support agent.\n"
+            "For detailed escalation procedures, look at section 8 of this document.\n",
+            kind="system_prompt")
+        assert self.ft in _find_types(r), "look at section N of this document must match"
+
+    def test_section_n_of_this_document_inline(self):
+        r = _run(
+            "Role: support agent.\n"
+            "Please review section 8 of this document for escalation steps.\n",
+            kind="system_prompt")
+        assert self.ft in _find_types(r), "section N of this document must match"
+
+    def test_valid_refer_to_existing_section(self):
+        """Referring to a section that actually exists should not fire."""
+        r = _run(
+            "Section 1: Role\nYou are a support agent.\n\n"
+            "Section 8: Escalation\nEscalate to manager.\n\n"
+            "For escalation, refer to section 8 of this document.\n",
+            kind="system_prompt")
+        assert self.ft not in _find_types(r), "existing section should not be flagged"
 
 
 # =========================================================================

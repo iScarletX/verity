@@ -935,9 +935,16 @@ def prompt_empty_or_whitespace(ctx: RuleContext) -> List[RuleHit]:
 # NOT matched by design — that would need semantics we do not have.
 _TOOL_WILDCARD = re.compile(
     rb"(?m)^[ \t]*(?:"
-    rb"allowed_tools[ \t]*[:=][ \t]*\*"                              # allowed_tools: *
-    rb"|permissions[ \t]*[:=][ \t]*\[[ \t]*(?:\"\*\"|'\*')[ \t]*\]"  # permissions: ["*"]
-    rb"|tools[ \t]*[:=][ \t]*\[[ \t]*(?:\"\*\"|'\*')[ \t]*\]"
+    # bare wildcard value after a tool/permission key
+    rb"(?:allowed_tools|permitted_tools|authorized_tools|accessible_tools"
+    rb"|allowed_resources|authorized_resources|allowed_instruments"
+    rb"|permissible_tools|approved_tools"
+    rb"|tools|permissions)[ \t]*[:=][ \t]*\*"
+    # wildcard inside a list
+    rb"|(?:allowed_tools|permitted_tools|authorized_tools|accessible_tools"
+    rb"|allowed_resources|authorized_resources|allowed_instruments"
+    rb"|permissible_tools|approved_tools"
+    rb"|tools|permissions)[ \t]*[:=][ \t]*\[[ \t]*(?:\"\*\"|'\*')[ \t]*\]"
     rb")[ \t]*$"
 )
 
@@ -1244,8 +1251,16 @@ def prompt_untrusted_input_boundary_undeclared(ctx: RuleContext) -> List[RuleHit
 # *title text* matches the reference, which is far more prone to false
 # positives from paraphrasing and is intentionally left out of this rule.
 _SECTION_REF_PATTERNS = [
-    re.compile(rb"(?:see|per)\s+section\s+([0-9]+(?:\.[0-9]+)*)", re.IGNORECASE),
+    re.compile(
+        rb"(?:see|per|refer\s+to|consult|look\s+at|check|review|follow)"
+        rb"\s+(?:section|part|segment)\s+([0-9]+(?:\.[0-9]+)*)",
+        re.IGNORECASE),
+    re.compile(
+        rb"(?:section|part|segment)\s+([0-9]+(?:\.[0-9]+)*)"
+        rb"\s+of\s+this\s+(?:document|guide|prompt|specification)",
+        re.IGNORECASE),
     re.compile("见第\\s*([0-9０-９]+(?:\\.[0-9]+)*)\\s*节".encode("utf-8")),
+    re.compile("参见第\\s*([0-9０-９]+(?:\\.[0-9]+)*)\\s*节".encode("utf-8")),
 ]
 # Matches numbered headings in either of two common forms:
 #   "## 7. Title" / "7.2 Title" / "7）Title"  (bare numbered heading)
@@ -2619,6 +2634,11 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.skill.python_subprocess_shell_true.v1": _sr.skill_python_subprocess_shell_true,
     "impl.skill.upstream_dependency_contract_gap.v1": _sr.skill_upstream_dependency_contract_gap,
     "impl.skill.scope_restrictions_prose_only.v1": _sr.skill_scope_restrictions_prose_only,
+    "impl.skill.no_fabrication_declared.v1": _sr.skill_no_fabrication_declared,
+    "impl.skill.strict_output_contract_prose_only.v1":
+        _sr.skill_strict_output_contract_prose_only,
+    "impl.skill.tool_unavailable_contract_prose_only.v1":
+        _sr.skill_tool_unavailable_contract_prose_only,
     **{f"impl.skill.bandit.{tid}": _make_bandit_impl(tid) for tid in _BANDIT_TEST_IDS},
     "impl.skill.gitleaks.v1": _gitleaks_hits,
 }
