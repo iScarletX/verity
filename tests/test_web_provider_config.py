@@ -352,7 +352,12 @@ class TestEvalProviderRetry:
         finally:
             os.environ.pop("VERITY_TEST_KEY_RETRY", None)
 
-    def test_logical_error_is_not_retried(self):
+    def test_invalid_json_is_retried_up_to_max_attempts(self):
+        """Round 69 fix: invalid_json was added to _RETRYABLE_REASONS because
+        Anthropic and other providers occasionally return HTTP 200 with a
+        non-JSON body under transient load. We now retry up to max_attempts.
+        This test was previously named test_logical_error_is_not_retried and
+        asserted calls["n"] == 1; after the fix it must use all 3 attempts."""
         from verity.semantic.eval_provider import OpenAICompatibleEvalProvider
         from verity.semantic.provider import ProviderCall, ProviderResponse
         from verity.semantic.config import ProviderConfig, ProviderCredentials
@@ -364,6 +369,7 @@ class TestEvalProviderRetry:
                 base_url="https://x.example/v1",
                 credentials=ProviderCredentials(api_key_env="VERITY_TEST_KEY_RETRY2"))
             prov = OpenAICompatibleEvalProvider(config=cfg,
+                                                max_attempts=3,
                                                 retry_backoff_seconds=0.0)
             calls = {"n": 0}
 
@@ -378,7 +384,10 @@ class TestEvalProviderRetry:
             resp = prov._call(call=call, request={})
             assert resp.ok is False
             assert resp.reason_code == "invalid_json"
-            assert calls["n"] == 1  # not retried
+            # After the fix invalid_json is retried up to max_attempts (3)
+            assert calls["n"] == 3, (
+                "invalid_json should be retried up to max_attempts; "
+                f"got {calls['n']} attempts instead of 3")
         finally:
             os.environ.pop("VERITY_TEST_KEY_RETRY2", None)
 

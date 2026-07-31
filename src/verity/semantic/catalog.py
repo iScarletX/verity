@@ -2954,11 +2954,21 @@ CATALOG: Dict[str, Tuple[SemanticFindingType, Extractor]] = {
                 confirm=[
                     "The directives govern the same target and scope.",
                     "Satisfying either directive necessarily violates the other.",
+                    "When directives contain numeric constraints (word counts, token limits, "
+                    "character lengths, item counts), EXPLICITLY CHECK the arithmetic: if "
+                    "directive A sets an upper bound and directive B sets a lower bound on "
+                    "the SAME output, and the lower bound exceeds the upper bound, that is "
+                    "a confirmed arithmetic contradiction — do not assume both can be "
+                    "satisfied without actually computing whether the ranges overlap.",
                 ],
                 reject=[
-                    "One directive governs an opening segment and the other a later segment.",
+                    "One directive governs an opening segment and the other a later segment "
+                    "(e.g. 'start with a brief summary' vs 'then provide detail' — "
+                    "different segments, both can be satisfied).",
                     "One rule governs an outer format and the other content inside a field.",
                     "A stated exception or condition makes both directives satisfiable.",
+                    "Numeric bounds apply to different segments or are otherwise compatible "
+                    "(lower bound < upper bound on the same output).",
                 ],
                 insufficient=[
                     "Reject or mark insufficient when the shared target or scope is not evidenced.",

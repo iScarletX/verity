@@ -147,6 +147,42 @@ def test_eval_provider_refuses_redirect_timeout_and_oversize(monkeypatch):
     assert p.generate_candidates(call=call(), request={}).reason_code == "response_too_large"
 
 
+def test_invalid_json_is_retried_not_immediately_final(monkeypatch):
+    """Regression guard from Round 69: Anthropic (claude-opus-4.8-fast) and
+    other providers occasionally return HTTP 200 with a non-JSON body under
+    transient load, which maps to invalid_json. Before this fix, invalid_json
+    was not in _RETRYABLE_REASONS, so a single bad response immediately became
+    a permanent failure without the 3-attempt retry budget being used. After
+    this fix, invalid_json is retried -- a genuinely bad JSON model output
+    would reproduce the error on the second attempt and still fail, but a
+    transient glitch clears on retry."""
+    monkeypatch.setenv("VERITY_TEST_EVAL_KEY", "x")
+    # First response: bad JSON (simulates transient provider glitch)
+    # Second response: valid JSON (simulates the retry succeeding)
+    call_count = [0]
+    def _opener_open(request, timeout):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            return Response(b"not-valid-json")
+        return Response(envelope({"candidates": []}))
+
+    class TwoAttemptOpener:
+        requests = []
+        def open(self, request, timeout):
+            self.requests.append(request)
+            return _opener_open(request, timeout)
+
+    opener = TwoAttemptOpener()
+    p = OpenAICompatibleEvalProvider(cfg(), opener=opener, max_attempts=2)
+    out = p.generate_candidates(call=call(), request={})
+    # After fix: the second attempt succeeds, so the result is ok=True
+    assert out.ok, (
+        "invalid_json should be retried; the second attempt returned valid JSON "
+        "but the provider returned ok=False, suggesting invalid_json is still "
+        "not in _RETRYABLE_REASONS")
+    assert call_count[0] == 2, f"expected 2 HTTP calls, got {call_count[0]}"
+
+
 def test_role_and_parameter_bounds(monkeypatch):
     monkeypatch.setenv("VERITY_TEST_EVAL_KEY", "x")
     val = OpenAICompatibleEvalProvider(cfg(role="validator"),

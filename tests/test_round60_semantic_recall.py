@@ -749,6 +749,41 @@ def test_same_action_always_never_conflict_uses_hashed_directive_target():
     assert safe_review.semantic["findings"] == []
 
 
+def test_numeric_bound_conflict_on_same_output_reaches_validator():
+    """Regression guard from Round 69 Selection post-mortem: a numeric upper
+    bound + lower bound on the SAME final output must generate a catalog
+    candidate (and reach the Validator) rather than being silently dropped.
+    The conflict 'Keep the final answer under ten words' vs 'Include a
+    detailed final explanation of at least two hundred words' is a textbook
+    arithmetic contradiction on the same output stage."""
+    finding_type = "semantic.prompt.instruction_conflict"
+    # Positive: both directives govern the final output, 10 word cap < 200 word floor.
+    numeric_conflict = (
+        "Keep the final answer under ten words.\n"
+        "Include a detailed final explanation of at least two hundred words.\n"
+    )
+    # Safe: different segments — summary at the start, then detail afterwards.
+    different_segments = (
+        "Start with a summary of fewer than ten words.\n"
+        "Then provide a detailed explanation of at least two hundred words.\n"
+    )
+    review_risky, gen_risky, val_risky = _semantic_review(
+        numeric_conflict, finding_type)
+    review_safe, gen_safe, val_safe = _semantic_review(
+        different_segments, finding_type)
+
+    # Risky case: catalog should recognize the numeric conflict and reach the
+    # validator to decide (this is what Round 69 Selection confirmed the model
+    # gets right when the judgment policy explicitly calls out arithmetic).
+    assert val_risky.calls, (
+        "numeric bound conflict must reach the Validator; "
+        "if generator dropped it, the judgmentPolicy confirm criteria may need "
+        "to include the arithmetic-check guidance")
+    # Safe case: different-segment phrasing must NOT produce a finding.
+    assert not review_safe.semantic["findings"], (
+        "different-segment instructions must not be flagged as conflicting")
+
+
 def test_explicitly_omitted_stream_controls_create_catalog_candidate():
     finding_type = "semantic.prompt.streaming_recovery_gap"
     risky = (

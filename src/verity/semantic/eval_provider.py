@@ -144,7 +144,13 @@ def _system_prompt(role: str) -> str:
 
 # Reason codes worth retrying: transient transport hiccups, not logical
 # errors like schema/credential/role problems.
-_RETRYABLE_REASONS = frozenset({"network_error", "provider_timeout", "http_error"})
+# ``invalid_json`` is also retryable: Anthropic and other providers occasionally
+# return HTTP 200 with a non-JSON or empty body under transient load, which
+# maps to ``invalid_json`` via the envelope-parse path. Retrying once is safe
+# and low-cost; a truly bad model output would likely reproduce the same error,
+# which the caller still treats as a failure after all attempts are exhausted.
+_RETRYABLE_REASONS = frozenset({"network_error", "provider_timeout", "http_error",
+                                 "invalid_json"})
 
 
 @dataclass(frozen=True)
