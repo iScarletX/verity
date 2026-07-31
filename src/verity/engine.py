@@ -2617,6 +2617,8 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
     "impl.skill.manifest_external_instructions.v1": _sr.skill_manifest_external_instructions,
     "impl.skill.manifest_script_suffix_mismatch.v1": _sr.skill_manifest_script_suffix_mismatch,
     "impl.skill.python_subprocess_shell_true.v1": _sr.skill_python_subprocess_shell_true,
+    "impl.skill.upstream_dependency_contract_gap.v1": _sr.skill_upstream_dependency_contract_gap,
+    "impl.skill.scope_restrictions_prose_only.v1": _sr.skill_scope_restrictions_prose_only,
     **{f"impl.skill.bandit.{tid}": _make_bandit_impl(tid) for tid in _BANDIT_TEST_IDS},
     "impl.skill.gitleaks.v1": _gitleaks_hits,
 }

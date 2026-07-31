@@ -515,6 +515,40 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         priority="P0",
     ),
 
+    "skill.upstream_dependency_contract_gap": Guidance(
+        id="skill.upstream_dependency_contract_gap",
+        plainTitle="SKILL.md 声明了上游 Skill 依赖，但 manifest 没有机器可检查的合同",
+        whyItMatters=(
+            "这个 Skill 的 SKILL.md 正文中用自然语言声明了「必须先运行 X Skill 才能使用」，"
+            "但 manifest 的 dependencies 和 metadata 字段均为空。"
+            "调用方（路由逻辑、CI 或其他 Agent）无法自动验证前置条件是否满足；"
+            "黑盒测试已确认：缺少上游输入时，该 Skill 会直接生成内容而不是拒绝。"
+        ),
+        whatToDo=[
+            "在 manifest 的 dependencies 字段中声明上游 Skill 的标识，使依赖关系机器可读。",
+            "在 Skill 正文执行流程开头，明确检查上游输入是否存在，缺失时返回明确错误而非继续执行。",
+            "如使用 metadata 字段，可额外标注生产该 Skill 所需的上游 Skill 名称。",
+        ],
+        priority="P1",
+    ),
+
+    "skill.scope_restrictions_prose_only": Guidance(
+        id="skill.scope_restrictions_prose_only",
+        plainTitle="SKILL.md 声明了使用范围限制，但没有对应的 manifest 字段来机器强制执行",
+        whyItMatters=(
+            "这个 Skill 的 SKILL.md 正文中包含「不要用于 X」、「禁止用于 Y」等范围限制声明，"
+            "但 manifest 的 allowed-tools 和 permissions 字段均为空。"
+            "这些限制仅依赖模型按自然语言指令执行，无法被路由逻辑或 CI 自动验证。"
+            "这是一个低严重度的信息性发现，不代表有即时风险。"
+        ),
+        whatToDo=[
+            "如果限制的是工具使用范围，考虑在 allowed-tools 中明确声明许可的工具列表。",
+            "如果限制的是权限范围，考虑在 permissions 字段中声明。",
+            "如果范围限制完全靠模型执行，考虑在黑盒测试中验证模型是否真的遵守了这些限制。",
+        ],
+        priority="P2",
+    ),
+
     # Aggregation entries (dispatched below) --------------------------
     # skill.bandit_finding is per-testId; handled dynamically.
     # skill.gitleaks_finding is per-ruleID; handled dynamically.

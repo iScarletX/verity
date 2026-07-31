@@ -639,3 +639,164 @@ def skill_python_subprocess_shell_true(ctx: RuleContext) -> List[RuleHit]:
                     }))
                     break
     return hits
+
+
+# --------------------------------------------------------------------- #
+# S12. SKILL.md body declares upstream dependencies as prose only        #
+# --------------------------------------------------------------------- #
+
+# Chinese and English patterns indicating the Skill requires prior outputs
+# from another Skill or upstream step.
+_UPSTREAM_DEPENDENCY_PATTERNS = re.compile(
+    r"(?:"
+    # Chinese patterns
+    r"仅在.{0,40}(?:已产出|完成|生成|产出)"
+    r"|必须.{0,30}(?:先|已).{0,20}(?:产出|完成|生成)"
+    r"|只有.{0,40}(?:产出|完成|生成).*才"
+    r"|先使用.{0,40}(?:Skill|skill|技能)"
+    r"|需要.{0,30}已有.{0,30}(?:企划|大纲|描述|资产|结果|输出)"
+    r"|(?:outline-generator|asset-designer|分集|大纲生成).{0,20}已产出"
+    r")",
+    re.DOTALL,
+)
+
+# Keywords suggesting there's an upsteam Skill by name
+_UPSTREAM_SKILL_NAME = re.compile(
+    r"(?:outline-generator|asset-designer|asset-image-generator"
+    r"|episode-generator|plan-storyboard|nextplay-state-protocol"
+    r"|asset-voice-match|outline_generator|asset_designer)",
+    re.IGNORECASE,
+)
+
+
+def skill_upstream_dependency_contract_gap(ctx: RuleContext) -> List[RuleHit]:
+    """The SKILL.md body declares that this Skill requires upstream outputs
+    from another Skill (detected via natural-language patterns), but the
+    manifest's ``dependencies`` and ``metadata`` fields are both empty.
+
+    When upstream dependencies are expressed only in body prose there is no
+    machine-checkable contract — CI, routing logic, or an operator calling
+    this Skill cannot programmatically verify prerequisites are met.
+
+    Added in Round 70 after black-box testing showed that two NexPlay Skills
+    (asset-voice-match, plan-storyboard-and-generate-video-biz) would
+    generate content when called without valid upstream inputs, despite their
+    SKILL.md bodies explicitly requiring prior Skill outputs.
+    """
+    f = _skill_md(ctx)
+    if f is None:
+        return []
+    m = (ctx.artifact_model or {}).get("manifest") or {}
+
+    # Only flag when the manifest has no dependencies/metadata that could
+    # encode the upstream contract — if they're filled in, the caller at
+    # least has a chance to check.
+    has_deps = bool(m.get("dependencies"))
+    has_meta = bool(m.get("metadata"))
+    if has_deps or has_meta:
+        return []
+
+    raw = _skill_md_bytes(ctx)
+    # Skip frontmatter — only scan the body portion
+    body_start = 0
+    if b"\n---\n" in raw:
+        # Find the closing '---' of the frontmatter
+        close = raw.find(b"\n---\n", 4)
+        if close != -1:
+            body_start = close + 5
+
+    body_bytes = raw[body_start:]
+    body_text = body_bytes.decode("utf-8", errors="replace")
+
+    if not _UPSTREAM_DEPENDENCY_PATTERNS.search(body_text):
+        return []
+
+    # Find the first matching byte range in the body for the evidence span
+    m_span = _UPSTREAM_DEPENDENCY_PATTERNS.search(body_text)
+    if m_span is None:
+        return []
+
+    start = body_start + m_span.start()
+    end = body_start + m_span.end()
+
+    ev = make_source_span_evidence(
+        snapshot_id=ctx.snapshot.snapshotId,
+        file_id=f.fileId, artifact_path=f.normalizedPath,
+        file_digest=f.contentDigest or "",
+        byte_range=(start, min(end, start + 300)),
+        raw_bytes=raw[start:min(end, start + 300)],
+        producer=_prod(ctx),
+    )
+    return [RuleHit(evidences=[ev], subject={
+        "artifactPath": f.normalizedPath,
+        "dependencyKind": "upstream_skill_output",
+    })]
+
+
+# --------------------------------------------------------------------- #
+# S13. No machine-checkable scope constraints in manifest                #
+# --------------------------------------------------------------------- #
+
+_SCOPE_RESTRICTION_PATTERNS = re.compile(
+    r"(?:"
+    # Chinese: "不要用于", "不得用于", "禁止用于", "不可用于"
+    r"(?:不要|不得|禁止|不可)用于.{1,200}"
+    r"|以下.{0,20}(?:场景|情况).{0,20}(?:不|禁止|不得)"
+    r")",
+    re.DOTALL,
+)
+
+
+def skill_scope_restrictions_prose_only(ctx: RuleContext) -> List[RuleHit]:
+    """The SKILL.md body declares scope restrictions ('do not use for X')
+    as prose only, with no corresponding entries in ``permissions``,
+    ``allowed-tools``, or ``compatibility`` that an automated caller could
+    enforce.
+
+    This is a low-severity advisory finding: prose restrictions are valid
+    design documentation, but they cannot be checked by routing logic or
+    CI — they rely solely on the model following natural-language
+    instructions. The finding surfaces the gap rather than claiming a
+    defect.
+    """
+    f = _skill_md(ctx)
+    if f is None:
+        return []
+    m = (ctx.artifact_model or {}).get("manifest") or {}
+
+    # If the manifest already has allowed-tools or permissions that express
+    # scope, the restriction has a machine-checkable component — don't flag.
+    has_scope_fields = bool(m.get("allowed-tools") or m.get("permissions"))
+    if has_scope_fields:
+        return []
+
+    raw = _skill_md_bytes(ctx)
+    body_start = 0
+    if b"\n---\n" in raw:
+        close = raw.find(b"\n---\n", 4)
+        if close != -1:
+            body_start = close + 5
+
+    body_text = raw[body_start:].decode("utf-8", errors="replace")
+
+    restrictions = list(_SCOPE_RESTRICTION_PATTERNS.finditer(body_text))
+    if not restrictions:
+        return []
+
+    # Report on the first match only (don't flood the report)
+    first = restrictions[0]
+    start = body_start + first.start()
+    end = body_start + first.end()
+
+    ev = make_source_span_evidence(
+        snapshot_id=ctx.snapshot.snapshotId,
+        file_id=f.fileId, artifact_path=f.normalizedPath,
+        file_digest=f.contentDigest or "",
+        byte_range=(start, min(end, start + 300)),
+        raw_bytes=raw[start:min(end, start + 300)],
+        producer=_prod(ctx),
+    )
+    return [RuleHit(evidences=[ev], subject={
+        "artifactPath": f.normalizedPath,
+        "restrictionCount": len(restrictions),
+    })]

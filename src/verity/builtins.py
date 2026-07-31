@@ -424,6 +424,31 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="high",
         requiredEvidenceKinds=["source_span"],
     ))
+    # S12 upstream dependency contract gap (Round 70)
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.upstream_dependency_contract_gap",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("dependencyKind", "literal_enum",
+                         allowedValues=["upstream_skill_output"]),
+        ],
+        subjectKeyFields=["artifactPath", "dependencyKind"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    # S13 scope restrictions prose only (Round 70)
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.scope_restrictions_prose_only",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("restrictionCount", "evidence_field", "restriction.count"),
+        ],
+        subjectKeyFields=["artifactPath"],
+        defaultSeverity="low",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # Gitleaks findings (redacted).
     ftr.register(FindingTypeDefinition(
         findingType="skill.gitleaks_finding",
@@ -1038,6 +1063,33 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
         defaultSeverity="high", controlIds=["OWASP-AST01"],
         owaspAst10=["OWASP-AST01"],
+    ))
+    # S12 upstream dependency contract gap
+    rr.register(RuleDefinition(
+        ruleId="skill.upstream_dependency_contract_gap",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("SKILL.md body declares upstream Skill outputs as prerequisites "
+               "in prose, but manifest `dependencies` and `metadata` are both "
+               "empty. No machine-checkable upstream contract exists."),
+        findingType="skill.upstream_dependency_contract_gap",
+        implementationId="impl.skill.upstream_dependency_contract_gap.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["quality.authorization"],
+        requiresManifest=True,
+    ))
+    # S13 scope restrictions prose only
+    rr.register(RuleDefinition(
+        ruleId="skill.scope_restrictions_prose_only",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("SKILL.md body declares 'do not use for X' scope restrictions "
+               "in prose only, with no corresponding `allowed-tools` or "
+               "`permissions` manifest fields. Restrictions rely solely on "
+               "model instruction-following with no automated enforcement."),
+        findingType="skill.scope_restrictions_prose_only",
+        implementationId="impl.skill.scope_restrictions_prose_only.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="low", controlIds=["quality.authorization"],
+        requiresManifest=False,
     ))
     # --- Bandit-normalised rules ------------------------------------
     # Curated subset: test_ids we've verified produce high-signal Findings
