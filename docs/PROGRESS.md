@@ -45,6 +45,35 @@ default outcome is `failed`/`provider_not_configured`, per the same runtime.
 
 ---
 
+## Round 70 (2026-07-31) → post-fix Calibration confirms recall fix, surfaces model instability
+
+- Ran a post-fix Calibration (`--split calibration`, 14 cases, repetitions=3,
+  `anthropic/claude-opus-4.8-fast`, `model_only`) to verify the two Round 69
+  fixes. Results: recall `1.0` (all 21 positive runs confirmed, fn=0) — the
+  `instruction_conflict` judgmentPolicy arithmetic-check guidance fix works.
+  Safe false positive rate `0.0`, inconclusive rate `0.0`.
+- However `errorRate` remained elevated at `0.214286` (9/42 runs) and
+  stability dropped to `0.714286`. Root cause confirmed by per-case analysis:
+  all 9 errors concentrate on exactly 5 safe-counterexample cases, all in
+  the generator stage (`val_calls=0`), all with `reason_code=invalid_json`.
+  The same cases succeed on other repetitions — this is not a logic error but
+  transient provider instability: `claude-opus-4.8-fast` on OpenRouter
+  occasionally returns a non-JSON HTTP 200 response. The `invalid_json` retry
+  fix added in Round 69 correctly retries within a single call, but the
+  `semantic_quality.py` evaluation framework records a run-level `error` when
+  the semantic status is `failed`, with no case-level rerun. This is intentional
+  for evaluation reproducibility; it means the observable error rate reflects
+  the real per-call failure probability of this model/provider combination.
+- Conclusion: recall fix is confirmed effective. The remaining blocking metric
+  for a future Selection is `errorRate` (≤0.05 threshold), which requires
+  either a more stable model/provider combination or an evaluation-level retry.
+  `claude-opus-4.8-fast` is not stable enough for this evaluation protocol;
+  future Selection runs should use a different model. No code changed this
+  round; Calibration is diagnostic only and is not committed to the repo.
+- V1.5 Prompt black-box implementation started this round (see below).
+
+---
+
 ## Round 69 (2026-07-31) → frozen protocol-v2 Selection run #2: not_eligible
 
 - Ran a real-model semantic-quality protocol-v2 Selection (`--split selection`,
