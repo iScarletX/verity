@@ -100,10 +100,28 @@ explicitly enabled but forces `redacted_evidence`. Non-secret Provider
 preferences persist in owner-only local JSON and the API credential persists
 only in macOS Keychain. The browser receives only a `keySaved` boolean.
 
+## V2 sandbox: standalone research adapter completed (2026-08-01)
+
+Per founder instruction to finish and commit the in-progress V2 sandbox
+code, `src/verity/sandbox/` (models/profile/runner/staged driver) and
+`tools/run_sandbox.py` are now complete: macOS `sandbox-exec` isolation,
+deny-by-default network, cpu/memory/wall-clock budgets enforced from
+multiple independent angles, reliable tmpdir/process-group cleanup, and
+an injectable-spawn test suite (`tests/test_sandbox.py`) plus real
+sandbox-exec integration tests gated on macOS. This is a standalone,
+explicit-opt-in research/audit command only — it is never imported by
+`review.py`, `engine.py`, or `cli.py`, and the default report contract
+is unchanged (`skillSandbox: not_implemented`, see `report.py`/
+`closure.py`). This does **not** satisfy the "Skill execution or V2
+sandbox work" gate below: wiring sandbox observation into the default
+review pipeline, or treating it as a shipped product surface, still
+requires the founder go-ahead described in the Ordered release sequence.
+
 ## Separately gated work not yet started
 
 - Prompt black-box execution.
-- Skill execution or V2 sandbox work.
+- Skill execution or V2 sandbox work (i.e. integrating the standalone
+  adapter above into the default review pipeline/report contract).
 - Automatic prompt/Skill rewriting.
 - Treating Butler findings, model consensus, or Verity output as ground truth.
 - Retuning or rerunning protocol-v2 Selection.

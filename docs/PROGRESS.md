@@ -5,13 +5,13 @@
 <!-- verify_repo.py: begin verified_against block -->
 ```yaml
 verified_against:
-  date: "2026-07-30"
+  date: "2026-08-01"
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "53ff91a"
-  tests_collected: 856
-  tests_passed: 856
+  commit: "2e2c162"
+  tests_collected: 927
+  tests_passed: 927
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -31,7 +31,7 @@ default outcome is `failed`/`provider_not_configured`, per the same runtime.
 | V1.5 Prompt black-box               | `not_implemented`                  |
 | V2 Skill isolated sandbox           | `not_implemented`                  |
 
-**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 46 unified risks, 84 mapped runtime components (55 deterministic rules + 1 capability extractor + 28 semantic finding types) and four mature-tool decisions. Current L0 breadth: 19 none / 18 signal / 9 partial. Current L1 breadth: 16 none / 29 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
+**Detection breadth baseline.** Runtime `completed` means planned checks ran; it does not mean complete detection. The machine-readable taxonomy records 17 official/candidate sources, 46 unified risks, 92 mapped runtime components (63 deterministic rules + 1 capability extractor + 28 semantic finding types) and four mature-tool decisions. Current L0 breadth: 19 none / 18 signal / 9 partial. Current L1 breadth: 16 none / 29 signal / 1 partial. No risk is substantial/evaluated; V1.5 and V2 remain entirely none/not implemented.
 
 **Corpus baseline.** The Corpus has 84 synthetic L0 cases across 24 risks; 61 are `independent_ai_review` (26 from the frozen Round-22 dual-AI-review program + 35 promoted in Round 68 by multi-model independent review), and 23 remain `provisional_single_review`. 56 fixed semantic contract replays, and frozen semantic-quality protocol v2 with 42 cases (14 calibration / 14 consumed selection / 14 sealed test). Protocol v3 and hidden holdouts v4/v5 each cover 112 cases across all 28 semantic types and are consumed diagnostic evidence. Authorized v5 runs exposed two independent blockers: the first formal Verity run used evaluation-only `model_only` instead of the shipped `catalog_first` strategy, and the original three-model label attestation disagreed with the precommitted provisional labels on 18/112 cases. The comparator now quarantines any such hidden-holdout disagreement and v5 returns `labels_require_adjudication`, with no claim. A later GPT-OSS/Qwen answer-hidden diagnostic agreed on 108/112 cases. After catalog-first repairs, the final consumed-v5 diagnostic over those 108 shared-consensus cases measured precision `1.0`, recall `0.990566`, safe false-positive rate `0.0`, stability `0.990741`, and error rate `0.004630`; four label disagreements were excluded, v5 had already been used for tuning, and this is not formal ground truth. Butler's v5 run also failed the health gate. Fresh local hidden v6 is now frozen before any remote observation: 112/112 extractor coverage, 56 catalog hypotheses for precommitted positive cases, 56 catalog-suppressed safe cases, and zero payload overlap with v3/v4/v5. Its fingerprint is `07f8ea85f39d5653554cce48bc037226c44779da10c369b755d9e7ecf3b73df4`; v6 remote payload egress remains unauthorized. Fixed reports remain reproducible and score-free; contract replay is 56/56 and `modelQualityMeasured=false`.
 
@@ -41,7 +41,106 @@ default outcome is `failed`/`provider_not_configured`, per the same runtime.
 
 **What ships right now.** Version 0.1.0 engineering preview: read-only intake (prompt text or local Skill folder), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned), JSON / HTML / SARIF reports, and a Chinese review workbench with score, confidence, prioritized findings, source-byte highlighting, a Prompt editing draft, direct re-review, downloads, and Skill project history. Web Skill reviews always use the gitleaks-enabled `standard` profile. Non-secret Provider preferences persist in owner-only local JSON, while the API key is held only in the current macOS user's Keychain and is never returned to the browser. The controlled semantic pipeline (attempted by default when a trusted Provider is configured) has 28 Finding Types. Catalog-first structured hypotheses, paragraph-scoped safe controls, and one independent closed-catalog full-prompt sweep call per applicable Finding Type (not one call packed with every type, which was found to silently starve some types of a real model's attention) reduce Candidate Generator recall vetoes without allowing the model to invent Finding Types, severity, or evidence; every accepted hypothesis still requires the independent Validator, which may itself be backed by more than one Provider for majority voting. `model_only` remains an explicit evaluation strategy so Provider quality can be measured without product catalog shortcuts. Confirmed semantic Evidence now reaches every report consumer, including remediation and source positioning. An explicitly requested semantic review that fails or remains incomplete now has no numeric score or pass verdict.
 
-**Deliberately absent.** No accepted semantic quality result and no claim that Verity equals or exceeds Butler. v3, v4, and v5 are consumed diagnostic evidence; the strong-reasoning v5 report is explicitly non-formal. There is no automatic remediation/PatchSet apply: the UI edits a draft and reruns review only. No Skill execution or sandbox, Prompt black-box runner, Semgrep/YARA, ZIP intake, or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
+**Deliberately absent.** No accepted semantic quality result and no claim that Verity equals or exceeds Butler. v3, v4, and v5 are consumed diagnostic evidence; the strong-reasoning v5 report is explicitly non-formal. There is no automatic remediation/PatchSet apply: the UI edits a draft and reruns review only. No Skill execution or sandbox on the default review path (a standalone, explicit-opt-in research adapter exists — `src/verity/sandbox/` + `tools/run_sandbox.py`, see `AGENTS.md` §4 — but is never imported by `review.py`/`engine.py`/`cli.py` and does not change the `skillSandbox: not_implemented` report contract), no Prompt black-box runner wired into the default path (same standalone-research status via `tools/run_blackbox.py`), no Semgrep/YARA, ZIP intake, or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
+
+---
+
+## Round 73 (2026-08-01) → register 3 dormant Skill rules + complete V2 sandbox research adapter
+
+- Registered three Skill rules (`skill_missing_inline_reference`,
+  `skill_business_interface_version_gap`, `skill_runtime_state_file_malformed`)
+  that existed in `skill_rules.py` as uncommitted, unregistered functions —
+  they produced zero findings because no `FindingTypeDefinition`/
+  `RuleDefinition`/engine-mapping/guidance/detector-mapping entry existed for
+  any of them. Followed the Round 71/72 registration pattern exactly:
+  `skill.missing_inline_reference` (medium, OWASP-AST04, risk VR-SKILL-002)
+  catches an inline `references/<file>` link in SKILL.md body pointing at a
+  file absent from the package (complements `skill.manifest_missing_reference`,
+  which only checks the YAML `refs` field); `skill.business_interface_version_gap`
+  (medium, risk VR-SKILL-012) catches a `business-interface.md` contract
+  version not mirrored in the SKILL.md body; `skill.runtime_state_file_malformed`
+  (medium, risk VR-SKILL-001) catches an empty or unparseable
+  `current.json`/`history.jsonl`. Also fixed a comment-numbering collision:
+  the uncommitted code self-labeled these "S16-S18", colliding with the
+  already-committed `skill.tool_unavailable_contract_prose_only` at S16;
+  renumbered to S17-S19 (comment-only, no functional change).
+- Added 12 new unit tests in `test_skill_rules.py` (3 classes, positive +
+  negative cases for each rule) and updated the strict detector-count
+  assertion in `test_round14_standards.py` (89 → 92).
+- Backfilled the README "Skill rule inventory" table with 8 rows that were
+  missing since Round 71/72 shipped without doc updates: the 5 prose-only
+  rules from those rounds (`skill.upstream_dependency_contract_gap`,
+  `skill.scope_restrictions_prose_only`, `skill.no_fabrication_declared`,
+  `skill.strict_output_contract_prose_only`, `skill.tool_unavailable_contract_prose_only`)
+  plus the 3 new S17-S19 rules.
+- Completed and committed the previously in-progress V2 Skill sandbox
+  research adapter (`src/verity/sandbox/`: models/profile/runner/staged
+  driver + `tools/run_sandbox.py`): macOS `sandbox-exec` isolation,
+  deny-by-default network, cpu/memory/wall-clock budgets enforced from
+  multiple independent angles (RLIMIT_CPU, RSS-polling watchdog, wall-clock
+  timeout), reliable tmpdir/process-group cleanup, and an injectable-spawn
+  test suite (`tests/test_sandbox.py`) plus real `sandbox-exec` integration
+  tests gated on macOS. Confirmed by direct grep that no module outside
+  `src/verity/sandbox/` imports it — it remains reachable only through the
+  explicit `tools/run_sandbox.py` CLI, never through `review.py`/
+  `engine.py`/`cli.py`. The default report contract is unchanged
+  (`skillSandbox: not_implemented`, per `report.py`/`closure.py`). Updated
+  `AGENTS.md` §4 and `plans/ACTIVE.md` to describe this standalone adapter
+  accurately without claiming the default-path gate has moved.
+- Full suite passed (see `verified_against` above). No functional change to
+  the deterministic/semantic review pipeline's default behavior.
+
+---
+
+## Round 72 (2026-07-31) → real-sample-driven fixes: 5 new Skill body rules + 2 Prompt keyword expansions
+
+- Driven by running Verity on 9 real NexPlay production samples cross-
+  validated with black-box testing, which systematically identified where
+  static rules produce zero findings on complex production agents.
+- Five new Skill body rules, all reading SKILL.md prose that existing rules
+  ignored: `skill.no_fabrication_declared` (detects "不得虚构/不得脑补" prose
+  with no manifest enforcement mechanism), `skill.strict_output_contract_prose_only`
+  (detects "只返回一个完整JSON" prose with no ref to a schema file),
+  `skill.tool_unavailable_contract_prose_only` (detects "Tool不可用时返回X"
+  fallback prose with no manifest-level fallback), plus two more from the
+  same body-text sweep. Total Skill findings across 8 NexPlay Skills rose to
+  17 (near-zero before Round 71+72).
+- Two Prompt keyword expansions from paraphrase-probe gaps:
+  `prompt.open_ended_tool_wildcard` gained 8 more wildcard-grant key names
+  (paraphrase hit rate 0/6 → 6/6); `prompt.dangling_section_reference`
+  gained 5 more "refer to/consult/check section N" patterns (hit rate
+  1/6 → 6/6).
+- All new rules mapped to risk taxonomy with guidance entries; detector
+  count updated to 89. Full suite: 874 passed. `verify_repo.py`: PASS.
+
+---
+
+## Round 71 (2026-07-31) → 2 new Skill body rules from real-sample analysis + 6 black-box scenarios
+
+- Ran Verity on 9 real NexPlay production samples; found near-zero findings
+  on 8 Skill ZIPs despite them being complex production agents. Black-box
+  testing (gpt-4o-mini) confirmed 2 of those Skills generated content
+  without their declared upstream prerequisites, driving the root-cause
+  finding: Verity's Skill engine only read YAML frontmatter, never the
+  SKILL.md prose body where behavioral contracts and dependencies are
+  actually declared.
+- New rules: `skill.upstream_dependency_contract_gap` (detects SKILL.md body
+  prose declaring upstream Skill outputs as prerequisites — "仅在X已产出" —
+  with empty manifest `dependencies`/`metadata`; confirmed firing on a real
+  Skill black-box testing showed would generate content without valid
+  upstream inputs) and `skill.scope_restrictions_prose_only` (detects
+  "不要用于X" scope-restriction prose with no `allowed-tools`/`permissions`
+  manifest backing; low-severity advisory).
+- Re-running Verity on the 9 NexPlay samples after this change moved Skill
+  findings from near-zero (4 total) to 9+, including 5 new body-text
+  detections.
+- Added 6 new black-box probe scenarios targeting agent-system
+  architectures: `skill_boundary_bypass`, `upstream_dependency_skip`,
+  `state_injection`, `output_contract_violation`,
+  `confidential_reference_leak`, `image_content_safety`.
+- Mapped both new rules to risk taxonomy (VR-SKILL-012, VR-GOV-001); added
+  guidance entries; detector count updated to 86. Full suite: 874 passed.
+  `verify_repo.py`: PASS.
 
 ---
 

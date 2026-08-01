@@ -1006,3 +1006,243 @@ def skill_tool_unavailable_contract_prose_only(ctx: RuleContext) -> List[RuleHit
         "artifactPath": f.normalizedPath,
         "fallbackKind": "tool_unavailable",
     })]
+
+
+# --------------------------------------------------------------------- #
+# S17–S19. Cross-file rules: SKILL.md body vs reference files            #
+# These rules read MULTIPLE files from the snapshot, not just SKILL.md. #
+# All files are already in ctx.file_bytes from intake_directory.        #
+# --------------------------------------------------------------------- #
+
+_INLINE_REF_PATTERN = re.compile(
+    rb"references/([^\s\)`'\"]{2,80})"
+)
+
+
+def _get_references_file(ctx: RuleContext, filename: str):
+    """Return (ArtifactFile, bytes) for a references/* file, or (None, b'')."""
+    for f in ctx.snapshot.files:
+        if f.status != "included":
+            continue
+        if f.normalizedPath == f"references/{filename}":
+            return f, ctx.file_bytes.get(f.fileId, b"")
+    return None, b""
+
+
+def _get_skill_body_bytes(ctx: RuleContext) -> bytes:
+    """Return only the body portion (after frontmatter) of SKILL.md."""
+    raw = _skill_md_bytes(ctx)
+    if b"\n---\n" in raw[4:]:
+        close = raw.find(b"\n---\n", 4)
+        if close != -1:
+            return raw[close + 5:]
+    return raw
+
+
+# --------------------------------------------------------------------- #
+# S17. References inline-linked in SKILL.md body but absent from snapshot #
+# --------------------------------------------------------------------- #
+
+def skill_missing_inline_reference(ctx: RuleContext) -> List[RuleHit]:
+    """SKILL.md body contains a `references/foo.md` link to a file that
+    does not exist in the Skill package.
+
+    Unlike ``skill_manifest_missing_reference`` (which only checks the
+    YAML ``refs:`` field), this rule reads the prose body and catches
+    inline links like ``[load X](references/foo.md)`` or the plain text
+    form ``references/foo.md`` that are common in NexPlay-style Skills.
+
+    A missing reference file means the Skill's execution flow will fail
+    when it tries to load the declared resource at runtime.
+    """
+    f = _skill_md(ctx)
+    if f is None:
+        return []
+
+    raw = _skill_md_bytes(ctx)
+    body_start = 0
+    if b"\n---\n" in raw[4:]:
+        close = raw.find(b"\n---\n", 4)
+        if close != -1:
+            body_start = close + 5
+
+    body = raw[body_start:]
+    snapshot_paths = {ff.normalizedPath for ff in ctx.snapshot.files
+                      if ff.status == "included"}
+
+    hits: List[RuleHit] = []
+    seen_missing = set()
+    for m in _INLINE_REF_PATTERN.finditer(body):
+        ref_path = m.group(1).decode("utf-8", errors="replace").strip("`'\"")
+        full_path = f"references/{ref_path}"
+        if full_path in snapshot_paths:
+            continue
+        if ref_path in seen_missing:
+            continue
+        seen_missing.add(ref_path)
+        abs_start = body_start + m.start()
+        abs_end = body_start + m.end()
+        ev = make_source_span_evidence(
+            snapshot_id=ctx.snapshot.snapshotId,
+            file_id=f.fileId, artifact_path=f.normalizedPath,
+            file_digest=f.contentDigest or "",
+            byte_range=(abs_start, min(abs_end, abs_start + 200)),
+            raw_bytes=raw[abs_start:min(abs_end, abs_start + 200)],
+            producer=_prod(ctx),
+        )
+        hits.append(RuleHit(evidences=[ev], subject={
+            "artifactPath": f.normalizedPath,
+            "missingReference": ref_path,
+        }))
+    return hits
+
+
+# --------------------------------------------------------------------- #
+# S18. Business-interface contract version mismatch                      #
+# --------------------------------------------------------------------- #
+
+_CONTRACT_VERSION_IN_BIZ = re.compile(
+    r"(?:business-interface|合同版本|contract.{0,10}version)[^`\n]{0,60}"
+    r"(v\d+(?:\.\d+)*)",
+    re.IGNORECASE,
+)
+_CONTRACT_VERSION_IN_SKILL = re.compile(
+    r"(?:business-interface|合同版本|contract.{0,10}version)[^`\n]{0,60}"
+    r"(v\d+(?:\.\d+)*)",
+    re.IGNORECASE,
+)
+
+
+def skill_business_interface_version_gap(ctx: RuleContext) -> List[RuleHit]:
+    """SKILL.md body references business-interface.md but does not mention
+    the same contract version string declared in that file.
+
+    When ``business-interface.md`` declares a versioned contract (e.g.
+    ``asset-voice-match.business-interface.v1``) and the SKILL.md body
+    references the file without naming that version, callers and tools
+    have no machine-checkable way to verify which contract version they
+    are using. A version bump in the interface file would be invisible.
+    """
+    f = _skill_md(ctx)
+    if f is None:
+        return []
+
+    biz_f, biz_bytes = _get_references_file(ctx, "business-interface.md")
+    if not biz_f or not biz_bytes:
+        return []
+
+    skill_body = _get_skill_body_bytes(ctx)
+    if b"business-interface" not in skill_body:
+        return []
+
+    biz_text = biz_bytes.decode("utf-8", errors="replace")
+    skill_text = skill_body.decode("utf-8", errors="replace")
+
+    biz_versions = {m.group(1) for m in _CONTRACT_VERSION_IN_BIZ.finditer(biz_text)}
+    if not biz_versions:
+        return []
+
+    skill_versions = {m.group(1) for m in _CONTRACT_VERSION_IN_SKILL.finditer(skill_text)}
+
+    missing_from_skill = biz_versions - skill_versions
+    if not missing_from_skill:
+        return []
+
+    raw = _skill_md_bytes(ctx)
+    m_ref = re.search(rb"business-interface", raw)
+    start = m_ref.start() if m_ref else 0
+    ev = make_source_span_evidence(
+        snapshot_id=ctx.snapshot.snapshotId,
+        file_id=f.fileId, artifact_path=f.normalizedPath,
+        file_digest=f.contentDigest or "",
+        byte_range=(start, min(start + 200, len(raw))),
+        raw_bytes=raw[start:min(start + 200, len(raw))],
+        producer=_prod(ctx),
+    )
+    return [RuleHit(evidences=[ev], subject={
+        "artifactPath": f.normalizedPath,
+        "contractVersionsInInterface": sorted(biz_versions),
+        "contractVersionsMentionedInSkill": sorted(skill_versions),
+    })]
+
+
+# --------------------------------------------------------------------- #
+# S19. Runtime state file present but malformed or empty                 #
+# --------------------------------------------------------------------- #
+
+def skill_runtime_state_file_malformed(ctx: RuleContext) -> List[RuleHit]:
+    """``current.json`` or ``history.jsonl`` is present but cannot be
+    parsed as valid JSON/JSONL, or is completely empty.
+
+    These files record the Skill's live operational state. A malformed
+    state file causes the Skill to fail immediately at startup when it
+    tries to load its context, producing confusing errors rather than
+    a clear input-error response.
+    """
+    import json as _json
+
+    STATE_FILES = {"current.json", "history.jsonl"}
+    hits: List[RuleHit] = []
+
+    for ff in ctx.snapshot.files:
+        if ff.status != "included":
+            continue
+        if ff.normalizedPath not in STATE_FILES:
+            continue
+        data = ctx.file_bytes.get(ff.fileId, b"")
+        if not data or not data.strip():
+            # Empty file
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=ff.fileId, artifact_path=ff.normalizedPath,
+                file_digest=ff.contentDigest or "",
+                byte_range=(0, len(data)),
+                raw_bytes=data,
+                producer=_prod(ctx),
+            )
+            hits.append(RuleHit(evidences=[ev], subject={
+                "artifactPath": ff.normalizedPath,
+                "stateFileIssue": "empty",
+            }))
+            continue
+
+        if ff.normalizedPath.endswith(".jsonl"):
+            lines = [l.strip() for l in data.decode("utf-8", errors="replace").splitlines()
+                     if l.strip()]
+            bad = 0
+            for line in lines[:50]:
+                try:
+                    _json.loads(line)
+                except Exception:
+                    bad += 1
+            if bad > 0 and bad > len(lines) // 2:
+                ev = make_source_span_evidence(
+                    snapshot_id=ctx.snapshot.snapshotId,
+                    file_id=ff.fileId, artifact_path=ff.normalizedPath,
+                    file_digest=ff.contentDigest or "",
+                    byte_range=(0, min(200, len(data))),
+                    raw_bytes=data[:200],
+                    producer=_prod(ctx),
+                )
+                hits.append(RuleHit(evidences=[ev], subject={
+                    "artifactPath": ff.normalizedPath,
+                    "stateFileIssue": "malformed_jsonl",
+                    "badLineCount": bad,
+                }))
+        elif ff.normalizedPath.endswith(".json"):
+            try:
+                _json.loads(data.decode("utf-8", errors="replace"))
+            except Exception:
+                ev = make_source_span_evidence(
+                    snapshot_id=ctx.snapshot.snapshotId,
+                    file_id=ff.fileId, artifact_path=ff.normalizedPath,
+                    file_digest=ff.contentDigest or "",
+                    byte_range=(0, min(200, len(data))),
+                    raw_bytes=data[:200],
+                    producer=_prod(ctx),
+                )
+                hits.append(RuleHit(evidences=[ev], subject={
+                    "artifactPath": ff.normalizedPath,
+                    "stateFileIssue": "malformed_json",
+                }))
+    return hits

@@ -2639,6 +2639,11 @@ DEFAULT_IMPLEMENTATIONS: Dict[str, RuleImpl] = {
         _sr.skill_strict_output_contract_prose_only,
     "impl.skill.tool_unavailable_contract_prose_only.v1":
         _sr.skill_tool_unavailable_contract_prose_only,
+    "impl.skill.missing_inline_reference.v1": _sr.skill_missing_inline_reference,
+    "impl.skill.business_interface_version_gap.v1":
+        _sr.skill_business_interface_version_gap,
+    "impl.skill.runtime_state_file_malformed.v1":
+        _sr.skill_runtime_state_file_malformed,
     **{f"impl.skill.bandit.{tid}": _make_bandit_impl(tid) for tid in _BANDIT_TEST_IDS},
     "impl.skill.gitleaks.v1": _gitleaks_hits,
 }

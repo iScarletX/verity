@@ -600,6 +600,55 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         priority="P2",
     ),
 
+    "skill.missing_inline_reference": Guidance(
+        id="skill.missing_inline_reference",
+        plainTitle="SKILL.md 正文内联链接的 references/ 文件不存在",
+        whyItMatters=(
+            "SKILL.md 正文中出现了类似「加载 references/foo.md」的内联引用，"
+            "但该文件在 Skill 包里实际不存在。这与 skill.manifest_missing_reference"
+            "（只检查 YAML refs 字段）互补——很多引用是写在正文说明文字里的，"
+            "manifest 字段检查覆盖不到。缺失的引用文件会导致 Skill 在运行时"
+            "尝试加载该资源时失败。"
+        ),
+        whatToDo=[
+            "补齐缺失的 references/ 文件，或修正正文中的文件名/路径。",
+            "如果该引用已废弃，从正文中删除对应的说明文字。",
+        ],
+        priority="P1",
+    ),
+
+    "skill.business_interface_version_gap": Guidance(
+        id="skill.business_interface_version_gap",
+        plainTitle="business-interface.md 声明的合同版本，SKILL.md 正文未同步提及",
+        whyItMatters=(
+            "references/business-interface.md 中声明了一个带版本号的合同"
+            "（例如 v1），但 SKILL.md 正文提到这个接口文件时没有写出同一个版本号。"
+            "调用方和工具只读 SKILL.md 正文的话，无法察觉接口文件已经升级版本，"
+            "版本漂移对它们是不可见的。"
+        ),
+        whatToDo=[
+            "在 SKILL.md 正文引用 business-interface.md 的地方，同步写出当前的合同版本号。",
+            "如果版本号已经变更，检查调用方是否需要跟进适配新版本的字段/行为。",
+        ],
+        priority="P2",
+    ),
+
+    "skill.runtime_state_file_malformed": Guidance(
+        id="skill.runtime_state_file_malformed",
+        plainTitle="运行时状态文件（current.json / history.jsonl）为空或格式错误",
+        whyItMatters=(
+            "current.json 或 history.jsonl 记录 Skill 的实际运行状态，文件存在"
+            "但为空、或不是合法的 JSON/JSONL。Skill 启动时尝试加载这些状态文件会"
+            "直接失败，产生难以理解的报错，而不是一个清晰的输入错误提示。"
+        ),
+        whatToDo=[
+            "检查该状态文件是如何产生的，修复写入逻辑中导致空文件或格式错误的问题。",
+            "如果该文件确实应为空（例如从未运行过），考虑让 Skill 显式处理空状态的情况，"
+            "而不是假设文件内容总是合法 JSON。",
+        ],
+        priority="P1",
+    ),
+
     # Aggregation entries (dispatched below) --------------------------
     # skill.bandit_finding is per-testId; handled dynamically.
     # skill.gitleaks_finding is per-ruleID; handled dynamically.

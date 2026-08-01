@@ -488,6 +488,50 @@ def build_finding_type_registry() -> FindingTypeRegistry:
         defaultSeverity="low",
         requiredEvidenceKinds=["source_span"],
     ))
+    # S17 inline reference link in SKILL.md body points to an absent file
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.missing_inline_reference",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("missingReference", "evidence_field",
+                         "reference.missing_path"),
+        ],
+        subjectKeyFields=["artifactPath", "missingReference"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    # S18 business-interface.md contract version not mirrored in SKILL.md body
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.business_interface_version_gap",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("contractVersionsInInterface", "evidence_field",
+                         "business_interface.versions"),
+            SubjectField("contractVersionsMentionedInSkill", "evidence_field",
+                         "skill_body.versions"),
+        ],
+        subjectKeyFields=["artifactPath"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
+    # S19 runtime state file (current.json / history.jsonl) empty or malformed
+    ftr.register(FindingTypeDefinition(
+        findingType="skill.runtime_state_file_malformed",
+        engine="skill",
+        subjectFields=[
+            SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
+            SubjectField("stateFileIssue", "literal_enum", allowedValues=[
+                "empty", "malformed_jsonl", "malformed_json",
+            ]),
+            SubjectField("badLineCount", "evidence_field",
+                         "state_file.bad_line_count"),
+        ],
+        subjectKeyFields=["artifactPath", "stateFileIssue"],
+        defaultSeverity="medium",
+        requiredEvidenceKinds=["source_span"],
+    ))
     # Gitleaks findings (redacted).
     ftr.register(FindingTypeDefinition(
         findingType="skill.gitleaks_finding",
@@ -1174,6 +1218,47 @@ def build_skill_rule_registry(ftr: FindingTypeRegistry) -> RuleRegistry:
         implementationId="impl.skill.tool_unavailable_contract_prose_only.v1",
         applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
         defaultSeverity="low", controlIds=["quality.resilience"],
+        requiresManifest=False,
+    ))
+    # S17 inline reference in SKILL.md body absent from the snapshot
+    rr.register(RuleDefinition(
+        ruleId="skill.missing_inline_reference",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("SKILL.md body contains an inline `references/<file>` link "
+               "pointing to a file that does not exist in the Skill package. "
+               "Complements `skill.manifest_missing_reference`, which only "
+               "checks the YAML `refs` field, not prose body links."),
+        findingType="skill.missing_inline_reference",
+        implementationId="impl.skill.missing_inline_reference.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["OWASP-AST04"],
+        owaspAst10=["OWASP-AST04"], requiresManifest=False,
+    ))
+    # S18 business-interface.md contract version gap
+    rr.register(RuleDefinition(
+        ruleId="skill.business_interface_version_gap",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("SKILL.md body references `business-interface.md` without "
+               "naming the same contract version string declared in that "
+               "file. A version bump in the interface file is invisible to "
+               "callers reading only SKILL.md."),
+        findingType="skill.business_interface_version_gap",
+        implementationId="impl.skill.business_interface_version_gap.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["quality.consistency"],
+        requiresManifest=False,
+    ))
+    # S19 runtime state file empty or malformed
+    rr.register(RuleDefinition(
+        ruleId="skill.runtime_state_file_malformed",
+        ruleVersion="1.0.0", supersedes=[], engine="skill",
+        title=("`current.json` or `history.jsonl` is present but empty or "
+               "fails to parse as valid JSON/JSONL. The Skill will fail at "
+               "startup when it tries to load its operational state."),
+        findingType="skill.runtime_state_file_malformed",
+        implementationId="impl.skill.runtime_state_file_malformed.v1",
+        applicableKinds=["skill"], requiredEvidenceKinds=["source_span"],
+        defaultSeverity="medium", controlIds=["quality.resilience"],
         requiresManifest=False,
     ))
     # --- Bandit-normalised rules ------------------------------------

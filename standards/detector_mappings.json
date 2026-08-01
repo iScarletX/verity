@@ -720,6 +720,30 @@
         "VR-SKILL-012"
       ],
       "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.missing_inline_reference",
+      "riskIds": [
+        "VR-SKILL-002"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.business_interface_version_gap",
+      "riskIds": [
+        "VR-SKILL-012"
+      ],
+      "contribution": "signal"
+    },
+    {
+      "detectorType": "deterministic_rule",
+      "detectorId": "skill.runtime_state_file_malformed",
+      "riskIds": [
+        "VR-SKILL-001"
+      ],
+      "contribution": "signal"
     }
   ]
 }

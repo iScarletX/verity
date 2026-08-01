@@ -178,13 +178,20 @@ black-box run and supplies a test set, model, budget, and recording
 location. Until built, reports say `promptBlackbox: not_implemented`.
 Don't claim it works before it does.
 
-**V2 Skill sandbox (roadmap, NOT yet implemented).** Executes a
-reviewed skill to observe its runtime/file/network/exfiltration
-behaviour — the mission's *execution-process* checking. Allowed **only**
-inside a one-shot isolated sandbox with fake credentials, default-off /
-controlled network, cpu / memory / wall-clock limits, and reliable
-destruction after the run. Until built, reports say
-`skillSandbox: not_implemented`. Don't claim it works before it does.
+**V2 Skill sandbox (standalone research adapter exists; NOT wired into
+the default review path).** Executes a reviewed skill to observe its
+runtime/file/network/exfiltration behaviour — the mission's
+*execution-process* checking. Allowed **only** inside a one-shot
+isolated sandbox with fake credentials, default-off / controlled
+network, cpu / memory / wall-clock limits, and reliable destruction
+after the run. `src/verity/sandbox/` + `tools/run_sandbox.py` implement
+exactly this (macOS `sandbox-exec`, deny-by-default network, multi-angle
+budget enforcement) but are reachable only through that explicit CLI —
+never imported by `review.py`, `engine.py`, or `cli.py`. Default `verity
+review` reports still say `skillSandbox: not_implemented` (see
+`report.py`/`closure.py`) and this remains accurate: wiring sandbox
+observation into the default pipeline/report contract is a separate,
+still-ungated step. Don't claim the default path works before it does.
 
 **Embeddable service (roadmap).** The mission includes Verity being
 callable by other agents in real time. The same isolation and honest-

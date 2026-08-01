@@ -468,6 +468,134 @@ class TestPythonShellTrueBoundary:
 
 
 # ========================================================================
+# S17-S19: cross-file rules (SKILL.md body vs. reference files)
+# ========================================================================
+
+class TestMissingInlineReference:
+    """S17: SKILL.md body links to references/<file> that does not exist
+    in the snapshot. Complements skill.manifest_missing_reference, which
+    only checks the YAML `refs` field."""
+    ft = "skill.missing_inline_reference"
+
+    def test_positive_missing_reference_file(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n"
+                        "See references/setup.md for details.\n",
+        })
+        r = _run(str(root))
+        hits = [f for f in r.findings if f.findingType == self.ft]
+        assert hits and hits[0].subject["missingReference"] == "setup.md"
+
+    def test_negative_reference_file_present(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n"
+                        "See references/setup.md for details.\n",
+            "references/setup.md": "# setup\n",
+        })
+        r = _run(str(root))
+        assert self.ft not in _types(r)
+
+    def test_negative_no_inline_reference(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n"
+                        "No references here.\n",
+        })
+        r = _run(str(root))
+        assert self.ft not in _types(r)
+
+
+class TestBusinessInterfaceVersionGap:
+    """S18: business-interface.md declares a contract version that
+    SKILL.md body does not mention when referencing that file."""
+    ft = "skill.business_interface_version_gap"
+
+    def test_positive_version_missing_from_skill_body(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n"
+                        "See references/business-interface.md for the contract.\n",
+            "references/business-interface.md":
+                "This defines business-interface.v1 contract fields.\n",
+        })
+        r = _run(str(root))
+        hits = [f for f in r.findings if f.findingType == self.ft]
+        assert hits and "v1" in hits[0].subject["contractVersionsInInterface"]
+
+    def test_negative_version_mentioned_in_skill_body(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n"
+                        "Uses references/business-interface.md contract version v1.\n",
+            "references/business-interface.md":
+                "This defines business-interface.v1 contract fields.\n",
+        })
+        r = _run(str(root))
+        assert self.ft not in _types(r)
+
+    def test_negative_no_business_interface_file(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n"
+                        "No interface reference here.\n",
+        })
+        r = _run(str(root))
+        assert self.ft not in _types(r)
+
+
+class TestRuntimeStateFileMalformed:
+    """S19: current.json / history.jsonl present but empty or malformed."""
+    ft = "skill.runtime_state_file_malformed"
+
+    def test_positive_empty_current_json(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "current.json": "",
+        })
+        r = _run(str(root))
+        hits = [f for f in r.findings if f.findingType == self.ft]
+        assert hits and hits[0].subject["stateFileIssue"] == "empty"
+
+    def test_positive_malformed_json(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "current.json": "{not valid json",
+        })
+        r = _run(str(root))
+        hits = [f for f in r.findings if f.findingType == self.ft]
+        assert hits and hits[0].subject["stateFileIssue"] == "malformed_json"
+
+    def test_positive_malformed_jsonl_majority_bad(self, tmp_path):
+        lines = "\n".join(["not json"] * 6 + ['{"ok": 1}'] * 2)
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "history.jsonl": lines,
+        })
+        r = _run(str(root))
+        hits = [f for f in r.findings if f.findingType == self.ft]
+        assert hits and hits[0].subject["stateFileIssue"] == "malformed_jsonl"
+
+    def test_negative_valid_json(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "current.json": '{"state": "ok"}',
+        })
+        r = _run(str(root))
+        assert self.ft not in _types(r)
+
+    def test_negative_valid_jsonl(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+            "history.jsonl": '{"a": 1}\n{"b": 2}\n',
+        })
+        r = _run(str(root))
+        assert self.ft not in _types(r)
+
+    def test_negative_no_state_files(self, tmp_path):
+        root = _write_skill(tmp_path, {
+            "SKILL.md": "---\nname: t\ndescription: t\nversion: 1.0.0\n---\n",
+        })
+        r = _run(str(root))
+        assert self.ft not in _types(r)
+
+
+# ========================================================================
 # Coverage: sufficient / insufficient distinction
 # ========================================================================
 
