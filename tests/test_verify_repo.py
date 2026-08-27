@@ -774,3 +774,25 @@ def test_ci_yaml_is_parseable_and_declares_permissions(tmp_path, monkeypatch):
     step_names = [s.get("uses") or s.get("name") for s in steps]
     assert any("actions/checkout" in (s or "") for s in step_names)
     assert any("actions/setup-python" in (s or "") for s in step_names)
+    checkout = next(
+        step for step in steps
+        if "actions/checkout" in str(step.get("uses") or "")
+    )
+    assert (checkout.get("with") or {}).get("fetch-depth") == 0
+
+
+def test_ci_workflow_gate_requires_history_for_verified_commit(
+        tmp_path, monkeypatch):
+    dst = _scratch_repo(tmp_path)
+    workflow = dst / ".github" / "workflows" / "ci.yml"
+    text = workflow.read_text()
+    assert "fetch-depth: 0" in text
+    workflow.write_text(text.replace("          fetch-depth: 0\n", "", 1))
+    monkeypatch.setattr(verify_repo, "REPO", dst)
+
+    rep = verify_repo.VerifyReport()
+    verify_repo.check_ci_workflow_shape(rep)
+
+    result = next(row for row in rep.results if row.name == "ci_workflow_shape")
+    assert result.ok is False
+    assert "fetch-depth" in result.detail

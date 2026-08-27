@@ -24,6 +24,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          # verify_repo validates the documented verified_against commit as
+          # an ancestor of HEAD; a depth-1 checkout cannot resolve it.
+          fetch-depth: 0
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5

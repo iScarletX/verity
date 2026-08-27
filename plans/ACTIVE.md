@@ -1,7 +1,7 @@
 # Active implementation: artifact-aware dynamic audit + Agent Harness + Evidence Console
 
 Status: **implementation complete; release gate passed**. The controller
-measured `4150/4150` passing tests for the combined dynamic, Harness, and
+measured `4151/4151` passing tests for the combined dynamic, Harness, and
 Evidence Console round, and the final normal `python3 tools/verify_repo.py`
 gate passed all 19 checks.
 
@@ -90,7 +90,7 @@ For the combined Harness and Evidence Console round, Tasks 1–5 focused gates,
 offline DSH composition smoke, JavaScript syntax, compile, release-contract,
 responsive Web checks, and scoped baseline audits passed without a real
 Provider/model/scenario call. The controller's fresh full suite passed
-(`4150/4150`, one existing deprecation warning). Agent-runtime cleanup also
+(`4151/4151`, one existing deprecation warning). Agent-runtime cleanup also
 passed all 120 focused tests plus repeated real-process stress runs. The final
 normal repository verification passed all 19 checks before release staging.
 

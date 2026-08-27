@@ -9,9 +9,9 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "5b71072"
-  tests_collected: 4150
-  tests_passed: 4150
+  commit: "cb975be"
+  tests_collected: 4151
+  tests_passed: 4151
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -102,7 +102,7 @@ Release-scope review included all tracked implementation work plus referenced
 corpus fixtures and tests. Interrupted `.semantic-comparison-packet-*`
 directories are now ignored as generated staging, and are not release input.
 The candidate set contains no oversized blob, private key, `.env` file, or
-new real host path. The fresh full suite passed `4150/4150` with one existing
+new real host path. The fresh full suite passed `4151/4151` with one existing
 HTTPX deprecation warning. Agent-runtime focused tests passed `120/120`, with
 the original real-process race repeated successfully by both implementation
 and independent review. The final normal `python3 tools/verify_repo.py` gate

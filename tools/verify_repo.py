@@ -878,7 +878,37 @@ def check_ci_workflow_shape(rep: VerifyReport) -> None:
             rep.append_fail("ci_workflow_shape",
                             f"ci.yml missing {needle!r}")
             return
-    rep.append_ok("ci_workflow_shape", "ci.yml permissions + steps ok")
+    if data is not None:
+        verify_job = jobs.get("verify") if isinstance(jobs, dict) else None
+        steps = (
+            verify_job.get("steps")
+            if isinstance(verify_job, dict)
+            else None
+        )
+        checkout_steps = [
+            step for step in (steps or [])
+            if isinstance(step, dict)
+            and "actions/checkout" in str(step.get("uses") or "")
+        ]
+        if (
+            len(checkout_steps) != 1
+            or (checkout_steps[0].get("with") or {}).get("fetch-depth") != 0
+        ):
+            rep.append_fail(
+                "ci_workflow_shape",
+                "checkout must set fetch-depth: 0 so verified ancestors exist",
+            )
+            return
+    elif "fetch-depth: 0" not in text:
+        rep.append_fail(
+            "ci_workflow_shape",
+            "ci.yml must fetch history for verified ancestor checks",
+        )
+        return
+    rep.append_ok(
+        "ci_workflow_shape",
+        "ci.yml permissions + full-history checkout + steps ok",
+    )
 
 
 def check_detection_standards(rep: VerifyReport) -> None:

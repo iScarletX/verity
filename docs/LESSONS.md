@@ -14,6 +14,23 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-08-27 — Provenance gates need commit history in CI checkouts
+
+- **Symptom**: Local `verify_repo.py --require-clean` passed, but the first
+  GitHub Actions run failed because `verified_against.commit` “does not exist,”
+  even though it was the release commit's real parent.
+- **Root cause**: The gate intentionally resolves and ancestry-checks the
+  documented verification commit. `actions/checkout` defaults to a depth-1
+  clone, so CI had only the new HEAD and could not resolve its documented
+  ancestor; the local full-history worktree masked this platform difference.
+- **Fix**: Set `fetch-depth: 0` on the read-only checkout and extend the CI
+  workflow-shape machine gate to require full history.
+- **Prevention**: Any gate that verifies ancestry, tags, merge bases, or earlier
+  evidence commits must make its history requirement explicit in CI and test a
+  corrupted shallow-checkout configuration.
+- **Evidence**: GitHub Actions run `33076217241` and
+  `tests/test_verify_repo.py::test_ci_workflow_gate_requires_history_for_verified_commit`.
+
 ### 2026-08-27 — A research execution adapter is not a product isolation boundary
 
 - **Symptom**: The V2 prototype was reachable through supported review paths
