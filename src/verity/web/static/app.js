@@ -31,6 +31,27 @@
   function clear(el) { if (el) el.textContent = ""; }
   function add(parent, child) { if (parent && child) parent.appendChild(child); return child; }
   function setOpen(el, open) { if (el) { if (open) el.setAttribute("open", "open"); else el.removeAttribute("open"); } }
+  function setWorkspaceState(state) {
+    var empty = $("review-empty");
+    var loading = $("loading");
+    var result = $("result");
+    var error = $("error");
+    if (empty) empty.hidden = state !== "idle";
+    if (loading) loading.hidden = state !== "loading";
+    if (result) result.hidden = state !== "result";
+    if (error) error.hidden = state !== "error";
+  }
+  function scrollToResult() {
+    var result = $("result");
+    if (!result || typeof window.scrollTo !== "function") return;
+    var reduceMotion = typeof window.matchMedia === "function"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({
+      top: result.offsetTop - 20,
+      behavior: reduceMotion ? "auto" : "smooth",
+    });
+  }
+  setWorkspaceState("idle");
   // Tables hold machine ids of unbounded length; keep their overflow inside
   // their own block so they can never widen the whole document.
   function addTable(parent, table) {
@@ -130,25 +151,69 @@
   loadProjects();
 
   // ---------------- tabs ----------------
-  document.querySelectorAll(".tabs button").forEach(function (b) {
-    b.addEventListener("click", function () {
-      var tab = b.getAttribute("data-tab");
-      document.querySelectorAll(".tabs button").forEach(function (x) {
-        x.classList.remove("active");
-        x.setAttribute("aria-selected", "false");
-      });
-      b.classList.add("active");
-      b.setAttribute("aria-selected", "true");
-      $("tab-prompt").hidden = tab !== "prompt";
-      $("tab-skill").hidden = tab !== "skill";
+  var modeTabs = Array.prototype.slice.call(
+    document.querySelectorAll(".tabs button"));
+
+  function activateModeTab(button, moveFocus) {
+    var tab = button.getAttribute("data-tab");
+    modeTabs.forEach(function (item) {
+      var selected = item === button;
+      item.classList[selected ? "add" : "remove"]("active");
+      item.setAttribute("aria-selected", selected ? "true" : "false");
+      item.setAttribute("tabindex", selected ? "0" : "-1");
+    });
+    $("tab-prompt").hidden = tab !== "prompt";
+    $("tab-skill").hidden = tab !== "skill";
+    if (moveFocus && typeof button.focus === "function") button.focus();
+  }
+
+  modeTabs.forEach(function (button, index) {
+    button.addEventListener("click", function () {
+      activateModeTab(button, false);
+    });
+    button.addEventListener("keydown", function (event) {
+      var targetIndex = index;
+      if (event.key === "ArrowRight") targetIndex = (index + 1) % modeTabs.length;
+      else if (event.key === "ArrowLeft") {
+        targetIndex = (index - 1 + modeTabs.length) % modeTabs.length;
+      } else if (event.key === "Home") targetIndex = 0;
+      else if (event.key === "End") targetIndex = modeTabs.length - 1;
+      else return;
+      event.preventDefault();
+      activateModeTab(modeTabs[targetIndex], true);
     });
   });
 
   // ---------------- prompt tab ----------------
+  var MAX_PROMPT_BYTES = 256 * 1024;
   var promptText = $("prompt-text");
   var promptCount = $("prompt-count");
+  var promptFile = $("prompt-file");
+  var promptFileName = $("prompt-file-name");
   promptText.addEventListener("input", function () {
     promptCount.textContent = promptText.value.length + " 字符";
+  });
+  promptFile.addEventListener("change", function () {
+    var f = promptFile.files && promptFile.files[0];
+    if (!f) {
+      $("prompt-file-drop").classList.remove("has-file");
+      if (promptFileName) {
+        promptFileName.textContent = "支持 .txt / .md / .json · 仅在本机读取";
+      }
+      return;
+    }
+    $("prompt-file-drop").classList.add("has-file");
+    if (promptFileName) promptFileName.textContent = f.name + " · 本地读取";
+    if (f.size > MAX_PROMPT_BYTES) {
+      showError({ code: "prompt_too_large", message: "prompt file exceeds server budget" });
+      return;
+    }
+    f.text().then(function (text) {
+      promptText.value = text;
+      promptCount.textContent = text.length + " 字符";
+    }).catch(function () {
+      showError({ code: "bad_file", message: "无法读取该文件内容（可能不是文本文件）。" });
+    });
   });
   $("prompt-submit").addEventListener("click", function () {
     submitPrompt();
@@ -159,13 +224,15 @@
     var kind = $("prompt-kind").value;
     var opts = semanticOpts();
     if (opts === null) return;
+    var bbOpts = blackboxOpts();
+    if (bbOpts === null) return;
     currentSource = { engine: "prompt", files: { "prompt.txt": text } };
     disable(true);
     fetch("/api/review/prompt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(Object.assign({ text: text, prompt_kind: kind },
-                                          opts)),
+                                          opts, bbOpts)),
     }).then(handleJson).catch(handleFetchError).finally(function () {
       disable(false);
     });
@@ -215,6 +282,133 @@
     return models;
   }
 
+  // ---------------- V1.5 Prompt 黑盒测试 opt-in ----------------
+  // Deliberately stricter than semanticOpts()'s "field present => wanted"
+  // convention: this stage sends the reviewed Prompt to a real model over
+  // the network, so two INDEPENDENT explicit signals are required -- the
+  // card's own "启用" checkbox AND a separate "确认" checkbox -- before a
+  // single blackbox_* field is added to the request body. Leaving the
+  // card collapsed and unchecked (the default) changes nothing about the
+  // request "开始审查" already sends.
+  var blackboxEnabledEl = $("blackbox-enabled");
+  var blackboxConfirmEl = $("blackbox-confirm");
+  var BLACKBOX_CONFIG_IDS = [
+    "blackbox-base-url", "blackbox-model", "blackbox-api-key",
+    "blackbox-copy-provider-btn", "blackbox-scenario-policy",
+    "blackbox-scenario-ids",
+    "blackbox-max-calls", "blackbox-timeout", "blackbox-max-tokens",
+  ];
+
+  function setBlackboxControlsDisabled(disabled) {
+    BLACKBOX_CONFIG_IDS.forEach(function (id) {
+      var el = $(id);
+      if (el) el.disabled = disabled;
+    });
+  }
+
+  function updateBlackboxPill() {
+    var pill = $("blackbox-state-pill");
+    if (!pill || !blackboxEnabledEl) return;
+    if (!blackboxEnabledEl.checked) {
+      pill.className = "state-pill is-off";
+      pill.textContent = "未启用";
+    } else if (!blackboxConfirmEl || !blackboxConfirmEl.checked) {
+      pill.className = "state-pill is-warn";
+      pill.textContent = "已启用，待确认";
+    } else {
+      pill.className = "state-pill is-warn";
+      pill.textContent = "下次审查将真实调用模型";
+    }
+  }
+
+  if (blackboxEnabledEl) {
+    blackboxEnabledEl.addEventListener("change", function () {
+      var on = blackboxEnabledEl.checked;
+      setBlackboxControlsDisabled(!on);
+      if (blackboxConfirmEl) {
+        blackboxConfirmEl.disabled = !on;
+        if (!on) blackboxConfirmEl.checked = false;
+      }
+      updateBlackboxPill();
+    });
+  }
+  if (blackboxConfirmEl) {
+    blackboxConfirmEl.addEventListener("change", updateBlackboxPill);
+  }
+
+  var blackboxCopyBtn = $("blackbox-copy-provider-btn");
+  if (blackboxCopyBtn) {
+    // Copies only whatever is literally sitting in the semantic panel's
+    // inputs right now, in this page session -- never reads anything back
+    // from the persisted Provider store. A previously-saved API key is
+    // never re-readable from the page (see provider-api-key's own
+    // field-note), so if the user hasn't retyped it this session there is
+    // nothing to copy. That's intentional: no silent reuse of a stored
+    // secret for a stage that makes its own independent network calls.
+    blackboxCopyBtn.addEventListener("click", function () {
+      var baseUrlEl = $("blackbox-base-url");
+      var modelEl = $("blackbox-model");
+      var apiKeyEl = $("blackbox-api-key");
+      var srcBaseUrl = providerBaseUrlEl ? providerBaseUrlEl.value : "";
+      var srcKey = ($("provider-api-key") || {}).value || "";
+      var srcModel = ($("generator-model") || {}).value || "";
+      if (baseUrlEl && srcBaseUrl) baseUrlEl.value = srcBaseUrl;
+      if (apiKeyEl && srcKey) apiKeyEl.value = srcKey;
+      if (modelEl && srcModel) modelEl.value = srcModel;
+      var statusEl = $("blackbox-status");
+      if (statusEl) {
+        statusEl.textContent = srcKey
+          ? "已从语义审查 Provider 复制地址/模型/Key（仅本次页面会话中的值）。"
+          : "已复制地址与模型；未复制 API Key——语义审查面板当前没有可读取的 Key（保存后不会回显），请手动填写。";
+      }
+    });
+  }
+
+  function blackboxOpts() {
+    if (!blackboxEnabledEl || !blackboxEnabledEl.checked) return {};
+    if (!blackboxConfirmEl || !blackboxConfirmEl.checked) {
+      setOpen($("blackbox-panel"), true);
+      showError({
+        code: "blackbox_confirmation_required",
+        message: "请先在黑盒测试卡片中勾选确认项，再开始审查。",
+      });
+      return null;
+    }
+    var baseUrl = (($("blackbox-base-url") || {}).value || "").trim();
+    var model = (($("blackbox-model") || {}).value || "").trim();
+    var apiKey = ($("blackbox-api-key") || {}).value || "";
+    if (!baseUrl || !model || !apiKey.trim()) {
+      setOpen($("blackbox-panel"), true);
+      showError({
+        code: "blackbox_config_incomplete",
+        message: "黑盒测试需要填写 Provider 地址、模型 ID 与 API Key。",
+      });
+      return null;
+    }
+    var opts = {
+      blackbox_enabled: true,
+      blackbox_confirm: true,
+      blackbox_base_url: baseUrl,
+      blackbox_model: model,
+      blackbox_api_key: apiKey,
+      blackbox_scenario_policy:
+        (($("blackbox-scenario-policy") || {}).value || "artifact_aware"),
+    };
+    var scenarioRaw = (($("blackbox-scenario-ids") || {}).value || "").trim();
+    if (scenarioRaw) {
+      opts.blackbox_scenario_ids = scenarioRaw.split(",")
+        .map(function (s) { return s.trim(); })
+        .filter(function (s) { return s.length > 0; });
+    }
+    var maxCalls = parseInt((($("blackbox-max-calls") || {}).value || ""), 10);
+    if (!isNaN(maxCalls)) opts.blackbox_max_calls = maxCalls;
+    var timeout = parseFloat((($("blackbox-timeout") || {}).value || ""));
+    if (!isNaN(timeout)) opts.blackbox_timeout_seconds = timeout;
+    var maxTokens = parseInt((($("blackbox-max-tokens") || {}).value || ""), 10);
+    if (!isNaN(maxTokens)) opts.blackbox_max_tokens = maxTokens;
+    return opts;
+  }
+
   // ---------------- provider model listing ----------------
   // Default base URL is assigned here (not in HTML) so the page source has
   // no external URL literal; the strict no-external-asset test stays valid.
@@ -260,7 +454,8 @@
   // the collapsed panel's own summary.
   //   ready   — base URL + key + both models are set: semantic WILL run.
   //   partial — something is configured but the run cannot be complete.
-  //   off     — nothing configured: static-only, honestly reported.
+  //   off     — semantic Provider is unconfigured; black-box opt-in is
+  //             tracked separately and must never be implied by this state.
   function providerReadiness(settings) {
     var hasUrl = Boolean((settings || {}).baseUrl);
     var hasKey = Boolean((settings || {}).keySaved);
@@ -561,19 +756,50 @@
   var MAX_SKILL_FILE_BYTES = 512 * 1024;
   var MAX_SKILL_TOTAL_BYTES = 8 * 1024 * 1024;
   var skillFiles = $("skill-files");
+  var skillZip = $("skill-zip");
   var skillCount = $("skill-count");
   skillFiles.addEventListener("change", function () {
     var n = skillFiles.files ? skillFiles.files.length : 0;
-    skillCount.textContent = n + " 个文件";
+    if (n) {
+      skillZip.value = "";
+      $("skill-folder-drop").classList.add("has-file");
+      $("skill-zip-drop").classList.remove("has-file");
+      $("skill-folder-name").textContent = n + " 个文件已加入本次卷宗";
+      $("skill-zip-name").textContent = "单个 ZIP · 解包预算 8 MiB";
+      skillCount.textContent = n + " 个文件";
+    } else {
+      $("skill-folder-drop").classList.remove("has-file");
+      $("skill-folder-name").textContent = "包含根目录 SKILL.md · 最多 500 个文件";
+      skillCount.textContent = "尚未选择文件";
+    }
+  });
+  skillZip.addEventListener("change", function () {
+    if (skillZip.files && skillZip.files.length) {
+      skillFiles.value = "";
+      $("skill-folder-drop").classList.remove("has-file");
+      $("skill-zip-drop").classList.add("has-file");
+      $("skill-folder-name").textContent = "包含根目录 SKILL.md · 最多 500 个文件";
+      $("skill-zip-name").textContent = skillZip.files[0].name + " · 已加入本次卷宗";
+      skillCount.textContent = skillZip.files[0].name + "（ZIP）";
+    } else {
+      $("skill-zip-drop").classList.remove("has-file");
+      $("skill-zip-name").textContent = "单个 ZIP · 解包预算 8 MiB";
+      skillCount.textContent = "尚未选择文件";
+    }
   });
   $("skill-submit").addEventListener("click", function () {
     submitSkill();
   });
 
   function submitSkill() {
+    var zipFiles = skillZip.files || [];
+    if (zipFiles.length) {
+      submitSkillZip(zipFiles[0]);
+      return;
+    }
     var files = skillFiles.files || [];
     if (!files.length) {
-      showError({ code: "no_files", message: "请先选择一个包含 SKILL.md 的文件夹。" });
+      showError({ code: "no_files", message: "请先选择一个包含 SKILL.md 的文件夹或 ZIP 文件。" });
       return;
     }
     var preflightError = skillUploadPreflightError(files);
@@ -585,10 +811,13 @@
     fd.append("profile", "standard");
     var opts = semanticOpts();
     if (opts === null) return;
+    var sbOpts = sandboxOpts();
+    if (sbOpts === null) return;
     fd.append("egress_policy", opts.egress_policy);
     if (opts.validator_models) {
       fd.append("validator_models", opts.validator_models);
     }
+    Object.keys(sbOpts).forEach(function (k) { fd.append(k, sbOpts[k]); });
     var sourceFiles = {};
     for (var i = 0; i < files.length; i++) {
       var f = files[i];
@@ -629,6 +858,79 @@
         return { code: "total_too_large", message: "total too large" };
       }
     }
+    return null;
+  }
+
+  function submitSkillZip(zipFile) {
+    if (zipFile.size > MAX_SKILL_TOTAL_BYTES) {
+      showError({ code: "total_too_large", message: "total too large" });
+      return;
+    }
+    var fd = new FormData();
+    fd.append("profile", "standard");
+    fd.append("archive_format", "zip");
+    var opts = semanticOpts();
+    if (opts === null) return;
+    var sbOpts = sandboxOpts();
+    if (sbOpts === null) return;
+    fd.append("egress_policy", opts.egress_policy);
+    if (opts.validator_models) {
+      fd.append("validator_models", opts.validator_models);
+    }
+    Object.keys(sbOpts).forEach(function (k) { fd.append(k, sbOpts[k]); });
+    fd.append("files", zipFile, zipFile.name);
+    disable(true);
+    // The client has no per-entry File objects to read from a ZIP; the
+    // server decodes and echoes them back as view.sourceFiles, which
+    // handleJson uses to hydrate currentSource once the response lands.
+    currentSource = { engine: "skill", files: {} };
+    fetch("/api/review/skill", { method: "POST", body: fd })
+      .then(handleJson)
+      .catch(handleFetchError)
+      .finally(function () { disable(false); });
+  }
+
+  // ---------------- V2 Skill 隔离边界（当前不可用） ----------------
+  // Product reviews fail closed until V2 has a separately hardened process,
+  // filesystem, output and resource boundary. The browser never emits a
+  // sandbox configuration and therefore cannot start the research runner.
+  var sandboxEnabledEl = $("sandbox-enabled");
+  var sandboxConfirmEl = $("sandbox-confirm");
+  var SANDBOX_CONFIG_IDS = [
+    "sandbox-entry-point", "sandbox-argv",
+    "sandbox-cpu-seconds", "sandbox-memory-mb", "sandbox-wall-seconds",
+  ];
+
+  function setSandboxControlsDisabled() {
+    SANDBOX_CONFIG_IDS.forEach(function (id) {
+      var el = $(id);
+      if (el) el.disabled = true;
+    });
+  }
+
+  function updateSandboxPill() {
+    var pill = $("sandbox-state-pill");
+    if (!pill) return;
+    pill.className = "state-pill is-off";
+    pill.textContent = "暂不可用";
+  }
+
+  if (sandboxEnabledEl) {
+    sandboxEnabledEl.disabled = true;
+  }
+  if (sandboxConfirmEl) {
+    sandboxConfirmEl.disabled = true;
+  }
+  setSandboxControlsDisabled();
+  updateSandboxPill();
+
+  function sandboxOpts() {
+    if (!sandboxEnabledEl || !sandboxEnabledEl.checked) return {};
+    setOpen($("sandbox-panel"), true);
+    showError({
+      code: "sandbox_isolation_hardening_required",
+      message: "V2 隔离边界尚未完成加固，当前产品路径不会执行 Skill 代码。",
+    });
     return null;
   }
 
@@ -679,10 +981,8 @@
   function disable(state) {
     $("prompt-submit").disabled = state;
     $("skill-submit").disabled = state;
-    $("loading").hidden = !state;
     if (state) {
-      $("result").hidden = true;
-      $("error").hidden = true;
+      setWorkspaceState("loading");
       startLoading();
     } else {
       stopLoading();
@@ -693,6 +993,11 @@
   function handleJson(resp) {
     return resp.json().then(function (body) {
       if (!resp.ok) throw body;
+      if (body.sourceFiles) {
+        // ZIP uploads have no client-side per-entry File objects to read;
+        // the server decodes and echoes the contents back instead.
+        currentSource = { engine: body.engine || currentSource.engine, files: body.sourceFiles };
+      }
       renderResult(body);
     });
   }
@@ -712,9 +1017,7 @@
     add(el, body);
     add(el, mk("div", { className: "error-code",
       text: "code = " + (errObj.code || "unknown") }));
-    el.hidden = false;
-    $("result").hidden = true;
-    $("loading").hidden = true;
+    setWorkspaceState("error");
     stopLoading();
   }
 
@@ -728,10 +1031,25 @@
       "bad_path": "文件路径不安全（包含 .. / 绝对路径 / 反斜杠），已拒绝。",
       "bad_prompt_kind": "prompt 类型必须是 user_prompt 或 system_prompt。",
       "bad_profile": "profile 必须是 standard 或 minimal。",
-      "no_files": "请先选中一个包含 SKILL.md 的文件夹。",
+      "bad_base_url": "语义审查 Provider 地址未配置完整，请展开 Provider 面板检查。",
+      "no_files": "请先选中一个包含 SKILL.md 的文件夹或 ZIP 文件。",
       "intake_error": "安全摄入拒绝了这份输入，具体原因附在 code 中。",
       "host_not_allowed": "本服务只接受 loopback 地址。",
       "origin_not_allowed": "本服务只接受 loopback 来源。",
+      "bad_zip": "无法解析该 ZIP 文件，请确认文件未损坏。",
+      "bad_archive": "ZIP 上传只能包含一个 .zip 文件。",
+      "bad_archive_format": "archive_format 参数不受支持。",
+      "bad_file": "无法读取该文件内容（可能不是文本文件）。",
+      "blackbox_confirmation_required": "请先在黑盒测试卡片中勾选确认项。",
+      "blackbox_base_url_required": "黑盒测试需要填写 Provider 地址。",
+      "blackbox_model_required": "黑盒测试需要填写模型 ID（不超过 200 字符）。",
+      "blackbox_api_key_required": "黑盒测试需要填写 API Key。",
+      "blackbox_api_key_too_large": "API Key 超出长度限制。",
+      "bad_blackbox_scenario_ids": "场景 ID 必须是字符串列表。",
+      "bad_blackbox_scenario_policy": "场景选择策略不合法。",
+      "bad_blackbox_config": "黑盒测试配置不合法，请检查预算参数。",
+      "sandbox_isolation_hardening_required":
+        "V2 隔离边界尚未完成加固，当前产品路径不会执行 Skill 代码。",
     };
     var code = err.code || "unknown";
     return m[code] || err.message || code;
@@ -739,21 +1057,22 @@
 
   // ---------------- render ----------------
   function renderResult(view) {
-    $("error").hidden = true;
-    $("loading").hidden = true;
     stopLoading();
-    $("result").hidden = false;
+    setWorkspaceState("result");
 
     renderVerdict(view);
     renderNextSteps(view);
     renderBlocked(view);
+    renderUnifiedIssues(view);
+    renderDynamicPlan(view);
     var findingsSorted = renderFindings(view);
+    renderFullDocument(view, findingsSorted);
     renderRemediations(view);
     renderFixWorkbench(view, findingsSorted);
     renderDownloads(view);
     renderDiagnostics(view);
 
-    window.scrollTo({ top: $("result").offsetTop - 20, behavior: "smooth" });
+    scrollToResult();
   }
 
   // ---- tier 1: the verdict a user must read first ----
@@ -916,9 +1235,135 @@
   // carry a distinct "not scored" badge (findingsDisplay is a pure
   // display-layer merge; view.counts / view.score are computed upstream
   // from the already-safe view.findings list and are NOT affected here).
+  // Findings/remediations that share the same (type, subjectKey) refer to
+  // the exact same underlying subject -- e.g. every citation of the same
+  // undefined rule name, or every occurrence of the same duplicated
+  // sentence. Assigning them the same color, consistently between the
+  // findings list, the evidence highlight inside each finding, and the
+  // matching remediation checklist entry, lets the reader visually track
+  // one subject without re-reading every card. Colors are assigned in
+  // first-seen order per render so the same subject always gets the same
+  // color within one result; renderFindings() resets the map and always
+  // runs before renderRemediations() (see renderResult), so remediations
+  // reuse the same assignment their finding already got.
+  var SUBJECT_PALETTE_SIZE = 8;
+  var subjectColorMap = new Map();
+  function resetSubjectColors() { subjectColorMap = new Map(); }
+  function subjectColorClass(type, subjectKey) {
+    if (!subjectKey) return "";
+    var key = type + "|" + subjectKey;
+    if (!subjectColorMap.has(key)) {
+      subjectColorMap.set(key, subjectColorMap.size % SUBJECT_PALETTE_SIZE);
+    }
+    return "subj-c" + subjectColorMap.get(key);
+  }
+
+  function renderUnifiedIssues(view) {
+    var el = $("unified-issues");
+    clear(el);
+    var issues = view.issues || [];
+    var head = mk("div", { className: "section-head" });
+    add(head, mk("h3", { text: "统一问题" }));
+    add(head, mk("span", { className: "count-pill"
+      + (issues.length ? "" : " is-zero"), text: String(issues.length) }));
+    add(head, mk("span", { className: "hint",
+      text: "同一风险合并展示，但保留静态、语义和运行时的每个发生点。" }));
+    add(el, head);
+    if (!issues.length) {
+      var empty = mk("div", { className: "empty-state" });
+      add(empty, mk("strong", { text: "当前没有已证实的问题组" }));
+      add(empty, mk("span", { text: "仍需查看动态覆盖与未完成检查。" }));
+      add(el, empty);
+      return;
+    }
+    var labels = {
+      runtime_confirmed: "运行时确认",
+      runtime_only: "仅运行时发现",
+      static_only: "仅静态/语义证据",
+      not_reproduced: "本次动态未复现",
+      evidence_conflict: "证据冲突",
+      unverified: "尚未验证",
+    };
+    var list = mk("div", { className: "issue-list" });
+    issues.forEach(function (issue) {
+      var card = mk("article", { className: "issue-card sev-" + issue.severity });
+      add(card, mk("h4", { text: issue.title || issue.riskId }));
+      var badges = mk("div", { className: "issue-badges" });
+      add(badges, mk("span", { className: "badge sev-" + issue.severity,
+        text: sevLabel(issue.severity) }));
+      add(badges, mk("span", { className: "status-tag t-"
+        + (issue.status === "runtime_confirmed" || issue.status === "runtime_only"
+          ? "bad" : issue.status === "not_reproduced" ? "warn" : "off"),
+        text: labels[issue.status] || issue.status }));
+      add(badges, mk("code", { text: issue.riskId }));
+      add(card, badges);
+      add(card, mk("p", { className: "muted", text:
+        "证据层：" + (issue.sourceLayers || []).join(" · ")
+        + "；发生点：" + String(issue.occurrenceCount || 0) }));
+      if ((issue.runtimeChecks || []).length) {
+        var checks = mk("ul", { className: "compact-list" });
+        issue.runtimeChecks.forEach(function (check) {
+          add(checks, mk("li", { text: check.detectorId + "：" + check.outcome }));
+        });
+        add(card, checks);
+      }
+      add(list, card);
+    });
+    add(el, list);
+  }
+
+  function renderDynamicPlan(view) {
+    var el = $("dynamic-plan");
+    clear(el);
+    var plan = view.dynamicPlan || { counts: {}, items: [] };
+    var counts = plan.counts || {};
+    var head = mk("div", { className: "section-head" });
+    add(head, mk("h3", { text: "动态检查覆盖" }));
+    add(head, mk("span", { className: "hint", text:
+      "按内容画像选择：已选 " + (counts.selected || 0)
+      + " · 不适用 " + (counts.not_applicable || 0)
+      + " · 不可用 " + (counts.unavailable || 0) }));
+    add(el, head);
+
+    function group(title, status, open) {
+      var items = (plan.items || []).filter(function (item) {
+        return item.status === status;
+      });
+      var details = mk("details", { className: "disclosure" });
+      details.open = Boolean(open);
+      add(details, mk("summary", { text: title + "（" + items.length + "）" }));
+      var body = mk("div", { className: "disclosure-body" });
+      if (!items.length) {
+        add(body, mk("p", { className: "muted", text: "无" }));
+      } else {
+        var table = mk("table", { className: "data-table" });
+        var row = mk("tr");
+        ["检查", "阶段", "原因", "风险"].forEach(function (label) {
+          add(row, mk("th", { text: label }));
+        });
+        add(table, row);
+        items.forEach(function (item) {
+          var tr = mk("tr");
+          add(tr, mk("td", { text: item.checkId }));
+          add(tr, mk("td", { text: item.stage }));
+          add(tr, mk("td", { text: (item.reasonCodes || []).join(", ") }));
+          add(tr, mk("td", { text: (item.riskIds || []).join(", ") }));
+          add(table, tr);
+        });
+        addTable(body, table);
+      }
+      add(details, body);
+      add(el, details);
+    }
+    group("已选择的检查", "selected", true);
+    group("不适用的检查", "not_applicable", false);
+    group("当前不可用的检查", "unavailable", Boolean(counts.unavailable));
+  }
+
   function renderFindings(view) {
     var findingsEl = $("findings");
     clear(findingsEl);
+    resetSubjectColors();
     var findingsForDisplay = view.findingsDisplay || view.findings || [];
     var scoredCount = findingsForDisplay.filter(function (f) {
       return !f.notScored;
@@ -926,7 +1371,7 @@
     var notScoredCount = findingsForDisplay.length - scoredCount;
 
     var head = mk("div", { className: "section-head" });
-    add(head, mk("h3", { text: "发现的问题" }));
+    add(head, mk("h3", { text: "原始分层技术发现" }));
     var pill = mk("span", { className: "count-pill"
       + (scoredCount ? "" : " is-zero"), text: String(scoredCount) });
     add(head, pill);
@@ -967,8 +1412,10 @@
 
   function renderFindingCard(f, index) {
     var g = f.guidance || {};
+    var colorClass = subjectColorClass(f.type, f.subjectKey);
     var card = mk("div", { className: "finding sev-" + f.severity
-      + (f.notScored ? " is-not-scored" : "") });
+      + (f.notScored ? " is-not-scored" : "")
+      + (colorClass ? " " + colorClass : "") });
 
     // Title on its own line; tags on a dedicated wrapping row underneath,
     // so severity + priority + origin + not-scored can never collide with
@@ -993,19 +1440,20 @@
       add(top, mk("span", { className: "badge not-scored",
         text: "未计入评分" }));
     }
+    if (f.hitCount && f.hitCount > 1) {
+      add(top, mk("span", { className: "badge hit-count",
+        text: "命中 " + f.hitCount + " 处" }));
+    }
+    if (colorClass && f.subject && f.subject.referenceText) {
+      add(top, mk("span", { className: "badge subject-chip " + colorClass,
+        text: "标记：" + f.subject.referenceText }));
+    }
     add(card, top);
 
     // Why it matters (short paragraph aimed at a non-technical user)
     if (g.whyItMatters) {
       add(card, mk("p", { className: "why", text: g.whyItMatters }));
     }
-    if (f.claim) {
-      var claim = mk("p", { className: "finding-claim" });
-      add(claim, mk("strong", { text: "本次具体发现：" }));
-      claim.appendChild(document.createTextNode(f.claim));
-      add(card, claim);
-    }
-
     // Actionable steps
     if (g.whatToDo && g.whatToDo.length) {
       var actionsWrap = mk("div", { className: "actions" });
@@ -1018,37 +1466,52 @@
       add(card, actionsWrap);
     }
 
-    // Original-text location: rendered directly inline on each finding
-    // (not in a separate scroll-to-match section), so the reader sees
-    // the exact source snippet right where the claim is made. Collapsed
-    // by default from the second card down: with the merged list this
-    // used to stack 6 near-identical dark snippets into a wall of text.
-    (f.evidences || []).forEach(function (ev, evIndex) {
-      var locBox = mk("details", { className: "finding-location" });
-      if (index === 0 && evIndex === 0) setOpen(locBox, true);
-      var summary = mk("summary", {
-        text: (ev.artifactPath || "prompt.txt") + formatByteRange(ev) });
-      add(locBox, summary);
-      var source = ev.sensitivity === "normal"
-        ? readSourceForEvidence(ev) : "";
-      if (ev.sensitivity !== "normal") {
-        if (ev.redactedPreview) {
-          add(locBox, mk("pre", { className: "source-snippet",
+    // Original-text locations: ONE box per finding listing every hit
+    // location together (not one collapsible box per occurrence) -- a
+    // finding that was merged from several occurrences (see hitCount
+    // above) reads as one issue with several places it shows up, not as
+    // several separate issues. Only the first finding is expanded at first;
+    // later evidence stays one click away instead of forming a source wall. The
+    // matched span in every location shares the finding's subject color,
+    // so scanning the page shows at a glance which locations belong to
+    // the same underlying subject (e.g. every citation of one undefined
+    // rule name).
+    if ((f.evidences || []).length) {
+      var locBox = mk("details", { className: "finding-locations"
+        + (colorClass ? " " + colorClass : "") });
+      setOpen(locBox, index === 0);
+      add(locBox, mk("summary", { text: f.evidences.length > 1
+        ? "原文位置（共 " + f.evidences.length + " 处）" : "原文位置" }));
+      var locList = mk("div", { className: "location-list" });
+      f.evidences.forEach(function (ev) {
+        var item = mk("div", { className: "location-item" });
+        add(item, mk("div", { className: "location-path",
+          text: (ev.artifactPath || "prompt.txt") + formatByteRange(ev) }));
+        var source = ev.sensitivity === "normal"
+          ? readSourceForEvidence(ev) : "";
+        if (ev.sensitivity !== "normal") {
+          if (ev.redactedPreview) {
+            add(item, mk("pre", { className: "source-snippet",
+              text: ev.redactedPreview }));
+          }
+        } else if (source) {
+          var parts = sliceUtf8Range(source, ev.startByte, ev.endByte);
+          var pre = mk("pre", { className: "source-snippet" });
+          add(pre, mk("span", { text: parts.before }));
+          if (parts.hit) {
+            add(pre, mk("mark", { className: colorClass, text: parts.hit }));
+          }
+          add(pre, mk("span", { text: parts.after }));
+          add(item, pre);
+        } else if (ev.redactedPreview) {
+          add(item, mk("pre", { className: "source-snippet",
             text: ev.redactedPreview }));
         }
-      } else if (source) {
-        var parts = sliceUtf8Range(source, ev.startByte, ev.endByte);
-        var pre = mk("pre", { className: "source-snippet" });
-        add(pre, mk("span", { text: parts.before }));
-        if (parts.hit) add(pre, mk("mark", { text: parts.hit }));
-        add(pre, mk("span", { text: parts.after }));
-        add(locBox, pre);
-      } else if (ev.redactedPreview) {
-        add(locBox, mk("pre", { className: "source-snippet",
-          text: ev.redactedPreview }));
-      }
+        add(locList, item);
+      });
+      add(locBox, locList);
       add(card, locBox);
-    });
+    }
 
     // Technical detail folded away by default
     var d = mk("details", { className: "tech" });
@@ -1073,6 +1536,153 @@
     return card;
   }
 
+  // ---- full-document view: every finding's hit locations marked in
+  // place inside the complete original text, instead of extracted as
+  // separate snippets. A snippet list tells you a subject was hit N
+  // times; only reading the real document straight through, with every
+  // occurrence lit up in place, shows the reader all N at once in their
+  // real context. Findings sharing a subjectKey share a color via
+  // subjectColorClass (already assigned during renderFindings, which
+  // always runs first -- see renderResult) so the same color that marks
+  // a finding's card also marks every one of its occurrences here.
+  function buildLineIndex(text) {
+    var lines = text.split("\n");
+    var starts = [];
+    var pos = 0;
+    for (var i = 0; i < lines.length; i++) {
+      starts.push(pos);
+      pos += lines[i].length + 1;
+    }
+    return { lines: lines, starts: starts };
+  }
+
+  function charIdxToLine(starts, idx) {
+    for (var i = starts.length - 1; i >= 0; i -= 1) {
+      if (idx >= starts[i]) return i;
+    }
+    return 0;
+  }
+
+  function renderFullDocument(view, findingsSorted) {
+    var el = $("full-document");
+    if (!el) return;
+    clear(el);
+    var files = currentSource.files || {};
+    var paths = Object.keys(files);
+    if (!paths.length || !findingsSorted.length) return;
+
+    var hitsByPath = {};
+    var lineIndexByPath = {};
+    findingsSorted.forEach(function (f) {
+      var colorClass = subjectColorClass(f.type, f.subjectKey);
+      (f.evidences || []).forEach(function (ev) {
+        if (ev.sensitivity !== "normal") return;
+        var text = readSourceForEvidence(ev);
+        if (!text) return;
+        var path = Object.prototype.hasOwnProperty.call(files, ev.artifactPath || "")
+          ? ev.artifactPath : (paths.length === 1 ? paths[0] : null);
+        if (!path) return;
+        var range = byteRangeToCharRange(text, ev.startByte, ev.endByte);
+        if (!range) return;
+        if (!lineIndexByPath[path]) lineIndexByPath[path] = buildLineIndex(text);
+        var idx = lineIndexByPath[path];
+        var startLine = charIdxToLine(idx.starts, range.startIdx);
+        var endLine = charIdxToLine(idx.starts, Math.max(range.startIdx, range.endIdx - 1));
+        if (!hitsByPath[path]) hitsByPath[path] = new Map();
+        for (var line = startLine; line <= endLine; line += 1) {
+          var lineStart = idx.starts[line];
+          var lineLen = idx.lines[line].length;
+          var hitStart = line === startLine ? range.startIdx - lineStart : 0;
+          var hitEnd = line === endLine ? range.endIdx - lineStart : lineLen;
+          var list = hitsByPath[path].get(line) || [];
+          list.push({ finding: f, colorClass: colorClass, hitStart: hitStart, hitEnd: hitEnd });
+          hitsByPath[path].set(line, list);
+        }
+      });
+    });
+
+    var pathsWithHits = Object.keys(hitsByPath);
+    if (!pathsWithHits.length) return;
+
+    var head = mk("div", { className: "section-head" });
+    add(head, mk("h3", { text: "完整原文与标注" }));
+    add(head, mk("span", { className: "hint",
+      text: "同一颜色标记同一类问题在全文中的每一处出现；点击标亮行查看具体原因。" }));
+    add(el, head);
+
+    pathsWithHits.forEach(function (path) {
+      var idx = lineIndexByPath[path];
+      var hits = hitsByPath[path];
+      var box = mk("details", { className: "fulldoc-file" });
+      setOpen(box, false);
+      add(box, mk("summary", { text: path + "（" + hits.size + " 行有标记）" }));
+      var body = mk("div", { className: "fulldoc-body" });
+      idx.lines.forEach(function (lineText, lineIdx) {
+        var positions = hits.get(lineIdx);
+        var row = mk(positions ? "button" : "div", { className: "docline-row"
+          + (positions ? " has-mark" : ""), attrs: positions ? { type: "button" } : {} });
+        add(row, mk("span", { className: "docline-no", text: String(lineIdx + 1) }));
+
+        if (!positions) {
+          add(row, mk("span", { className: "docline-text", text: lineText || " " }));
+          add(body, row);
+          return;
+        }
+
+        positions.sort(function (a, b) { return a.hitStart - b.hitStart; });
+        var textEl = mk("span", { className: "docline-text" });
+        var cursor = 0;
+        positions.forEach(function (p) {
+          if (p.hitStart > cursor) {
+            add(textEl, document.createTextNode(lineText.slice(cursor, p.hitStart)));
+          }
+          var markStart = Math.max(p.hitStart, cursor);
+          if (p.hitEnd > markStart) {
+            add(textEl, mk("mark", { className: p.colorClass,
+              text: lineText.slice(markStart, p.hitEnd) }));
+          }
+          cursor = Math.max(cursor, p.hitEnd);
+        });
+        if (cursor < lineText.length) {
+          add(textEl, document.createTextNode(lineText.slice(cursor)));
+        }
+        add(row, textEl);
+
+        var dots = mk("span", { className: "docline-dots" });
+        positions.slice(0, 6).forEach(function (p) {
+          add(dots, mk("i", { className: "docline-dot " + p.colorClass }));
+        });
+        add(row, dots);
+        add(body, row);
+
+        var detail = mk("div", { className: "docline-detail" });
+        detail.hidden = true;
+        var seenIds = {};
+        positions.forEach(function (p) {
+          if (seenIds[p.finding.id]) return;
+          seenIds[p.finding.id] = true;
+          var g = p.finding.guidance || {};
+          var entry = mk("div", { className: "docline-detail-item" });
+          add(entry, mk("i", { className: "docline-dot " + p.colorClass }));
+          var textWrap = mk("div");
+          add(textWrap, mk("strong", { text: g.plainTitle || p.finding.type }));
+          if (g.whyItMatters) add(textWrap, mk("p", { text: g.whyItMatters }));
+          add(entry, textWrap);
+          add(detail, entry);
+        });
+        add(body, detail);
+
+        row.addEventListener("click", function () {
+          var wasHidden = detail.hidden;
+          detail.hidden = !wasHidden;
+          row.classList.toggle("is-expanded", wasHidden);
+        });
+      });
+      add(box, body);
+      add(el, box);
+    });
+  }
+
   // Controlled remediation plan; proposal only, never auto-applied.
   function renderRemediations(view) {
     var remEl = $("remediations");
@@ -1094,7 +1704,12 @@
     }
     var list = mk("div", { className: "fix-list" });
     rems.forEach(function (rem) {
-      var item = mk("details");
+      // Reuses the color the matching finding already got (see
+      // renderFindingCard) -- same (type, subjectKey) always maps to the
+      // same color within one result, so a reader can match a checklist
+      // entry back to its finding card at a glance.
+      var colorClass = subjectColorClass(rem.findingType, rem.subjectKey);
+      var item = mk("details", { className: colorClass });
       var summary = mk("summary");
       add(summary, mk("span", { className: "badge prio-" + (rem.priority || "P1"),
         text: rem.priority || "P1" }));
@@ -1148,6 +1763,8 @@
     renderSemanticView(view);
     renderAnalyzers(view);
     renderCapabilities(view);
+    renderBlackboxResult(view);
+    renderSandboxResult(view);
     renderOwasp(view);
 
     // Auto-expand + flag the drawer exactly when there is something the
@@ -1166,7 +1783,7 @@
       pill.className = "state-pill " + (problems.length ? "is-warn" : "is-off");
       pill.textContent = problems.length ? problems.join(" · ") : "正常";
     }
-    setOpen($("diagnostics"), semBad);
+    setOpen($("diagnostics"), problems.length > 0);
   }
 
   function renderScoreDetail(view) {
@@ -1393,8 +2010,188 @@
 
   function capabilityTone(status) {
     if (status === "completed") return "t-ok";
-    if (status === "not_implemented") return "t-off";
+    if (status === "not_implemented" || status === "not_enabled") return "t-off";
     return "t-warn";
+  }
+
+  // A ScenarioResult's verdict (passed/failed/error/partial) is a computed
+  // @property on the Python side and is NOT included in dataclasses.asdict()
+  // output, so it is recomputed here from probe_results -- mirrors
+  // blackbox/runner.py's ScenarioResult.verdict exactly.
+  function scenarioVerdict(sr) {
+    if (sr.outcome === "passed" || sr.outcome === "failed") return sr.outcome;
+    if (sr.outcome === "insufficient_evidence" || sr.outcome === "unavailable") {
+      return "partial";
+    }
+    var probes = sr.probe_results || [];
+    var total = probes.length;
+    var failedCount = 0, errorCount = 0;
+    probes.forEach(function (p) {
+      if (p.safe === false) failedCount += 1;
+      else if (p.safe === null || p.safe === undefined) errorCount += 1;
+    });
+    if (total > 0 && errorCount === total) return "error";
+    if (failedCount > 0) return "failed";
+    if (errorCount > 0) return "partial";
+    return "passed";
+  }
+
+  function scenarioVerdictTone(verdict) {
+    if (verdict === "passed") return "t-ok";
+    if (verdict === "error") return "t-off";
+    return "t-warn";
+  }
+
+  function scenarioVerdictLabel(verdict) {
+    return ({ passed: "通过", failed: "失败", error: "调用出错", partial: "部分" }
+    )[verdict] || verdict;
+  }
+
+  // V1.5 Prompt 黑盒测试结果。The server exposes only controlled outcomes,
+  // counts, digests and lengths. Raw prompts, probes and Provider responses
+  // are deliberately absent from both this view and downloadable reports.
+  function renderBlackboxResult(view) {
+    var el = $("blackbox-result-view");
+    if (!el) return;
+    clear(el);
+    var pb = view.promptBlackbox;
+    if (!pb) return;
+    var head = mk("div", { className: "section-head" });
+    add(head, mk("h3", { text: "Prompt 黑盒测试结果（V1.5）" }));
+    add(head, mk("span", { className: "status-tag " + capabilityTone(pb.status),
+      text: pb.status }));
+    add(head, mk("span", { className: "hint",
+      text: "受控失败信号会纳入风险评分与审查结论；原始问答内容不会写入报告。" }));
+    add(el, head);
+    if (pb.status === "not_enabled") return;
+
+    var kv = mk("div", { className: "kv-list" });
+    function row(k, v) {
+      var r = mk("div");
+      add(r, mk("span", { className: "k", text: k }));
+      add(r, mk("span", { className: "v", text: v }));
+      add(kv, r);
+    }
+    row("目标模型", pb.model || "—");
+    if (pb.reasonCode) row("原因码", pb.reasonCode);
+    var summary = pb.summary || {};
+    row("场景统计", "共 " + (summary.totalScenarios || 0)
+      + " · 完成 " + (summary.completed || 0)
+      + " · 通过 " + (summary.passed || 0)
+      + " · 失败 " + (summary.failed || 0)
+      + " · 出错 " + (summary.errors || 0)
+      + " · 部分 " + (summary.partial || 0));
+    row("调用次数", String(summary.totalCalls || pb.totalCalls || 0)
+      + (summary.budgetExhausted ? "（预算已耗尽）" : ""));
+    add(el, kv);
+
+    var scenarioResults = pb.scenarioResults || [];
+    if (scenarioResults.length) {
+      var tbl = mk("table", { className: "data-table" });
+      var hd = mk("tr");
+      ["场景", "严重度", "结果", "探测数"].forEach(function (h) {
+        hd.appendChild(mk("th", { text: h }));
+      });
+      add(tbl, hd);
+      scenarioResults.forEach(function (sr) {
+        var verdict = scenarioVerdict(sr);
+        var tr = mk("tr");
+        add(tr, mk("td", { text: sr.scenario_id || "—" }));
+        add(tr, mk("td", { text: sevLabel(sr.severity) }));
+        var td = mk("td");
+        add(td, mk("span", { className: "status-tag " + scenarioVerdictTone(verdict),
+          text: scenarioVerdictLabel(verdict) }));
+        add(tr, td);
+        add(tr, mk("td", { text: String((sr.probe_results || []).length) }));
+        add(tbl, tr);
+      });
+      addTable(el, tbl);
+    }
+
+    // Per-probe drill-down intentionally shows metadata only. The text used
+    // by the internal judge is discarded before report projection.
+    var probeBox = null;
+    scenarioResults.forEach(function (sr) {
+      var probes = sr.probe_results || [];
+      if (!probes.length) return;
+      if (!probeBox) {
+        probeBox = mk("details", { className: "disclosure" });
+        add(probeBox, mk("summary", { text: "探测元数据（不含原始问答）" }));
+      }
+      var body = mk("div", { className: "disclosure-body" });
+      add(body, mk("h4", { text: sr.scenario_id || "—" }));
+      probes.forEach(function (p) {
+        var verdictText = p.safe === true ? "安全" : p.safe === false ? "不安全" : "调用出错";
+        var head = mk("div", { className: "kv-list" });
+        var hr = mk("div");
+        add(hr, mk("span", { className: "k", text: "探测 #" + (p.probe_index + 1) }));
+        add(hr, mk("span", { className: "v", text: verdictText
+          + (p.error_code ? "（" + p.error_code + "）" : "")
+          + " · 探测长度 " + String(p.probe_length || 0)
+          + " · 响应长度 " + String(p.response_length || 0)
+          + (typeof p.duration_seconds === "number"
+            ? " · 耗时 " + p.duration_seconds.toFixed(2) + "s" : "")
+          + (p.response_digest ? " · 摘要 " + p.response_digest.slice(0, 12) : "") }));
+        add(head, hr);
+        add(body, head);
+      });
+      add(probeBox, body);
+    });
+    if (probeBox) add(el, probeBox);
+  }
+
+  // V2 Skill sandbox product result. Only controlled availability state and
+  // aggregate counts cross this boundary; raw runtime payloads never do.
+  function renderSandboxResult(view) {
+    var el = $("sandbox-result-view");
+    if (!el) return;
+    clear(el);
+    var ss = view.skillSandbox;
+    if (!ss) return;
+    var head = mk("div", { className: "section-head" });
+    add(head, mk("h3", { text: "Skill 隔离沙箱观察结果（V2）" }));
+    add(head, mk("span", { className: "status-tag " + capabilityTone(ss.status),
+      text: ss.status }));
+    add(head, mk("span", { className: "hint",
+      text: "该阶段状态会纳入风险评分与审查结论；当前产品路径在隔离加固完成前不会执行 Skill。" }));
+    add(el, head);
+    if (ss.status === "not_enabled") return;
+
+    var kv = mk("div", { className: "kv-list" });
+    function row(k, v) {
+      var r = mk("div");
+      add(r, mk("span", { className: "k", text: k }));
+      add(r, mk("span", { className: "v", text: v }));
+      add(kv, r);
+    }
+    row("沙箱结果", ss.observationStatus || ss.status || "—");
+    if (ss.reasonCode) row("原因码", ss.reasonCode);
+    if (ss.stdoutBytes !== undefined && ss.stdoutBytes !== null) {
+      row("标准输出字节数", String(ss.stdoutBytes));
+    }
+    if (ss.stderrBytes !== undefined && ss.stderrBytes !== null) {
+      row("标准错误字节数", String(ss.stderrBytes));
+    }
+    add(el, kv);
+
+    // A failed/unavailable stage did not observe runtime behaviour. Do not
+    // render absent counters as zero; that would look like a completed clean
+    // observation. Aggregate counts are meaningful only after completion.
+    if (ss.status !== "completed") return;
+
+    var counts = mk("div", { className: "kv-list" });
+    var eventCounts = ss.eventCounts || {};
+    function countRow(label, count) {
+      var r = mk("div");
+      add(r, mk("span", { className: "k", text: label }));
+      add(r, mk("span", { className: "v", text: String(count || 0) }));
+      add(counts, r);
+    }
+    countRow("文件事件", eventCounts.file);
+    countRow("网络尝试", eventCounts.network);
+    countRow("子进程尝试", eventCounts.subprocess);
+    countRow("SQL 语句", eventCounts.sql);
+    add(el, counts);
   }
 
   function renderOwasp(view) {
@@ -1445,29 +2242,23 @@
     return "";
   }
 
-  function sliceUtf8Range(text, startByte, endByte) {
-    if (typeof text !== "string") return { before: "", hit: "", after: "" };
+  // Shared by the per-finding snippet view and the full-document view --
+  // both need the same byte-offset -> string-index conversion (JS strings
+  // are UTF-16, but sourceByteRange is a UTF-8 byte offset from the
+  // backend), just at different zoom levels.
+  function byteRangeToCharRange(text, startByte, endByte) {
+    if (typeof text !== "string") return null;
     if (startByte === null || startByte === undefined
-        || endByte === null || endByte === undefined) {
-      return {
-        before: text.slice(0, 180),
-        hit: "",
-        after: text.length > 180 ? text.slice(180, 360) : "",
-      };
-    }
+        || endByte === null || endByte === undefined) return null;
     var enc = new TextEncoder();
     var bytePos = 0;
-    var startIdx = 0;
+    var startIdx = null;
     var endIdx = text.length;
-    var setStart = false;
     for (var i = 0; i < text.length; ) {
       var code = text.codePointAt(i);
       var ch = String.fromCodePoint(code);
       var next = i + ch.length;
-      if (!setStart && bytePos >= startByte) {
-        startIdx = i;
-        setStart = true;
-      }
+      if (startIdx === null && bytePos >= startByte) startIdx = i;
       bytePos += enc.encode(ch).length;
       if (bytePos >= endByte) {
         endIdx = next;
@@ -1475,11 +2266,25 @@
       }
       i = next;
     }
+    if (startIdx === null) startIdx = text.length;
+    return { startIdx: startIdx, endIdx: endIdx };
+  }
+
+  function sliceUtf8Range(text, startByte, endByte) {
+    if (typeof text !== "string") return { before: "", hit: "", after: "" };
+    var range = byteRangeToCharRange(text, startByte, endByte);
+    if (!range) {
+      return {
+        before: text.slice(0, 180),
+        hit: "",
+        after: text.length > 180 ? text.slice(180, 360) : "",
+      };
+    }
     var pad = 160;
     return {
-      before: text.slice(Math.max(0, startIdx - pad), startIdx),
-      hit: text.slice(startIdx, endIdx),
-      after: text.slice(endIdx, Math.min(text.length, endIdx + pad)),
+      before: text.slice(Math.max(0, range.startIdx - pad), range.startIdx),
+      hit: text.slice(range.startIdx, range.endIdx),
+      after: text.slice(range.endIdx, Math.min(text.length, range.endIdx + pad)),
     };
   }
 
@@ -1533,7 +2338,11 @@
       var checklist = mk("ol", { className: "fix-list" });
       rems.forEach(function (rem) {
         var li = mk("li");
-        add(li, mk("strong", { text: (rem.priority || "P1") + " · " + rem.title }));
+        var titleText = (rem.priority || "P1") + " · " + rem.title;
+        if (rem.hitCount && rem.hitCount > 1) {
+          titleText += "（命中 " + rem.hitCount + " 处）";
+        }
+        add(li, mk("strong", { text: titleText }));
         (rem.actions || []).forEach(function (action) {
           add(li, mk("div", { text: action }));
         });

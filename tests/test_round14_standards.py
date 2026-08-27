@@ -7,6 +7,8 @@ import pytest
 
 from verity.standards import (
     COVERAGE_LEVELS,
+    DETECTION_LAYERS,
+    DETECTOR_TYPES,
     StandardsError,
     load_detector_candidates,
     load_detector_mappings,
@@ -40,7 +42,8 @@ def test_every_risk_has_traceability_boundaries_and_visible_gaps():
         assert risk["sourceRefs"] or risk.get("verityOriginalRationale")
         assert risk["knownGaps"]
         assert set(risk["layerBoundaries"]) == {
-            "L0_static", "L1_semantic", "V1_5_blackbox", "V2_sandbox"
+            "L0_static", "L1_semantic", "V1_5_blackbox", "V2_sandbox",
+            "V2_agent_runtime",
         }
 
 
@@ -69,26 +72,60 @@ def test_detector_candidate_decisions_are_traceable_and_controlled():
 def test_every_runtime_detector_is_mapped_exactly_once():
     validate_runtime_detector_coverage()
     mappings = load_detector_mappings()
-    assert len(mappings) == 92  # 63 rules + 1 fact extractor + 28 semantic
+    assert len(mappings) == 156  # Four agent-runtime signals were added
+
+
+def test_agent_runtime_is_a_first_class_detection_layer_and_detector_type():
+    assert DETECTION_LAYERS == (
+        "L0_static",
+        "L1_semantic",
+        "V1_5_blackbox",
+        "V2_sandbox",
+        "V2_agent_runtime",
+    )
+    assert "agent_runtime_signal" in DETECTOR_TYPES
+
+
+def test_agent_runtime_mapping_drift_is_rejected(monkeypatch):
+    from verity.agent_runtime import models as runtime_models
+
+    monkeypatch.setattr(
+        runtime_models,
+        "AGENT_RUNTIME_SIGNAL_DETECTORS",
+        (*runtime_models.AGENT_RUNTIME_SIGNAL_DETECTORS, "unmapped_test_signal"),
+    )
+
+    with pytest.raises(StandardsError, match="agent runtime signal mapping drift"):
+        validate_runtime_detector_coverage()
 
 
 def test_taxonomy_exposes_known_high_value_gaps():
     risks = load_risks()
     assert risks["VR-SKILL-013"]["currentCoverage"]["L0_static"] == "none"
     assert risks["VR-MCP-001"]["currentCoverage"]["L0_static"] == "none"
-    assert risks["VR-SKILL-014"]["currentCoverage"]["V2_sandbox"] == "none"
-    assert risks["VR-PROMPT-001"]["currentCoverage"]["V1_5_blackbox"] == "none"
+    # Round 127 later flipped V2_sandbox from "none" to "signal" (triple-
+    # mapped the existing sandbox_injected_content_propagation signal) --
+    # was "none" at this round.
+    assert risks["VR-SKILL-013"]["currentCoverage"]["V2_sandbox"] == "signal"
+    assert risks["VR-SKILL-013"]["currentCoverage"]["V1_5_blackbox"] == "none"
 
 
 def test_execution_status_and_capability_breadth_are_separate():
     summary = summarize_coverage()
     assert summary["riskCount"] >= 20
-    # Runtime reports use completed/not_enabled/not_implemented; taxonomy
-    # breadth deliberately uses a different vocabulary.
+    # Runtime reports use completed/failed/not_enabled; taxonomy breadth
+    # deliberately uses a different vocabulary.
     breadth_words = set(COVERAGE_LEVELS)
-    runtime_words = {"completed", "failed", "not_enabled", "not_implemented"}
+    runtime_words = {"completed", "failed", "not_enabled"}
     assert breadth_words.isdisjoint(runtime_words)
     assert sum(summary["byLayer"]["L0_static"].values()) == summary["riskCount"]
+    assert summary["byLayer"]["V2_agent_runtime"] == {
+        "none": 42,
+        "signal": 4,
+        "partial": 0,
+        "substantial": 0,
+        "evaluated": 0,
+    }
 
 
 def test_loader_rejects_unknown_source_control(monkeypatch):

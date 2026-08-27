@@ -46,6 +46,10 @@ SUBJECTS = {
     "semantic.prompt.missing_output_contract": {"expectedFormat": "json"},
     "semantic.skill.declared_behavior_mismatch": {
         "mismatchKind": "capability_undeclared"},
+    "semantic.skill.manifest_description_quality_gap": {
+        "descriptionGapKind": "generic_boilerplate"},
+    "semantic.prompt.template_completeness_gap": {
+        "templateGapKind": "placeholder_language"},
     "semantic.prompt.trust_boundary_ambiguity": {
         "boundaryKind": "retrieved_content"},
     "semantic.prompt.excessive_tool_scope": {
@@ -95,6 +99,28 @@ SUBJECTS = {
         "safetyGapKind": "refusal_boundary"},
     "semantic.prompt.source_use_policy_gap": {
         "sourceGapKind": "reproduction_limit"},
+    "semantic.prompt.prose_reference_gap": {
+        "referenceScope": "prior_content"},
+    "semantic.prompt.embedded_sensitive_information": {
+        "sensitiveInformationKind": "personal_identity"},
+    "semantic.skill.deserialization_trust_gap": {
+        "trustGapKind": "untrusted_source_deserialized"},
+    "semantic.skill.weak_crypto_sensitivity_gap": {
+        "sensitivityGapKind": "weak_hash_algorithm"},
+    "semantic.skill.sql_injection_input_trust_gap": {
+        "injectionTrustGapKind": "user_controlled_query_input"},
+    "semantic.skill.path_traversal_input_trust_gap": {
+        "pathTrustGapKind": "user_controlled_path_reference"},
+    "semantic.skill.template_injection_input_trust_gap": {
+        "templateTrustGapKind": "user_controlled_template_source"},
+    "semantic.skill.isolation_claim_trust_gap": {
+        "isolationTrustGapKind": "contradicted_isolation_claim"},
+    "semantic.skill.dependency_provenance_claim_gap": {
+        "provenanceClaimGapKind": "undisclosed_external_dependency"},
+    "semantic.prompt.hidden_encoding_instruction_gap": {
+        "encodingGapKind": "decoded_content_without_data_boundary"},
+    "semantic.skill.credential_handling_claim_gap": {
+        "credentialClaimGapKind": "undisclosed_credential_access"},
 }
 
 
@@ -134,7 +160,7 @@ def test_v3_development_manifest_is_fresh_paired_and_seeded():
     assert manifest["protocolVersion"] == "3.0.0"
     assert manifest["status"] == "development_calibration"
     assert manifest["labelStatus"] == "provisional_single_review"
-    assert len(manifest["cases"]) == 112
+    assert len(manifest["cases"]) == 164
     by_type = {}
     for case in manifest["cases"]:
         by_type.setdefault(case["findingType"], []).append(
@@ -145,11 +171,11 @@ def test_v3_development_manifest_is_fresh_paired_and_seeded():
     assert all(
         sorted(states) == ["absent", "absent", "present", "present"]
         for states in by_type.values())
-    assert len({case["riskId"] for case in manifest["cases"]}) == 27
-    assert COMPARISON_THRESHOLDS["minimumRiskCount"] == 27
-    assert COMPARISON_THRESHOLDS["minimumFindingTypeCount"] == 28
-    assert validate_semantic_comparison_seed_coverage() == 112
-    assert DEFAULT_COMPARISON_MAX_TOTAL_CALLS >= 112 * 2 * 2
+    assert len({case["riskId"] for case in manifest["cases"]}) == 40
+    assert COMPARISON_THRESHOLDS["minimumRiskCount"] == 29
+    assert COMPARISON_THRESHOLDS["minimumFindingTypeCount"] == 30
+    assert validate_semantic_comparison_seed_coverage() == 164
+    assert DEFAULT_COMPARISON_MAX_TOTAL_CALLS >= 164 * 2 * 2
 
 
 def test_v4_packet_carries_catalog_rubric_without_answer_metadata(tmp_path):
@@ -355,7 +381,7 @@ def test_answer_free_packets_hide_labels_and_randomize_aliases():
         system_id="verity", seed="round55-verity-seed")
     second, _second_map = build_semantic_comparison_packet(
         system_id="butler", seed="round55-butler-seed")
-    assert first["itemCount"] == 112
+    assert first["itemCount"] == 164
     assert first["corpusFingerprint"] == second["corpusFingerprint"]
     assert [row["itemId"] for row in first["items"]] != [
         row["itemId"] for row in second["items"]]
@@ -364,7 +390,7 @@ def test_answer_free_packets_hide_labels_and_randomize_aliases():
             "authorAssessment", "labelStatus", "findingType", "riskId",
             "semantic-comparison-v3-cal-", "case-005"):
         assert forbidden not in packet_text
-    assert len(first_map["aliases"]) == 112
+    assert len(first_map["aliases"]) == 164
     assert all("authorAssessment" in value
                for value in first_map["aliases"].values())
     assert all("packetItemDigest" in value
@@ -474,12 +500,12 @@ def _synthetic_pair(case_count=112):
     butler_runs = {}
     for index in range(case_count):
         case_id = f"case-{index:03d}"
-        risk_id = f"risk-{index % 27:02d}"
+        risk_id = f"risk-{index % 29:02d}"
         assessment = "present" if index % 2 == 0 else "absent"
         va = verity_items[index]["itemId"]
         ba = butler_items[index]["itemId"]
         meta = {
-            "caseId": case_id, "findingType": f"type-{index % 28:02d}",
+            "caseId": case_id, "findingType": f"type-{index % 30:02d}",
             "riskId": risk_id, "authorAssessment": assessment,
             "payloadDigest": f"{index:064x}",
         }
@@ -740,7 +766,7 @@ def test_label_attestation_is_derived_from_two_distinct_consensus_reviews():
         reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
         reviewer_b_observations=observations_b)
     assert len(attestation["reviewers"]) == 2
-    assert len(attestation["labels"]) == 112
+    assert len(attestation["labels"]) == 164
     assert all(set(row) == {"caseId", "payloadDigest", "assessment"}
                for row in attestation["labels"])
     assert "authorAssessment" not in json.dumps(attestation)
@@ -774,7 +800,7 @@ def test_label_attestation_accepts_error_free_two_thirds_consensus():
         reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
         reviewer_b_observations=observations_b)
 
-    assert len(attestation["labels"]) == 112
+    assert len(attestation["labels"]) == 164
 
 
 def test_label_attestation_accepts_three_reviewer_majority():
@@ -811,7 +837,7 @@ def test_label_attestation_accepts_three_reviewer_majority():
         reviewer_c_observations=observations_c)
 
     assert len(attestation["reviewers"]) == 3
-    assert len(attestation["labels"]) == 112
+    assert len(attestation["labels"]) == 164
 
 
 def test_label_attestation_allows_case_level_reviewer_abstention():
@@ -849,7 +875,7 @@ def test_label_attestation_allows_case_level_reviewer_abstention():
         reviewer_c_packet=packet_c, reviewer_c_mapping=map_c,
         reviewer_c_observations=observations_c)
 
-    assert len(attestation["labels"]) == 112
+    assert len(attestation["labels"]) == 164
 
 
 def test_label_attestation_allows_one_nonvoting_error_with_two_thirds_consensus():
@@ -876,7 +902,7 @@ def test_label_attestation_allows_one_nonvoting_error_with_two_thirds_consensus(
         reviewer_a_observations=observations_a,
         reviewer_b_packet=packet_b, reviewer_b_mapping=map_b,
         reviewer_b_observations=observations_b)
-    assert len(attestation["labels"]) == 112
+    assert len(attestation["labels"]) == 164
 
 
 def test_label_attestation_refuses_split_decisions_with_provider_error():
@@ -1437,7 +1463,7 @@ def test_verity_observation_runner_is_label_free_and_complete(monkeypatch):
         candidate_strategy="model_only",
         role_prompt_version="3.0.0",
         diagnostics_out=diagnostics)
-    assert len(observations["observations"]) == 112
+    assert len(observations["observations"]) == 164
     assert all(row["runs"] == ["absent", "absent"]
                for row in observations["observations"])
     serialized = json.dumps(observations)
@@ -1445,7 +1471,7 @@ def test_verity_observation_runner_is_label_free_and_complete(monkeypatch):
     assert "Bounded test claim" not in serialized
     assert "local-test-value" not in serialized
     serialized_diagnostics = json.dumps(diagnostics)
-    assert len(diagnostics["items"]) == 112
+    assert len(diagnostics["items"]) == 164
     assert all(len(row["runs"]) == 2 for row in diagnostics["items"])
     assert all(
         run["stage"] is not None
@@ -1490,10 +1516,10 @@ def test_independent_label_runner_is_answer_hidden_and_complete(monkeypatch):
             model_id="fixed-reviewer", base_url="https://example.invalid/v1",
             credentials=ProviderCredentials("VERITY_TEST_HEAD_TO_HEAD_KEY")),
         role_prompt_version="1.0.0")
-    assert len(observations["observations"]) == 112
+    assert len(observations["observations"]) == 164
     assert all(row["runs"] == ["absent", "absent", "absent"]
                for row in observations["observations"])
-    assert len(reviewer.calls) == 336
+    assert len(reviewer.calls) == 492
     assert all(call.call_role == "label_reviewer"
                and call.egress_policy == "answer_hidden_label_review"
                for call, _request in reviewer.calls)
@@ -1516,12 +1542,12 @@ def test_independent_label_runner_retries_transient_failure(monkeypatch):
             role="label_reviewer", provider_id="independent-test",
             model_id="fixed-reviewer", base_url="https://example.invalid/v1",
             credentials=ProviderCredentials("VERITY_TEST_HEAD_TO_HEAD_KEY")),
-        max_total_calls=672, max_attempts_per_repetition=2,
+        max_total_calls=984, max_attempts_per_repetition=2,
         role_prompt_version="1.0.0")
 
     assert all(row["runs"] == ["absent", "absent", "absent"]
                for row in observations["observations"])
-    assert len(reviewer.calls) == 337
+    assert len(reviewer.calls) == 493
     assert reviewer.calls[0][0].call_id.endswith("-attempt-1")
     assert reviewer.calls[1][0].call_id.endswith("-attempt-2")
 

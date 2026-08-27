@@ -46,8 +46,23 @@ been checked to be compatible with Apache-2.0 distribution.
 | idna | 3.18 | BSD-3-Clause | https://github.com/kjd/idna |
 | exceptiongroup | 1.3.1 | MIT | https://github.com/agronholm/exceptiongroup (Python < 3.11 only) |
 
-No network calls are made at runtime. No dependencies bundle native
-binaries that require additional notices.
+The default deterministic review path makes no Provider network call. Explicit
+Provider-enabled semantic, black-box, and Agent-runtime stages intentionally
+create the disclosed network boundary. No locked Python dependency bundles a
+native binary that requires an additional notice here.
+
+## Optional external Agent runtime (not vendored)
+
+| Package | Version | License | Source |
+|---|---|---|---|
+| @deepseek-ai/dsh | 0.1.1-rc.2 | MIT | https://github.com/deepseek-ai/DeepSeek-Harness |
+
+This developer-preview RC is optional external tooling: it is not vendored,
+not auto-installed, and not a Python dependency. A trusted caller supplies
+absolute Node and DSH JavaScript entry paths plus SHA-256 pins. Those hashes
+authenticate only those two entry files; they do not authenticate the adjacent
+npm dependency closure. Stronger deployments must pin that closure or an outer
+container/microVM image separately.
 
 ## External binaries (not vendored)
 

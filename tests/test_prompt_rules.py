@@ -753,6 +753,30 @@ class TestNamedDanglingReference:
                  kind="system_prompt")
         assert self.ft not in _find_types(r)
 
+    def test_repeated_citation_of_same_undefined_name_is_one_finding_with_all_evidence(self):
+        # Previously a name cited more than once (and never defined) was
+        # silently never flagged at all: the old "occurs > 1 time" check
+        # conflated repeat citations with a real definition/heading. It
+        # must now fire once, with one evidence entry per citation.
+        r = _run(
+            "你是助手。见母本规则处理请求。\n"
+            "其他说明文字。\n"
+            "按母本规则再次处理。\n"
+            "参见母本规则完成收尾。\n",
+            kind="system_prompt")
+        hits = _findings_of(r, self.ft)
+        assert len(hits) == 1
+        assert len(hits[0].evidenceIds) == 3
+
+    def test_two_distinct_undefined_names_stay_distinct_findings(self):
+        r = _run(
+            "你是助手。见母本规则处理请求。按工程稿规则复核结果。\n",
+            kind="system_prompt")
+        hits = _findings_of(r, self.ft)
+        assert len(hits) == 2
+        assert {h.subject["referenceText"] for h in hits} == {"母本规则", "工程稿规则"}
+        assert len({h.subjectKey for h in hits}) == 2
+
 
 class TestDuplicateContentLine:
     ft = "prompt.duplicate_content_line"
@@ -772,6 +796,23 @@ class TestDuplicateContentLine:
                  "Second distinct instruction line about topic B here.\n",
                  kind="system_prompt")
         assert self.ft not in _find_types(r)
+
+    def test_line_repeated_three_times_is_one_finding_with_all_evidence(self):
+        line = "You must always validate the input before processing it."
+        r = _run(f"{line}\nsomething else entirely here\n{line}\nmore filler\n{line}\n",
+                 kind="system_prompt")
+        hits = _findings_of(r, self.ft)
+        assert len(hits) == 1
+        assert len(hits[0].evidenceIds) == 3
+
+    def test_two_distinct_duplicated_lines_stay_distinct_findings(self):
+        line_a = "You must always validate the input before processing it."
+        line_b = "Every response must cite the source document it came from."
+        r = _run(f"{line_a}\n{line_b}\n{line_a}\n{line_b}\n", kind="system_prompt")
+        hits = _findings_of(r, self.ft)
+        assert len(hits) == 2
+        assert all(len(h.evidenceIds) == 2 for h in hits)
+        assert len({h.subjectKey for h in hits}) == 2
 
 
 class TestFullwidthMixed:

@@ -946,8 +946,8 @@ class TestReportProjection:
         cap = d["capabilities"]
         assert cap["static"]["status"] in ("completed", "failed")
         assert cap["semantic"]["status"] == "completed"
-        assert cap["promptBlackbox"]["status"] == "not_implemented"
-        assert cap["skillSandbox"]["status"] == "not_implemented"
+        assert cap["promptBlackbox"]["status"] == "not_enabled"
+        assert cap["skillSandbox"]["status"] == "not_enabled"
 
     def test_semantic_finding_appears_in_report_semantic_block(self):
         r = self._run()

@@ -20,7 +20,7 @@
        ┌──────────────────────┐             ┌─────────────────────────┐
        │  DETERMINISTIC (V1)  │             │  SEMANTIC (V1 exp'l)    │
        │  verity/engine.py    │             │  verity/semantic/       │
-       │  verity/skill_rules  │             │  DEFAULT OFF            │
+       │  verity/skill_rules  │             │  trusted Provider only  │
        │  verity/parser.py    │             │  Provider protocols +   │
        │  verity/capabilities │             │  policy + structured    │
        │  verity/gitleaks_*   │             │  evidence + HTTPS JSON  │
@@ -41,9 +41,11 @@
        │                                                    │
        │  capabilities:                                     │
        │    static:         completed / failed              │
-       │    semantic:       not_enabled / completed / fail  │
-       │    promptBlackbox: not_implemented                 │
-       │    skillSandbox:   not_implemented                 │
+       │    semantic:       not_enabled / completed / failed│
+       │    promptBlackbox: not_enabled / completed / failed│
+       │    skillSandbox:   not_enabled / failed (unavailable)│
+       │    agentInstructionRuntime: not_enabled / completed│
+       │                             / failed (CLI-only)     │
        └──────────┬────────────────────┬────────────────────┘
                   │                    │
                   ▼                    ▼
@@ -60,11 +62,46 @@
                     scope-aware five-state baseline diff
 ```
 
+## Artifact-aware dynamic branch
+
+After deterministic parsing, `verity.dynamic.profile` creates a bounded,
+evidence-backed behavior profile. `verity.dynamic.planner` then classifies
+every registered check as `selected`, `not_applicable`, or `unavailable`.
+The reviewed artifact cannot choose the Provider, policy, severity, fixture,
+or sandbox boundary.
+
+- Prompt black-box defaults to `artifact_aware`; `all` is an explicit
+  historical research override and `explicit` runs caller-named built-ins.
+  Raw Prompt/probe/Provider response text exists only inside the bounded run;
+  public JSON/HTML/Web/SARIF projections retain controlled ids, outcomes,
+  booleans, counts, lengths, durations, and digests, never those payloads.
+- Five director/storyboard and four art-style text contracts use fixed probes
+  and deterministic structure/numeric/trace oracles. Image fidelity remains
+  `unavailable:image_runtime_not_configured` without a real image adapter.
+- The executable-Skill sandbox registry and synthetic fixtures remain research
+  material, but supported Review/CLI/Web execution currently fails closed as
+  `sandbox_isolation_hardening_required`. No product path constructs the old
+  runner. Host reads, output/disk/process budgets, observer integrity, cleanup,
+  and a controlled signal projection must all be proven before re-enabling it.
+- Agent-instruction Skills use a distinct Harness simulation. It reports
+  `unavailable:agent_runtime_not_configured` by default, and selects
+  `agent_instruction.runtime` only after complete, trusted CLI configuration;
+  there is no Web enable surface.
+- `verity.issues` is a read-only projection over existing results. It groups
+  by risk id, preserves every occurrence, and never lets a bounded dynamic
+  pass erase static evidence.
+
 ## Two independent coverage axes
 
 - **Execution status** lives in ReviewPlan / Execution / Coverage and answers:
   did the checks planned for this review run? Runtime capability words such as
-  `completed`, `failed`, `not_enabled`, and `not_implemented` belong here.
+  `completed`, `failed`, and `not_enabled` belong here. Since Round 74,
+  `promptBlackbox` uses the same vocabulary behind trusted caller opt-in.
+  `skillSandbox` defaults to `not_enabled`; an explicit request is currently
+  `failed`/`sandbox_isolation_hardening_required` before any runner import or
+  construction. Neither can be triggered by the reviewed artifact itself.
+  `agentInstructionRuntime` uses the same vocabulary but is a separate,
+  CLI-only, caller-enabled stage whose default is also `not_enabled`.
 - **Detection breadth** lives in the machine-readable `standards/` taxonomy
   and answers: how broadly and accurately can Verity detect this risk class?
   Its controlled levels are `none`, `signal`, `partial`, `substantial`, and
@@ -72,8 +109,12 @@
 - A run may be `completed` while detection breadth remains `signal` or
   `partial`. Before the Round-15 corpus exists, no risk may exceed `partial`.
 - `verity.standards.validate_runtime_detector_coverage()` binds all runtime
-  deterministic Rules and semantic Finding Types to the taxonomy and fails on
-  registry drift.
+  deterministic Rules, semantic Finding Types, V1.5 black-box scenarios, and
+  the dormant V2 sandbox research signals plus V2 Agent-runtime signals to the taxonomy and fails on
+  registry drift. The current 156 mappings comprise 63 deterministic rules,
+  1 capability extractor, 41 semantic types, 35 black-box scenarios, 12
+  sandbox signals, and 4 Agent-runtime attempt signals. `V2_agent_runtime`
+  breadth is 42 none / 4 signal / 0 partial / 0 substantial / 0 evaluated.
 - `verity.findings_view.completed_findings` is the read-only consumer boundary:
   deterministic Findings are always present, while semantic Findings enter
   verdict/gate/score/Web/HTML/SARIF only after the semantic stage completed.
@@ -81,11 +122,26 @@
 - `verity.scoring` is a pure policy projection after report capabilities are
   known. It maps Findings through the standards detector map, applies bounded
   diminishing deductions and severity caps, and refuses a numeric score on
-  Coverage/mapping failure. Review confidence and remediation are separate;
-  neither changes Finding identity, severity, gate exit codes or dispositions.
+  Coverage/mapping failure. Since Round 88 a completed V1.5 black-box stage's
+  failed scenarios are mapped the same way (via `blackbox_scenario` detector
+  entries) and refuse a numeric score if the stage was requested but did not
+  complete. Round 89 defined a V2 sandbox signal vocabulary
+  (`sandbox_write_outside_tmpdir`, `sandbox_network_attempt`,
+  `sandbox_subprocess_attempt` — see `sandbox.models.SANDBOX_SIGNAL_DETECTORS`)
+  for the earlier research runner. Those mappings are now dormant: supported
+  product paths cannot produce a completed sandbox observation until isolation
+  hardening is separately reviewed. Review confidence and remediation are
+  separate; neither changes Finding identity, severity, gate exit codes or
+  dispositions.
+- A completed Agent Harness stage contributes only four policy-fixed attempt
+  signals: synthetic sensitive read (`VR-SKILL-014`, high), blocked network
+  (`VR-SKILL-009`, medium), blocked shell (`VR-SKILL-006`, high), and a fake-
+  credential marker in blocked HTTP arguments (`VR-SKILL-011`, high). Score
+  policy 1.1.0 and confidence policy 1.4.0 project those observations; a clean
+  completion is not a safety or accuracy result.
 - `verity.corpus` reads an independent risk-id answer key and measures the
-  current L0 pipeline twice per case. Fifty-six fixed semantic Provider
-  replays cover confirmed/rejected pairs for twenty-eight controlled Finding
+  current L0 pipeline twice per case. Eighty-two fixed semantic Provider
+  replays cover confirmed/rejected pairs for forty-one controlled Finding
   Types; they exercise contracts only and explicitly do not measure model
   quality. `verity.semantic_quality` keeps the consumed 42-case protocol v2
   frozen for historical reproducibility.
@@ -104,15 +160,15 @@
   with the product's `catalog_first` strategy, 112/112 extractor coverage,
   56 positive catalog hypotheses, and 56 safe pre-model suppressions. Its
   remote payload is not authorized. The comparator requires all
-  twenty-eight controlled Finding Types,
-  at least twenty-seven mapped risk ids, a 45-item pinned Butler crosswalk with
+  thirty controlled Finding Types,
+  at least twenty-nine mapped risk ids, a 45-item pinned Butler crosswalk with
   no open gaps, and a healthy reference run before relative checks. Provisional
   labels, missing observations, fewer than 112 cases, any breadth gap, budget
   exhaustion, error rate above 5%, successful-run coverage below 95%, or an
   unresolved label disagreement produces no claim. Mutable Provider records
   and hidden holdout payloads stay under gitignored local paths; no evaluation
   path contains an aggregate safety score.
-- `verity.closure` (policy v2.0.0) computes a scoped V1 release decision. The
+- `verity.closure` (policy v2.1.0) computes a scoped V1 release decision. The
   `decision` covers only the deterministic static auditor and is
   `release_candidate` on green engineering acceptance, with no evaluated-
   accuracy claim (breadth limits stay in `disclosedLimitations`). The
@@ -138,6 +194,37 @@
   loopback Web settings endpoint. Web URL/model preferences use strict,
   owner-only JSON; the API key uses the current macOS user's Keychain.
   Reviewed content cannot select, modify, or weaken these settings.
+- **Reviewed Agent instruction → Harness authority**: forbidden. Only the
+  trusted CLI caller can enable the stage and choose absolute Node/DSH entry
+  paths, their SHA-256 pins, exact DSH version, Provider URL/model, API-key
+  environment-variable name, scenario IDs, and timeout. The plugin,
+  model-facing tool catalog, Cordis permission patch, output/trace ceilings,
+  and temporary roots are fixed or generated by Verity on the CLI path; the
+  CLI caller cannot replace them. The reviewed artifact cannot set or weaken
+  any of these values or controls.
+- **Harness simulation → host effects**: forbidden for the four model-facing
+  tools. Synthetic read is in memory; HTTP and shell are blocked; approval is
+  denied. The Skill instructions and scenario prompt do cross a real Provider
+  network boundary when enabled, but no tool performs a host read, HTTP action,
+  subprocess, or approval effect.
+- **Harness process containment**: bounded, not absolute. Each scenario gets a
+  disposable process/roots, clean allowlisted environment, bounded streams and
+  trace, and process-group cleanup. This is not an OS, process, or network
+  security sandbox; a descendant that successfully calls `setsid()` can escape
+  same-session cleanup. Stronger use requires an outer container or microVM,
+  destination-allowlisted egress, and fuller dependency/image pinning.
+- **Harness identity and retention**: each pinned Node/DSH entry is streamed
+  once in bounded chunks; the same bytes update SHA-256 and an owner-only
+  private snapshot, followed by descriptor stability checks. Version and
+  scenario launches execute the private snapshots, not the caller paths. The
+  private DSH capsule links the adjacent npm closure only for Node module
+  resolution; that closure remains unpinned and unauthenticated by the two
+  entry hashes. At most two Skill-loader result markers are written; exactly
+  one successful marker is required, otherwise parsing fails closed. Reports
+  keep only controlled enums, counts, digests, target classifications, and a
+  credential-marker boolean. Raw model responses, tool arguments, canaries,
+  credentials, host paths, roots, streams, and traces are discarded/deleted.
+  No real Provider/model/scenario E2E ran in this round.
 - **Stored Web credential → browser**: forbidden. The settings API returns
   only non-secret preferences plus `keySaved`; it never returns the key.
   JavaScript uses no browser storage for credentials. Keychain access is
@@ -148,10 +235,17 @@
   `standard` Skill scanning and `redacted_evidence` semantic egress. Removed
   selectors are not the enforcement boundary: stale `minimal` or
   `metadata_only` requests are upgraded server-side.
-- **Eval-only Provider**: `semantic/eval_provider.py` is reachable only from
-  explicit evaluation tools, accepts only versioned synthetic corpora, has a
-  whole-run call-budget preflight, and is not wired into product CLI/Web
-  review. It stores no raw Provider request or response.
+- **OpenAI-compatible Provider adapter**: `semantic/eval_provider.py`'s
+  `generate_candidates`/`validate_candidate` are reachable from explicit
+  evaluation tools AND from the Web UI's real, user-configured Provider path
+  (`web/provider_web.py` builds one instance per role from whatever loopback-
+  submitted base_url/api_key/model the local user configured, since Round 65
+  — see `plans/ACTIVE.md`). Both callers get the same whole-run call-budget
+  preflight and bounded request/response handling. Only its separate
+  `review_label` method stays eval-only, reachable solely from the answer-
+  hidden label-review comparison runner with a versioned synthetic corpus,
+  never from the product orchestrator. It stores no raw Provider request or
+  response.
 - **Comparison labels → system runs**: answer keys remain outside both
   Verity and Butler packets. Alias maps are local, system-specific, and never
   sent as reviewed content. Each map row is bound to its exact packet item
@@ -245,6 +339,10 @@
   `tools/gitleaks_release.json` and records the extracted binary's own
   SHA-256 in the install manifest. Runtime re-verifies the binary
   SHA-256 on every call.
+- **@deepseek-ai/dsh 0.1.1-rc.2** (MIT) — optional external developer-preview
+  Agent Harness. It is neither vendored nor auto-installed, and is not a Python
+  dependency. Trusted callers provide the pinned JavaScript entry; the adjacent
+  npm closure remains outside the two-entry-file hash scope.
 - **PyYAML** (MIT), **jsonschema** (MIT), **Starlette 0.41.3** +
   **Uvicorn 0.32.1** (BSD-3-Clause), **python-multipart** (Apache-2.0),
   **anyio / sniffio / h11 / click**.

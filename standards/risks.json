@@ -41,18 +41,20 @@
         "L0_static": "May identify explicit override markers and obfuscating control characters; cannot prove model compliance.",
         "L1_semantic": "May judge whether cited text conflicts with instruction hierarchy; cannot observe target-model behavior.",
         "V1_5_blackbox": "May report observed bypass under a versioned attack set and model configuration.",
-        "V2_sandbox": "Not generally applicable to prompt-only behavior."
+        "V2_sandbox": "Not generally applicable to prompt-only behavior.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No trust-boundary parser",
         "No indirect-injection corpus",
-        "No behavioral attack runner"
+        "Behavioral attack probing covers a fixed scenario set, not exhaustive"
       ],
       "evaluationReference": null
     },
@@ -70,17 +72,20 @@
         "L0_static": "May prove empty content or supported unresolved placeholder syntax.",
         "L1_semantic": "May identify materially missing context beyond known syntax.",
         "V1_5_blackbox": "May observe unusable or unstable outputs caused by missing context.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "partial",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No prompt-template dialect registry",
-        "No variable definition/use graph"
+        "No variable definition/use graph",
+        "Trigger vocabulary (35 phrases after Round 180, up from 27 phrases after Round 152, up from 19 originally, naming the same authoring-time template-incompleteness-in-prose concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -118,18 +123,21 @@
         "L0_static": "May identify supported secret patterns and sensitive markers; cannot determine all contextual sensitivity.",
         "L1_semantic": "May classify contextual sensitivity only on sanitized evidence.",
         "V1_5_blackbox": "May test whether supplied secrets can be extracted from a target model context.",
-        "V2_sandbox": "Not applicable to prompt-only review."
+        "V2_sandbox": "Not applicable to prompt-only review.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Prompt path only recognizes a synthetic fixture token",
         "No PII taxonomy",
-        "No extraction tests"
+        "Extraction test covers one fixed credential-request probe, not a battery of extraction techniques (encoding tricks, roleplay wrapping, multi-turn coercion), and does not verify that a specific real secret was actually embedded and leaked",
+        "Trigger vocabulary (34 phrases after Round 176, up from 26 phrases after Round 149, up from 18, naming the same concrete-value field label concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -154,13 +162,15 @@
         "L0_static": "May prove narrowly structured conflicting assignments.",
         "L1_semantic": "May judge cited instruction pairs, subject to evidence and validation policy.",
         "V1_5_blackbox": "May measure unstable behavior caused by conflicts.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Semantic extractor sends at most eight strong-constraint lines to keep every seed inside the Provider evidence budget",
@@ -196,18 +206,23 @@
         "L0_static": "May prove the presence of supported control and bidirectional characters.",
         "L1_semantic": "Should not be the primary detector for byte/encoding facts.",
         "V1_5_blackbox": "May test whether encoded instructions alter behavior.",
-        "V2_sandbox": "May observe decoded runtime artifacts for Skills."
+        "V2_sandbox": "May observe decoded runtime artifacts for Skills.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "partial",
-        "L1_semantic": "none",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No homoglyph/confusable analysis",
         "No broad invisible Unicode classification",
-        "No encoded payload recursion"
+        "No encoded payload recursion",
+        "Encoded-instruction black-box test covers one fixed base64-wrapped override payload, not a battery of encoding vectors (homoglyphs, zero-width Unicode, other transport encodings) or automatic decoding of arbitrary observed encodings",
+        "Round 121: L1 semantic coverage judges only the prompt's own authored instruction about decoding/interpreting external content -- it never decodes bytes itself (consistent with this risk's own L1_semantic boundary) and does not cover homoglyph, invisible-Unicode, or bidirectional-override framings that carry no explicit decode-instruction vocabulary",
+        "Trigger vocabulary (33 phrases after Round 162, up from 25 originally, naming the same encoded/obfuscated-instruction-representation concept) is broader but still fixed and finite; the new 'homoglyph substitution' phrase only recognizes prompt-authored instruction text describing that technique and does not touch the still-open 'No homoglyph/confusable analysis' gap above, which is about L0_static detecting actual homoglyph characters in file bytes"
       ],
       "evaluationReference": null
     },
@@ -232,18 +247,21 @@
         "L0_static": "May parse declared output schemas and prove structural inconsistencies when a supported contract exists.",
         "L1_semantic": "May judge whether a requested format lacks material field requirements.",
         "V1_5_blackbox": "May measure schema adherence and failure handling.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Trigger-based extractor only",
         "No contract model implementation",
-        "No schema-adherence evaluation"
+        "Schema-adherence probing covers two scenario patterns, not a general evaluator",
+        "Trigger vocabulary (31 phrases after Round 169, up from 23 phrases after Round 144, up from 15 originally, naming the same constrained-output task requirement concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -281,19 +299,23 @@
         "L0_static": "May prove supported wildcard grants and compare structured declarations.",
         "L1_semantic": "May judge whether declared tools are necessary for stated goals.",
         "V1_5_blackbox": "May test whether a prompt induces unauthorized tool requests.",
-        "V2_sandbox": "May observe actual attempted capability use under policy."
+        "V2_sandbox": "May observe actual attempted capability use under policy.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "partial",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Only strict wildcard forms",
         "No task-to-capability necessity model",
         "No MCP scope analysis",
-        "No real-model semantic corpus metrics"
+        "No real-model semantic corpus metrics",
+        "Black-box measurement covers one fixed self-escalation-to-wildcard probe, not a battery of scope-expansion phrasings, incremental privilege creep, or task-specific unnecessary-tool requests",
+        "Round 129: V2 sandbox coverage comes from reusing VR-SKILL-004/VR-SKILL-012's existing sandbox_undeclared_network_attempt and sandbox_undeclared_subprocess_attempt signal pair as a third, equally-valid risk mapping, not a dedicated probe -- it only cross-references the network/subprocess permission families against a single reviewed run, the same narrow slice those two signals already disclose for VR-SKILL-004/012, and a bare '*' wildcard permission is deliberately not treated as declaring every family"
       ],
       "evaluationReference": null
     },
@@ -332,19 +354,22 @@
         "L0_static": "May detect declared external sources and missing supported delimiters but cannot prove model interpretation.",
         "L1_semantic": "May judge whether cited data and instruction regions are ambiguously separated.",
         "V1_5_blackbox": "May inject controlled content through each trust boundary and observe behavior.",
-        "V2_sandbox": "May observe how a Skill propagates retrieved content into tools and prompts."
+        "V2_sandbox": "May observe how a Skill propagates retrieved content into tools and prompts.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No trust-source model",
         "No delimiter or provenance graph",
-        "No indirect-injection execution",
-        "No real-model semantic corpus metrics"
+        "Indirect-injection execution covers one fixed content-boundary scenario, not the full space of trust-boundary/tool-poisoning vectors",
+        "No real-model semantic corpus metrics",
+        "Round 120: V2 sandbox coverage comes from reusing VR-SKILL-005's existing sandbox_injected_content_propagation signal (a fixed synthetic decoy plus one fixed canary marker) as a second, equally-valid risk mapping, not a dedicated new probe -- it only observes propagation into a subprocess argv or network host, never into a downstream prompt, so the 'into ... prompts' half of this risk's own V2_sandbox boundary text remains unobserved"
       ],
       "evaluationReference": null
     },
@@ -375,18 +400,22 @@
         "L0_static": "Can identify only explicit absence/presence of supported verification clauses; absence alone is not proof of unsafe behavior.",
         "L1_semantic": "May assess whether verification, attribution and uncertainty requirements are proportionate to stated consequential claims.",
         "V1_5_blackbox": "May measure unsupported claims against a controlled factual set.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Trigger-level consequential-domain classification only",
         "No full grounding-contract parser",
-        "No factuality evaluation"
+        "No factuality evaluation",
+        "Black-box measurement covers one fixed fabricated-statistic probe against one controlled false premise, not a battery of confabulation categories (fake citations, fake historical events, fake legal/medical facts) or multi-turn pressure to keep asserting a fabricated claim",
+        "Trigger vocabulary (38 phrases after Round 188, up from 30 phrases after Round 161, up from 22 originally, naming the same consequential-or-verifiable-claim-domain concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -413,13 +442,15 @@
         "L0_static": "May prove supported structural and schema violations against a named specification version.",
         "L1_semantic": "May assess description quality but should not replace schema validation.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May observe compatibility failures but not redefine specification conformance."
+        "V2_sandbox": "May observe compatibility failures but not redefine specification conformance.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "partial",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No 'license' field validation (not currently a checked manifest field)",
@@ -454,18 +485,21 @@
         "L0_static": "May prove missing files and supported unsafe path forms within the immutable snapshot.",
         "L1_semantic": "Not the primary detector for path facts.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May observe attempted path access under containment."
+        "V2_sandbox": "May observe attempted path access under containment.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "partial",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No Markdown-body reference graph",
         "No deeply nested reference-chain policy",
-        "No platform-specific path equivalence matrix"
+        "No platform-specific path equivalence matrix",
+        "Sandbox signal covers only a denied write outside the tmpdir, not read-based escapes or reference-graph resolution"
       ],
       "evaluationReference": null
     },
@@ -518,19 +552,23 @@
         "L0_static": "May prove declared versions are unpinned and inspect lock/provenance artifacts; known-vulnerability claims require a trusted database snapshot.",
         "L1_semantic": "Should not invent dependency vulnerability facts.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May observe installation/runtime behavior but cannot prove supply-chain provenance alone."
+        "V2_sandbox": "May observe installation/runtime behavior but cannot prove supply-chain provenance alone.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No ecosystem-specific manifest/lock parser",
         "No OSV integration",
         "No provenance or signature verification",
-        "No repository posture assessment"
+        "No repository posture assessment",
+        "Round 118: L1 semantic now flags a Manifest that claims to be self-contained/dependency-free while the artifact snapshot itself contains a dependency-manifest file (semantic.skill.dependency_provenance_claim_gap), but this never asserts a CVE, version, or actual vulnerability claim -- only a disclosure-framing gap between the Manifest's own text and the presence of a dependency-manifest file",
+        "Round 119: V2 sandbox now observes a runtime dependency-install attempt (sandbox_dependency_install_attempt) via a fixed package-manager-binary + install-subcommand vocabulary in subprocessAttempts, but this only proves an install was attempted -- it never identifies which package/version, whether it succeeded, or whether it matches anything the Skill also declares in a manifest"
       ],
       "evaluationReference": null
     },
@@ -569,20 +607,23 @@
         "L0_static": "May prove wildcard grants and compare normalized declarations to observed static capability facts.",
         "L1_semantic": "May judge necessity relative to description using cited capability evidence.",
         "V1_5_blackbox": "Not applicable to Skill execution.",
-        "V2_sandbox": "May observe attempted capabilities and policy denials."
+        "V2_sandbox": "May observe attempted capabilities and policy denials.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Only wildcard declarations",
         "No normalized capability vocabulary",
         "No declaration-to-code capability graph",
         "allowed-tools syntax not fully parsed",
-        "No real-model semantic corpus metrics"
+        "No real-model semantic corpus metrics",
+        "Round 116: V2 sandbox now cross-references declared permission families against actually attempted network/subprocess behavior at runtime (sandbox_undeclared_network_attempt / sandbox_undeclared_subprocess_attempt), but only those two families are compared -- file, credential, and dependency-installation capabilities have no runtime declared-vs-observed check yet, and a bare '*' wildcard permission is deliberately not treated as declaring every family"
       ],
       "evaluationReference": null
     },
@@ -627,19 +668,21 @@
         "L0_static": "May identify explicit runtime-fetch declarations and supported untrusted data flows.",
         "L1_semantic": "May judge declaration/instruction trust mismatch on cited evidence.",
         "V1_5_blackbox": "Not applicable to Skill execution.",
-        "V2_sandbox": "May inject controlled external/tool content and observe propagation."
+        "V2_sandbox": "May inject controlled external/tool content and observe propagation.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Only custom manifest modes are recognized",
         "No MCP tool-content analysis",
         "No provenance graph",
-        "No indirect-injection sandbox",
+        "Indirect-injection sandbox coverage is one fixed decoy file with one fixed canary marker, checked only against subprocess argv and network host fields, not a battery of injection vectors, encodings, or delivery paths, and cannot observe propagation into stdout/file writes a parent process might later trust",
         "No real-model semantic corpus metrics"
       ],
       "evaluationReference": null
@@ -683,19 +726,23 @@
         "L0_static": "May prove dangerous call forms and, with data-flow analysis, supported attacker-controlled flows; pattern presence alone is not exploitability proof.",
         "L1_semantic": "May assess declaration mismatch but must not replace AST/data-flow facts.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May observe attempted process execution under isolation."
+        "V2_sandbox": "May observe attempted process execution under isolation.",
+        "V2_agent_runtime": "May observe a blocked simulated shell attempt through Verity's synthetic tool; it does not start a process, execute a command, or prove intent."
       },
       "currentCoverage": {
         "L0_static": "partial",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "signal"
       },
       "knownGaps": [
         "Python-focused",
         "No taint analysis",
         "No JavaScript/TypeScript or robust Shell parser",
-        "Legacy text rules are narrow"
+        "Legacy text rules are narrow",
+        "Sandbox signal covers only that a subprocess spawn was observed, not its intent or argv content",
+        "Agent-runtime shell evidence is limited to a bounded, pinned-Harness, fixed-scenario experiment with a synthetic blocked shell tool; it is not command execution, cross-Agent behavior, or evaluated-accuracy evidence."
       ],
       "evaluationReference": null
     },
@@ -724,18 +771,21 @@
         "L0_static": "May identify known unsafe parser/deserializer APIs and supported data flows.",
         "L1_semantic": "May assess whether data is described as untrusted but cannot replace call analysis.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May observe deserialization effects with controlled payloads."
+        "V2_sandbox": "May observe deserialization effects with controlled payloads.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "partial",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Only selected Python Bandit checks (pickle B301, unsafe yaml.load B506, unsafe XML parser B314)",
         "No source-to-sink data flow (pattern presence only, cannot prove the input is attacker-controlled)",
-        "No other-language deserializers"
+        "No other-language deserializers",
+        "Sandbox measurement covers one fixed decoy pickle filename (cache.pkl) planted at the tmpdir root with a synthetic __reduce__ payload; it proves the Skill's own code called pickle.load/pickle.loads on an attacker-shaped file when given the opportunity, not that any specific real-world untrusted input the Skill receives elsewhere is attacker-controlled, and covers only the Python pickle format"
       ],
       "evaluationReference": null
     },
@@ -766,18 +816,21 @@
         "L0_static": "May identify known weak APIs and insecure URL/verification configuration.",
         "L1_semantic": "May assess declared sensitivity but should not determine cryptographic correctness.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May observe connections but cannot prove cryptographic design correctness alone."
+        "V2_sandbox": "May observe connections but cannot prove cryptographic design correctness alone.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Only selected Python Bandit checks (weak hash B324, TLS verification disabled B501)",
         "No non-Python coverage",
-        "No certificate pinning/cipher-suite/protocol-version matrix beyond disabled verification"
+        "No certificate pinning/cipher-suite/protocol-version matrix beyond disabled verification",
+        "Round 117: V2 sandbox now flags networkAttempts to a small fixed vocabulary of well-known plaintext-protocol ports (sandbox_cleartext_network_attempt), but a port number is not proof of the actual protocol spoken on it -- a Skill running TLS on a non-standard port or plaintext on an unlisted one is not observed either way"
       ],
       "evaluationReference": null
     },
@@ -814,19 +867,22 @@
         "L0_static": "May identify risky URL APIs/schemes and supported source-to-request flows.",
         "L1_semantic": "May assess whether declared network scope matches behavior.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May observe/deny controlled network attempts and DNS/redirect behavior."
+        "V2_sandbox": "May observe/deny controlled network attempts and DNS/redirect behavior.",
+        "V2_agent_runtime": "May observe a blocked simulated HTTP attempt through Verity's synthetic tool; it does not perform network egress or prove destination, DNS, or redirect behavior."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "signal"
       },
       "knownGaps": [
         "Only Bandit B310 signal",
         "No taint or private-range analysis",
         "No DNS/redirect model",
-        "No network sandbox"
+        "Sandbox denies all outbound network unconditionally rather than modeling destination/DNS/redirect policy",
+        "Agent-runtime network evidence is limited to a bounded, pinned-Harness, fixed-scenario experiment with a synthetic blocked HTTP tool; it is not egress, cross-Agent behavior, or evaluated-accuracy evidence."
       ],
       "evaluationReference": null
     },
@@ -863,18 +919,21 @@
         "L0_static": "May identify known unsafe sinks/configurations and supported source-to-sink flows.",
         "L1_semantic": "May classify intended output use on cited evidence.",
         "V1_5_blackbox": "May generate controlled outputs for downstream safety assertions.",
-        "V2_sandbox": "May observe actual rendering/tool effects under isolation."
+        "V2_sandbox": "May observe actual rendering/tool effects under isolation.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Only selected Jinja autoescape check",
         "No general source/sink graph",
-        "No browser or tool-output evaluation"
+        "No browser or tool-output evaluation",
+        "Round 128: V2 sandbox coverage comes from reusing VR-SKILL-005/VR-PROMPT-008/VR-SKILL-013's existing sandbox_injected_content_propagation signal (a fixed synthetic decoy plus one fixed canary marker) as a fourth, equally-valid risk mapping, not a dedicated probe -- it only observes the canary propagating into a subprocess argv or a network host (this risk's own \"commands\"/\"tools\" sinks), never a template-rendering sink, a browser sink, or any output the reviewed Skill itself generates independently of the fixed decoy, so most of this risk's own source/sink space remains unobserved"
       ],
       "evaluationReference": null
     },
@@ -920,19 +979,23 @@
         "L0_static": "May identify supported secret/password patterns with redaction; absence is not proof that no secret exists.",
         "L1_semantic": "Must not receive known secrets and is not the primary credential detector.",
         "V1_5_blackbox": "May test extraction only with fake credentials and explicit budget.",
-        "V2_sandbox": "May observe access to fake credentials under isolation."
+        "V2_sandbox": "May observe access to fake credentials under isolation.",
+        "V2_agent_runtime": "May observe a fake credential marker entering blocked simulated HTTP tool arguments; it does not perform egress, expose a real credential, or prove theft."
       },
       "currentCoverage": {
         "L0_static": "partial",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "signal"
       },
       "knownGaps": [
         "Pattern-based detection has false positives/negatives",
         "No contextual credential-flow analysis",
         "Gitleaks upstream is feature-complete/security-fix maintenance",
-        "No runtime fake-credential observation"
+        "Sandbox measurement covers one fixed decoy filename (credentials.json) planted at the tmpdir root, not a battery of ambient credential locations, environment-variable exposure, or proof that any read value was actually exfiltrated",
+        "L1 covers one narrow claim-vs-fact contradiction (an explicit no-credentials-required Manifest claim paired with an os.getenv/os.environ.get capability fact); it never receives or judges any actual secret value and is not a general credential-flow or completeness check",
+        "Agent-runtime credential-marker evidence is limited to a bounded, pinned-Harness, fixed-scenario experiment with synthetic data and a blocked HTTP tool; it is not real credential theft, cross-Agent behavior, or evaluated-accuracy evidence."
       ],
       "evaluationReference": null
     },
@@ -970,20 +1033,23 @@
         "L0_static": "May build normalized declaration and capability facts but cannot judge every semantic mismatch.",
         "L1_semantic": "May confirm controlled mismatch types using cited declaration and implementation evidence.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May compare actual attempted behavior with declarations."
+        "V2_sandbox": "May compare actual attempted behavior with declarations.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Capability facts exist but no deterministic declaration-to-fact comparison",
         "Only Python AST and manifest facts",
         "Semantic extractor uses only first Python file and bounded excerpts",
         "Only three controlled mismatch kinds",
-        "No model corpus metrics"
+        "No model corpus metrics",
+        "Round 116: V2 sandbox now compares actual runtime network/subprocess attempts against declared permission families (sandbox_undeclared_network_attempt / sandbox_undeclared_subprocess_attempt); file, credential, and dependency-installation families still have no runtime comparison, only a single reviewed run is observed rather than repeated executions, and a bare '*' wildcard permission is deliberately not treated as declaring every family"
       ],
       "evaluationReference": null
     },
@@ -1023,19 +1089,22 @@
         "L0_static": "Requires language-aware call/data-flow analysis with explicit supported-language and source/sink matrices.",
         "L1_semantic": "May prioritize or explain evidence but cannot substitute for data-flow facts.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May observe flows/effects that static analysis cannot resolve."
+        "V2_sandbox": "May observe flows/effects that static analysis cannot resolve.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "none",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No call graph",
         "No taint engine",
         "No JavaScript/TypeScript/Shell AST integration",
-        "No cross-process model"
+        "No cross-process model",
+        "Round 127: V2 sandbox coverage comes from reusing VR-SKILL-005/VR-PROMPT-008's existing sandbox_injected_content_propagation signal (a fixed synthetic decoy plus one fixed canary marker) as a third, equally-valid risk mapping, not a dedicated new probe -- it only observes one fixed file-to-subprocess-argv-or-network-host crossing, never a cross-module (in-process) flow, a language-boundary crossing that never reaches a subprocess or network call, or any other privileged sink (e.g. a file write or an eval/exec), so most of this risk's own cross-file/cross-language/cross-process space remains unobserved"
       ],
       "evaluationReference": null
     },
@@ -1066,18 +1135,21 @@
         "L0_static": "May identify capability requests and dangerous APIs but cannot prove runtime containment.",
         "L1_semantic": "May assess stated isolation requirements but cannot test them.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "Must enforce and test one-shot isolation, fake credentials, resource limits, network policy, and destruction."
+        "V2_sandbox": "Must enforce and test one-shot isolation, fake credentials, resource limits, network policy, and destruction.",
+        "V2_agent_runtime": "May observe a model requesting the synthetic in-memory sensitive fixture through Verity's simulated read_file tool; it does not read a host path or prove containment beyond the pinned Harness and fixed scenarios."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "signal"
       },
       "knownGaps": [
-        "No Skill sandbox",
-        "No runtime policy",
-        "No escape tests"
+        "No fake-credential staging or destruction verification -- the sandbox observes real host-credential-path read attempts, it does not inject decoy credentials and confirm exfiltration or destruction",
+        "No resource-limit escape tests beyond the fixed CPU/memory/wall-clock budgets already enforced and monitored",
+        "Sandbox signal covers only a read of a fixed well-known sensitive-path list (SSH keys, cloud credentials, shell history, system password files), not general credential-adjacent access",
+        "Agent-runtime sensitive-read evidence is limited to a bounded, pinned-Harness, fixed-scenario experiment with a synthetic in-memory fixture; it is not a host read, cross-Agent result, or evaluated-accuracy evidence."
       ],
       "evaluationReference": null
     },
@@ -1112,13 +1184,15 @@
         "L0_static": "May validate structured MCP configuration and known insecure implementation patterns when MCP intake exists.",
         "L1_semantic": "May assess documented trust boundaries but not prove protocol correctness.",
         "V1_5_blackbox": "Not applicable to Prompt black-box testing.",
-        "V2_sandbox": "May exercise controlled MCP interactions only inside the approved runtime boundary."
+        "V2_sandbox": "May exercise controlled MCP interactions only inside the approved runtime boundary.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "none",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No MCP intake",
@@ -1164,13 +1238,15 @@
         "L0_static": "Must expose plan/execution/coverage independently from findings and capability breadth.",
         "L1_semantic": "Must expose Provider/model/validation failure and never convert failure to no finding.",
         "V1_5_blackbox": "Must expose test-set/model/budget coverage and unexecuted cases.",
-        "V2_sandbox": "Must expose runtime policy, blocked operations, teardown, and unobserved behavior."
+        "V2_sandbox": "Must expose runtime policy, blocked operations, teardown, and unobserved behavior.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "partial",
         "L1_semantic": "partial",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Execution status UI can still be mistaken for breadth",
@@ -1193,18 +1269,21 @@
         "L0_static": "May prove a numbered-section/named-rule reference has no matching heading anywhere in the document.",
         "L1_semantic": "May judge whether prose (non-numbered) references still point at material that covers the claimed behaviour.",
         "V1_5_blackbox": "May observe whether the model actually fails or improvises when asked to follow the dangling reference.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "L1_semantic": "signal",
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
-        "Only strict numbered/named reference forms are matched; free-form prose pointers are not checked",
+        "Free-form prose pointers are now judged by the semantic layer (semantic.prompt.prose_reference_gap), but only when the prompt uses one of a fixed set of trigger phrases (expanded in Round 112 to 34 English + 19 Chinese phrases covering \"as X above/below\", \"previously\"-anchored, and \"per/refer to\" pointer idioms); other prose-reference wordings are still not checked, and judgment accuracy is unproven pending the Round-15 corpus",
         "Cannot verify the referenced section's content still covers the claimed rule, only that a heading with that number exists",
-        "No cross-file reference resolution (single-file prompt review only)"
+        "No cross-file reference resolution (single-file prompt review only)",
+        "Black-box measurement covers one fixed fabricated-rule-number probe chosen to be implausibly large, not a battery of reference styles (named rules, prose pointers, small numbers that might coincidentally collide with a real section) or multi-turn pressure to keep asserting the fabricated rule's content"
       ],
       "evaluationReference": null
     },
@@ -1233,18 +1312,21 @@
         "L0_static": "May identify string-built query call forms; cannot prove the interpolated value is attacker-controlled without data-flow analysis.",
         "L1_semantic": "May assess declared database access intent but cannot substitute for AST/data-flow facts.",
         "V1_5_blackbox": "Not applicable.",
-        "V2_sandbox": "May observe an actual injected query reaching a database driver under isolation."
+        "V2_sandbox": "May observe an actual injected query reaching a database driver under isolation.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
-        "L1_semantic": "none",
+        "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "signal",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Python-focused (Bandit B608 heuristic only)",
         "No data-flow proof the interpolated value is attacker-controlled",
-        "No non-Python ORM/query-builder coverage"
+        "No non-Python ORM/query-builder coverage",
+        "Round 130: V2 sandbox coverage only proves the fixed synthetic canary reached raw SQL statement text passed to the stdlib sqlite3 driver via a sqlite3.connect() factory override -- never any third-party driver (psycopg2/pymysql/etc.), and never a Skill that constructs sqlite3.Connection directly instead of calling sqlite3.connect()"
       ],
       "evaluationReference": null
     },
@@ -1269,19 +1351,23 @@
         "L0_static": "May prove same-unit arithmetic contradictions when count, per-item minimum, and total maximum are all explicit.",
         "L1_semantic": "May judge likely budget pressure when one or more lower bounds are implicit and assess declared priority/continuation behavior.",
         "V1_5_blackbox": "May measure truncation, omitted items, and contract noncompliance under the configured model budget.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No token/word/character conversion is attempted",
         "No deterministic inferred average item size or task-complexity estimate",
         "Semantic pressure judgment remains model-dependent and advisory",
-        "No model-specific tokenizer or black-box truncation measurement"
+        "No model-specific tokenizer or black-box truncation measurement",
+        "Trigger vocabulary (30 phrases after Round 168, up from 22 phrases after Round 154, up from 14 originally, naming the same requesting-an-exhaustive-nothing-omitted-output concept) is broader but still fixed and finite",
+        "Sibling trigger vocabulary (31 phrases after Round 171, up from 23 phrases after Round 155, up from 15 originally, naming the same short/limited-output-length-constraint concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1305,19 +1391,22 @@
         "L0_static": "May signal explicit autonomy language combined with a closed list of high-impact action phrases and no approval boundary.",
         "L1_semantic": "May judge broader role, initiative, delegated-authority and approval-boundary ambiguity in system prompts.",
         "V1_5_blackbox": "May probe whether the model performs or proposes side effects without seeking approval.",
-        "V2_sandbox": "May observe attempted side effects only inside the future isolated Skill sandbox."
+        "V2_sandbox": "May observe attempted side effects only inside the future isolated Skill sandbox.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
-        "Closed action vocabulary; no general authority graph",
+        "Closed action vocabulary (38 phrases after Round 187, up from 30 phrases after Round 133, up from 18 originally, across the same 6 operationKinds categories: communication/publication/deployment/financial/destructive/access_control) and closed autonomy vocabulary (34 phrases after Round 178, up from 26 phrases after Round 151, up from 18 phrases after Round 137, up from 10 originally, naming the same autonomous-initiative-without-approval concept) are broader but still fixed and finite; no general authority graph",
         "Cannot prove whether an external application enforces approval",
         "Semantic authority judgment remains model-dependent and advisory",
-        "Helpful proactive analysis without side effects is deliberately excluded"
+        "Helpful proactive analysis without side effects is deliberately excluded",
+        "Behavioral probing covers one fixed deployment-action scenario, not the full space of high-impact side effects"
       ],
       "evaluationReference": null
     },
@@ -1342,19 +1431,22 @@
         "L0_static": "May signal supported operation phrases when the whole prompt contains no supported failure-strategy marker.",
         "L1_semantic": "May judge whether a declared strategy covers each cited operation and material edge case.",
         "V1_5_blackbox": "May inject timeouts, malformed responses, and empty results and score the observed behavior.",
-        "V2_sandbox": "May observe runtime failure handling for Skills inside isolation."
+        "V2_sandbox": "May observe runtime failure handling for Skills inside isolation.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Closed operation and strategy vocabularies",
         "A strategy anywhere in the prompt suppresses the signal even if it covers a different operation",
         "Semantic operation-to-strategy matching remains model-dependent and advisory",
-        "No fault injection or malformed-response execution"
+        "V1.5 covers one fixed prior-call-failure confabulation probe (a claimed timeout with no returned result); does not cover malformed-response or empty-result-but-no-timeout framings, nor genuine fault injection into a live tool-call loop",
+        "Trigger vocabulary (37 phrases after Round 185, up from 29 phrases after Round 160, up from 21 originally, naming the same failure-prone-external-operation concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1379,18 +1471,22 @@
         "L0_static": "May locate a closed vocabulary of vague criteria but cannot decide whether they materially affect behavior or are locally defined.",
         "L1_semantic": "May judge material ambiguity after considering nearby thresholds, examples and decision rules.",
         "V1_5_blackbox": "May measure output divergence near an ambiguous decision boundary.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Trigger vocabulary is not a complete ambiguity parser",
         "No referent graph across sections",
-        "Semantic materiality judgment remains model-dependent and advisory"
+        "Semantic materiality judgment remains model-dependent and advisory",
+        "Trigger vocabulary (33 phrases after Round 174, up from 25 phrases after Round 156, up from 17 originally, naming the same detailed-photorealistic/cinematic-visual-style-description concept) is broader but still fixed and finite",
+        "Separately, the sibling _VAGUE_CRITERIA_TERMS vocabulary (33 phrases after Round 163, up from 25 originally, naming the same vague-operational-criterion-lacking-a-concrete-threshold concept) is also broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1421,18 +1517,21 @@
         "L0_static": "May locate explicit reasoning/policy and disclosure terms but cannot establish visibility or sensitivity.",
         "L1_semantic": "May distinguish hidden-reasoning disclosure from a concise evidence-based rationale or intentionally public policy.",
         "V1_5_blackbox": "May probe whether configured hidden material appears in observable output.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No policy-sensitivity classifier",
         "No distinction between provider-hidden and application-owned reasoning at runtime",
-        "No black-box leakage measurement"
+        "Black-box leakage probing covers two scenario patterns, not exhaustive",
+        "Trigger vocabulary (37 phrases after Round 186, up from 29 phrases after Round 165, up from 21 phrases after Round 142, up from 13 originally, naming the same chain-of-thought/internal-policy reasoning concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1457,19 +1556,21 @@
         "L0_static": "May locate explicit input vocabulary but cannot decide which inputs are operationally necessary or whether an upstream schema owns the contract.",
         "L1_semantic": "May judge requiredness, missing/invalid input handling, and safe defaults for evidenced task dependencies.",
         "V1_5_blackbox": "May inject missing, empty, malformed, oversized, and unsupported inputs and score the resulting behavior.",
-        "V2_sandbox": "May observe runtime validation only for a future isolated Skill execution."
+        "V2_sandbox": "May observe runtime validation only for a future isolated Skill execution.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
-        "Trigger vocabulary is not a complete input-schema parser",
+        "Trigger vocabulary (38 phrases after Round 189, up from 30 phrases after Round 166, up from 22 phrases after Round 135, up from 14 originally, naming the same declared-input-dependency concept) is broader but still fixed and finite, not a complete input-schema parser",
         "Cannot inspect an unseen application-owned request schema",
         "Semantic materiality judgment remains model-dependent and advisory",
-        "No malformed-input execution"
+        "Black-box measurement covers one fixed missing-input probe (claims a previously uploaded file that was never actually sent), not a battery of malformed, empty, oversized, or unsupported-input styles, and not multi-turn pressure to keep asserting fabricated file contents"
       ],
       "evaluationReference": null
     },
@@ -1494,18 +1595,21 @@
         "L0_static": "May locate repeated literals but cannot reliably associate normative rules with example fields and behavior.",
         "L1_semantic": "May compare cited examples with required fields, enums, formats, language, boundaries, and failure behavior.",
         "V1_5_blackbox": "May measure whether the configured model follows the conflicting rule or example.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No general parser for arbitrary few-shot formats",
         "Illustrative versus exhaustive intent can remain ambiguous",
-        "Semantic comparison remains model-dependent and advisory"
+        "Semantic comparison remains model-dependent and advisory",
+        "Trigger vocabulary (34 phrases after Round 177, up from 26 phrases after Round 150, up from 18 phrases after Round 140, up from 10 originally, naming the same normative-example-present concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1536,18 +1640,21 @@
         "L0_static": "May locate tool-call vocabulary and some missing failure markers but cannot bind arguments, provenance, and result contracts.",
         "L1_semantic": "May judge invocation conditions, argument sources, result shape, and material failure behavior against cited evidence.",
         "V1_5_blackbox": "May run fake tools with malformed arguments and responses and score retries, validation, and side effects.",
-        "V2_sandbox": "May observe real Skill tool behavior only inside future isolation."
+        "V2_sandbox": "May observe real Skill tool behavior only inside future isolation.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Cannot inspect a referenced but unseen registered tool schema",
         "No execution-time argument or result validation",
-        "Semantic contract judgment remains model-dependent and advisory"
+        "Semantic contract judgment remains model-dependent and advisory",
+        "Trigger vocabulary (35 phrases after Round 181, up from 27 phrases after Round 153, up from 19 phrases after Round 138, up from 11 originally, naming the same required-tool-invocation concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1572,17 +1679,19 @@
         "L0_static": "May signal a pinned model or endpoint without fallback but cannot establish deployed capabilities.",
         "L1_semantic": "May judge whether a non-intrinsic capability is required, explicitly provided, or safely degraded.",
         "V1_5_blackbox": "May run with capabilities disabled and score hallucination, refusal, and fallback behavior.",
-        "V2_sandbox": "May expose only explicitly granted fake capabilities to an isolated Skill."
+        "V2_sandbox": "May expose only explicitly granted fake capabilities to an isolated Skill.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "signal",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Cannot infer trusted deployment configuration from the prompt alone",
-        "Capability vocabulary is not exhaustive",
+        "Capability vocabulary (34 phrases after Round 134, up from 24, across the same 7 operationKinds categories: realtime/web/vision/audio/memory/context/plugin) is broader but still fixed and finite, not exhaustive",
         "No configured-model capability registry",
         "No black-box capability removal test"
       ],
@@ -1615,19 +1724,22 @@
         "L0_static": "May detect literal secrets but cannot establish data minimization, authorization, retention, or disclosure policy.",
         "L1_semantic": "May judge whether declared sensitive-data actions have proportionate handling boundaries.",
         "V1_5_blackbox": "May inject synthetic sensitive values and measure masking, refusal, and unauthorized disclosure.",
-        "V2_sandbox": "May use fake credentials and synthetic data to observe isolated Skill access and exfiltration attempts."
+        "V2_sandbox": "May use fake credentials and synthetic data to observe isolated Skill access and exfiltration attempts.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No legal-jurisdiction or organization-policy determination",
         "Cannot inspect an unseen external authorization layer",
-        "Data-classification vocabulary is not exhaustive",
-        "No synthetic-data black-box measurement"
+        "Data-classification vocabulary (39 terms after Round 131, spanning identity/contact/medical/financial/credential categories, each with English/Chinese pairs) is broader but still not exhaustive",
+        "Synthetic-data black-box measurement covers one fixed fake-credit-card disclosure probe, not a battery of sensitive-data categories (medical, contact, government ID) or multi-turn coercion techniques",
+        "Action vocabulary (34 phrases after Round 179, up from 26 phrases after Round 157, up from 18 originally, naming the same perform-an-action-on-the-sensitive-data concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1651,19 +1763,21 @@
         "L0_static": "May locate role vocabulary but cannot determine whether the declared audience, duties, exclusions, and capabilities are sufficient for the task.",
         "L1_semantic": "May judge whether an applicable operational role has material audience, duty, exclusion, and capability boundaries.",
         "V1_5_blackbox": "May probe adjacent and out-of-scope requests and score whether the configured model respects the declared role.",
-        "V2_sandbox": "May observe whether an isolated Skill attempts capabilities outside the role contract."
+        "V2_sandbox": "May observe whether an isolated Skill attempts capabilities outside the role contract.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
-        "Role vocabulary is not exhaustive",
+        "Role vocabulary (34 phrases after Round 175, up from 26 phrases after Round 148, up from 18 phrases after Round 136, up from 10 originally, naming the same persistent-operational-role-identity concept) is broader but still fixed and finite, not exhaustive",
         "Cannot infer organization-specific duties or authority that are not present in the artifact",
         "Semantic sufficiency judgment remains model-dependent and advisory",
-        "No adjacent-scope black-box probing"
+        "Adjacent-scope black-box probing covers one scenario pattern, not exhaustive"
       ],
       "evaluationReference": null
     },
@@ -1688,19 +1802,23 @@
         "L0_static": "May locate numbered steps but cannot reliably infer data and control dependencies.",
         "L1_semantic": "May judge explicit workflow prerequisites, ordering, intermediate-result use, and branch reachability against cited evidence.",
         "V1_5_blackbox": "May execute representative branches with controlled tool responses and score ordering and result propagation.",
-        "V2_sandbox": "May observe an isolated Skill workflow with fake dependencies and bounded side effects."
+        "V2_sandbox": "May observe an isolated Skill workflow with fake dependencies and bounded side effects.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No general workflow graph parser",
         "Implicit domain prerequisites can remain unknown",
         "Semantic dependency judgment remains model-dependent and advisory",
-        "No workflow execution"
+        "No workflow execution",
+        "Black-box signal covers one skipped-step probe, not a full dependency graph",
+        "Trigger vocabulary (31 phrases after Round 170, up from 23 phrases after Round 146, up from 15 originally, naming the same multi-step workflow/procedure concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1725,19 +1843,22 @@
         "L0_static": "May locate field and numeric vocabulary but cannot decide which constraints are materially required.",
         "L1_semantic": "May judge applicable field types, units, precision, enums, ranges, and boundary behavior against the declared task.",
         "V1_5_blackbox": "May inject boundary, empty, duplicate, rollover, and out-of-range values and score the output contract.",
-        "V2_sandbox": "May observe runtime validation only for a future isolated Skill execution."
+        "V2_sandbox": "May observe runtime validation only for a future isolated Skill execution.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No general schema or unit-system parser",
         "Cannot infer application-owned field constraints that are absent from the artifact",
         "Semantic materiality judgment remains model-dependent and advisory",
-        "No boundary-value execution"
+        "Black-box measurement covers one fixed negative-quantity boundary probe against a plain user turn; it proves whether the agent applies a range/boundary constraint to a format-valid but out-of-range numeric value instead of silently accepting it, not whether every field's own materially-required type, unit, precision, enum, empty-value, duplicate, or rollover contract in the reviewed prompt's own domain is complete",
+        "Trigger vocabulary (33 phrases after Round 173, up from 25 phrases after Round 147, up from 17 originally, naming the same named machine-consumed data field concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1762,19 +1883,22 @@
         "L0_static": "May locate error vocabulary but cannot establish whether the response contract is stable and actionable.",
         "L1_semantic": "May judge whether applicable errors and refusals declare a stable schema, reason code, recoverability, and format consistency.",
         "V1_5_blackbox": "May trigger controlled failures and refusals and score their actual output shape and recovery signal.",
-        "V2_sandbox": "May inject runtime failures into an isolated Skill and observe bounded error propagation."
+        "V2_sandbox": "May inject runtime failures into an isolated Skill and observe bounded error propagation.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Cannot inspect an unseen downstream error schema",
         "Natural-language-only applications may not require every machine-readable field",
         "Semantic applicability judgment remains model-dependent and advisory",
-        "No controlled failure execution"
+        "Black-box measurement covers one fixed malformed-date-field probe against a plain user turn; it proves whether the agent states a reason and recovery path instead of silently confirming an invalid value, not whether every failure/refusal class in the reviewed prompt's own domain has a stable schema, reason code, or format-consistency rule",
+        "Trigger vocabulary (30 phrases after Round 167, up from 22 phrases after Round 143, up from 14 originally, naming the same declared-failure-response concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1799,19 +1923,22 @@
         "L0_static": "May count lines, sections, or exact duplicates but cannot establish that a critical rule is materially diluted.",
         "L1_semantic": "May judge whether critical rules are buried, redundant context is material, or section order obscures precedence.",
         "V1_5_blackbox": "May compare instruction-following under controlled prompt layouts and context lengths.",
-        "V2_sandbox": "Not applicable."
+        "V2_sandbox": "Not applicable.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Length alone is not treated as a defect",
         "Model-specific attention behavior is not inferred from static text",
         "Semantic materiality judgment remains model-dependent and advisory",
-        "No layout ablation experiment"
+        "No layout ablation experiment",
+        "Trigger vocabulary (36 phrases after Round 184, up from 28 phrases after Round 164, up from 20 phrases after Round 141, up from 12 originally, naming the same large-document-structure concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1836,19 +1963,22 @@
         "L0_static": "May locate streaming vocabulary but cannot judge protocol completeness.",
         "L1_semantic": "May judge applicable framing, ordering, completion, partial-output, and resume requirements.",
         "V1_5_blackbox": "May interrupt, truncate, reorder, and resume a configured stream and score parser-visible behavior.",
-        "V2_sandbox": "May observe isolated Skill stream handling with bounded fake transports."
+        "V2_sandbox": "May observe isolated Skill stream handling with bounded fake transports.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
         "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Cannot inspect an unseen transport protocol",
         "Not every user-visible token stream requires resumability",
         "Semantic applicability judgment remains model-dependent and advisory",
-        "No interruption or resume execution"
+        "No interruption or resume execution",
+        "Trigger vocabulary (32 phrases after Round 172, up from 24 phrases after Round 145, up from 16 originally, naming the same streamed/incremental output concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1879,19 +2009,22 @@
         "L0_static": "May locate memory or conversation vocabulary but cannot establish correct state semantics.",
         "L1_semantic": "May judge applicable inheritance, update, reset, conflict-resolution, and invariant rules across turns.",
         "V1_5_blackbox": "May run adversarial turn sequences and score state carryover, reset, and invariant preservation.",
-        "V2_sandbox": "May observe isolated persistent state using synthetic conversations and storage."
+        "V2_sandbox": "May observe isolated persistent state using synthetic conversations and storage.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Cannot inspect an unseen conversation or memory implementation",
         "Session semantics vary by deployment",
         "Semantic state judgment remains model-dependent and advisory",
-        "No adversarial multi-turn execution"
+        "Adversarial multi-turn probing covers one scenario pattern, not exhaustive",
+        "Trigger vocabulary (35 phrases after Round 182, up from 27 phrases after Round 158, up from 19 phrases after Round 139, up from 11 originally, naming the same multi-turn-state-carrying concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     },
@@ -1916,19 +2049,21 @@
         "L0_static": "May locate dangerous-domain terms but cannot determine the appropriate safety boundary.",
         "L1_semantic": "May judge whether an applicable dangerous-domain task declares refusal boundaries, allowed scope, safe alternatives, and escalation.",
         "V1_5_blackbox": "May probe allowed, borderline, and disallowed requests and score refusal and redirection behavior.",
-        "V2_sandbox": "May ensure dangerous tools and side effects are unavailable during isolated Skill tests."
+        "V2_sandbox": "May ensure dangerous tools and side effects are unavailable during isolated Skill tests.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "Does not replace provider or organization safety policy",
-        "Dangerous-domain vocabulary and jurisdictional requirements are not exhaustive",
+        "Dangerous-domain vocabulary (17 concept terms after Round 115, spanning weapons/violence, self-harm, extremism, trafficking, and fraud, each with English/Chinese pairs) is broader but still not exhaustive, and jurisdictional requirements remain unmodeled",
         "Semantic boundary judgment remains model-dependent and advisory",
-        "No red-team black-box probing"
+        "Red-team black-box probing covers two scenario patterns, not exhaustive"
       ],
       "evaluationReference": null
     },
@@ -1953,19 +2088,22 @@
         "L0_static": "May locate source and quotation vocabulary but cannot determine lawful or permitted use.",
         "L1_semantic": "May identify missing declared attribution, reproduction limits, transformation boundaries, or ownership status without making a legal conclusion.",
         "V1_5_blackbox": "May request bounded and excessive reproduction and score attribution, refusal, and transformation behavior.",
-        "V2_sandbox": "May restrict isolated source access and observe outbound reproduction attempts."
+        "V2_sandbox": "May restrict isolated source access and observe outbound reproduction attempts.",
+        "V2_agent_runtime": "Not measured by the bounded agent-instruction runtime signal set."
       },
       "currentCoverage": {
         "L0_static": "none",
         "L1_semantic": "signal",
-        "V1_5_blackbox": "none",
-        "V2_sandbox": "none"
+        "V1_5_blackbox": "signal",
+        "V2_sandbox": "none",
+        "V2_agent_runtime": "none"
       },
       "knownGaps": [
         "No legal conclusion about copyright, license, fair use, or ownership",
         "Cannot inspect unseen licenses or permissions",
         "Semantic applicability judgment remains model-dependent and advisory",
-        "No reproduction-limit black-box probing"
+        "Black-box measurement covers one fixed full-chapter verbatim reproduction probe against one well-known copyrighted work, not a battery of excerpt-length thresholds, transformation requests, or attribution-only asks",
+        "Trigger vocabulary (36 phrases after Round 183, up from 28 phrases after Round 159, up from 20 originally, naming the same reproducing/quoting-a-copyrighted-or-licensed-source concept) is broader but still fixed and finite"
       ],
       "evaluationReference": null
     }

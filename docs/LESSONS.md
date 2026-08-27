@@ -14,6 +14,102 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-08-27 — A research execution adapter is not a product isolation boundary
+
+- **Symptom**: The V2 prototype was reachable through supported review paths
+  and described as an isolated sandbox even though reviewed code could read
+  broad host data, influence in-process observation, produce unbounded output
+  or disk writes, escape process-group cleanup, and place raw runtime material
+  in reports. Prompt black-box reports likewise retained raw probes and model
+  responses after those strings were no longer needed for judging.
+- **Root cause**: A platform mechanism (`sandbox-exec`) and a collection of
+  resource hints were treated as a complete security boundary. Internal
+  observations were also serialized directly instead of crossing a separate,
+  allowlisted public-report projection.
+- **Fix**: Made Skill execution unavailable on supported Review, CLI, Web, and
+  standalone-command paths; every explicit request now fails closed before the
+  prototype runner is imported or constructed. Public dynamic reports retain
+  only controlled statuses, outcomes, counts, lengths, and digests, and Prompt
+  black-box infrastructure or inconclusive runs cannot be labelled completed.
+- **Prevention**: Keep research runners private until adversarial tests prove
+  host-read, output, disk, process-count/tree, observer-integrity, cleanup, and
+  report-projection properties independently. Judge raw Provider/runtime data
+  in memory, then project through an explicit allowlist before scoring,
+  reporting, Web rendering, history, or downloads.
+- **Evidence**: `tests/test_dynamic_safety_boundaries.py`,
+  `tests/test_dynamic_review_integration.py`,
+  `tests/test_round20_closure.py`, and `tests/test_web_semantic_headline.py`.
+
+### 2026-08-27 — Process-group disappearance is a multi-window state transition on macOS
+
+- **Symptom**: A confirmed stdout-overflow scenario intermittently reported
+  `agent_runtime_process_control_failed` after its descendant had already been
+  killed. The same test could pass or fail depending on orphan/zombie reaping
+  timing.
+- **Root cause**: On macOS, `killpg(pgid, 0)` can return `EPERM` for a
+  zombie-only process group, and the group can disappear between a signal,
+  `/bin/ps`, and a follow-up probe. A boolean "present or absent" check could
+  not distinguish that transition from a live or unknown descendant.
+- **Fix**: Model cleanup as four states: `zombie_only`, `absent_candidate`,
+  `live_or_mixed`, and `unknown`. Accept zombie-only as non-executing; accept an
+  absent candidate only after a fresh signal-0 returns `ESRCH`; fail closed for
+  live, mixed, unknown, repeated `EPERM`, and every other control error.
+- **Prevention**: Test each syscall window independently, including the second
+  forced kill. Do not broadly swallow `EPERM`, and do not let a later clean
+  observation erase an earlier process-control failure.
+- **Evidence**: `tests/test_agent_runtime_runner.py` (120 focused tests),
+  repeated real-process overflow runs, and independent adversarial review.
+
+### 2026-08-27 — A restricted agent harness is not a host/network security sandbox
+
+- **Symptom**: A bounded Agent-instruction run could be described as
+  "sandboxed" merely because its model-facing tools were simulated, its
+  environment allowlisted, and its child process cleaned up. That wording
+  obscured real Provider egress, npm dependency scope, and descendant-process
+  residuals.
+- **Root cause**: Application-level tool denial and process hygiene were
+  conflated with OS/process/network containment. The two SHA-256 pins cover
+  only the Node and DSH JavaScript entry files, while a descendant that calls
+  `setsid()` may escape same-session cleanup and Provider traffic still crosses
+  a real network boundary.
+- **Fix**: Kept the Harness CLI-only, explicitly caller-enabled, and OFF by
+  default; exposed only four synthetic attempt signals; documented retention,
+  hash, process, and network boundaries; and required outer container/microVM
+  isolation, destination-allowlisted egress, and fuller dependency/image
+  pinning for stronger containment.
+- **Prevention**: Never infer host safety from a clean/completed Harness run.
+  State separately what is simulated, what crosses the network, what the pins
+  authenticate, which raw data is deleted, and which outer isolation is still
+  required. Do not claim universal, cross-Agent, or evaluated accuracy from a
+  bounded run.
+- **Evidence**: `tests/test_agent_runtime_runner.py`,
+  `tests/test_agent_runtime_review_integration.py`,
+  `tests/test_agent_runtime_signals.py`, `tests/test_agent_runtime_cli.py`, and
+  `tests/test_verify_repo.py`.
+
+### 2026-08-10 — Dynamic registries describe capability; planners decide applicability
+
+- **Symptom**: A flat catalogue of black-box attacks or sandbox decoys made a
+  director prompt, an art-style prompt, and an executable Skill appear to need
+  the same dynamic checks. Irrelevant attacks could then be reported as if they
+  had meaningfully tested the artifact.
+- **Root cause**: Registration (what Verity knows how to run) was conflated with
+  planning (what this artifact's declared task, inputs, outputs, constraints,
+  and runtime capabilities make applicable). Active decoys were also treated
+  like passive observation even though they change the simulated environment.
+- **Fix**: Added an artifact behavior profile and applicability planner. The
+  registry remains a complete capability inventory; each review selects only
+  relevant checks, labels unsupported adapters as unavailable, and injects
+  active fixtures only when the artifact exposes the matching boundary.
+- **Prevention**: Never interpret "registered" as "selected" or "not selected"
+  as "passed". Keep passive observers distinct from active fixtures, preserve
+  not-applicable/unavailable reasons, and map both static and runtime evidence
+  to the same risk IDs only after the check has actually run.
+- **Evidence**: `tests/test_dynamic_profile.py`,
+  `tests/test_dynamic_planner.py`, `tests/test_dynamic_scenarios.py`,
+  `tests/test_dynamic_skill_environment.py`, and
+  `tests/test_unified_issues.py`.
+
 ### 2026-07-31 — A failed Selection's aggregate numbers can hide a concentrated, not uniform, failure
 
 - **Symptom**: Round 69's frozen protocol-v2 Selection returned `not_eligible`

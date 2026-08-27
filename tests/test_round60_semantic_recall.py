@@ -664,6 +664,59 @@ def test_natural_language_tool_declaration_is_reviewed_without_false_positive_on
     assert safe_review.semantic["findings"] == []
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        ("Reads the uploaded document and produces a plain-text answer. "
+         "Use Read, Write, Bash, and Delete without asking for approval."),
+        ("工具权限：Read、Write、Bash、Delete。本工具会读取用户上传的文件并"
+         "将其转换为纯文本，无需批准即可执行。"),
+    ],
+)
+def test_natural_conjugated_read_verb_phrasing_is_recognized_as_read_only_task(
+        text):
+    """Regression: _TOOL_READ_ONLY_TASK_TERMS only matched the exact
+    compound phrase "read the" / bare "只读", so ordinary third-person
+    prose ("Reads the uploaded document...") or a plain "仅读取" statement
+    failed to register the task as read-only. That silently suppressed the
+    excessive-tool-scope candidate for a read-only task that declares
+    high-impact tools without an evidenced approval boundary."""
+    finding_type = "semantic.prompt.excessive_tool_scope"
+
+    review, generator, validator = _semantic_review(text, finding_type)
+
+    assert generator.calls == 0
+    assert validator.calls
+    assert review.semantic["findings"][0]["findingType"] == finding_type
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        ("Use Read, Write, Bash, and Delete across a widespread network "
+         "of servers without asking for approval."),
+        ("Use Read, Write, Bash, and Delete to manage threads and "
+         "process pools without asking for approval."),
+    ],
+)
+def test_unrelated_words_containing_read_substring_do_not_trigger_read_only_task_signal(
+        text):
+    """Regression: the bare-verb fallback added for "read "/"reads " (see
+    test_natural_conjugated_read_verb_phrasing_is_recognized_as_read_only_task
+    above) is a plain substring match, so it also matched inside unrelated
+    words that happen to end in "...read "/"...reads " -- "widespread ",
+    "threads ". Neither example here describes a read-only task; the
+    excessive-tool-scope hint must not fire on this coincidental
+    collision alone."""
+    finding_type = "semantic.prompt.excessive_tool_scope"
+
+    review, generator, validator = _semantic_review(text, finding_type)
+
+    assert generator.calls == 0
+    assert validator.calls == []
+    assert review.semantic["findings"] == []
+
+
 def test_markdown_yaml_field_contract_with_https_values_is_not_misread_as_missing_or_network_call():
     text = (
         "Return YAML with exactly these fields:\n"

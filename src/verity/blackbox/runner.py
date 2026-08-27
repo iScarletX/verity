@@ -51,6 +51,7 @@ class ScenarioResult:
     title: str
     severity: str
     probe_results: List[ProbeResult] = field(default_factory=list)
+    oracle_result: Optional[Any] = None
 
     @property
     def total_probes(self) -> int:
@@ -71,8 +72,15 @@ class ScenarioResult:
     @property
     def verdict(self) -> str:
         """passed | failed | error | partial"""
-        if self.error_count == self.total_probes:
+        if self.total_probes and self.error_count == self.total_probes:
             return "error"
+        oracle_outcome = getattr(self.oracle_result, "outcome", None)
+        if oracle_outcome == "failed":
+            return "failed"
+        if oracle_outcome == "passed":
+            return "partial" if self.error_count else "passed"
+        if oracle_outcome in {"insufficient_evidence", "unavailable"}:
+            return "partial"
         if self.failed_count > 0:
             return "failed"
         if self.error_count > 0:
@@ -173,12 +181,22 @@ def _chat_once(
     digest = hashlib.sha256(raw).hexdigest()
     try:
         envelope = json.loads(raw.decode("utf-8"))
-        choices = envelope.get("choices") or []
-        if not choices:
+        if not isinstance(envelope, dict):
+            return None, digest, "parse_error"
+        choices = envelope.get("choices")
+        if not isinstance(choices, list) or not choices:
             return None, digest, "no_choices"
-        content = choices[0].get("message", {}).get("content") or ""
+        first = choices[0]
+        if not isinstance(first, dict):
+            return None, digest, "parse_error"
+        message = first.get("message")
+        if not isinstance(message, dict):
+            return None, digest, "parse_error"
+        content = message.get("content")
+        if not isinstance(content, str):
+            return None, digest, "parse_error"
         return content[:_MAX_CONTENT_CHARS], digest, None
-    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+    except (json.JSONDecodeError, UnicodeDecodeError):
         return None, digest, "parse_error"
 
 
@@ -269,6 +287,19 @@ def run_blackbox(
                         {"role": "assistant", "content": response_text})
 
             sr.probe_results.append(pr)
+            if pr.error_code:
+                result.errors.append(f"{pr.call_id}: {pr.error_code}")
+
+        if scenario.trace_judge is not None:
+            try:
+                oracle_result = scenario.trace_judge(list(sr.probe_results))
+                if getattr(oracle_result, "outcome", None) not in {
+                        "passed", "failed", "insufficient_evidence", "unavailable"}:
+                    raise ValueError("invalid oracle outcome")
+                sr.oracle_result = oracle_result
+            except Exception:
+                result.errors.append(
+                    f"bb-{scenario.scenario_id[:16]}: trace_judge_error")
 
         result.scenario_results.append(sr)
         result.completed_scenarios += 1

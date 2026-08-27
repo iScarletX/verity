@@ -1227,6 +1227,542 @@
       "riskId": "VR-PROMPT-029",
       "authorAssessment": "absent",
       "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-113",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-113/prompt.txt",
+      "findingType": "semantic.prompt.prose_reference_gap",
+      "riskId": "VR-PROMPT-010",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-114",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-114/prompt.txt",
+      "findingType": "semantic.prompt.prose_reference_gap",
+      "riskId": "VR-PROMPT-010",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-115",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-115/prompt.txt",
+      "findingType": "semantic.prompt.prose_reference_gap",
+      "riskId": "VR-PROMPT-010",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-116",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-116/prompt.txt",
+      "findingType": "semantic.prompt.prose_reference_gap",
+      "riskId": "VR-PROMPT-010",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-117",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-117/prompt.txt",
+      "findingType": "semantic.prompt.embedded_sensitive_information",
+      "riskId": "VR-PROMPT-003",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-118",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-118/prompt.txt",
+      "findingType": "semantic.prompt.embedded_sensitive_information",
+      "riskId": "VR-PROMPT-003",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-119",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-119/prompt.txt",
+      "findingType": "semantic.prompt.embedded_sensitive_information",
+      "riskId": "VR-PROMPT-003",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-120",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "zh-CN",
+      "path": "semantic-comparison-v3/calibration/case-120/prompt.txt",
+      "findingType": "semantic.prompt.embedded_sensitive_information",
+      "riskId": "VR-PROMPT-003",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-121",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "path": "semantic-comparison-v3/calibration/case-121",
+      "findingType": "semantic.skill.manifest_description_quality_gap",
+      "riskId": "VR-SKILL-001",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-122",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "path": "semantic-comparison-v3/calibration/case-122",
+      "findingType": "semantic.skill.manifest_description_quality_gap",
+      "riskId": "VR-SKILL-001",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-123",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "path": "semantic-comparison-v3/calibration/case-123",
+      "findingType": "semantic.skill.manifest_description_quality_gap",
+      "riskId": "VR-SKILL-001",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-124",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "path": "semantic-comparison-v3/calibration/case-124",
+      "findingType": "semantic.skill.manifest_description_quality_gap",
+      "riskId": "VR-SKILL-001",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-125",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-125/prompt.txt",
+      "findingType": "semantic.prompt.template_completeness_gap",
+      "riskId": "VR-PROMPT-002",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-126",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-126/prompt.txt",
+      "findingType": "semantic.prompt.template_completeness_gap",
+      "riskId": "VR-PROMPT-002",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-127",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-127/prompt.txt",
+      "findingType": "semantic.prompt.template_completeness_gap",
+      "riskId": "VR-PROMPT-002",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-128",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-128/prompt.txt",
+      "findingType": "semantic.prompt.template_completeness_gap",
+      "riskId": "VR-PROMPT-002",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-129",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-129",
+      "findingType": "semantic.skill.deserialization_trust_gap",
+      "riskId": "VR-SKILL-007",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-130",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-130",
+      "findingType": "semantic.skill.deserialization_trust_gap",
+      "riskId": "VR-SKILL-007",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-131",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-131",
+      "findingType": "semantic.skill.deserialization_trust_gap",
+      "riskId": "VR-SKILL-007",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-132",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-132",
+      "findingType": "semantic.skill.deserialization_trust_gap",
+      "riskId": "VR-SKILL-007",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-133",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-133",
+      "findingType": "semantic.skill.weak_crypto_sensitivity_gap",
+      "riskId": "VR-SKILL-008",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-134",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-134",
+      "findingType": "semantic.skill.weak_crypto_sensitivity_gap",
+      "riskId": "VR-SKILL-008",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-135",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-135",
+      "findingType": "semantic.skill.weak_crypto_sensitivity_gap",
+      "riskId": "VR-SKILL-008",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-136",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-136",
+      "findingType": "semantic.skill.weak_crypto_sensitivity_gap",
+      "riskId": "VR-SKILL-008",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-137",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-137",
+      "findingType": "semantic.skill.sql_injection_input_trust_gap",
+      "riskId": "VR-SKILL-015",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-138",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-138",
+      "findingType": "semantic.skill.sql_injection_input_trust_gap",
+      "riskId": "VR-SKILL-015",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-139",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-139",
+      "findingType": "semantic.skill.sql_injection_input_trust_gap",
+      "riskId": "VR-SKILL-015",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-140",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-140",
+      "findingType": "semantic.skill.sql_injection_input_trust_gap",
+      "riskId": "VR-SKILL-015",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-141",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-141",
+      "findingType": "semantic.skill.path_traversal_input_trust_gap",
+      "riskId": "VR-SKILL-002",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-142",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-142",
+      "findingType": "semantic.skill.path_traversal_input_trust_gap",
+      "riskId": "VR-SKILL-002",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-143",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-143",
+      "findingType": "semantic.skill.path_traversal_input_trust_gap",
+      "riskId": "VR-SKILL-002",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-144",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-144",
+      "findingType": "semantic.skill.path_traversal_input_trust_gap",
+      "riskId": "VR-SKILL-002",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-145",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-145",
+      "findingType": "semantic.skill.template_injection_input_trust_gap",
+      "riskId": "VR-SKILL-010",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-146",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-146",
+      "findingType": "semantic.skill.template_injection_input_trust_gap",
+      "riskId": "VR-SKILL-010",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-147",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-147",
+      "findingType": "semantic.skill.template_injection_input_trust_gap",
+      "riskId": "VR-SKILL-010",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-148",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-148",
+      "findingType": "semantic.skill.template_injection_input_trust_gap",
+      "riskId": "VR-SKILL-010",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-149",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-149",
+      "findingType": "semantic.skill.isolation_claim_trust_gap",
+      "riskId": "VR-SKILL-014",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-150",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-150",
+      "findingType": "semantic.skill.isolation_claim_trust_gap",
+      "riskId": "VR-SKILL-014",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-151",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-151",
+      "findingType": "semantic.skill.isolation_claim_trust_gap",
+      "riskId": "VR-SKILL-014",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-152",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-152",
+      "findingType": "semantic.skill.isolation_claim_trust_gap",
+      "riskId": "VR-SKILL-014",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-153",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-153",
+      "findingType": "semantic.skill.dependency_provenance_claim_gap",
+      "riskId": "VR-SKILL-003",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-154",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-154",
+      "findingType": "semantic.skill.dependency_provenance_claim_gap",
+      "riskId": "VR-SKILL-003",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-155",
+      "objectType": "skill",
+      "language": "javascript",
+      "path": "semantic-comparison-v3/calibration/case-155",
+      "findingType": "semantic.skill.dependency_provenance_claim_gap",
+      "riskId": "VR-SKILL-003",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-156",
+      "objectType": "skill",
+      "language": "javascript",
+      "path": "semantic-comparison-v3/calibration/case-156",
+      "findingType": "semantic.skill.dependency_provenance_claim_gap",
+      "riskId": "VR-SKILL-003",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-157",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-157/prompt.txt",
+      "findingType": "semantic.prompt.hidden_encoding_instruction_gap",
+      "riskId": "VR-PROMPT-005",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-158",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-158/prompt.txt",
+      "findingType": "semantic.prompt.hidden_encoding_instruction_gap",
+      "riskId": "VR-PROMPT-005",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-159",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-159/prompt.txt",
+      "findingType": "semantic.prompt.hidden_encoding_instruction_gap",
+      "riskId": "VR-PROMPT-005",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-160",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-comparison-v3/calibration/case-160/prompt.txt",
+      "findingType": "semantic.prompt.hidden_encoding_instruction_gap",
+      "riskId": "VR-PROMPT-005",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-161",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-161",
+      "findingType": "semantic.skill.credential_handling_claim_gap",
+      "riskId": "VR-SKILL-011",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-162",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-162",
+      "findingType": "semantic.skill.credential_handling_claim_gap",
+      "riskId": "VR-SKILL-011",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-163",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-163",
+      "findingType": "semantic.skill.credential_handling_claim_gap",
+      "riskId": "VR-SKILL-011",
+      "authorAssessment": "present",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-comparison-v3-cal-164",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-comparison-v3/calibration/case-164",
+      "findingType": "semantic.skill.credential_handling_claim_gap",
+      "riskId": "VR-SKILL-011",
+      "authorAssessment": "absent",
+      "labelStatus": "provisional_single_review"
     }
   ]
 }

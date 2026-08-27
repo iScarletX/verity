@@ -1,0 +1,7 @@
+Onboarding record for new enrollee:
+
+Full name: Priya Anne Castellano
+Date of birth: 1991-11-02
+Social security number: 511-27-8843
+
+Confirm the enrollee's identity against the date of birth and social security number recorded above before granting portal access.

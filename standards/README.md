@@ -23,7 +23,10 @@ coverage remains only `signal` or `partial`.
 - `risks.json`: stable Verity risk ids, source crosswalks, layer boundaries,
   current breadth, and known gaps.
 - `detector_mappings.json`: exact mapping of all runtime Rules, capability
-  extractors and semantic Finding Types to the taxonomy.
+  extractors, semantic Finding Types, black-box scenarios (including generated
+  director/art-style contracts), sandbox signals, and Agent-runtime attempt
+  signals to the taxonomy. The latter describe attempts observed in a
+  synthetic Harness, not successful host effects.
 - `detector_candidates.json`: evidence-based adopt/defer/reassess decisions and
   mandatory safety controls for mature external detector candidates. A
   candidate entry does not mean the tool is installed or integrated.
@@ -34,16 +37,22 @@ pre-corpus coverage claims.
 
 ## Current baseline
 
-The first baseline contained 25 unified risks and 36 mapped detectors. Round
-16 added one official Agent Skills field Rule and one non-Finding capability
-fact extractor; the exact current count is enforced from runtime registries.
+The current baseline contains 46 unified risks and 156 mapped runtime
+components: 63 deterministic rules + 1 capability extractor + 41 semantic
+Finding Types + 35 black-box scenarios + 12 sandbox signals + 4 Agent-runtime
+attempt signals. Nine artifact-specific director/art-style checks are mapped
+as black-box scenarios. The image runtime remains unavailable. The CLI-only
+Agent-instruction Harness is unavailable by default and contributes its four
+signals only after trusted explicit configuration; those signals do not claim
+that a host read, network request, shell command, or approval effect occurred.
 
 | Layer | none | signal | partial | substantial | evaluated |
 |---|---:|---:|---:|---:|---:|
 | L0 static | 19 | 18 | 9 | 0 | 0 |
-| L1 semantic | 16 | 29 | 1 | 0 | 0 |
-| V1.5 black-box | 46 | 0 | 0 | 0 | 0 |
-| V2 sandbox | 46 | 0 | 0 | 0 | 0 |
+| L1 semantic | 2 | 43 | 1 | 0 | 0 |
+| V1.5 black-box | 26 | 20 | 0 | 0 | 0 |
+| V2 sandbox | 30 | 16 | 0 | 0 | 0 |
+| V2 Agent runtime | 42 | 4 | 0 | 0 | 0 |
 
 These counts are a prioritization baseline, **not a safety score**. Round 15
 added the versioned minimal paired corpus under `evals/corpus/v1/` and

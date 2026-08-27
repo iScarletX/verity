@@ -3,12 +3,12 @@
   "decision": "release_candidate",
   "deferred": [
     {
-      "code": "v1_5_prompt_blackbox_not_implemented",
-      "detail": "Planned after V1; not counted as a V1 engineering failure."
+      "code": "v1_5_prompt_blackbox_not_enabled_by_default",
+      "detail": "Integrated into review.run_review (verity.blackbox.config.BlackboxConfig) since Round 74, but OFF by default and requires an explicit caller-supplied enabled config with a trusted model Provider; the reviewed prompt can never turn it on itself. Not counted as a V1 engineering failure -- the deterministic release scope does not require it."
     },
     {
-      "code": "v2_skill_sandbox_not_implemented",
-      "detail": "Planned after V1.5; not counted as a V1 engineering failure."
+      "code": "v2_skill_sandbox_not_enabled_by_default",
+      "detail": "Integrated into review.run_review (verity.sandbox.config.SandboxConfig) since Round 74, but OFF by default and requires an explicit caller-supplied enabled config naming an entry point; the reviewed Skill can never turn it on itself. Not counted as a V1 engineering failure -- the deterministic release scope does not require it."
     },
     {
       "code": "provider_web_productization_absent",

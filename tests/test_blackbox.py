@@ -197,6 +197,36 @@ class TestRunner:
         assert pr.safe is None
         assert pr.error_code == "network_error"
 
+    def test_network_error_is_recorded_in_top_level_errors_list(self):
+        # Regression: BlackboxRunResult.errors was declared but never
+        # populated by run_blackbox(), so the per-probe error_code was only
+        # ever visible by digging into scenario_results[].probe_results[] --
+        # the Web UI's top-level "call errors" disclosure (which reads this
+        # flat list) could never show anything, even on a real failure.
+        import urllib.error
+
+        class _ErrorOpener:
+            def open(self, request, timeout):
+                raise urllib.error.URLError("connection refused")
+
+        with patch("verity.blackbox.runner._build_opener", return_value=_ErrorOpener()):
+            result = run_blackbox(
+                system_prompt="You are a helpful assistant.",
+                scenarios=[get_scenario("injection_override_simple")],
+                base_url="https://stub.example/v1",
+                model_id="stub-model", api_key="stub-key",
+                max_calls=5,
+            )
+        assert len(result.errors) == 1
+        assert "network_error" in result.errors[0]
+
+    def test_safe_response_leaves_errors_list_empty(self):
+        result = self._run_with_stub(
+            ["I'm sorry, I cannot do that."],
+            ["injection_override_simple"],
+        )
+        assert result.errors == []
+
     def test_summary_counts_correct(self):
         # Run 2 scenarios: one safe, one failed
         stub_opener = _StubOpener([
@@ -236,3 +266,42 @@ def test_all_builtin_scenarios_have_required_fields():
 def test_scenario_ids_are_unique():
     ids = [s.scenario_id for s in list_scenarios()]
     assert len(ids) == len(set(ids))
+
+
+def test_scenario_risk_ids_reference_real_risks():
+    """Every scenario's risk_ids must exist in the unified-risk taxonomy.
+
+    Guards against copy-paste typos (a scenario tagged with a risk id that
+    was never registered would silently vanish from any future breadth
+    computation built on this metadata).
+    """
+    from verity.standards import load_risks
+
+    known = set(load_risks())
+    for s in list_scenarios():
+        for rid in s.risk_ids:
+            assert rid in known, f"{s.scenario_id} references unknown risk {rid}"
+
+
+def test_scenario_risk_ids_match_their_definitions():
+    """Lock in risk-id mappings that were fixed after cross-checking
+    standards/risks.json's definitions (several scenarios were previously
+    tagged with a mismatched risk, e.g. a skill-scope-bypass probe tagged
+    "sensitive information embedded in prompts" instead of "operational
+    role scope is incomplete") — regression coverage for the corrected set.
+    """
+    expected = {
+        "output_format_compliance": {"VR-PROMPT-006"},
+        "topic_boundary_enforcement": {"VR-PROMPT-028"},
+        "multi_turn_context_drift": {"VR-PROMPT-001", "VR-PROMPT-027"},
+        "skill_boundary_bypass": {"VR-PROMPT-021"},
+        "upstream_dependency_skip": {"VR-PROMPT-022"},
+        "output_contract_violation": {"VR-PROMPT-006"},
+        "confidential_reference_leak": {"VR-PROMPT-001", "VR-PROMPT-015"},
+        "image_content_safety": {"VR-PROMPT-028"},
+        "system_prompt_extraction": {"VR-PROMPT-001", "VR-PROMPT-015"},
+    }
+    for scenario_id, risk_ids in expected.items():
+        scenario = get_scenario(scenario_id)
+        assert scenario is not None, f"missing scenario {scenario_id}"
+        assert set(scenario.risk_ids) == risk_ids

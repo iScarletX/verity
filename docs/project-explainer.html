@@ -383,8 +383,8 @@ figcaption .src { color: var(--text-muted); }
     Everything below was read out of the repository at the time of writing — source files, the
     machine-readable <code>standards/</code> taxonomy, and the reproducible reports under
     <code>evals/reports/</code>. Counts and mechanism descriptions are exact as of this session
-    (branch <code>main</code> at commit <code>4287d43</code>, "Round 67"). Benchmark numbers carry
-    their source file and their disclosed limits inline — where a number is provisional or
+    for the current Round 191 code snapshot. Historical benchmark numbers retain their dated
+    source file and disclosed limits inline — where a number is provisional or
     non-formal, it says so <em>next to the number</em>, not in a footnote.
   </div>
 
@@ -393,18 +393,18 @@ figcaption .src { color: var(--text-muted); }
       <div class="label">Release decision</div>
       <div class="value" style="font-size:20px">release_candidate</div>
       <div class="sub">Deterministic static auditor only</div>
-      <div class="caveat">Closure policy v2.0.0 · no evaluated-accuracy claim</div>
+      <div class="caveat">Closure policy v2.1.0 · no evaluated-accuracy claim</div>
     </div>
     <div class="tile">
       <div class="label">Deterministic rules</div>
-      <div class="value">55</div>
-      <div class="sub">24 prompt + 31 skill</div>
+      <div class="value">63</div>
+      <div class="sub">24 prompt + 39 skill</div>
       <div class="caveat">Counted from the runtime registries</div>
     </div>
     <div class="tile">
       <div class="label">Semantic finding types</div>
-      <div class="value">28</div>
-      <div class="sub">25 prompt + 3 skill</div>
+      <div class="value">41</div>
+      <div class="sub">29 prompt + 12 skill</div>
       <div class="caveat">Experimental track, not in the release gate</div>
     </div>
     <div class="tile">
@@ -492,20 +492,31 @@ figcaption .src { color: var(--text-muted); }
     <div class="rm-row">
       <div class="rm-stage">V1.5 — black-box<span class="rm-layer">dynamic checking</span></div>
       <div>
-        <span class="badge neutral"><span class="dot"></span>not_implemented</span>
-        Run prompts against a model and score the outputs. Allowed only when a user explicitly starts
-        a black-box run and supplies a test set, model, budget and recording location. Until built,
-        every report says <code>promptBlackbox: not_implemented</code>.
+        <span class="badge warn"><span class="dot"></span>explicit opt-in</span>
+        Builds an artifact behavior profile, selects checks that match the prompt's real task, and
+        runs only those scenarios against the configured model. Director/storyboard and art-style
+        prompts receive task-specific contract and preservation oracles; unsupported runtime adapters
+        are reported as unavailable, never as passed.
       </div>
     </div>
     <div class="rm-row">
       <div class="rm-stage">V2 — sandbox<span class="rm-layer">execution checking</span></div>
       <div>
-        <span class="badge neutral"><span class="dot"></span>not_implemented</span>
-        A one-shot isolated Skill sandbox with a fake filesystem, fake credentials, controlled
-        network, and cpu/memory/wall-clock limits, observing process/file/network/exfiltration
-        behaviour, with reliable destruction after the run. Until built, reports say
-        <code>skillSandbox: not_implemented</code>.
+        <span class="badge bad"><span class="dot"></span>unavailable · hardening required</span>
+        Supported Review, CLI and Web paths currently fail closed without executing a Skill. The
+        earlier research runner did not yet prove restrictive host reads, bounded output/disk/process
+        trees, observer integrity, reliable cleanup, or a controlled public report projection. Its 12
+        signal definitions remain dormant research mappings until those boundaries pass adversarial review.
+      </div>
+    </div>
+    <div class="rm-row">
+      <div class="rm-stage">Agent Harness<span class="rm-layer">instruction simulation</span></div>
+      <div>
+        <span class="badge warn"><span class="dot"></span>CLI-only · OFF by default</span>
+        A trusted caller may select the distinct <code>agent_instruction.runtime</code> stage with
+        complete pinned Node/DSH and Provider configuration. Four Verity-owned synthetic tools expose
+        attempted read/network/shell/exfiltration behavior without host effects. There is no Web
+        enable surface and no real-model E2E evidence from this round.
       </div>
     </div>
     <div class="rm-row">
@@ -521,7 +532,7 @@ figcaption .src { color: var(--text-muted); }
     <div class="note-title">The gated sequence (order matters — later stages are not started early)</div>
     <code>standards/taxonomy → corpus/metrics → static breadth → semantic breadth → fresh blind
     Verity/Butler semantic comparison → explainable score/remediation → Prompt black-box → isolated
-    Skill sandbox</code>
+    Skill sandbox → Agent-instruction Harness</code>
   </div>
 
   <div class="grid g2">
@@ -540,7 +551,7 @@ figcaption .src { color: var(--text-muted); }
       </ul>
       <p style="margin-bottom:0">
         A run can be <code>completed</code> while breadth stays <code>signal</code>.
-        <strong>28 semantic Finding Types do not make semantic review complete.</strong>
+        <strong>41 semantic Finding Types do not make semantic review complete.</strong>
       </p>
     </div>
     <div class="card">
@@ -554,8 +565,9 @@ figcaption .src { color: var(--text-muted); }
       </p>
       <p style="margin-bottom:0">
         A separate <strong>A–D review-confidence grade</strong> lists the semantic/profile/breadth/runtime
-        limitations. Grade <strong>A is intentionally unreachable today</strong>, because V1.5, V2 and
-        evaluated breadth are absent (<code>scoring.py::compute_confidence</code>).
+        limitations. Grade <strong>A is intentionally unreachable today</strong> because evaluated
+        breadth is absent; an available runtime path does not itself establish evaluated accuracy
+        (<code>scoring.py::compute_confidence</code>).
       </p>
     </div>
   </div>
@@ -698,7 +710,7 @@ figcaption .src { color: var(--text-muted); }
 
   <div class="subflow">
     <div class="sf-head">
-      <h4>Per applicable Finding Type (28 registered; filtered to the engine under review)</h4>
+      <h4>Per applicable Finding Type (41 registered; filtered to the engine under review)</h4>
       <span class="badge warn"><span class="dot"></span>experimental</span>
     </div>
 
@@ -897,32 +909,30 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     </div>
     <div class="tile">
       <div class="label">Skill rules</div>
-      <div class="value">31</div>
-      <div class="sub">12 native + 18 Bandit mappings + 1 gitleaks</div>
+      <div class="value">39</div>
+      <div class="sub">current deterministic Skill registry</div>
       <div class="caveat">skill_rules.py + bandit_adapter + gitleaks_adapter</div>
     </div>
     <div class="tile">
       <div class="label">Semantic finding types</div>
-      <div class="value">28</div>
-      <div class="sub">25 prompt-engine + 3 skill-engine</div>
+      <div class="value">41</div>
+      <div class="sub">29 prompt-engine + 12 skill-engine</div>
       <div class="caveat">closed catalog; a model cannot add one</div>
     </div>
     <div class="tile">
       <div class="label">Mapped runtime components</div>
-      <div class="value">84</div>
-      <div class="sub">55 rules + 1 capability extractor + 28 semantic</div>
+      <div class="value">156</div>
+      <div class="sub">63 rules + 1 extractor + 41 semantic + 35 black-box + 12 sandbox + 4 Agent-runtime</div>
       <div class="caveat">standards/detector_mappings.json</div>
     </div>
   </div>
 
   <div class="note">
-    <div class="note-title">Reconciling "55 rules" with "24 <code>def prompt_</code> functions"</div>
-    24 prompt rules map 1:1 to <code>prompt_*</code> implementation functions. The 31 skill rules are
-    <em>registry entries</em>: 12 are native <code>skill_*</code> implementations, 18 are controlled
-    per-check mappings of specific Bandit test ids (B102, B301, B324, B310, B506, B602, B605, B607,
-    B701, B105, B106, B107, B501, B608, B314 plus the shell/secret/path rules), and 1 projects
-    gitleaks results. Each is a first-class registry entry with its own ruleId, severity and control
-    mapping, which is why <code>detector_mappings.json</code> counts 55.
+    <div class="note-title">Reconciling 63 deterministic rules with 24 <code>def prompt_</code> functions</div>
+    24 prompt rules map 1:1 to <code>prompt_*</code> implementation functions. The 39 Skill rules are
+    first-class registry entries spanning native rules and controlled Bandit/gitleaks projections.
+    Together they make 63 deterministic mappings; dynamic scenarios and signals are counted
+    separately in the 156-component total above.
   </div>
 
   <h3 style="margin-top:26px">Deterministic rules — browsable</h3>
@@ -939,7 +949,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   </div>
   <div id="rule-list"></div>
 
-  <h3 style="margin-top:26px">Semantic Finding Types — all 28, with judgment policy</h3>
+  <h3 style="margin-top:26px">Semantic Finding Types — all 41, with judgment policy</h3>
   <p style="font-size:14px;color:var(--text-secondary)">
     Each type carries a <strong>falsification question</strong> (what the Validator is actually asked)
     and a four-part <strong>judgment policy</strong> — <code>appliesWhen</code>,
@@ -951,8 +961,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   <div class="filters" role="group" aria-label="Semantic type filters">
     <input type="search" id="cat-search" placeholder="Search finding type, question, policy text…" aria-label="Search semantic types">
     <button class="chip" data-cfilter="engine" data-val="all" aria-pressed="true">All engines</button>
-    <button class="chip" data-cfilter="engine" data-val="prompt" aria-pressed="false">Prompt (25)</button>
-    <button class="chip" data-cfilter="engine" data-val="skill" aria-pressed="false">Skill (3)</button>
+    <button class="chip" data-cfilter="engine" data-val="prompt" aria-pressed="false">Prompt (29)</button>
+    <button class="chip" data-cfilter="engine" data-val="skill" aria-pressed="false">Skill (12)</button>
     <button class="chip" data-cfilter="sev" data-val="all" aria-pressed="true">All severities</button>
     <button class="chip" data-cfilter="sev" data-val="high" aria-pressed="false">High</button>
     <button class="chip" data-cfilter="sev" data-val="medium" aria-pressed="false">Medium</button>
@@ -965,8 +975,10 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   <p style="font-size:14px;color:var(--text-secondary)">
     From <code>standards/risks.json</code>. Breadth levels are <code>none</code> /
     <code>signal</code> / <code>partial</code> only — <strong>no risk is at
-    <code>substantial</code> or <code>evaluated</code></strong>, and V1.5/V2 are
-    <code>none</code> across all 46. Where the L0 corpus measured a risk, its confusion matrix is
+    <code>substantial</code> or <code>evaluated</code></strong>. Current V1.5 breadth is
+    26 <code>none</code> / 20 <code>signal</code>; V2 sandbox is 30 <code>none</code> / 16
+    <code>signal</code>; V2 Agent runtime is 42 <code>none</code> / 4 <code>signal</code>.
+    Where the L0 corpus measured a risk, its confusion matrix is
     shown; see the benchmark section for why those numbers are a paired baseline and not broad
     accuracy.
   </p>
@@ -1133,14 +1145,14 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   <div class="grid g2">
     <div class="card">
       <div class="grid g3" style="margin-bottom:6px">
-        <div><div class="label" style="font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:650">Replays</div><div style="font-size:24px;font-weight:680">56 / 56</div></div>
+        <div><div class="label" style="font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:650">Replays</div><div style="font-size:24px;font-weight:680">82 / 82</div></div>
         <div><div class="label" style="font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:650">Stability</div><div style="font-size:24px;font-weight:680">1.0</div></div>
         <div><div class="label" style="font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);font-weight:650">Model quality</div><div style="font-size:24px;font-weight:680">not measured</div></div>
       </div>
       <p style="font-size:13.5px;margin-bottom:0">
-        Source: <code>evals/reports/corpus-v1-semantic-contract.json</code>. 56 fixed Provider replays
-        cover confirmed/rejected pairs for all 28 Finding Types.
-        <code>contractCorrectCases: 56</code>, <code>modelQualityMeasured: false</code>.
+        Source: <code>evals/reports/corpus-v1-semantic-contract.json</code>. 82 fixed Provider replays
+        cover confirmed/rejected pairs for all 41 Finding Types.
+        <code>contractCorrectCases: 82</code>, <code>modelQualityMeasured: false</code>.
       </p>
     </div>
     <div class="note caution" style="margin:0">
@@ -1148,7 +1160,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       "Fixed Provider replay validates semantic pipeline contracts only; it does not measure candidate
       generation or validator model quality."
       <p style="margin:8px 0 0">
-        In other words: 56/56 proves the plumbing — schema enforcement, evidence allow-listing,
+        In other words: 82/82 proves the plumbing — schema enforcement, evidence allow-listing,
         identity re-derivation, severity policy, state mapping — behaves exactly as specified when fed
         a known Provider response. It says nothing about whether a real model gets the answer right.
       </p>
@@ -1410,8 +1422,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <li><strong>No latency, cost, or token benchmark.</strong> Only per-review call budgets exist
         (64 generation calls, 128 total validation calls, 2 validation calls per candidate), plus a
         payload audit recording sizes and SHA-256 digests.</li>
-      <li><strong>No V1.5 or V2 measurement</strong> — both are <code>not_implemented</code>, and all 46
-        risks are <code>none</code> at those layers.</li>
+      <li><strong>No evaluated V1.5 or V2 accuracy</strong> — runtime checks exist as explicit opt-ins,
+        but their current breadth is only <code>signal</code> and no held-out task-level oracle evaluation exists.</li>
       <li><strong>No aggregate safety score in any evaluation path.</strong> Deliberate:
         <code>aggregateSafetyScore: null</code> in both corpus reports, and the architecture states no
         evaluation path may contain one.</li>
@@ -1431,7 +1443,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
 
   <h3>Runtime capability matrix</h3>
   <p style="font-size:14px;color:var(--text-secondary)">
-    These four literals appear in every report. They are kept in sync with
+    These five capability fields appear in every report. They are kept in sync with
     <code>verity/report.py::review_to_dict</code>, and the documented strings must match the runtime
     literals exactly.
   </p>
@@ -1451,16 +1463,43 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       </tr>
       <tr>
         <td>V1.5 Prompt black-box</td>
-        <td><code>not_implemented</code></td>
-        <td>"V1.5 planned; not part of V1"</td>
+        <td><code>completed</code> / <code>failed</code> / <code>not_enabled</code></td>
+        <td>"explicit opt-in; artifact-aware plan records selected, not-applicable, and unavailable checks"</td>
       </tr>
       <tr>
-        <td>V2 Skill isolated sandbox</td>
-        <td><code>not_implemented</code></td>
-        <td>"V2 planned; not part of V1"</td>
+        <td>V2 Skill sandbox (unavailable pending hardening)</td>
+        <td><code>failed</code> / <code>not_enabled</code></td>
+        <td>"supported product paths do not execute a Skill; explicit requests fail closed as sandbox_isolation_hardening_required"</td>
+      </tr>
+      <tr>
+        <td>Agent-instruction runtime (CLI-only)</td>
+        <td><code>completed</code> / <code>failed</code> / <code>not_enabled</code></td>
+        <td>"experimental; trusted caller configuration only; OFF by default; distinct from executable-Skill sandboxing"</td>
       </tr>
     </tbody>
   </table>
+  </div>
+
+  <div class="note caution">
+    <div class="note-title">Agent Harness boundary — a clean run is not a safety proof</div>
+    External <code>@deepseek-ai/dsh</code> is fixed at <code>0.1.1-rc.2</code>, optional, not
+    vendored or auto-installed, and not a Python dependency. The caller supplies two absolute entry
+    paths and SHA-256 pins. Each pinned entry is streamed once in bounded chunks into an owner-only
+    private snapshot while the same bytes are hashed; version and scenario launches execute only
+    those snapshots. The private DSH capsule links the adjacent npm closure for Node module
+    resolution, but that closure remains unpinned and unauthenticated by the two entry hashes.
+    At most two Skill-loader result markers are written; exactly one successful marker is required,
+    otherwise parsing fails closed. When enabled, Skill instructions and the scenario prompt cross
+    real Provider network egress. Its four model-facing tools are simulations—memory-only read,
+    blocked HTTP, blocked shell, denied approval—with no host read, HTTP, subprocess, or approval
+    effect. Disposable processes/roots, bounded streams/traces, an allowlisted environment and
+    process-group cleanup do not make this an OS/process/network sandbox: a successful
+    <code>setsid()</code> descendant can escape same-session cleanup. Stronger containment needs an
+    outer container or microVM, destination-allowlisted egress, and fuller dependency/image pinning.
+    Reports retain controlled enums/counts/digests/classifications and a credential-marker boolean,
+    not raw model output, arguments, canaries, credentials, paths or traces. No real
+    Provider/model/scenario E2E ran this round; completion is not a universal, cross-Agent, safety,
+    or evaluated-accuracy claim.
   </div>
   <div class="note">
     <div class="note-title">Status mapping detail (<code>report.py</code>)</div>
@@ -1490,8 +1529,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <h4>Features</h4>
       <ul style="margin-bottom:0">
         <li>No automatic remediation / PatchSet apply — the UI edits a draft and reruns the review only.</li>
-        <li>No Skill execution or sandbox.</li>
-        <li>No Prompt black-box runner.</li>
+        <li>No Skill execution on supported product paths while V2 isolation is hardened; explicit requests fail closed. Prompt black-box probing remains an explicit opt-in.</li>
+        <li>Image-rendered visual fidelity remains unavailable. Agent Harness has no Web surface or real-model E2E, stays OFF by default, and is not a host/network sandbox.</li>
         <li>No Semgrep, no YARA.</li>
         <li>No ZIP intake.</li>
         <li>No GitHub-URL intake.</li>
@@ -1742,6 +1781,10 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   <div class="card">
     <h3 style="margin-top:0">6. Web UI: one unified findings list</h3>
     <ul>
+      <li>The browser surface is now an <strong>Evidence Console</strong>, not a generic upload page:
+        a graphite command bar, compact local-intake rail, visible pre-run audit plan, and evidence
+        canvas make the review boundary and stage state legible before any result exists. It becomes
+        a one-column workflow at tablet width and keeps 44px touch targets on phones.</li>
       <li>The separate static and semantic findings panels were merged into
         <strong>one findings list</strong>. Each row carries a small inline origin tag —
         <code>确定性规则</code> (deterministic rule) or <code>模型建议</code> (model-suggested).</li>
@@ -1805,8 +1848,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <ul style="font-size:13.5px;margin-bottom:0">
         <li><code>README.md</code> — mission, roadmap table, scope invariants, semantic usage</li>
         <li><code>AGENTS.md</code> §0–§9 — mission, SSOT map, phase gates, untrusted-artifact rules</li>
-        <li><code>docs/PROGRESS.md</code> — top summary (<code>verified_against</code>, capability
-          matrix, corpus baseline, closure decision, deliberately-absent list) and Rounds 57–66</li>
+        <li><code>docs/PROGRESS.md</code> — current summary + Round 191, plus the append-only
+          historical ledger (including Rounds 57–66)</li>
         <li><code>docs/ARCHITECTURE.md</code> — one-page map, two coverage axes, bright lines</li>
         <li><code>docs/LESSONS.md</code> — newest 8 entries incl. all three 2026-07-29 entries</li>
         <li><code>docs/oss-mining-notes.md</code> — porting decisions and rejection evidence</li>
@@ -1818,10 +1861,10 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <ul style="font-size:13.5px;margin-bottom:0">
         <li><code>standards/risks.json</code> — 46 risks, coverage scale, per-layer breadth</li>
         <li><code>standards/sources.json</code> — 17 official/candidate sources</li>
-        <li><code>standards/detector_mappings.json</code> — 84 mapped components</li>
+        <li><code>standards/detector_mappings.json</code> — 156 mapped components</li>
         <li><code>evals/reports/v1-closure.json</code> — decision, checks, evidence, blockers</li>
         <li><code>evals/reports/corpus-v1-l0.json</code> — 84 cases, 46 risk results, stability</li>
-        <li><code>evals/reports/corpus-v1-semantic-contract.json</code> — 56 replays</li>
+        <li><code>evals/reports/corpus-v1-semantic-contract.json</code> — 82 replays</li>
         <li><code>evals/corpus/v1/manifest.json</code> — case labels and provenance</li>
         <li><code>evals/reference/butler_crosswalk.json</code> — 45 entries + policy</li>
       </ul>
@@ -2038,20 +2081,20 @@ score: {
   sub: "verity/scoring.py :: compute_score / compute_confidence / build_remediations",
   body: [
     "<p><strong>What it does.</strong> Projects completed Findings into an explainable 0–100 number, plus a <em>separate</em> A–D confidence grade describing how much of the review space was actually examined. Scoring is a <strong>policy projection, never a detector and never model-authored</strong>.</p>",
-    "<h4>Score mechanism (policy <code>verity-safety-score</code> v1.0.0)</h4>",
+    "<h4>Score mechanism (policy <code>verity-safety-score</code> v1.1.0)</h4>",
     "<ul>",
     "<li>Base 100. Severity weights: <strong>critical 45, high 25, medium 10, low 3</strong>.</li>",
     "<li><strong>Diminishing returns on duplicate root causes:</strong> factors <code>(100%, 50%, 25%)</code> — the fourth and later findings sharing a root cause deduct nothing further but remain visible remediation items.</li>",
     "<li><strong>Hard severity caps</strong> applied after deduction: critical 39, high 59, medium 79, low 99. A single Critical finding therefore cannot yield 60+ no matter how clean everything else is.</li>",
     "<li>Every deduction traces to a unified risk id and a Finding via the validated detector map. An <strong>unmapped</strong> finding makes the score <code>unavailable</code> rather than uncounted — so adding a rule without a taxonomy mapping breaks the score loudly instead of quietly under-deducting.</li>",
-    "<li><code>evaluatedLayers</code> lists <code>L0_static</code>, and adds <code>L1_semantic</code> only when the semantic stage <code>completed</code>.</li>",
+    "<li><code>evaluatedLayers</code> always lists <code>L0_static</code>; it adds <code>L1_semantic</code>, <code>V1_5_blackbox</code>, <code>V2_sandbox</code>, and <code>V2_agent_runtime</code> only when each corresponding stage completed.</li>",
     "</ul>",
-    "<h4>Confidence mechanism (policy <code>verity-review-confidence</code> v1.0.0)</h4>",
+    "<h4>Confidence mechanism (policy <code>verity-review-confidence</code> v1.4.0)</h4>",
     "<ul>",
     "<li><code>D</code> — deterministic coverage incomplete, or static failed, or semantic was requested and failed.</li>",
     "<li><code>C</code> — semantic not enabled (limitation <code>semantic_not_enabled</code>), or a skill review whose gitleaks run did not complete (which also downgrades B → C).</li>",
     "<li><code>B</code> — semantic completed.</li>",
-    "<li><code>A</code> — <strong>not reachable.</strong> Three limitations are appended unconditionally to every grade: <code>v1_5_blackbox_not_implemented</code>, <code>v2_sandbox_not_implemented</code>, <code>capability_breadth_not_evaluated</code>.</li>",
+    "<li><code>A</code> — <strong>not reachable.</strong> The limitation <code>capability_breadth_not_evaluated</code> is appended unconditionally. Dynamic runtime availability does not establish evaluated breadth.</li>",
     "</ul>",
     "<h4>Invariants enforced here</h4>",
     "<ul>",
@@ -2072,7 +2115,7 @@ projection: {
     "<ul>",
     "<li><code>completed_findings(report)</code> is <strong>the</strong> read-only consumer boundary. Deterministic Findings are <em>always</em> present. Semantic Findings enter verdict / gate / score / Web / HTML / SARIF <strong>only after the semantic stage completed</strong>.</li>",
     "<li>This does not give semantic code any ability to write to or filter the deterministic engine — the gate is one-directional by construction.</li>",
-    "<li><code>review_to_dict</code> attaches the four-capability matrix with its explanatory notes, then calls <code>enrich_review</code> to add score, confidence and remediation.</li>",
+    "<li><code>review_to_dict</code> attaches the five-capability matrix with its explanatory notes, then calls <code>enrich_review</code> to add score, confidence and remediation.</li>",
     "<li>Confirmed semantic Evidence now reaches every report consumer, including remediation and source positioning — the same evidence ids and byte ranges resolve in Web findings, JSON, HTML and the source workbench.</li>",
     "</ul>",
     "<h4>Invariants enforced here</h4>",
@@ -2099,11 +2142,11 @@ consumers: {
     "<h4>CLI gate exit codes</h4>",
     "<ul>",
     "<li><code>0</code> — pass.</li>",
-    "<li><code>1</code> — <code>findings_block</code>: at least one High/Critical finding.</li>",
-    "<li><code>3</code> — insufficient coverage, <em>or</em> a semantic run that had complete trusted credentials and did not complete.</li>",
+    "<li><code>1</code> — <code>findings_block</code>: at least one High/Critical finding or High/Critical Agent-runtime occurrence; static High retains priority.</li>",
+    "<li><code>3</code> — insufficient coverage, a semantic run with complete trusted credentials that did not complete, or a requested Agent runtime that did not complete when no High/Critical result exists.</li>",
     "<li><code>2</code> — invalid configuration (e.g. a malformed <code>--semantic-validator-vote</code> triple).</li>",
     "</ul>",
-    "<p>Note the deliberate asymmetry: <code>semantic_requires_pass</code> is true only when the caller supplied <em>complete trusted Provider configuration</em>. Since semantic is now attempted by default, an unconfigured Provider honestly reporting <code>provider_not_configured</code> must not by itself flip a CI-facing 0 into a 3.</p>",
+    "<p>Note the deliberate asymmetry: <code>semantic_requires_pass</code> is true only when the caller supplied <em>complete trusted Provider configuration</em>. Since semantic is now attempted by default, an unconfigured Provider honestly reporting <code>provider_not_configured</code> must not by itself flip a CI-facing 0 into a 3. For the explicit Agent stage, a medium blocked-network-only signal is non-blocking when every other gate passes.</p>",
     "<h4>Web-specific invariants</h4>",
     "<ul>",
     "<li><strong>Maximum-scan policy.</strong> The loopback UI and server force the <code>standard</code> Skill profile and <code>redacted_evidence</code> semantic egress. Removing a selector is <em>not</em> the enforcement boundary — stale clients sending <code>minimal</code> or <code>metadata_only</code> are upgraded server-side.</li>",
@@ -2167,7 +2210,7 @@ consumers: {
   title: "Step 5.1 — Deterministic extractor, per Finding Type",
   sub: "verity/semantic/catalog.py :: CATALOG[findingType] → extractor(review_dict, file_bytes)",
   body: [
-    "<p><strong>What it does.</strong> For each of the 28 registered Finding Types applicable to this engine, runs a deterministic Python extractor over the artifact. <strong>Evidence records are produced only here</strong> — this is the step that makes it impossible for a Provider to invent evidence.</p>",
+    "<p><strong>What it does.</strong> For each of the 41 registered Finding Types applicable to this engine, runs a deterministic Python extractor over the artifact. <strong>Evidence records are produced only here</strong> — this is the step that makes it impossible for a Provider to invent evidence.</p>",
     "<h4>Mechanism</h4>",
     "<ul>",
     "<li>Each extractor returns a list of <em>seeds</em>, each a triple <code>(hint, evidence_ids, evidence_records)</code>. Evidence is merged into a run-wide <code>evidence_pool</code> keyed by identity-stable <code>evidenceId</code>.</li>",
@@ -2447,7 +2490,7 @@ consumers: {
     "<p><strong>What it does.</strong> Puts hard per-Review ceilings on model spend, so a pathological artifact or a flaky Provider cannot produce unbounded calls. Reaching any ceiling ends semantic processing with an <strong>explicit reason code</strong>; the deterministic results are unaffected.</p>",
     "<h4>The limits (defaults)</h4>",
     "<div class=\"table-scroll\"><table><thead><tr><th>Limit</th><th class=\"num\">Value</th><th>Why that number</th></tr></thead><tbody>",
-    "<tr><td><code>max_candidate_generation_calls</code></td><td class=\"num\">64</td><td>One call per applicable type that produced a seed, <em>plus one per sweep-eligible type</em>. Deliberately well above the 28-type catalog so the default cannot silently skip later types — this is the value that was raised as part of the attention-dilution fix.</td></tr>",
+    "<tr><td><code>max_candidate_generation_calls</code></td><td class=\"num\">64</td><td>One call per applicable type that produced a seed, <em>plus one per sweep-eligible type</em>. Deliberately above the 41-type catalog so the default cannot silently skip later types — this is the value that was raised as part of the attention-dilution fix.</td></tr>",
     "<tr><td><code>max_validation_calls_per_candidate</code></td><td class=\"num\">2</td><td>The initial validation plus <em>one</em> bounded schema/identity repair attempt. Not a resampling allowance.</td></tr>",
     "<tr><td><code>max_total_validation_calls</code></td><td class=\"num\">128</td><td>Whole-run ceiling across all candidates and all voters.</td></tr>",
     "<tr><td><code>max_candidates_per_extractor</code></td><td class=\"num\">20</td><td>Caps how much one type can flood the queue.</td></tr>",
@@ -2699,7 +2742,7 @@ consumers: {
       "<dt>Scopes</dt><dd>" + r.scopes.map(function (s) { return "<code>" + esc(s) + "</code>"; }).join(" ") + "</dd>" +
       "<dt>L0 static breadth</dt><dd><code>" + esc(r.l0) + "</code></dd>" +
       "<dt>L1 semantic breadth</dt><dd><code>" + esc(r.l1) + "</code></dd>" +
-      "<dt>V1.5 / V2 breadth</dt><dd><code>none</code> / <code>none</code> (not implemented)</dd>" +
+      "<dt>V1.5 / V2 breadth</dt><dd>See the current standards summary; runtime mappings are artifact- and risk-specific.</dd>" +
       "</dl>" + metrics + "</div></details>";
   }
   riskList.innerHTML = DATA.risks.map(riskHTML).join("");

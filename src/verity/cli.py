@@ -13,15 +13,16 @@ Exit codes for ``review``:
   0  ``gate=pass``           coverage is sufficient AND no High/Critical findings.
                              Medium/Low findings do NOT block (documented policy;
                              use downstream tooling to enforce stricter gates).
-  1  ``gate=findings_block`` at least one High/Critical Finding is present.
+  1  ``gate=findings_block`` at least one High/Critical Finding or normalized
+                             dynamic issue occurrence is present.
                              Wins over the coverage gate: if both are triggered
                              the exit code is 1 (High/Critical is the stricter
                              signal a CI needs to surface first).
   3  ``gate=coverage_block`` Coverage is insufficient, OR an explicitly
-                             requested semantic review did not complete, AND no
-                             High/Critical Finding is present. Chosen instead
-                             of 2 so it does not collide with argparse's
-                             usage-error exit 2.
+                             requested semantic or dynamic review did not
+                             complete, AND no High/Critical result is present.
+                             Chosen instead of 2 so it does not collide with
+                             argparse's usage-error exit 2.
   2  reserved by argparse for CLI usage errors (POSIX convention).
 
 A one-line ``gate=...`` marker is printed on stdout for both CI and human
@@ -44,8 +45,29 @@ from .sarif import to_sarif_json
 from .schema import export_schema
 
 
-def _gate_from_report(report: dict, *, semantic_requires_pass: bool
-                      ) -> tuple[str, int, int, int]:
+_AGENT_RUNTIME_CLI_FLAGS = frozenset({
+    "--enable-agent-runtime",
+    "--agent-runtime-node-path",
+    "--agent-runtime-node-sha256",
+    "--agent-runtime-dsh-path",
+    "--agent-runtime-dsh-sha256",
+    "--agent-runtime-version",
+    "--agent-runtime-base-url",
+    "--agent-runtime-model",
+    "--agent-runtime-api-key-env",
+    "--agent-runtime-scenario-id",
+    "--agent-runtime-timeout",
+})
+
+
+def _gate_from_report(
+    report: dict,
+    *,
+    semantic_requires_pass: bool,
+    prompt_blackbox_requires_pass: bool = False,
+    skill_sandbox_requires_pass: bool = False,
+    agent_runtime_requires_pass: bool = False,
+) -> tuple[str, int, int, int]:
     """Return gate, exit code, finding count and High/Critical count.
 
     ``semantic_requires_pass`` should be True only when the caller supplied
@@ -56,23 +78,161 @@ def _gate_from_report(report: dict, *, semantic_requires_pass: bool
     must not by itself flip a CI-facing exit code from 0 to 3. A caller who
     explicitly wants that stricter gate can still get it: it is exactly
     "did I hand this run real credentials".
+
+    The three dynamic ``*_requires_pass`` flags are True only for stages the
+    trusted caller explicitly enabled. Such a stage must be ``completed`` in
+    both its result view and capability projection; missing or malformed
+    requested status fails closed. Unrequested ``not_enabled`` stages remain
+    non-blocking.
     """
     from .findings_view import completed_findings
     findings, _ = completed_findings(report)
+    from .issues import controlled_runtime_occurrence_projection
+    dynamic_rows, dynamic_projection_ok = (
+        controlled_runtime_occurrence_projection(report)
+    )
+    dynamic_severities = [severity for _, _, severity in dynamic_rows]
     high = sum(1 for f in findings
                if f.get("severity") in ("high", "critical"))
+    high += sum(
+        1 for severity in dynamic_severities
+        if severity in ("high", "critical")
+    )
+    finding_count = len(findings) + len(dynamic_severities)
     coverage_ok = (report.get("coverage") or {}).get("status") == "sufficient"
     semantic_status = (report.get("semantic") or {}).get("status")
     semantic_ok = (not semantic_requires_pass
                   or semantic_status == "completed")
+    capabilities = report.get("capabilities")
+
+    def _stage_completed(result_key: str, capability_key: str) -> bool:
+        result_view = report.get(result_key)
+        capability_view = (
+            capabilities.get(capability_key)
+            if isinstance(capabilities, dict)
+            else None
+        )
+        return (
+            isinstance(result_view, dict)
+            and result_view.get("status") == "completed"
+            and isinstance(capability_view, dict)
+            and capability_view.get("status") == "completed"
+        )
+
+    prompt_blackbox_ok = (
+        not prompt_blackbox_requires_pass
+        or _stage_completed("promptBlackbox", "promptBlackbox")
+    )
+    skill_sandbox_ok = (
+        not skill_sandbox_requires_pass
+        or _stage_completed("skillSandbox", "skillSandbox")
+    )
+    agent_runtime_ok = (
+        not agent_runtime_requires_pass
+        or _stage_completed(
+            "agentInstructionRuntime",
+            "agentInstructionRuntime",
+        )
+    )
+    requested_dynamic = (
+        prompt_blackbox_requires_pass
+        or skill_sandbox_requires_pass
+        or agent_runtime_requires_pass
+    )
     if high:
-        return "findings_block", 1, len(findings), high
-    if not coverage_ok or not semantic_ok:
-        return "coverage_block", 3, len(findings), high
-    return "pass", 0, len(findings), high
+        return "findings_block", 1, finding_count, high
+    if (
+        not coverage_ok
+        or not semantic_ok
+        or not prompt_blackbox_ok
+        or not skill_sandbox_ok
+        or not agent_runtime_ok
+        or (requested_dynamic and not dynamic_projection_ok)
+    ):
+        return "coverage_block", 3, finding_count, high
+    return "pass", 0, finding_count, high
 
 
 def _cmd_review(args: argparse.Namespace) -> int:
+    agent_runtime_values_supplied = any((
+        args.agent_runtime_node_path is not None,
+        args.agent_runtime_node_sha256 is not None,
+        args.agent_runtime_dsh_path is not None,
+        args.agent_runtime_dsh_sha256 is not None,
+        args.agent_runtime_version is not None,
+        args.agent_runtime_base_url is not None,
+        args.agent_runtime_model is not None,
+        args.agent_runtime_api_key_env is not None,
+        bool(args.agent_runtime_scenario_id),
+        args.agent_runtime_timeout is not None,
+    ))
+    if agent_runtime_values_supplied and not args.enable_agent_runtime:
+        print(
+            "agent runtime flags require --enable-agent-runtime",
+            file=sys.stderr,
+        )
+        return 2
+    if args.enable_agent_runtime and args.engine != "skill":
+        print(
+            "--enable-agent-runtime is only applicable to --engine skill",
+            file=sys.stderr,
+        )
+        return 2
+
+    agent_runtime_cfg = None
+    if args.enable_agent_runtime:
+        required_runtime_values = (
+            args.agent_runtime_node_path,
+            args.agent_runtime_node_sha256,
+            args.agent_runtime_dsh_path,
+            args.agent_runtime_dsh_sha256,
+            args.agent_runtime_base_url,
+            args.agent_runtime_model,
+            args.agent_runtime_api_key_env,
+        )
+        if not all(required_runtime_values):
+            print(
+                "--enable-agent-runtime requires Node path/hash, DSH "
+                "path/hash, base URL, model, and API-key "
+                "environment-variable name",
+                file=sys.stderr,
+            )
+            return 2
+        from .agent_runtime import AgentRuntimeConfig, AgentRuntimeCredentials
+        try:
+            scenario_ids = (
+                tuple(args.agent_runtime_scenario_id)
+                if args.agent_runtime_scenario_id
+                else ("agent_primary_task", "agent_untrusted_content")
+            )
+            timeout_seconds = (
+                90.0
+                if args.agent_runtime_timeout is None
+                else float(args.agent_runtime_timeout)
+            )
+            agent_runtime_cfg = AgentRuntimeConfig(
+                enabled=True,
+                node_executable=args.agent_runtime_node_path,
+                node_sha256=args.agent_runtime_node_sha256,
+                dsh_executable=args.agent_runtime_dsh_path,
+                dsh_sha256=args.agent_runtime_dsh_sha256,
+                expected_version=(
+                    "0.1.1-rc.2"
+                    if args.agent_runtime_version is None
+                    else args.agent_runtime_version
+                ),
+                base_url=args.agent_runtime_base_url,
+                model_id=args.agent_runtime_model,
+                credentials=AgentRuntimeCredentials(
+                    api_key_env=args.agent_runtime_api_key_env,
+                ),
+                scenario_ids=scenario_ids,
+                timeout_seconds=timeout_seconds,
+            )
+        except ValueError:
+            print("invalid --agent-runtime configuration", file=sys.stderr)
+            return 2
+
     if args.engine == "prompt":
         if args.input_dir:
             print("prompt engine expects --text or --input-file, not --input-dir", file=sys.stderr)
@@ -192,9 +352,63 @@ def _cmd_review(args: argparse.Namespace) -> int:
         except ValueError as exc:
             print(f"invalid --semantic configuration: {exc}", file=sys.stderr)
             return 2
+
+    # V1.5 Prompt black-box: research-stage, explicit two-gate opt-in.
+    # Both new flags default OFF; a bare `verity review` never touches
+    # this code path, matching every existing call site's behavior.
+    blackbox_cfg = None
+    if args.enable_prompt_blackbox:
+        if args.engine != "prompt":
+            print("--enable-prompt-blackbox is only applicable to "
+                  "--engine prompt", file=sys.stderr)
+            return 2
+        from .blackbox import BlackboxConfig, BlackboxCredentials
+        try:
+            blackbox_cfg = BlackboxConfig(
+                enabled=True,
+                base_url=args.blackbox_base_url or "",
+                model_id=args.blackbox_model or "",
+                credentials=BlackboxCredentials(
+                    api_key_env=args.blackbox_api_key_env),
+                scenario_policy=args.blackbox_scenario_policy,
+                scenario_ids=tuple(args.blackbox_scenario_id),
+                max_calls=args.blackbox_max_calls,
+                timeout_seconds=args.blackbox_timeout,
+                max_tokens_per_response=args.blackbox_max_tokens,
+            )
+        except ValueError as exc:
+            print(f"invalid --blackbox-* configuration: {exc}", file=sys.stderr)
+            return 2
+
+    # V2 Skill sandbox compatibility request. The flag defaults OFF; when
+    # present, run_review records a failed/unavailable capability without
+    # importing or constructing the private research runner.
+    sandbox_cfg = None
+    if args.enable_skill_sandbox:
+        if args.engine != "skill":
+            print("--enable-skill-sandbox is only applicable to "
+                  "--engine skill", file=sys.stderr)
+            return 2
+        from .sandbox import SandboxConfig
+        try:
+            sandbox_cfg = SandboxConfig(
+                enabled=True,
+                entry_point=args.sandbox_entry_point or "",
+                argv=tuple(args.sandbox_argv),
+                cpu_seconds=args.sandbox_cpu_seconds,
+                memory_mb=args.sandbox_memory_mb,
+                wall_seconds=args.sandbox_wall_seconds,
+            )
+        except ValueError as exc:
+            print(f"invalid --sandbox-* configuration: {exc}", file=sys.stderr)
+            return 2
+
     review = run_review(ReviewInputs(engine=args.engine, snapshot=snap,
                                      file_bytes=byts, profile=args.profile,
-                                     semantic_config=sem_cfg),
+                                     semantic_config=sem_cfg,
+                                     blackbox_config=blackbox_cfg,
+                                     sandbox_config=sandbox_cfg,
+                                     agent_runtime_config=agent_runtime_cfg),
                         candidate_generator=candidate_generator,
                         validators=validators)
 
@@ -206,14 +420,48 @@ def _cmd_review(args: argparse.Namespace) -> int:
     (out_dir / "report.sarif").write_text(to_sarif_json(d), encoding="utf-8")
 
     gate, exit_code, n_findings, n_high = _gate_from_report(
-        d, semantic_requires_pass=has_complete_provider_config)
+        d,
+        semantic_requires_pass=has_complete_provider_config,
+        prompt_blackbox_requires_pass=blackbox_cfg is not None,
+        skill_sandbox_requires_pass=sandbox_cfg is not None,
+        agent_runtime_requires_pass=agent_runtime_cfg is not None,
+    )
     semantic_status = ((review.semantic or {}).get("status")
                        if args.semantic else "not_enabled")
 
+    extra_status = []
+    if blackbox_cfg is not None:
+        extra_status.append(
+            f"promptBlackbox={(review.promptBlackbox or {}).get('status')}")
+    if sandbox_cfg is not None:
+        extra_status.append(
+            f"skillSandbox={(review.skillSandbox or {}).get('status')}")
+    if agent_runtime_cfg is not None:
+        agent_runtime_status = (
+            (review.agentInstructionRuntime or {}).get("status")
+        )
+        if agent_runtime_status not in {"completed", "failed", "not_enabled"}:
+            agent_runtime_status = "failed"
+        extra_status.append(
+            f"agentInstructionRuntime={agent_runtime_status}"
+        )
+    if review.dynamicPlan is not None:
+        dynamic_counts = {key: 0 for key in (
+            "selected", "not_applicable", "unavailable")}
+        for item in review.dynamicPlan.items:
+            if item.status in dynamic_counts:
+                dynamic_counts[item.status] += 1
+        extra_status.append(
+            "dynamic="
+            f"selected:{dynamic_counts['selected']},"
+            f"not_applicable:{dynamic_counts['not_applicable']},"
+            f"unavailable:{dynamic_counts['unavailable']}")
+    extra_status_str = (" " + " ".join(extra_status)) if extra_status else ""
+
     print(f"engine={args.engine} snapshot={snap.snapshotId} "
           f"findings={n_findings} high_or_critical={n_high} "
-          f"coverage={review.coverage.status} semantic={semantic_status} "
-          f"gate={gate}")
+          f"coverage={review.coverage.status} semantic={semantic_status}"
+          f"{extra_status_str} gate={gate}")
     print(f"wrote {out_dir/'report.json'}, {out_dir/'report.html'}, {out_dir/'report.sarif'}")
     return exit_code
 
@@ -367,6 +615,83 @@ def main(argv=None) -> int:
     provider.add_argument("--semantic-timeout", type=float, default=30.0)
     provider.add_argument("--semantic-max-output-tokens", type=int, default=800,
                           help="only used with --semantic-provider-kind openai_compatible")
+
+    blackbox = pr.add_argument_group(
+        "V1.5 Prompt black-box (research stage, --engine prompt only)",
+        "Explicit opt-in only: default OFF, and the reviewed prompt can "
+        "never turn this on itself. When enabled, Verity sends the "
+        "reviewed prompt to a REAL model endpoint under adversarial "
+        "scenarios. Credentials are read only from the named environment "
+        "variable; do not pass a key on the command line.")
+    blackbox.add_argument(
+        "--enable-prompt-blackbox", action="store_true", default=False,
+        help="Opt in to the V1.5 black-box evaluation stage (default OFF).")
+    blackbox.add_argument("--blackbox-base-url")
+    blackbox.add_argument("--blackbox-model")
+    blackbox.add_argument("--blackbox-api-key-env")
+    blackbox.add_argument(
+        "--blackbox-scenario-id", action="append", default=[],
+        help=("Repeatable. Supplying ids forces explicit policy; otherwise "
+              "the default artifact-aware policy runs only applicable checks."))
+    blackbox.add_argument(
+        "--blackbox-scenario-policy",
+        choices=["artifact_aware", "all", "explicit"],
+        default="artifact_aware",
+        help=("Scenario selection policy. artifact_aware is the default; "
+              "all preserves historical research behavior; explicit "
+              "requires --blackbox-scenario-id."))
+    blackbox.add_argument("--blackbox-max-calls", type=int, default=50)
+    blackbox.add_argument("--blackbox-timeout", type=float, default=30.0)
+    blackbox.add_argument("--blackbox-max-tokens", type=int, default=800)
+
+    sandbox = pr.add_argument_group(
+        "V2 Skill sandbox (currently unavailable; --engine skill only)",
+        "The current product release does not execute the reviewed Skill. "
+        "An explicit request fails closed with "
+        "sandbox_isolation_hardening_required until the host-read, output, "
+        "disk, process-tree, and observer-integrity boundaries are hardened.")
+    sandbox.add_argument(
+        "--enable-skill-sandbox", action="store_true", default=False,
+        help=("Record an explicit V2 request; it currently fails closed "
+              "without executing the Skill (default OFF)."))
+    sandbox.add_argument("--sandbox-entry-point")
+    sandbox.add_argument(
+        "--sandbox-argv", action="append", default=[],
+        help="Repeatable, appended in order after the entry point.")
+    sandbox.add_argument("--sandbox-cpu-seconds", type=int, default=10)
+    sandbox.add_argument("--sandbox-memory-mb", type=int, default=256)
+    sandbox.add_argument("--sandbox-wall-seconds", type=int, default=20)
+
+    agent_runtime = pr.add_argument_group(
+        "Agent-instruction runtime (--engine skill only)",
+        "Explicit opt-in only: default OFF. The caller supplies exact Node "
+        "and DSH paths and SHA-256 pins plus the trusted model endpoint and "
+        "API-key environment-variable name; the reviewed Skill cannot set "
+        "these values.",
+    )
+    agent_runtime.add_argument(
+        "--enable-agent-runtime",
+        action="store_true",
+        default=False,
+        help="Opt in to the agent-instruction runtime stage (default OFF).",
+    )
+    agent_runtime.add_argument("--agent-runtime-node-path")
+    agent_runtime.add_argument("--agent-runtime-node-sha256")
+    agent_runtime.add_argument("--agent-runtime-dsh-path")
+    agent_runtime.add_argument("--agent-runtime-dsh-sha256")
+    agent_runtime.add_argument("--agent-runtime-version")
+    agent_runtime.add_argument("--agent-runtime-base-url")
+    agent_runtime.add_argument("--agent-runtime-model")
+    agent_runtime.add_argument("--agent-runtime-api-key-env")
+    agent_runtime.add_argument(
+        "--agent-runtime-scenario-id",
+        action="append",
+        default=[],
+        help=("Repeatable. When supplied, replaces the two default bounded "
+              "agent-runtime scenarios in caller order."),
+    )
+    agent_runtime.add_argument("--agent-runtime-timeout")
+
     pr.set_defaults(func=_cmd_review)
 
     pp=sub.add_parser("project",help="Trusted local Skill project history")
@@ -384,7 +709,23 @@ def main(argv=None) -> int:
     ps.add_argument("--out")
     ps.set_defaults(func=_cmd_export_schema)
 
-    args = p.parse_args(argv)
+    cli_args = list(sys.argv[1:] if argv is None else argv)
+    if cli_args[:1] == ["review"]:
+        for token in cli_args[1:]:
+            if token == "--":
+                break
+            option = token.partition("=")[0]
+            if (
+                option.startswith("--")
+                and option not in _AGENT_RUNTIME_CLI_FLAGS
+                and any(
+                    exact_flag.startswith(option)
+                    for exact_flag in _AGENT_RUNTIME_CLI_FLAGS
+                )
+            ):
+                pr.error(f"unrecognized agent-runtime flag: {option}")
+
+    args = p.parse_args(cli_args)
     return args.func(args)
 
 

@@ -30,6 +30,8 @@ current HEAD (or equal to it). See ``AGENTS.md §8``.
 from __future__ import annotations
 
 import argparse
+from collections import Counter
+import json
 import os
 import re
 import subprocess
@@ -98,6 +100,52 @@ def _read_text(path: Path) -> str:
 def _git(*args: str, cwd: Path = REPO) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], cwd=cwd,
                           capture_output=True, text=True, check=False)
+
+
+def _run_isolated_repo_probe(
+        probe_source: str, *, timeout: float = 15.0
+) -> subprocess.CompletedProcess:
+    """Run a read-only Python probe importing only the selected REPO/src.
+
+    The child uses the selected ``REPO/src`` itself as cwd, ``-E`` ignores
+    user-controlled Python environment settings, and the bootstrap places the
+    resolved source tree first.  It then clears any unexpectedly preloaded
+    ``verity`` modules and verifies the imported package origin before running
+    the caller's probe.  A fresh process also prevents this verifier's own
+    ``sys.modules`` cache from satisfying a scratch-repository check with
+    modules from another checkout.  Unlike ``-I``, this keeps the user-site
+    dependencies supported by the project's Python 3.9 baseline available.
+    """
+    bootstrap = r'''
+import sys
+from pathlib import Path
+
+repo = Path(sys.argv[1]).resolve()
+source_root = (repo / "src").resolve()
+for module_name in tuple(sys.modules):
+    if module_name == "verity" or module_name.startswith("verity."):
+        del sys.modules[module_name]
+sys.path.insert(0, str(source_root))
+import verity
+package_root = Path(verity.__file__).resolve().parent
+expected_root = (source_root / "verity").resolve()
+if package_root != expected_root:
+    raise RuntimeError(
+        f"selected REPO/src import mismatch: {package_root} != {expected_root}"
+    )
+''' + probe_source
+    env = dict(os.environ)
+    for name in ("PYTHONHOME", "PYTHONPATH", "PYTHONSTARTUP", "PYTHONINSPECT"):
+        env.pop(name, None)
+    return subprocess.run(
+        [sys.executable, "-E", "-c", bootstrap, str(REPO)],
+        cwd=REPO / "src",
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=timeout,
+    )
 
 
 def _looks_like_secret_literal(text: str) -> List[str]:
@@ -227,7 +275,15 @@ def check_progress_verified_block(rep: VerifyReport) -> None:
     """docs/PROGRESS.md carries the top-of-file verified_against block
     (replaces the round-9 docs/CURRENT_STATE.md)."""
     text = _read_text(REPO / "docs" / "PROGRESS.md")
-    m = VERIFIED_BLOCK_RE.search(text)
+    current_summary, summary_delimiter, _history = text.partition("\n---\n")
+    if not summary_delimiter:
+        rep.append_fail(
+            "progress_verified_block",
+            "docs/PROGRESS.md is missing the current-summary delimiter",
+        )
+        return
+    matches = list(VERIFIED_BLOCK_RE.finditer(current_summary))
+    m = matches[0] if len(matches) == 1 else None
     if not m:
         rep.append_fail("progress_verified_block",
                         "verified_against block not parseable")
@@ -242,52 +298,425 @@ def check_progress_verified_block(rep: VerifyReport) -> None:
             "progress_verified_block",
             f"passed + skipped ({int(passed)} + {int(skipped)}) != collected ({collected})")
         return
-    proc = _git("cat-file", "-e", commit)
-    if proc.returncode == 0:
-        head = _git("rev-parse", "HEAD").stdout.strip()
-        if head:
-            mb = _git("merge-base", "--is-ancestor", commit, head)
-            if mb.returncode != 0:
-                rep.append_fail(
-                    "progress_verified_block",
-                    f"verified_against commit {commit[:12]} is not an ancestor of HEAD")
-                return
+    proc = _git("cat-file", "-e", commit + "^{commit}")
+    if proc.returncode != 0:
+        rep.append_fail(
+            "progress_verified_block",
+            f"verified_against commit {commit[:12]} does not exist",
+        )
+        return
+    head_proc = _git("rev-parse", "--verify", "HEAD^{commit}")
+    head = head_proc.stdout.strip()
+    if head_proc.returncode != 0 or not head:
+        rep.append_fail("progress_verified_block", "HEAD commit is not readable")
+        return
+    mb = _git("merge-base", "--is-ancestor", commit, head)
+    if mb.returncode != 0:
+        rep.append_fail(
+            "progress_verified_block",
+            f"verified_against commit {commit[:12]} is not an ancestor of HEAD")
+        return
     rep.append_ok("progress_verified_block",
                   f"date={date} commit={commit[:12]} tests={passed}/{collected}")
 
 
 CAPABILITY_ROWS = [
-    ("Static (deterministic) auditing", "completed"),
-    ("Semantic (LLM-assisted) auditing", "not_enabled"),
-    ("V1.5 Prompt black-box", "not_implemented"),
-    ("V2 Skill isolated sandbox", "not_implemented"),
+    ("Static (deterministic) auditing", "static", "completed"),
+    ("Semantic (LLM-assisted) auditing", "semantic", "not_enabled"),
+    ("V1.5 Prompt black-box", "promptBlackbox", "not_enabled"),
+    ("V2 Skill sandbox (hardening required)", "skillSandbox", "not_enabled"),
+    ("Agent-instruction runtime (CLI-only)",
+     "agentInstructionRuntime", "not_enabled"),
 ]
 
 
 def check_capability_matrix_matches_runtime(rep: VerifyReport) -> None:
-    """PROGRESS top-block capability strings must match the runtime
-    strings that verity/report.py emits. We don't execute Verity here;
-    we just assert the four expected labels are present in the doc and
-    that the report.py source contains matching literals.
+    """Keep the current PROGRESS matrix aligned with a default report.
+
+    Historical rounds are an append-only ledger, so only the summary before
+    the first delimiter may satisfy this contract. The report is generated
+    offline with every optional dynamic stage explicitly unrequested.
     """
     doc = _read_text(REPO / "docs" / "PROGRESS.md")
-    for label, status in CAPABILITY_ROWS:
-        if label not in doc:
+    current_summary, summary_delimiter, _history = doc.partition("\n---\n")
+    if not summary_delimiter:
+        rep.append_fail(
+            "capability_matrix_matches_runtime",
+            "docs/PROGRESS.md is missing the current-summary delimiter",
+        )
+        return
+    table_rows = []
+    for line in current_summary.splitlines():
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if line.lstrip().startswith("|") and len(cells) >= 2:
+            table_rows.append(cells)
+    for label, _runtime_key, expected_default in CAPABILITY_ROWS:
+        matches = [row for row in table_rows if row[0] == label]
+        if len(matches) != 1:
             rep.append_fail("capability_matrix_matches_runtime",
-                            f"missing label in PROGRESS: {label}")
+                            f"current PROGRESS summary must contain one row: {label}")
             return
-        if status not in doc:
+        if f"`{expected_default}`" not in matches[0][1]:
             rep.append_fail("capability_matrix_matches_runtime",
-                            f"missing status {status!r} for {label}")
+                            f"{label} row missing default {expected_default!r}")
             return
-    report_src = _read_text(REPO / "src" / "verity" / "report.py")
-    for status in ("not_enabled", "not_implemented", "completed"):
-        if f'"{status}"' not in report_src:
-            rep.append_fail("capability_matrix_matches_runtime",
-                            f"report.py missing literal {status!r}")
-            return
+
+    try:
+        probe_source = r'''
+import json
+from verity.intake import intake_text
+from verity.report import review_to_dict
+from verity.review import ReviewInputs, run_review
+snapshot, data = intake_text("Summarize this text.")
+report = review_to_dict(
+    run_review(ReviewInputs("prompt", snapshot, data)))
+capabilities = report.get("capabilities") or {}
+observed = {
+    key: (capabilities.get(key) or {}).get("status")
+    for key in (
+        "static",
+        "semantic",
+        "promptBlackbox",
+        "skillSandbox",
+        "agentInstructionRuntime",
+    )
+}
+print(json.dumps(observed, sort_keys=True))
+'''
+        probe = _run_isolated_repo_probe(probe_source)
+        if probe.returncode != 0:
+            detail = (probe.stderr.strip() or probe.stdout.strip())[-300:]
+            raise ValueError(f"isolated capability probe failed: {detail}")
+        observed = json.loads(probe.stdout)
+        expected = {key: default for _label, key, default in CAPABILITY_ROWS}
+        if observed != expected:
+            raise ValueError(
+                f"default report mismatch: expected={expected} observed={observed}")
+    except Exception as exc:
+        rep.append_fail("capability_matrix_matches_runtime", str(exc)[:500])
+        return
     rep.append_ok("capability_matrix_matches_runtime",
-                  "PROGRESS labels + statuses agree with report.py")
+                  "current PROGRESS summary matches default report keys: "
+                  + ", ".join(expected))
+
+
+def check_agent_runtime_release_contract(rep: VerifyReport) -> None:
+    """Verify the bounded Agent-runtime contract without launching it."""
+    expected_signals = {
+        "agent_runtime_sensitive_read_attempt": ("VR-SKILL-014", "high"),
+        "agent_runtime_network_attempt": ("VR-SKILL-009", "medium"),
+        "agent_runtime_shell_attempt": ("VR-SKILL-006", "high"),
+        "agent_runtime_canary_exfiltration_attempt": (
+            "VR-SKILL-011", "high"),
+    }
+    try:
+        # Use a fresh interpreter rooted at REPO so scratch-repository tests
+        # cannot be masked by verity.* modules cached from the real checkout.
+        # This probe imports definitions and constructs only the disabled
+        # config; it never instantiates a runner or starts DSH/model/network.
+        probe_source = r'''
+import json
+from verity.agent_runtime.config import AgentRuntimeConfig
+from verity.agent_runtime.models import AGENT_RUNTIME_SIGNAL_DETECTORS
+from verity.dynamic.planner import CHECK_DEFINITIONS
+from verity.scoring import (
+    CONFIDENCE_POLICY_VERSION,
+    POLICY_VERSION,
+    _AGENT_RUNTIME_SIGNAL_SEVERITY,
+)
+config = AgentRuntimeConfig()
+print(json.dumps({
+    "enabled": config.enabled,
+    "expectedVersion": config.expected_version,
+    "signals": list(AGENT_RUNTIME_SIGNAL_DETECTORS),
+    "severities": _AGENT_RUNTIME_SIGNAL_SEVERITY,
+    "scorePolicy": POLICY_VERSION,
+    "confidencePolicy": CONFIDENCE_POLICY_VERSION,
+    "dynamicCheckCount": sum(
+        definition.check_id == "agent_instruction.runtime"
+        for definition in CHECK_DEFINITIONS
+    ),
+}, sort_keys=True))
+'''
+        probe = _run_isolated_repo_probe(probe_source)
+        if probe.returncode != 0:
+            detail = (probe.stderr.strip() or probe.stdout.strip())[-300:]
+            raise ValueError(f"isolated runtime-contract probe failed: {detail}")
+        runtime_contract = json.loads(probe.stdout)
+        if runtime_contract.get("enabled") is not False:
+            raise ValueError("Agent runtime must be disabled by default")
+        if runtime_contract.get("expectedVersion") != "0.1.1-rc.2":
+            raise ValueError("Agent runtime DSH version contract drifted")
+        if runtime_contract.get("signals") != list(expected_signals):
+            raise ValueError("Agent runtime signal registry drifted")
+        if runtime_contract.get("severities") != {
+                signal_id: severity
+                for signal_id, (_risk_id, severity) in expected_signals.items()
+        }:
+            raise ValueError("Agent runtime signal severity contract drifted")
+        if (runtime_contract.get("scorePolicy") != "1.1.0"
+                or runtime_contract.get("confidencePolicy") != "1.4.0"):
+            raise ValueError("Agent runtime policy versions drifted")
+        if runtime_contract.get("dynamicCheckCount") != 1:
+            raise ValueError("agent_instruction.runtime check contract drifted")
+
+        mappings_doc = json.loads(_read_text(
+            REPO / "standards" / "detector_mappings.json"))
+        mappings = mappings_doc.get("detectors")
+        if not isinstance(mappings, list) or len(mappings) != 156:
+            raise ValueError(
+                f"expected 156 mappings, observed "
+                f"{len(mappings) if isinstance(mappings, list) else 'invalid'}")
+        runtime_mappings = {
+            row.get("detectorId"): row
+            for row in mappings
+            if row.get("detectorType") == "agent_runtime_signal"
+        }
+        if set(runtime_mappings) != set(expected_signals):
+            raise ValueError("Agent runtime detector mappings drifted")
+        for signal_id, (risk_id, _severity) in expected_signals.items():
+            row = runtime_mappings[signal_id]
+            if (row.get("riskIds") != [risk_id]
+                    or row.get("contribution") != "signal"):
+                raise ValueError(f"mapping drift for {signal_id}")
+
+        risks_doc = json.loads(_read_text(REPO / "standards" / "risks.json"))
+        risks = risks_doc.get("risks")
+        if not isinstance(risks, list):
+            raise ValueError("standards/risks.json has invalid risks")
+        breadth = Counter(
+            (risk.get("currentCoverage") or {}).get("V2_agent_runtime")
+            for risk in risks
+        )
+        expected_breadth = {
+            "none": 42,
+            "signal": 4,
+            "partial": 0,
+            "substantial": 0,
+            "evaluated": 0,
+        }
+        if any(breadth.get(level, 0) != count
+               for level, count in expected_breadth.items()):
+            raise ValueError(
+                f"V2_agent_runtime breadth drifted: {dict(breadth)}")
+
+        for lock_name in ("requirements.lock", "requirements-dev.lock"):
+            if "@deepseek-ai/dsh" in _read_text(REPO / lock_name).lower():
+                raise ValueError(f"DSH must not be a Python lock dependency: {lock_name}")
+
+        third_party = " ".join(
+            _read_text(REPO / "THIRD_PARTY_LICENSES.md").split())
+        third_party_tokens = (
+            "@deepseek-ai/dsh | 0.1.1-rc.2 | MIT",
+            "https://github.com/deepseek-ai/DeepSeek-Harness",
+            "optional external",
+            "not vendored",
+            "not auto-installed",
+            "not a Python dependency",
+            "two entry files",
+            "adjacent npm dependency closure",
+        )
+        missing = [token for token in third_party_tokens
+                   if token not in third_party]
+        if missing:
+            raise ValueError(
+                "THIRD_PARTY Agent runtime disclosure missing: "
+                + ", ".join(missing))
+
+        readme = " ".join(_read_text(REPO / "README.md").split())
+        disclosure_tokens = (
+            "Agent-instruction Harness (CLI-only; OFF by default)",
+            "synthetic/no-side-effect tools",
+            "real Provider network egress",
+            "Harness is not an OS, process, or network security sandbox.",
+            "No real Provider/model/scenario E2E",
+            "two entry files",
+            "adjacent npm dependency closure",
+            "`setsid()`",
+            "outer container or microVM",
+            "destination-allowlisted egress",
+            "only an API-key environment-variable name, never the key value",
+            "A clean completed run is not a safety proof.",
+        )
+        missing = [token for token in disclosure_tokens if token not in readme]
+        if missing:
+            raise ValueError(
+                "README Agent runtime disclosure missing: "
+                + ", ".join(missing))
+
+        architecture = " ".join(
+            _read_text(REPO / "docs" / "ARCHITECTURE.md").split()
+        )
+        fixed_cli_authority = (
+            "The plugin, model-facing tool catalog, Cordis permission patch, "
+            "output/trace ceilings, and temporary roots are fixed or generated "
+            "by Verity on the CLI path; the CLI caller cannot replace them."
+        )
+        if fixed_cli_authority not in architecture:
+            raise ValueError(
+                "ARCHITECTURE must distinguish caller-selected runtime "
+                "values from Verity-fixed CLI authority"
+            )
+        if (
+            "scenarios, budgets, plugin, tools, permissions, and temporary roots"
+            in architecture
+        ):
+            raise ValueError(
+                "ARCHITECTURE incorrectly grants fixed Harness authority "
+                "to the CLI caller"
+            )
+
+        package_scope = " ".join(
+            _read_text(REPO / "src" / "verity" / "__init__.py").split()
+        )
+        current_scope = (
+            "The deterministic engineering-preview scope is a release "
+            "candidate; optional semantic and dynamic stages remain "
+            "experimental."
+        )
+        if current_scope not in package_scope:
+            raise ValueError("verity package scope summary is stale")
+        if (
+            "V1 release decision remains ``not_ready``" in package_scope
+            or "are not implemented" in package_scope
+        ):
+            raise ValueError("verity package scope retains superseded status")
+
+        snapshot_boundary_tokens = {
+            "docs/ARCHITECTURE.md": (
+                "Version and scenario launches execute the private snapshots, "
+                "not the caller paths.",
+                "that closure remains unpinned and unauthenticated by the two "
+                "entry hashes.",
+                "At most two Skill-loader result markers are written; exactly "
+                "one successful marker is required, otherwise parsing fails closed.",
+            ),
+            "docs/project-explainer.html": (
+                "private snapshot while the same bytes are hashed; version and "
+                "scenario launches execute only those snapshots.",
+                "that closure remains unpinned and unauthenticated by the two "
+                "entry hashes.",
+                "At most two Skill-loader result markers are written; exactly "
+                "one successful marker is required, otherwise parsing fails closed.",
+            ),
+            "docs/verity-manual-zh.html": (
+                "同一批字节一边计算哈希，一边写入仅所有者可读的私有快照。",
+                "该闭包仍未固定、未认证，不在两个入口哈希的认证范围内。",
+                "Skill-loader 结果标记最多写入两个；必须恰好有一个成功标记，"
+                "否则解析会失败关闭。",
+            ),
+            "docs/PROGRESS.md": (
+                "private snapshot while the same bytes are hashed. Version and "
+                "scenarios run only from those snapshots.",
+                "The adjacent npm closure linked for module resolution remains "
+                "unpinned and unauthenticated.",
+                "At most two Skill-loader result markers are written; exactly "
+                "one successful marker is required, otherwise parsing fails closed.",
+            ),
+            "plans/ACTIVE.md": (
+                "private snapshot while the same bytes are hashed. Version and "
+                "scenarios run only from those snapshots.",
+                "npm closure linked for module resolution remains unpinned and "
+                "unauthenticated.",
+                "At most two Skill-loader result markers are written; exactly "
+                "one successful marker is required, otherwise parsing fails closed.",
+            ),
+        }
+        for relative_path, required_tokens in snapshot_boundary_tokens.items():
+            document = " ".join(_read_text(REPO / relative_path).split())
+            missing = [token for token in required_tokens if token not in document]
+            if missing:
+                raise ValueError(
+                    f"{relative_path} runtime snapshot boundary missing: "
+                    + ", ".join(missing)
+                )
+    except Exception as exc:
+        rep.append_fail("agent_runtime_release_contract", str(exc)[:500])
+        return
+    rep.append_ok(
+        "agent_runtime_release_contract",
+        "DSH 0.1.1-rc.2 disabled by default; 4 exact signals; "
+        "156 mappings; V2_agent_runtime none=42 signal=4; disclosures pinned",
+    )
+
+
+def check_closure_policy_release_contract(rep: VerifyReport) -> None:
+    """Bind current release documentation to the machine closure policy."""
+    try:
+        # Read the selected checkout in a fresh interpreter. Scratch-repository
+        # corruption tests must not be masked by a cached verity.closure import.
+        probe = _run_isolated_repo_probe(r'''
+from verity.closure import CLOSURE_POLICY_VERSION
+print(CLOSURE_POLICY_VERSION)
+''')
+        if probe.returncode != 0:
+            detail = (probe.stderr.strip() or probe.stdout.strip())[-300:]
+            raise ValueError(f"isolated closure-policy probe failed: {detail}")
+        machine_version = probe.stdout.strip()
+        if not re.fullmatch(r"\d+\.\d+\.\d+", machine_version):
+            raise ValueError(
+                f"invalid machine closure policy version: {machine_version!r}")
+
+        progress = _read_text(REPO / "docs" / "PROGRESS.md")
+        current_progress, summary_delimiter, _history = progress.partition(
+            "\n---\n")
+        if not summary_delimiter:
+            raise ValueError(
+                "docs/PROGRESS.md is missing the current-summary delimiter")
+
+        current_claims = {
+            "README.md": (
+                _read_text(REPO / "README.md"),
+                r"Closure policy v(?P<version>\d+\.\d+\.\d+)\s+scopes",
+            ),
+            "docs/PROGRESS.md": (
+                current_progress,
+                r"under closure policy \*\*v"
+                r"(?P<version>\d+\.\d+\.\d+)\*\*",
+            ),
+            "docs/ARCHITECTURE.md": (
+                _read_text(REPO / "docs" / "ARCHITECTURE.md"),
+                r"`verity\.closure` \(policy v"
+                r"(?P<version>\d+\.\d+\.\d+)\) computes",
+            ),
+            "docs/project-explainer.html": (
+                _read_text(REPO / "docs" / "project-explainer.html"),
+                r"Closure policy v(?P<version>\d+\.\d+\.\d+)\s*·\s*"
+                r"no evaluated-accuracy claim",
+            ),
+            "docs/verity-manual-zh.html": (
+                _read_text(REPO / "docs" / "verity-manual-zh.html"),
+                r"收尾政策 v(?P<version>\d+\.\d+\.\d+)\s*·\s*"
+                r"不含精度评测结论",
+            ),
+            "evals/README.md": (
+                _read_text(REPO / "evals" / "README.md"),
+                r"under closure policy v"
+                r"(?P<version>\d+\.\d+\.\d+)\.",
+            ),
+        }
+        for relative_path, (document, pattern) in current_claims.items():
+            versions = [
+                match.group("version")
+                for match in re.finditer(pattern, document)
+            ]
+            if len(versions) != 1:
+                raise ValueError(
+                    f"{relative_path}: expected exactly one current closure "
+                    f"policy version claim, observed {len(versions)}")
+            observed = versions[0]
+            if observed != machine_version:
+                raise ValueError(
+                    f"{relative_path}: closure policy version drift; "
+                    f"expected {machine_version}, observed {observed}")
+    except Exception as exc:
+        rep.append_fail("closure_policy_release_contract", str(exc)[:500])
+        return
+    rep.append_ok(
+        "closure_policy_release_contract",
+        f"policy={machine_version}; 6 current release docs match; "
+        "PROGRESS history excluded",
+    )
 
 
 def check_no_absolute_paths_in_docs(rep: VerifyReport) -> None:
@@ -456,20 +885,28 @@ def check_detection_standards(rep: VerifyReport) -> None:
     """Validate authoritative-source taxonomy and exact runtime mapping."""
     try:
         sys.path.insert(0, str(REPO / "src"))
-        from verity.standards import (load_detector_candidates, load_risks,
+        from verity.standards import (load_detector_candidates,
+                                      load_detector_mappings, load_risks,
                                       load_sources,
                                       validate_runtime_detector_coverage)
         sources = load_sources()
         risks = load_risks(sources)
+        mappings = load_detector_mappings(risks)
         candidates = load_detector_candidates(sources, risks)
         validate_runtime_detector_coverage()
+        runtime_breadth = Counter(
+            risk["currentCoverage"]["V2_agent_runtime"]
+            for risk in risks.values()
+        )
     except Exception as exc:
         rep.append_fail("detection_standards", str(exc)[:500])
         return
     rep.append_ok(
         "detection_standards",
         f"{len(sources)} sources; {len(risks)} risks; "
-        f"{len(candidates)} candidates; runtime mapped")
+        f"{len(candidates)} candidates; {len(mappings)} mappings; "
+        f"V2_agent_runtime none={runtime_breadth['none']} "
+        f"signal={runtime_breadth['signal']}; runtime mapped")
 
 
 def check_corpus_baselines(rep: VerifyReport) -> None:
@@ -484,7 +921,7 @@ def check_corpus_baselines(rep: VerifyReport) -> None:
         rep.append_fail("corpus_baselines", detail)
         return
     rep.append_ok("corpus_baselines",
-                  "84 L0 cases + 56 semantic contract replays reproducible")
+                  "84 L0 cases + 82 semantic contract replays reproducible")
 
 
 def check_v1_closure_baseline(rep: VerifyReport) -> None:
@@ -624,7 +1061,7 @@ def check_semantic_comparison_protocol(rep: VerifyReport) -> None:
             butler_packet=butler_packet, butler_mapping=butler_map,
             butler_observations=observations(butler_packet),
             label_attestation=None)
-        if (len(manifest["cases"]) != 112 or checked != 112
+        if (len(manifest["cases"]) != 164 or checked != 164
                 or breadth.get("inventoryCount") != 45
                 or breadth.get("openGapCount") != 0
                 or breadth.get("claimReady") is not True
@@ -640,7 +1077,7 @@ def check_semantic_comparison_protocol(rep: VerifyReport) -> None:
         return
     rep.append_ok(
         "semantic_comparison_protocol",
-        "112 fresh paired calibration cases; Butler inventory=45 with "
+        "164 fresh paired calibration cases; Butler inventory=45 with "
         "0 open breadth gaps; labels provisional; superiority claim "
         "still refused; no model called")
 
@@ -714,6 +1151,8 @@ def run_all(*, require_clean: bool = False,
     check_agents_md_has_ssot(rep)
     check_progress_verified_block(rep)
     check_capability_matrix_matches_runtime(rep)
+    check_agent_runtime_release_contract(rep)
+    check_closure_policy_release_contract(rep)
     check_no_absolute_paths_in_docs(rep)
     check_no_secret_literals(rep)
     check_pyproject_and_readme_links(rep)

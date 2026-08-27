@@ -35,6 +35,7 @@ yet — see README). The exporter is deliberately conservative:
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any, Dict, List
 
@@ -52,6 +53,22 @@ _LEVEL_MAP = {
     "medium": "warning",
     "high": "error",
     "critical": "error",
+}
+
+_AGENT_RUNTIME_MESSAGES = {
+    "agent_runtime_sensitive_read_attempt": (
+        "Agent runtime observed a synthetic in-memory sensitive read attempt."
+    ),
+    "agent_runtime_network_attempt": (
+        "Agent runtime observed a blocked simulated HTTP attempt."
+    ),
+    "agent_runtime_shell_attempt": (
+        "Agent runtime observed a blocked simulated shell attempt."
+    ),
+    "agent_runtime_canary_exfiltration_attempt": (
+        "Agent runtime observed a fake credential marker in blocked simulated "
+        "HTTP arguments."
+    ),
 }
 
 
@@ -82,6 +99,128 @@ def _security_severity(sev: str) -> str:
     # Rough numeric mapping (GitHub Code Scanning convention).
     return {"low": "3.0", "medium": "5.5",
             "high": "7.5", "critical": "9.5"}.get(sev, "5.0")
+
+
+def _agent_runtime_occurrences(review_dict: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Allowlisted issue occurrences for the source-less runtime SARIF path."""
+    result = []
+    for issue in review_dict.get("issues") or []:
+        if type(issue) is not dict:
+            continue
+        risk_id = issue.get("riskId")
+        issue_id = issue.get("issueId")
+        issue_status = issue.get("status")
+        if not all(type(value) is str and value for value in (
+            risk_id, issue_id, issue_status
+        )):
+            continue
+        for occurrence in issue.get("occurrences") or []:
+            if (
+                type(occurrence) is not dict
+                or occurrence.get("sourceLayer") != "V2_agent_runtime"
+            ):
+                continue
+            severity = occurrence.get("severity")
+            if severity not in _LEVEL_MAP:
+                severity = "medium"
+            detector_ids = occurrence.get("detectorIds")
+            if type(detector_ids) is not list:
+                continue
+            for detector_id in detector_ids:
+                if detector_id not in _AGENT_RUNTIME_MESSAGES:
+                    continue
+                result.append({
+                    "detectorId": detector_id,
+                    "riskId": risk_id,
+                    "issueId": issue_id,
+                    "issueStatus": issue_status,
+                    "severity": severity,
+                    "sourceLayer": "V2_agent_runtime",
+                })
+    result.sort(key=lambda item: (
+        item["detectorId"], item["riskId"], item["issueId"]
+    ))
+    return result
+
+
+def _agent_runtime_fingerprint(
+    review_dict: Dict[str, Any], detector_id: str, risk_id: str
+) -> str:
+    runtime = review_dict.get("agentInstructionRuntime")
+    if type(runtime) is not dict:
+        runtime = {}
+    scenario_ids = sorted({
+        scenario.get("scenario_id")
+        for scenario in runtime.get("scenarioResults") or []
+        if type(scenario) is dict
+        and type(scenario.get("scenario_id")) is str
+    })
+    stable_inputs = {
+        "contentRootDigest": (
+            (review_dict.get("snapshot") or {}).get("contentRootDigest")
+        ),
+        "detectorId": detector_id,
+        "riskId": risk_id,
+        "harnessSha256": runtime.get("harnessSha256"),
+        "scenarioIds": scenario_ids,
+    }
+    payload = json.dumps(
+        stable_inputs,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _agent_runtime_rule_descriptors(
+    occurrences: List[Dict[str, str]],
+) -> List[Dict[str, Any]]:
+    seen = {}
+    for occurrence in occurrences:
+        detector_id = occurrence["detectorId"]
+        if detector_id in seen:
+            continue
+        severity = occurrence["severity"]
+        message = _AGENT_RUNTIME_MESSAGES[detector_id]
+        seen[detector_id] = {
+            "id": detector_id,
+            "name": detector_id,
+            "shortDescription": {"text": message},
+            "fullDescription": {"text": message},
+            "defaultConfiguration": {
+                "level": _LEVEL_MAP.get(severity, "warning")
+            },
+            "properties": {
+                "security-severity": _security_severity(severity),
+                "tags": ["engine:skill", "layer:V2_agent_runtime"],
+            },
+        }
+    return list(seen.values())
+
+
+def _agent_runtime_result(
+    review_dict: Dict[str, Any], occurrence: Dict[str, str]
+) -> Dict[str, Any]:
+    detector_id = occurrence["detectorId"]
+    return {
+        "ruleId": detector_id,
+        "level": _LEVEL_MAP.get(occurrence["severity"], "warning"),
+        "message": {"text": _AGENT_RUNTIME_MESSAGES[detector_id]},
+        "partialFingerprints": {
+            "verityAgentRuntimeOccurrence/v1": _agent_runtime_fingerprint(
+                review_dict, detector_id, occurrence["riskId"]
+            ),
+        },
+        "properties": {
+            "verity.severity": occurrence["severity"],
+            "verity.riskId": occurrence["riskId"],
+            "verity.issueId": occurrence["issueId"],
+            "verity.detectorId": detector_id,
+            "verity.sourceLayer": occurrence["sourceLayer"],
+            "verity.issueStatus": occurrence["issueStatus"],
+        },
+    }
 
 
 def _uri(loc: Dict[str, Any]) -> str:
@@ -162,12 +301,20 @@ def review_to_sarif(review_dict: Dict[str, Any]) -> Dict[str, Any]:
     all_findings, ev_by_id = completed_findings(review_dict)
     sarif_review = dict(review_dict)
     sarif_review["findings"] = all_findings
+    runtime_occurrences = _agent_runtime_occurrences(review_dict)
+    rules = _rule_descriptors(sarif_review)
+    existing_rule_ids = {rule["id"] for rule in rules}
+    rules.extend(
+        rule
+        for rule in _agent_runtime_rule_descriptors(runtime_occurrences)
+        if rule["id"] not in existing_rule_ids
+    )
 
     tool_driver = {
         "name": "verity",
         "version": _VERITY_VERSION,
         "informationUri": "https://verity.dev/",
-        "rules": _rule_descriptors(sarif_review),
+        "rules": rules,
     }
 
     # Adjunct tools (parsers / analyzers) go under ``run.tool.extensions``
@@ -194,6 +341,10 @@ def review_to_sarif(review_dict: Dict[str, Any]) -> Dict[str, Any]:
     subject = verdict.get("subject")  # may be None on insufficient coverage
 
     results = [_finding_to_result(f, ev_by_id) for f in all_findings]
+    results.extend(
+        _agent_runtime_result(review_dict, occurrence)
+        for occurrence in runtime_occurrences
+    )
 
     run = {
         "tool": {"driver": tool_driver},
@@ -212,6 +363,42 @@ def review_to_sarif(review_dict: Dict[str, Any]) -> Dict[str, Any]:
             "verity.score.policyVersion": (review_dict.get("score") or {}).get("policyVersion"),
             "verity.reviewConfidence.grade": (review_dict.get("reviewConfidence") or {}).get("grade"),
             "verity.reviewConfidence.policyVersion": (review_dict.get("reviewConfidence") or {}).get("policyVersion"),
+            "verity.issues": [
+                {
+                    "issueId": item.get("issueId"),
+                    "riskId": item.get("riskId"),
+                    "status": item.get("status"),
+                    "severity": item.get("severity"),
+                    "sourceLayers": item.get("sourceLayers") or [],
+                    "detectorIds": item.get("detectorIds") or [],
+                    "occurrenceIds": item.get("occurrenceIds") or [],
+                    "runtimeChecks": [
+                        {
+                            "detectorId": check.get("detectorId"),
+                            "sourceLayer": check.get("sourceLayer"),
+                            "outcome": check.get("outcome"),
+                        }
+                        for check in item.get("runtimeChecks") or []
+                        if type(check) is dict
+                    ],
+                }
+                for item in review_dict.get("issues") or []
+            ],
+            "verity.dynamicPlan": {
+                "schemaVersion": (review_dict.get("dynamicPlan") or {}).get(
+                    "schema_version"),
+                "policy": (review_dict.get("dynamicPlan") or {}).get("policy"),
+                "items": [
+                    {
+                        "checkId": item.get("check_id"),
+                        "stage": item.get("stage"),
+                        "status": item.get("status"),
+                        "reasonCodes": item.get("reason_codes") or [],
+                        "riskIds": item.get("risk_ids") or [],
+                    }
+                    for item in (review_dict.get("dynamicPlan") or {}).get("items") or []
+                ],
+            },
         },
     }
     if extensions:
@@ -256,7 +443,24 @@ def validate_sarif_shape(obj: Dict[str, Any]) -> List[str]:
         for j, res in enumerate(run.get("results") or []):
             if "ruleId" not in res:
                 errors.append(f"runs[{i}].results[{j}] missing ruleId")
-            if "locations" not in res:
+            properties = res.get("properties")
+            agent_runtime_result = (
+                type(properties) is dict
+                and properties.get("verity.sourceLayer")
+                == "V2_agent_runtime"
+            )
+            if agent_runtime_result:
+                if "locations" in res:
+                    errors.append(
+                        f"runs[{i}].results[{j}]: V2_agent_runtime result "
+                        "must omit locations"
+                    )
+                if "relatedLocations" in res:
+                    errors.append(
+                        f"runs[{i}].results[{j}]: V2_agent_runtime result "
+                        "must omit relatedLocations"
+                    )
+            elif "locations" not in res:
                 errors.append(f"runs[{i}].results[{j}] missing locations")
             elif not isinstance(res["locations"], list) or not res["locations"]:
                 errors.append(f"runs[{i}].results[{j}].locations must be non-empty")

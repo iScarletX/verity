@@ -73,6 +73,9 @@ class Element {
   addEventListener(type, listener) {
     (this.listeners[type] ||= []).push(listener);
   }
+  focus() {
+    globalThis.focusedElementId = this.id;
+  }
   setAttribute(name, value) {
     this.attributes[name] = String(value);
   }
@@ -95,6 +98,14 @@ function elementFor(id) {
   return elements.get(id);
 }
 elementFor("prompt-kind").value = "system_prompt";
+elementFor("tab-mode-prompt").setAttribute("data-tab", "prompt");
+elementFor("tab-mode-prompt").setAttribute("aria-selected", "true");
+elementFor("tab-mode-prompt").setAttribute("tabindex", "0");
+elementFor("tab-mode-prompt").classList.add("active");
+elementFor("tab-mode-skill").setAttribute("data-tab", "skill");
+elementFor("tab-mode-skill").setAttribute("aria-selected", "false");
+elementFor("tab-mode-skill").setAttribute("tabindex", "-1");
+elementFor("tab-skill").hidden = true;
 
 const document = {
   getElementById: elementFor,
@@ -104,7 +115,9 @@ const document = {
     node.textContent = text;
     return node;
   },
-  querySelectorAll: () => [],
+  querySelectorAll: (selector) => selector === ".tabs button"
+    ? [elementFor("tab-mode-prompt"), elementFor("tab-mode-skill")]
+    : [],
 };
 
 function response(body, ok = true) {
@@ -204,6 +217,23 @@ async function main() {
   vm.runInContext(fs.readFileSync(process.argv[1], "utf8"), context);
   await settle();
 
+  if (scenario.kind === "tab_keyboard") {
+    const promptTab = elementFor("tab-mode-prompt");
+    for (const listener of promptTab.listeners.keydown || []) {
+      listener({key: "ArrowRight", preventDefault() {}});
+    }
+    process.stdout.write(JSON.stringify({
+      promptSelected: promptTab.getAttribute("aria-selected"),
+      promptTabIndex: promptTab.getAttribute("tabindex"),
+      skillSelected: elementFor("tab-mode-skill").getAttribute("aria-selected"),
+      skillTabIndex: elementFor("tab-mode-skill").getAttribute("tabindex"),
+      promptPanelHidden: elementFor("tab-prompt").hidden,
+      skillPanelHidden: elementFor("tab-skill").hidden,
+      focusedId: globalThis.focusedElementId || null,
+    }));
+    return;
+  }
+
   if (scenario.kind === "secret_render") {
     elementFor("skill-files").files = [
       makeFile("secrets.env", scenario.source.length,
@@ -218,6 +248,9 @@ async function main() {
       // card in #findings; there is no separate evidence-workbench
       // section any more.
       evidenceText: elementFor("findings").textContent,
+      diagnosticsOpen: elementFor("diagnostics").getAttribute("open") === "open",
+      reviewEmptyHidden: elementFor("review-empty").hidden,
+      resultHidden: elementFor("result").hidden,
       reviewFetches,
     }));
     return;
@@ -242,6 +275,8 @@ async function main() {
   await settle();
   process.stdout.write(JSON.stringify({
     errorText: elementFor("error").textContent,
+    errorHidden: elementFor("error").hidden,
+    reviewEmptyHidden: elementFor("review-empty").hidden,
     reads,
     reviewFetches,
   }));
@@ -320,6 +355,18 @@ class TestIndexAndAssets:
         # CSS/JS are same-origin.
         assert 'href="/static/app.css"' in html
         assert 'src="/static/app.js"' in html
+        # The audit surface is a workbench, not a blank result column.  Keep
+        # the initial review plan and its accessible mode-switch wiring as a
+        # stable product contract while preserving all API-bound input IDs.
+        assert 'id="review-empty"' in html
+        assert 'class="review-empty"' in html
+        assert 'id="tab-mode-prompt"' in html
+        assert 'id="tab-mode-skill"' in html
+        assert 'aria-labelledby="tab-mode-prompt"' in html
+        assert 'aria-labelledby="tab-mode-skill"' in html
+        assert 'id="skill-folder-drop"' in html
+        assert 'id="skill-zip-drop"' in html
+        assert 'id="prompt-file-drop"' in html
 
     def test_security_headers(self, client):
         r = client.get("/")
@@ -340,6 +387,9 @@ class TestIndexAndAssets:
         assert css.status_code == 200
         assert ".section:empty" in css.text
         assert "display: none" in css.text
+        assert "--chrome:" in css.text
+        assert ".review-empty" in css.text
+        assert ".intake-drop" in css.text
         js = client.get("/static/app.js")
         assert js.status_code == 200
         # Frontend must NOT USE innerHTML as an assignment target (the
@@ -350,6 +400,70 @@ class TestIndexAndAssets:
         assert "innerHTML=" not in js.text
         # And must not import from external URLs.
         assert "http://" not in js.text and "https://" not in js.text
+        assert "function setWorkspaceState" in js.text
+        assert '"ArrowRight"' in js.text
+        assert '"ArrowLeft"' in js.text
+        assert '"Home"' in js.text
+        assert '"End"' in js.text
+
+    def test_evidence_console_copy_contrast_and_breakpoints(self, client):
+        html = client.get("/").text
+        css = client.get("/static/app.css").text
+
+        # Intake is local by default, but an enabled semantic Provider
+        # receives redacted evidence and an explicitly enabled Prompt
+        # black-box run sends the Prompt itself. Skill execution is not a
+        # supported product capability until its isolation boundary is
+        # hardened.
+        assert ">本地处理<" not in html
+        assert "本地摄入" in html
+        assert "脱敏证据按 Provider 配置出站" in html
+        assert "默认留在本机；黑盒启用时原文出站" in html
+        assert "产品沙箱暂不可用" in html
+        assert "沙箱启用时隔离执行" not in html
+        assert "<span>原始输入</span><strong>保留在本机</strong>" not in html
+
+        def luminance(value):
+            channels = [int(value[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+            linear = [
+                channel / 12.92 if channel <= 0.04045
+                else ((channel + 0.055) / 1.055) ** 2.4
+                for channel in channels
+            ]
+            return sum(weight * channel for weight, channel in zip(
+                (0.2126, 0.7152, 0.0722), linear))
+
+        def contrast(a, b):
+            light, dark = sorted((luminance(a), luminance(b)), reverse=True)
+            return (light + 0.05) / (dark + 0.05)
+
+        mute = re.search(r"--ink-mute:\s*(#[0-9a-fA-F]{6})", css)
+        canvas = re.search(r"--canvas:\s*(#[0-9a-fA-F]{6})", css)
+        assert mute and canvas
+        assert contrast(mute.group(1), "#ffffff") >= 4.5
+        assert contrast(mute.group(1), canvas.group(1)) >= 4.5
+
+        tablet = re.search(
+            r"@media \(max-width: 960px\)\s*\{(.*?)(?=@media|\Z)",
+            css,
+            re.DOTALL,
+        )
+        assert tablet
+        assert re.search(
+            r"\.workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)",
+            tablet.group(1),
+            re.DOTALL,
+        )
+
+        mobile = re.search(
+            r"@media \(max-width: 640px\)\s*\{(.*?)(?=@media|\Z)",
+            css,
+            re.DOTALL,
+        )
+        assert mobile
+        assert "button" in mobile.group(1)
+        assert "a.download" in mobile.group(1)
+        assert "min-height: 2.75rem" in mobile.group(1)
 
     def test_index_exposes_findings_and_fix_workbench(self, client):
         # Original-text location is rendered inline inside each finding
@@ -389,6 +503,19 @@ class TestIndexAndAssets:
 
 
 class TestBrowserBehavior:
+    def test_mode_tabs_support_roving_keyboard_focus(self):
+        result = _run_browser_scenario({"kind": "tab_keyboard"})
+
+        assert result == {
+            "promptSelected": "false",
+            "promptTabIndex": "-1",
+            "skillSelected": "true",
+            "skillTabIndex": "0",
+            "promptPanelHidden": True,
+            "skillPanelHidden": False,
+            "focusedId": "tab-mode-skill",
+        }
+
     def test_secret_evidence_uses_redacted_preview_not_local_source(self):
         raw_secret = "VERITY_FAKE_SECRET_ABCDEFGH12345678"
         preview = "VERITY_FAKE_SECRET_********"
@@ -402,6 +529,11 @@ class TestBrowserBehavior:
         assert result["reviewFetches"] == 1
         assert preview in result["evidenceText"]
         assert raw_secret not in result["evidenceText"]
+        assert result["reviewEmptyHidden"] is True
+        assert result["resultHidden"] is False
+        # An unavailable score is a review limitation, so diagnostics must
+        # not remain silently collapsed behind a green-looking surface.
+        assert result["diagnosticsOpen"] is True
 
     @pytest.mark.parametrize(
         ("kind", "error_code"),
@@ -416,6 +548,8 @@ class TestBrowserBehavior:
         result = _run_browser_scenario({"kind": kind})
 
         assert error_code in result["errorText"]
+        assert result["errorHidden"] is False
+        assert result["reviewEmptyHidden"] is True
         assert result["reads"] == 0
         assert result["reviewFetches"] == 0
 

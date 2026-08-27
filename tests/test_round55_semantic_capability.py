@@ -61,7 +61,10 @@ def _skill_request(relative_path, finding_type):
 
 
 def test_every_semantic_type_has_a_falsifiable_judgment_policy():
-    assert len(CATALOG) == 28
+    # Round 121 added a new finding type (hidden_encoding_instruction_gap),
+    # bumping this fixed snapshot from 39 -> 40. Round 123 added another
+    # (credential_handling_claim_gap), bumping it from 40 -> 41.
+    assert len(CATALOG) == 41
     for finding_type, (definition, _extractor) in CATALOG.items():
         policy = definition.judgmentPolicy
         assert policy.appliesWhen, finding_type
@@ -201,6 +204,67 @@ def test_denied_network_behavior_does_not_match_observed_network_facts():
     assert facts
     assert all(item["metadata"]["declaredBehaviorMatch"] is False
                for item in facts)
+
+
+@pytest.mark.parametrize(
+    "description, expected_family",
+    [
+        ("该 Skill 会读取用户上传的文件并写入结果到数据库", "file_read"),
+        ("该 Skill 会读取用户上传的文件并写入结果到数据库", "file_write"),
+        ("此工具用于读取本地配置并输出写入日志文件", "file_read"),
+        ("Read the uploaded file and write a short summary.", "file_read"),
+        ("Read the uploaded file and write a short summary.", "file_write"),
+    ],
+)
+def test_declared_behavior_families_recognizes_natural_read_write_phrasing(
+        description, expected_family):
+    # Regression: file_read/file_write previously required an exact phrase
+    # ("读取文件"/"写入文件"/"read file") and missed bare verb forms that
+    # real-world manifest prose actually uses, causing a genuinely declared
+    # capability to be misclassified as undeclared.
+    from verity.semantic.catalog import _declared_behavior_families
+    declared, denied = _declared_behavior_families(description)
+    assert expected_family in declared
+    assert expected_family not in denied
+
+
+@pytest.mark.parametrize(
+    "description, expected_family",
+    [
+        ("本工具不会读取任何文件,也不会写入磁盘", "file_read"),
+        ("本工具不会读取任何文件,也不会写入磁盘", "file_write"),
+        ("This tool never reads or writes local files.", "file_read"),
+        ("This tool never reads or writes local files.", "file_write"),
+    ],
+)
+def test_declared_behavior_families_still_detects_negated_read_write(
+        description, expected_family):
+    from verity.semantic.catalog import _declared_behavior_families
+    declared, denied = _declared_behavior_families(description)
+    assert expected_family in denied
+    assert expected_family not in declared
+
+
+@pytest.mark.parametrize(
+    "description, unexpected_family",
+    [
+        ("This tool manages user credits and account balances.",
+         "file_write"),
+        ("This tool coordinates a widespread network of worker threads "
+         "that run background tasks.", "file_read"),
+    ],
+)
+def test_declared_behavior_families_does_not_false_match_unrelated_words(
+        description, unexpected_family):
+    # Regression: the bare-verb fallback added for "read "/"reads "/
+    # "edits " (see
+    # test_declared_behavior_families_recognizes_natural_read_write_phrasing
+    # above) is a plain substring match, so it also matched inside
+    # unrelated words ending in "...read "/"...reads "/"...edits " --
+    # "widespread "/"threads " for read, "credits " for edits.
+    from verity.semantic.catalog import _declared_behavior_families
+    declared, denied = _declared_behavior_families(description)
+    assert unexpected_family not in declared
 
 
 def test_narrow_bash_permission_matches_fixed_command_target():

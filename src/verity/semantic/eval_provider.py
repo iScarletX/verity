@@ -1,11 +1,19 @@
-"""Eval-only OpenAI-compatible semantic Provider.
+"""OpenAI-compatible semantic Provider adapter.
 
-This adapter exists for the versioned synthetic semantic quality protocol.  It
-is deliberately not wired into the product CLI or Web UI.  It translates the
-already-sanitised Verity generator/validator request into one bounded
-``/chat/completions`` call and returns the parsed JSON object to the existing
-SemanticOrchestrator, which still owns schema validation, identity, severity
-and Evidence containment.
+This adapter was written for the versioned synthetic semantic quality
+protocol (``generate_candidates``/``validate_candidate`` are the product-
+facing surface). Since Round 65 it is ALSO the transport the Web UI's real,
+user-configured Provider path uses (see ``web/provider_web.py``'s
+``_build_semantic_config_with_ephemeral_key_impl``): the loopback Web
+workbench builds one instance of this class per role (candidate generator,
+one or more validators) bound to whatever OpenAI-compatible base_url/api_key/
+model the local user configured, and every real semantic review runs
+through it. Its own ``review_label`` method remains eval-only (used only by
+the answer-hidden label-review comparison runner, never by the product
+orchestrator). It translates the already-sanitised Verity generator/
+validator request into one bounded ``/chat/completions`` call and returns
+the parsed JSON object to the existing SemanticOrchestrator, which still owns
+schema validation, identity, severity and Evidence containment.
 """
 from __future__ import annotations
 
@@ -240,7 +248,8 @@ class EvalRunBudget:
 
 @dataclass
 class OpenAICompatibleEvalProvider:
-    """One-role, one-call adapter used only by the research eval command."""
+    """One-role, one-call adapter. Used by the research eval/comparison
+    commands AND by the Web UI's real Provider path (see module docstring)."""
 
     config: ProviderConfig
     opener: Optional[Any] = None

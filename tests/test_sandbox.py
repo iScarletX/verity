@@ -522,9 +522,11 @@ class TestModels:
 
     def test_observation_default_truncated_shape(self):
         obs = SandboxObservation(status="completed")
-        assert set(obs.truncated) == {"fileEvents", "networkAttempts", "subprocessAttempts"}
+        assert set(obs.truncated) == {"fileEvents", "networkAttempts",
+                                       "subprocessAttempts", "sqlAttempts"}
         assert obs.argv == []
         assert obs.fileEvents == []
+        assert obs.sqlAttempts == []
 
 
 # --------------------------------------------------------------------- #

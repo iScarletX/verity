@@ -1,0 +1,3 @@
+Refund exceptions require a supervisor's written approval and must be logged in the ticket system before any payment is issued.
+
+When a user asks for a refund, follow the exception process as described above before issuing any payment.

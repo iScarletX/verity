@@ -10,11 +10,12 @@ from verity.semantic.egress import (build_generator_request,
                                     scan_payload_for_leaks)
 
 
-def test_catalog_expands_to_twenty_eight_controlled_types():
+def test_catalog_expands_to_thirty_eight_controlled_types():
     assert set(CATALOG) == {
         "semantic.prompt.instruction_conflict",
         "semantic.prompt.missing_output_contract",
         "semantic.skill.declared_behavior_mismatch",
+        "semantic.skill.manifest_description_quality_gap",
         "semantic.prompt.trust_boundary_ambiguity",
         "semantic.prompt.excessive_tool_scope",
         "semantic.skill.permission_capability_mismatch",
@@ -25,6 +26,8 @@ def test_catalog_expands_to_twenty_eight_controlled_types():
         "semantic.prompt.ambiguous_operational_criteria",
         "semantic.prompt.grounding_requirement_gap",
         "semantic.prompt.sensitive_reasoning_exposure",
+        "semantic.prompt.prose_reference_gap",
+        "semantic.prompt.embedded_sensitive_information",
         "semantic.prompt.verification_step_gap",
         "semantic.prompt.input_and_default_contract_gap",
         "semantic.prompt.example_contract_mismatch",
@@ -40,6 +43,16 @@ def test_catalog_expands_to_twenty_eight_controlled_types():
         "semantic.prompt.multi_turn_state_gap",
         "semantic.prompt.safety_policy_gap",
         "semantic.prompt.source_use_policy_gap",
+        "semantic.prompt.template_completeness_gap",
+        "semantic.skill.deserialization_trust_gap",
+        "semantic.skill.weak_crypto_sensitivity_gap",
+        "semantic.skill.sql_injection_input_trust_gap",
+        "semantic.skill.path_traversal_input_trust_gap",
+        "semantic.skill.template_injection_input_trust_gap",
+        "semantic.skill.isolation_claim_trust_gap",
+        "semantic.skill.dependency_provenance_claim_gap",
+        "semantic.prompt.hidden_encoding_instruction_gap",
+        "semantic.skill.credential_handling_claim_gap",
     }
     assert CATALOG["semantic.skill.external_instruction_trust_gap"][0].defaultSeverity == "high"
 
@@ -163,8 +176,8 @@ def test_all_semantic_types_have_confirmed_and_rejected_replays():
     assert set(by_type) == set(CATALOG)
     assert all(x == {"confirmed", "rejected"} for x in by_type.values())
     report = evaluate_semantic_replay()
-    assert report["caseCount"] == 56
-    assert report["contractCorrectCases"] == 56
+    assert report["caseCount"] == 82
+    assert report["contractCorrectCases"] == 82
     assert report["modelQualityMeasured"] is False
     assert report["stability"]["unstableCases"] == 0
 

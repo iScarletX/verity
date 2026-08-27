@@ -181,8 +181,10 @@ def build_finding_type_registry() -> FindingTypeRegistry:
             SubjectField("artifactPath", "artifact_model_path", "file.normalizedPath"),
             SubjectField("duplicateCategory", "literal_enum",
                          allowedValues=["repeated_content_line"]),
+            SubjectField("duplicateContentHash", "evidence_field",
+                         "duplicate.contentHash"),
         ],
-        subjectKeyFields=["artifactPath", "duplicateCategory"],
+        subjectKeyFields=["artifactPath", "duplicateContentHash"],
         defaultSeverity="low",
         requiredEvidenceKinds=["source_span"],
     ))

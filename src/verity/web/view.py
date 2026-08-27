@@ -5,7 +5,7 @@ Rules:
   internal object graphs (RuleMatch/Evidence chains).
 - Every string is either a controlled taxonomy value or comes from a
   redactedPreview / ruleID that the pipeline has already scrubbed.
-- Coverage-insufficient takes the highest display priority (spec §16).
+- Match the CLI gate priority: High/Critical signals outrank incomplete checks.
 """
 
 from __future__ import annotations
@@ -14,9 +14,10 @@ from typing import Any, Dict, List
 
 from ..findings_view import completed_findings, source_layer
 from ..guidance import lookup as _lookup_guidance, next_steps_summary
+from ..issues import controlled_runtime_occurrence_severities
 
 
-# The four top-level headlines the UI shows. Coverage insufficient wins.
+# Controlled top-level headlines shown by the UI.
 _HEADLINES = {
     "semantic_block": {
         "code": "semantic_block",
@@ -28,6 +29,24 @@ _HEADLINES = {
         "code": "coverage_block",
         "title": "检查不完整，暂不能下结论",
         "detail": "部分关键检查未完成或未执行，无法给出安全结论。请查看下方“未完成的检查”并按提示补齐后重试。",
+        "tone": "warning",
+    },
+    "agent_runtime_block": {
+        "code": "agent_runtime_block",
+        "title": "Agent 运行时检查未完成，暂不能下结论",
+        "detail": "本次显式请求的 Agent 运行时检查失败或未完整完成。静态结果仍然有效，请检查运行时配置后重试。",
+        "tone": "warning",
+    },
+    "prompt_blackbox_block": {
+        "code": "prompt_blackbox_block",
+        "title": "Prompt 黑盒检查未完成，暂不能下结论",
+        "detail": "本次显式请求的 Prompt 黑盒检查失败或未完整完成。已完成的静态结果仍然有效，请检查 Provider 与场景状态后重试。",
+        "tone": "warning",
+    },
+    "skill_sandbox_block": {
+        "code": "skill_sandbox_block",
+        "title": "Skill 沙箱检查未完成，暂不能下结论",
+        "detail": "本次显式请求的 Skill 沙箱检查失败、不可用或未完整完成。已完成的静态结果仍然有效，请查看隔离能力状态。",
         "tone": "warning",
     },
     "findings_block_skill_high": {
@@ -69,10 +88,70 @@ _HEADLINES = {
 }
 
 
+_SEMANTIC_REASON_HINTS = {
+    "credential_missing": "未检测到已保存的 Provider API Key（或 Key 未生效）。请在下方“语意检查设置”中重新输入并保存后再试。",
+    "provider_timeout": "调用模型 Provider 超时。请检查网络连通性或稍后重试。",
+    "network_error": "调用模型 Provider 时网络请求失败。请检查网络连通性或 Base URL 配置。",
+    "http_error": "模型 Provider 返回了错误状态码（例如鉴权失败或模型名不存在）。请检查 API Key 与模型名配置。",
+    "redirect_refused": "模型 Provider 返回了重定向，出于安全考虑已被拒绝。请检查 Base URL 配置是否正确。",
+    "request_too_large": "发给模型 Provider 的请求超出大小限制。",
+    "response_too_large": "模型 Provider 返回内容超出大小限制。",
+    "invalid_json": "模型 Provider 返回的内容不是合法 JSON，可能是模型输出格式异常。",
+    "invalid_json_shape": "模型 Provider 返回的 JSON 结构不符合预期，可能是模型输出格式异常。",
+    "provider_role_mismatch": "配置的模型角色（生成/验证）与实际返回不一致。",
+    "budget_generation_exhausted": "本次语意检查的调用预算已用尽（候选生成阶段）。",
+    "budget_candidates_total_exhausted": "本次语意检查的调用预算已用尽（候选总量上限）。",
+    "run_budget_exhausted": "本次语意检查的整体调用预算已用尽。",
+    "catalog_candidate_hint_invalid": "内置候选提示数据异常，这是程序内部问题，请反馈给维护者。",
+    "generator_output_schema_violation": "模型生成结果不符合预期结构，可能是模型输出格式异常。",
+    "catalog_sweep_output_violation": "模型候选扫描结果不符合预期结构，可能是模型输出格式异常。",
+}
+
+
+def _semantic_block_headline(review_dict: Dict[str, Any]) -> Dict[str, str]:
+    """Fill in the actual reasonCode so a Provider failure is self-diagnosing.
+
+    The base ``semantic_block`` headline text alone reads as "something went
+    wrong" with no next action. Most failures here are Provider/credential
+    misconfiguration (see ``_SEMANTIC_REASON_HINTS``), not a code bug -- the
+    reasonCode plus a plain-language hint lets the reader fix it themselves
+    without needing to ask why the run "fails at the very end": semantic
+    validation runs as its own sub-pipeline after the deterministic rules on
+    purpose (it can reuse their evidence as seeds), so its own failure is
+    only known once that sub-pipeline itself finishes or gives up.
+    """
+    base = dict(_HEADLINES["semantic_block"])
+    sem = review_dict.get("semantic") or {}
+    reason_code = sem.get("reasonCode")
+    if reason_code:
+        hint = _SEMANTIC_REASON_HINTS.get(reason_code, "")
+        base["detail"] = (
+            f"{base['detail']}\n失败原因（reasonCode）：{reason_code}。{hint}"
+        ).strip()
+    return base
+
+
+def _runtime_occurrence_severities(
+        review_dict: Dict[str, Any]) -> List[str]:
+    """Project controlled severities for all dynamic runtime layers."""
+    return controlled_runtime_occurrence_severities(review_dict)
+
+
 def headline_for(review_dict: Dict[str, Any]) -> Dict[str, str]:
     verdict = review_dict.get("verdict") or {}
     coverage = verdict.get("coverage") or "unknown"
     engine = review_dict.get("engine")
+    subject = verdict.get("subject") or {}
+    outcome = subject.get("outcome") or ""
+    all_findings, _ = completed_findings(review_dict)
+    runtime_severities = _runtime_occurrence_severities(review_dict)
+    has_high = any(
+        f["severity"] in ("high", "critical") for f in all_findings
+    ) or any(level in ("high", "critical") for level in runtime_severities)
+    if engine == "skill" and (has_high or outcome == "do_not_install"):
+        return _HEADLINES["findings_block_skill_high"]
+    if engine == "prompt" and has_high:
+        return _HEADLINES["findings_block_prompt_high"]
     # Use the RAW semantic status here, not capabilities.semantic.status --
     # the latter deliberately collapses provider_not_configured into
     # "failed" so the CLI's exit-code ladder treats "never configured" and
@@ -84,24 +163,39 @@ def headline_for(review_dict: Dict[str, Any]) -> Dict[str, str]:
     # budget mid-run is worth its own warning headline.
     semantic_status = ((review_dict.get("semantic") or {}).get("status"))
     if semantic_status in ("failed", "budget_exhausted"):
-        return _HEADLINES["semantic_block"]
+        return _semantic_block_headline(review_dict)
     if coverage != "sufficient":
         return _HEADLINES["coverage_block"]
-    subject = verdict.get("subject") or {}
-    outcome = subject.get("outcome") or ""
-    all_findings, _ = completed_findings(review_dict)
-    has_high = any(
-        f["severity"] in ("high", "critical") for f in all_findings
-    )
     if engine == "skill":
-        if has_high or outcome == "do_not_install":
-            return _HEADLINES["findings_block_skill_high"]
+        if (
+            "skill_sandbox_requested_but_incomplete"
+            in (verdict.get("reasonCodes") or [])
+            or ((review_dict.get("capabilities") or {}).get(
+                "skillSandbox") or {}).get("status") == "failed"
+        ):
+            return _HEADLINES["skill_sandbox_block"]
+        runtime_capability = (
+            (review_dict.get("capabilities") or {}).get(
+                "agentInstructionRuntime"
+            ) or {}
+        )
+        if (
+            "agent_runtime_requested_but_incomplete"
+            in (verdict.get("reasonCodes") or [])
+            or runtime_capability.get("status") == "failed"
+        ):
+            return _HEADLINES["agent_runtime_block"]
         if outcome == "review_required":
             return _HEADLINES["review_required_skill"]
         return _HEADLINES["pass_skill"]
     # prompt
-    if has_high:
-        return _HEADLINES["findings_block_prompt_high"]
+    if (
+        "prompt_blackbox_requested_but_incomplete"
+        in (verdict.get("reasonCodes") or [])
+        or ((review_dict.get("capabilities") or {}).get(
+            "promptBlackbox") or {}).get("status") == "failed"
+    ):
+        return _HEADLINES["prompt_blackbox_block"]
     if outcome == "needs_revision":
         return _HEADLINES["needs_revision_prompt"]
     return _HEADLINES["pass_prompt"]
@@ -135,6 +229,7 @@ def _finding_view(f: Dict[str, Any], ev_by_id: Dict[str, Dict[str, Any]]) -> Dic
         "type": f["findingType"],
         "severity": f["severity"],
         "claim": f.get("claim", ""),
+        "subjectKey": f.get("subjectKey", ""),
         "originKind": origin.get("kind", ""),
         "sourceLayer": source_layer(f),
         "artifactPath": subject.get("artifactPath", ""),
@@ -220,15 +315,80 @@ def _findings_display(findings: List[Dict[str, Any]],
                 "originTag": _ORIGIN_TAGS.get(origin_kind, origin_kind),
                 "notScored": True,
             })
-    return display
+    return _merge_same_subject(display)
+
+
+def _merge_same_subject(display: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Collapse same-rule hits on the same subject into one display card.
+
+    The same underlying issue matched at several source locations produces
+    one Finding per occurrence upstream (by design -- score, SARIF, and
+    history all key off that). For the reader-facing list this reads as
+    duplicated cards, so group by (findingType, subjectKey, notScored) --
+    keeping deterministic and not-scored-semantic findings from ever mixing
+    -- and union their evidence lists so every hit location still shows up
+    under the one merged card.
+    """
+    groups: Dict[Any, Dict[str, Any]] = {}
+    for f in display:
+        key = (f.get("type"), f.get("subjectKey"), f.get("notScored"))
+        merged = groups.get(key)
+        if merged is None:
+            merged = dict(f)
+            merged["evidences"] = list(f.get("evidences") or [])
+            merged["hitCount"] = 1
+            groups[key] = merged
+        else:
+            merged["evidences"] = merged["evidences"] + list(f.get("evidences") or [])
+            merged["hitCount"] += 1
+    return list(groups.values())
+
+
+def _merge_remediations(remediations: List[Dict[str, Any]],
+                         subject_key_by_finding_id: Dict[str, Any]
+                         ) -> List[Dict[str, Any]]:
+    """Collapse one-per-occurrence remediations into one checklist entry.
+
+    ``build_remediations`` (scoring.py) emits one remediation per scored
+    Finding -- the same one-Finding-per-occurrence granularity the findings
+    list has, and for the same reason (score/history key off individual
+    occurrences). Group by (findingType, subjectKey), the identity scoring
+    itself already uses for diminishing-weight duplicates, and union
+    evidenceIds/findingIds so the fix-workbench shows one action item per
+    underlying issue instead of one per hit location.
+    """
+    groups: Dict[Any, Dict[str, Any]] = {}
+    for r in remediations:
+        key = (r.get("findingType"),
+               subject_key_by_finding_id.get(r.get("findingId")))
+        merged = groups.get(key)
+        if merged is None:
+            merged = dict(r)
+            merged["evidenceIds"] = list(r.get("evidenceIds") or [])
+            merged["findingIds"] = [r.get("findingId")]
+            merged["hitCount"] = 1
+            merged["subjectKey"] = key[1]
+            groups[key] = merged
+        else:
+            merged["evidenceIds"] = merged["evidenceIds"] + [
+                e for e in (r.get("evidenceIds") or [])
+                if e not in merged["evidenceIds"]]
+            merged["findingIds"].append(r.get("findingId"))
+            merged["hitCount"] += 1
+    return list(groups.values())
 
 
 def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, Any]:
     all_findings, ev_by_id = completed_findings(review_dict)
+    subject_key_by_finding_id = {
+        f["findingId"]: f.get("subjectKey") for f in all_findings
+    }
     findings = [_finding_view(f, ev_by_id) for f in all_findings]
     counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     for f in findings:
         counts[f["severity"]] = counts.get(f["severity"], 0) + 1
+    for severity in _runtime_occurrence_severities(review_dict):
+        counts[severity] = counts.get(severity, 0) + 1
     verdict = review_dict.get("verdict") or {}
     coverage = verdict.get("coverage") or "unknown"
     coverage_reason_codes = review_dict.get("coverage", {}).get("reasonCodes") or []
@@ -318,6 +478,46 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
         }
     confidence = review_dict.get("reviewConfidence") or {}
     remediations = review_dict.get("remediations") or []
+    issues_view = [
+        {
+            "issueId": item.get("issueId"),
+            "riskId": item.get("riskId"),
+            "title": item.get("title"),
+            "status": item.get("status"),
+            "severity": item.get("severity"),
+            "sourceLayers": item.get("sourceLayers") or [],
+            "detectorIds": item.get("detectorIds") or [],
+            "occurrenceCount": len(item.get("occurrences") or []),
+            "occurrences": item.get("occurrences") or [],
+            "runtimeChecks": item.get("runtimeChecks") or [],
+            "remediationIds": item.get("remediationIds") or [],
+        }
+        for item in review_dict.get("issues") or []
+    ]
+    raw_dynamic_plan = review_dict.get("dynamicPlan") or {}
+    dynamic_items = []
+    dynamic_counts = {
+        "selected": 0, "not_applicable": 0, "unavailable": 0,
+    }
+    for item in raw_dynamic_plan.get("items") or []:
+        status = item.get("status") or "not_applicable"
+        dynamic_counts[status] = dynamic_counts.get(status, 0) + 1
+        dynamic_items.append({
+            "checkId": item.get("check_id"),
+            "stage": item.get("stage"),
+            "status": status,
+            "mode": item.get("mode"),
+            "reasonCodes": item.get("reason_codes") or [],
+            "supportingFactIds": item.get("supporting_fact_ids") or [],
+            "riskIds": item.get("risk_ids") or [],
+            "scenarioId": item.get("scenario_id"),
+        })
+    dynamic_plan_view = {
+        "policy": raw_dynamic_plan.get("policy") or "artifact_aware",
+        "schemaVersion": raw_dynamic_plan.get("schema_version"),
+        "counts": dynamic_counts,
+        "items": dynamic_items,
+    }
     return {
         "reviewId": review_id,
         "engine": review_dict.get("engine"),
@@ -353,13 +553,18 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
         "remediations": [
             {"remediationId": x.get("remediationId"),
              "findingId": x.get("findingId"), "severity": x.get("severity"),
+             "findingType": x.get("findingType"),
+             "subjectKey": x.get("subjectKey"),
              "riskIds": x.get("riskIds") or [], "priority": x.get("priority"),
              "title": x.get("title"), "actions": x.get("actions") or [],
              "verificationChecks": x.get("verificationChecks") or [],
-             "applyMode": x.get("applyMode")}
-            for x in remediations
+             "applyMode": x.get("applyMode"), "hitCount": x.get("hitCount", 1)}
+            for x in _merge_remediations(remediations, subject_key_by_finding_id)
         ],
         "nextSteps": next_steps,
+        "issues": issues_view,
+        "behaviorProfile": review_dict.get("behaviorProfile") or {},
+        "dynamicPlan": dynamic_plan_view,
         "findings": findings,
         "findingsDisplay": _findings_display(findings, semantic_view),
         "blocked": _blocked_view(review_dict),
@@ -375,11 +580,21 @@ def build_view_model(review_dict: Dict[str, Any], review_id: str) -> Dict[str, A
             "sarif": f"/api/report/{review_id}/report.sarif",
         },
         "scopeNote": (
-            "本地静态检查 V1：不执行 Skill、不安装依赖、不联网。"
-            "Prompt 黑盒（V1.5）与 Skill 隔离沙箱（V2）尚未启用。"
+            "本地静态检查 V1：默认不执行 Skill、不安装依赖、不联网。"
+            "Prompt 黑盒（V1.5）只有在显式配置并确认后才会联网。"
+            "Skill 执行沙箱（V2）在产品路径暂不可用；任何显式请求都会"
+            "以 sandbox_isolation_hardening_required 失败关闭且不会执行 Skill。"
         ),
         "capabilities": capabilities,
         "semantic": semantic_view,
+        # Controlled public promptBlackbox/skillSandbox projections. Raw
+        # Provider/runtime payloads have already been removed by report.py.
+        # Present ONLY when the caller actually supplied a blackbox_config /
+        # sandbox_config for this run (see ReviewInputs) -- absent (None)
+        # for every ordinary review, which is what lets the front-end decide
+        # whether to render a detail block at all.
+        "promptBlackbox": review_dict.get("promptBlackbox"),
+        "skillSandbox": review_dict.get("skillSandbox"),
     }
 
 

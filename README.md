@@ -11,7 +11,7 @@
 > auditor at `release_candidate`.
 >
 > **V1 deterministic static auditor — release decision: `release_candidate`
-> (engineering preview).** Closure policy v2.0.0 scopes the release to the
+> (engineering preview).** Closure policy v2.1.0 scopes the release to the
 > deterministic static auditor (rules + Bandit + gitleaks + JSON/HTML/SARIF +
 > Web/CLI + explainable score/coverage), whose engineering acceptance is green
 > and reproducible. This is an honest engineering preview: it does **not** claim
@@ -37,14 +37,17 @@
 > Provider is configured** (Evidence →
 > one independent candidate-sweep call per applicable Finding Type →
 > multi-Provider Validator vote → CandidateAssessment → semantic Finding)
-> with twenty-eight controlled semantic Finding Types, per-type judgment policy,
+> with forty-one controlled semantic Finding Types, per-type judgment policy,
 > structured bounded evidence, an independent full-prompt recall pass per
 > registered Finding Type/subject, fixed contract replays, and an
 > optional bounded JSON-over-HTTPS Provider adapter, plus a deterministic
 > explainable safety score / separate review-confidence grade / controlled
 > remediation-and-re-review projection.
-> Read-only V1. **Not** a sandbox, **not** a runtime evaluator. Semantic
-> calls occur only with trusted caller configuration and can be skipped
+> The default V1 path remains read-only. Optional V1.5 model probes run only
+> after explicit trusted opt-in. The V2 Skill-execution product path currently
+> fails closed as unavailable while its host-read, output, disk, process-tree,
+> and report-projection boundaries are hardened. Semantic and dynamic calls
+> occur only with trusted caller configuration and can be skipped
 > entirely (`--no-semantic`); running without complete configuration
 > honestly returns `provider_not_configured` rather than failing the run.
 
@@ -68,28 +71,37 @@ Verity grows through these layers:
 |---|---|---|
 | **V1** (this repo) | Deterministic static checks (release scope) + a separate experimental controlled semantic review | **Deterministic static auditor: `release_candidate` engineering preview (no evaluated-accuracy claim). Semantic review: experimental, attempted by default when configured, `experimental_not_ready`, not in the release gate.** |
 | **Local model layer** | Optional, offline, deterministic specialist-classifier adapter for semantic judgments static rules can't make (topic coherence, role-boundary ambiguity). Gitleaks-style degradable; distinct from the failed generic-LLM-judge line. | **On roadmap.** Needs founder go-ahead before installing heavy deps / downloading weights. |
-| **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) — the mission's *dynamic* checking | **Not yet implemented.** Foundations (standards, corpus, static/semantic breadth) come first. |
-| **V2** | Isolated, one-shot Skill sandbox with fake filesystem, fake credentials, controlled network — observing process/file/network/exfiltration behaviour of the Skill — the mission's *execution-process* checking | **Not yet implemented.** |
+| **V1.5** | Black-box Prompt evaluation (run prompts against a model, score outputs) — the mission's *dynamic* checking | **Implemented as an explicit, off-by-default opt-in.** The default `artifact_aware` policy derives a behavior profile, runs only relevant built-ins, and adds fixed director/storyboard and art-style contract scenarios. `all` preserves the historical 26-scenario research mode; explicit ids remain reproducible. |
+| **V2** | One-shot executable-Skill observation research with synthetic inputs | **Product execution is unavailable pending isolation hardening.** The earlier research runner and its 12 signal definitions remain test material, but supported Review/CLI/Web paths fail closed and do not execute a Skill. Host-read scope, bounded output/disk/process trees, observer integrity, cleanup, and controlled report projection must all be proven before re-enabling it. |
+| **Agent-instruction runtime** | Instruction-only Harness simulation through external DSH, distinct from executable-Skill sandboxing | **Implemented as an experimental, CLI-only, caller-enabled stage that is OFF by default.** With trusted complete configuration, `agent_instruction.runtime` is selected; without it the planner reports `unavailable:agent_runtime_not_configured`. Four signals record attempted synthetic read, blocked network, blocked shell, and canary-bearing blocked HTTP arguments—never host effects. |
 | **Embeddable service** | Callable by other agents in real time, under the same isolation + honest-coverage rules | **On roadmap.** |
 
 ### Detection breadth is not execution status
 
 `static: completed` in a report means the checks planned for that review
 executed. It does **not** mean Verity detects every static risk. Likewise, a
-future `semantic: completed` means the controlled semantic stage ran, not that
+`semantic: completed` means the controlled semantic stage ran, not that
 semantic coverage is complete.
+
+Dynamic review is artifact-aware rather than an indiscriminate attack suite.
+Every check records `selected`, `not_applicable`, or `unavailable` with reason
+codes and cited profile facts. Reports group static, semantic and runtime
+evidence by stable risk id while retaining every occurrence. A dynamic pass
+never removes a static Finding; it is shown as `not_reproduced` for that bounded
+run. Art-style visual fidelity remains unavailable until an image-runtime
+adapter exists—text-model output is not presented as visual proof.
 
 The machine-readable [`standards/`](standards/README.md) baseline separates
 these axes. It records 46 unified risks and rates current breadth only as
 `none`, `signal`, or `partial`. Current L0 breadth is 19 none / 18 signal / 9
-partial, and current L1 breadth is 16 none / 29 signal / 1 partial:
-twenty-eight semantic Finding Types do not make semantic review complete. The versioned
+partial, and current L1 breadth is 2 none / 43 signal / 1 partial:
+forty-one semantic Finding Types do not make semantic review complete. The versioned
 [`evals/`](evals/README.md) corpus reproduces per-risk L0 confusion matrices
-and 56 fixed semantic pipeline contract
+and 82 fixed semantic pipeline contract
 replays. The frozen 42-case protocol v2 remains historical evidence for the
 original seven types; its consumed Selection is not rerun or retuned. A fresh
-112-case protocol v3 supplies answer-hidden Verity/Butler packets and an
-absolute-plus-relative comparison gate across all twenty-eight types. Its labels
+152-case protocol v3 supplies answer-hidden Verity/Butler packets and an
+absolute-plus-relative comparison gate across all thirty-eight types. Its labels
 are still `provisional_single_review`, and no paired system observations have
 been accepted, so it cannot yet support a superiority claim. A read-only
 Butler adapter is available for that future run; it fingerprints Butler's
@@ -111,8 +123,15 @@ production accuracy evidence. The gated sequence is:
 ```text
 standards/taxonomy → corpus/metrics → static breadth → semantic breadth
 → fresh blind Verity/Butler semantic comparison → explainable score/remediation
-→ Prompt black-box → isolated Skill sandbox
+→ Prompt black-box → Skill sandbox (currently unavailable) → Agent-instruction Harness
 ```
+
+The current detector map contains 156 runtime components: 63 deterministic
+rules + 1 capability extractor + 41 semantic Finding Types + 35 black-box
+scenarios + 12 sandbox signals + 4 Agent-runtime attempt signals. The fifth
+`V2_agent_runtime` breadth layer is 42 `none` / 4 `signal` / 0 `partial` /
+0 `substantial` / 0 `evaluated`; these attempt signals are not proof of host
+effects or broad safety.
 
 ### Score is not a safety guarantee
 
@@ -122,18 +141,22 @@ deduction is traceable to a unified risk id and Finding. `100` means only “no
 deduction in checks that actually completed”, never “100% safe”. Missing or
 failed critical checks produce **no numeric score**. A separate A–D review
 confidence grade lists semantic/profile/breadth/runtime limitations; A is not
-currently reachable because V1.5/V2 and evaluated breadth are absent.
+currently reachable because V1.5/V2 are off by default (opt-in only) and
+their signal-level breadth, along with the semantic layer's, is not yet
+`evaluated`.
 Remediation is proposal-only and must pass a same-scope re-review. Advisory
 `accept_risk`/`false_positive` dispositions never rewrite severity or raw score.
 
-**V1 is strictly read-only.** It does NOT execute the skill under review,
+**The default V1 path is strictly read-only.** It does NOT execute the skill under review,
 install its dependencies, start unknown services, call into review-target
 code, or recursively expand unknown nested archives. External semantic
 Provider calls are attempted by default whenever trusted endpoint/model/
 credential configuration is present, still gated on a non-`off` egress
 policy and schema/payload/budget gates; without configuration the run
 honestly reports `provider_not_configured`, and `--no-semantic` skips
-semantic review entirely. ZIP and GitHub intake remain later gates.
+semantic review entirely. Only the explicit V1.5/V2 opt-ins relax the
+model-call or Skill-execution boundary, using trusted configuration and isolated
+adapters. GitHub intake remains a later gate.
 
 **Scope invariants (from `01-Verity工程规格-v0.3.md`):**
 
@@ -174,7 +197,7 @@ report infrastructure but have separate rule registries. See
 - `gitleaks_runner.py` — Controlled subprocess adapter for gitleaks (MIT, external binary, pinned 8.28.0). No shell, controlled env, JSON-file report, version + optional SHA-256 gate, tmpdir staging, user config confinement, all raw Secret / Match / Line values scrubbed at parse time.
 - `gitleaks_adapter.py` — Redacted gitleaks results -> secret-sensitivity Evidence (§5.1 secret path). `redactedPreview = "[gitleaks:<ruleId>]"`; the raw secret never enters `occurrenceFingerprint`, subjectKey, JSON, HTML, SARIF or exceptions.
 - `sarif.py` — SARIF 2.1.0 exporter with byte-offset regions, stable partialFingerprints, no secret leakage. Coverage and other Verity-specific fields live in the run's properties bag under flat, namespaced keys (`run.properties["verity.coverage"]`, `run.properties["verity.reviewId"]`, `run.properties["verity.verdict.subject"]`, etc.) — not as a nested `run.properties.coverage` object.
-- `web/` — Local Web MVP (Starlette ASGI app). `python -m verity.web` binds `127.0.0.1` only. UI is Chinese-first, no external assets, no `innerHTML`, strict CSP. Every request routes into the same `run_review` pipeline.
+- `web/` — Local Evidence Console (Starlette ASGI app). `python -m verity.web` binds `127.0.0.1` only. The Chinese-first forensic workbench uses a graphite command bar, local-intake rail, evidence canvas, and responsive single-column layout; it has no external assets or `innerHTML`, keeps a strict CSP, and routes every request into the same `run_review` pipeline.
 - `semantic/` — Experimental semantic-review scaffold, attempted by default when configured. Two-role Provider protocol (candidate generator + validator, validator optionally multi-Provider for majority voting), strict output schemas, controlled subject taxonomy, egress gate + payload audit, budgets. The deterministic engine never imports this module.
 - `intake.py` — Safe intake (text + local directory) with path escape / symlink / budget / NUL guards
 - `review.py` — Orchestrator; `not_applicable` gate counts as OK for coverage.
@@ -184,7 +207,7 @@ report infrastructure but have separate rule registries. See
 - `schema.py` — JSON Schema (Draft 2020-12) for the core objects
 - `cli.py` — CLI entry point
 
-## Web MVP for non-technical users
+## Web Evidence Console for non-technical users
 
 ### 小白 3 步开始
 
@@ -231,6 +254,17 @@ Open `http://127.0.0.1:8765/` in a browser. Two tabs:
   `<input type="file" webkitdirectory>`); Web always runs the
   gitleaks-enabled `standard` profile and does not offer `minimal`.
 
+Before a run, the evidence canvas shows the planned static, semantic, runtime,
+and decision stages instead of an empty result column. The intake boundary is
+stated precisely: static/default intake stays local; an enabled semantic
+Provider may receive the configured redacted-evidence projection; and an
+explicitly confirmed Prompt black-box run sends the Prompt itself to its chosen
+Provider. Skill execution is unavailable on supported product paths while the
+V2 isolation boundary is hardened; a request fails closed without constructing
+the research runner. Above 960px the intake rail and evidence canvas share the workspace;
+narrower viewports use one column, and interactive controls keep a minimum
+44px touch target at phone widths.
+
 The result page shows, in this order:
 
 1. Plain-language headline verdict.
@@ -263,9 +297,11 @@ Security properties of the Web MVP:
   `..`, backslashes, NUL, drive letters, empty segments.
 - Reports live in an in-process, size- and TTL-bounded LRU store with
   128-bit random IDs. Restarting the server invalidates every URL.
-- No subprocess use inside the Web layer itself; skill execution
-  never happens. The Skill Auditor's Bandit / gitleaks analyzers still
-  run as subprocesses — those were audited in rounds 4 and 5.
+- The Web routing layer does not spawn subprocesses directly. Skill execution
+  through the V2 sandbox is currently unavailable: even a forged opt-in request
+  fails closed before the research runner is imported or constructed. The Skill
+  Auditor's Bandit / gitleaks analyzers still run as subprocesses — those were
+  audited in rounds 4 and 5.
 - To stop the server, press `Ctrl+C` in the terminal that started it.
 
 Exit codes / gate semantics are the same as the CLI; the UI headline
@@ -339,7 +375,9 @@ PYTHONPATH=src python3 -m pytest -q
 ```
 
 Both dependency locks are committed and their licenses are documented
-in `THIRD_PARTY_LICENSES.md`. No network calls at runtime.
+in `THIRD_PARTY_LICENSES.md`. The default deterministic path makes no
+Provider call. Explicit semantic, black-box, and Agent-runtime Provider
+configuration creates the network boundaries documented below.
 
 ## Skill rule inventory (round 3)
 
@@ -386,7 +424,7 @@ Honest OWASP AST10 status (shown in every skill report as a matrix):
 | AST03 excessive authorisation | partial | Permission wildcard only. |
 | AST04 insecure metadata | partial | Versioned Agent Skills field/shape validation, unsafe reference paths, suffix mismatch and parse failure. Broader body/reference semantics remain partial. |
 | AST05 untrusted external instructions | partial | Strict-mode `fetch_and_follow` URLs only. |
-| AST06 weak isolation | partial | Text-level detection of literal references to well-known sensitive host paths (SSH keys, cloud credentials, shell history, system password files). Cannot prove actual runtime access/exfiltration — that requires V2 sandbox observation, not yet implemented. |
+| AST06 weak isolation | partial | Text-level detection of literal references to well-known sensitive host paths (SSH keys, cloud credentials, shell history, system password files). This static, default-path detection cannot prove actual runtime access/exfiltration on its own. The earlier V2 research runner defined runtime signals, but supported product execution now fails closed as unavailable pending isolation hardening; those historical signal mappings are not merged into this breadth rating or claimed as evaluated coverage. |
 | AST07 update drift / integrity | partial | Unpinned dep also maps here (versioning drift). |
 | AST08 insufficient scanning | none | Meta-observation, requires product runtime not present in V1. |
 | AST09 lack of governance | partial | Trusted history, coverage-aware diff and expiring dispositions exist; corpus-backed measurements and broader governance controls remain absent. |
@@ -487,6 +525,56 @@ python3 -m verity.cli review --engine skill --profile minimal \
   --input-dir tests/fixtures/clean-skill --out /tmp/verity_out/min
 ```
 
+### Agent-instruction Harness (CLI-only; OFF by default)
+
+This experimental fifth stage is separate from executable-Skill sandboxing.
+It has no Web enable surface and runs only for `--engine skill` after a trusted
+caller supplies `--enable-agent-runtime`, absolute Node and DSH JavaScript
+entry paths, SHA-256 pins for both, Provider URL/model, and an API-key
+environment-variable name. The CLI accepts only an API-key
+environment-variable name, never the key value. Optional flags select the
+exact DSH version (only `0.1.1-rc.2` is accepted), repeat bounded scenario ids,
+and set the bounded timeout:
+
+```text
+--enable-agent-runtime
+--agent-runtime-node-path PATH --agent-runtime-node-sha256 SHA256
+--agent-runtime-dsh-path PATH --agent-runtime-dsh-sha256 SHA256
+--agent-runtime-version 0.1.1-rc.2
+--agent-runtime-base-url HTTPS_URL --agent-runtime-model MODEL
+--agent-runtime-api-key-env ENV_NAME
+--agent-runtime-scenario-id ID --agent-runtime-timeout SECONDS
+```
+
+The reviewed Skill cannot set those values, scenarios, budgets, plugin, tools,
+permissions, or temporary roots. When enabled, its instructions and the
+scenario prompt cross real Provider network egress. The four model-facing
+actions are synthetic/no-side-effect tools: an in-memory synthetic read,
+blocked HTTP, blocked shell, and denied approval; they perform no host read,
+HTTP action, subprocess, or approval effect. Reports retain only controlled
+enums, counts, digests, classifications, and a credential-marker boolean, not
+raw model responses, tool arguments, canaries, credentials, host paths, or raw
+temporary streams/traces.
+
+Each scenario uses a disposable process and roots, bounded output/trace, a
+clean allowlisted environment, and process-group cleanup.
+Harness is not an OS, process, or network security sandbox. A descendant that successfully calls
+`setsid()` can escape same-session cleanup. The two entry-file SHA-256 pins
+authenticate only those two entry files, not the adjacent npm dependency
+closure. Pin verification streams each entry into an owner-only private
+temporary byte snapshot while hashing, and version/scenario launches execute
+those snapshots instead of the configured paths. The private DSH capsule links
+the adjacent, still-unpinned package closure only to preserve Node module
+resolution; it does not authenticate that closure. The trace writer records at
+most two Skill-loader result markers: exactly one successful marker is required,
+while a second marker makes the run fail closed without allowing repeated
+loader results to grow the trace. Stronger containment requires an outer container or microVM,
+destination-allowlisted egress, and fuller dependency/image pinning. No real
+Provider/model/scenario E2E was run in this round; evidence is deterministic
+fake-runner coverage plus a real installed DSH offline dump-config/plugin-load
+composition smoke. A clean completed run is not a safety proof. It is not a
+universal pass, cross-Agent claim, or evaluated-accuracy result.
+
 ### CLI exit codes and gate marker
 
 Every `review` run prints a `gate=...` marker on stdout and returns one
@@ -494,9 +582,9 @@ of the following exit codes. **Coverage-insufficient runs never exit 0.**
 
 | Exit | `gate=` marker | Meaning |
 |---:|---|---|
-| 0 | `pass` | Coverage sufficient AND no High/Critical findings. Medium/Low findings do NOT block by design; use downstream tooling for stricter gates. |
-| 1 | `findings_block` | At least one High/Critical Finding is present. Wins over the coverage gate: if both are triggered the exit code is 1. |
-| 3 | `coverage_block` | Coverage insufficient, or an explicitly requested semantic review did not complete, AND no High/Critical Finding. Chosen instead of 2 so it does not collide with argparse's usage-error exit 2. |
+| 0 | `pass` | Coverage sufficient AND no High/Critical findings. A medium network-only Agent-runtime signal is non-blocking when every other gate passes. Medium/Low findings do NOT block by design; use downstream tooling for stricter gates. |
+| 1 | `findings_block` | At least one High/Critical Finding, including a High/Critical Agent-runtime occurrence, is present. Static High retains priority and this wins over the coverage gate. |
+| 3 | `coverage_block` | Coverage insufficient, an explicitly requested semantic review did not complete, or a requested Agent runtime is incomplete/failed, AND no High/Critical result exists. Chosen instead of 2 so it does not collide with argparse's usage-error exit 2. |
 | 2 | (argparse) | Reserved by argparse for CLI usage errors (POSIX convention). |
 
 Recorded exit codes with gitleaks 8.28.0 installed via
@@ -740,8 +828,17 @@ passed the frozen protocol quality gate.
   rule is only a limited deterministic fallback.
 - SARIF is produced and repository CI runs `verify_repo.py`; automatic
   upload to GitHub Code Scanning is still the user's responsibility.
-- V1.5 Prompt black-box evaluation and V2 Skill sandbox execution remain
-  explicitly not implemented.
+- V1.5 Prompt black-box evaluation is implemented as a strict opt-in. Public
+  reports retain only controlled outcomes, counts, lengths, and digests—never
+  probe text or raw Provider responses. V2 Skill sandbox product execution is
+  unavailable pending hardening; Review/CLI/Web requests fail closed before
+  constructing the research runner. Its historical signal set is narrow and
+  is not an isolation or evaluated-coverage claim.
+- The CLI-only Agent-instruction Harness is also experimental and OFF by
+  default. It has no Web surface, no real-model E2E evidence from this round,
+  only four attempt signals, the dependency/process/egress residuals above,
+  and no host/network-sandbox or evaluated-accuracy claim. Image-rendered
+  visual-fidelity checking remains unavailable.
 
 ### verdict.subject on insufficient coverage
 

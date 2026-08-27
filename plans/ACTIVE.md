@@ -1,182 +1,114 @@
-# Active implementation: semantic breadth and Butler superiority gate
+# Active implementation: artifact-aware dynamic audit + Agent Harness + Evidence Console
 
-Status: **Round 67 complete: semantic review attempted by default (Provider
-still required), per-Finding-Type independent sweep calls, multi-Provider
-Validator majority voting, 2 more OSS ports, paraphrase-coverage probe tool.
-Remote v6 and dynamic execution not started.**
-Owner authorization: 2026-07-23
+Status: **implementation complete; release gate passed**. The controller
+measured `4150/4150` passing tests for the combined dynamic, Harness, and
+Evidence Console round, and the final normal `python3 tools/verify_repo.py`
+gate passed all 19 checks.
+
+Owner authorization: 2026-08-10
 
 ## Goal
 
-Make controlled semantic review the current product-development priority.
-Verity must account for every built-in check in the read-only Butler reference,
-close meaningful semantic gaps without cherry-picking, and pass a neutral
-same-case comparison gate. Prompt black-box and Skill sandbox work begin only
-after the semantic gate is honestly ready.
+Make dynamic Prompt review exercise the reviewed artifact's own declared task
+inside a controlled Provider evaluation, instead of applying every generic
+attack to every artifact. Static, semantic, and black-box evidence must be
+reported together without erasing their independent identities. Keep Skill
+execution unavailable until its isolation boundary is independently hardened.
 
-Butler output is a hypothesis and comparison baseline, never a label source.
-"Exceeds Butler" means Verity meets absolute quality thresholds and performs
-better on the same independently labelled cases; architecture size, Finding
-count, or a self-authored fixture score does not establish that claim.
+Add a distinct, experimental Agent-instruction Harness for instruction-only
+Skills without pretending that executable-Skill sandboxing covers them.
 
-## Required scope
+## Implemented scope
 
-1. Freeze Butler's complete 45-check built-in inventory at a pinned commit.
-   Every item must be classified as covered, open, or explicitly not adopted;
-   the comparison gate must reject any open gap.
-2. Preserve the fourteen Round-55 controlled Finding Types and the five
-   Round-56 additions, then close the remaining inventory gaps with bounded
-   policies for role scope, workflow dependencies, field constraints, error
-   responses, attention dilution, streaming recovery, multi-turn state,
-   dangerous-domain safety, and source use.
-3. Give every type an applicability test, confirm/reject/insufficient policy,
-   structured allowlisted Evidence, and positive plus safe counterexamples.
-   Reviewed content cannot alter policy, severity, or Provider configuration.
-4. Keep consumed protocols v3, v4, and v5 immutable. Measure the current
-   repaired product formally only on the fresh answer-hidden v6 holdout now
-   frozen with `catalog_first` before its first remote observation. Fixed
-   replay and consumed-v5 diagnostics prove contracts and guide repairs only;
-   author labels never become superiority evidence.
-5. Keep protocol v2 immutable and reproducible. Never retry its consumed
-   Selection or expose its sealed Test labels.
-6. Retain explicit call, token, spend, response-size, timeout, and egress
-   limits for Verity, Butler, and label-review runs. Butler remains read-only
-   and is fingerprinted against the crosswalk commit.
-7. Permit a scoped superiority claim only after zero breadth gaps,
-   independently derived digest-bound labels, and paired same-case observations
-   pass both absolute and relative gates.
+1. Deterministic, evidence-cited `ArtifactBehaviorProfile` extraction for
+   runtime kind, domain, inputs, outputs, constraints, tools, state,
+   side effects, sensitive data, and external content.
+2. A versioned dynamic registry that records every check as `selected`,
+   `not_applicable`, or `unavailable`, with reason codes and supporting facts.
+3. `BlackboxConfig.scenario_policy`: default `artifact_aware`, historical
+   research override `all`, and reproducible caller-selected `explicit`.
+4. Five director/storyboard and four art-style text-contract scenarios using
+   fixed templates and deterministic structure, numeric, and trace oracles.
+5. Artifact-aware Skill environment planning and a dormant research signal
+   registry. The former in-process `sandbox-exec` prototype is not a supported
+   product capability because it does not yet provide a defensible host-read,
+   output, disk, process-tree, or observer-integrity boundary.
+6. Unified issue projection grouped by stable risk id while preserving every
+   static, semantic, black-box, and sandbox occurrence.
+7. Issue-first JSON, HTML, Web, and SARIF presentation, followed by dynamic
+   coverage and then raw layer-specific details.
+8. A CLI-only, caller-enabled, default-OFF `agentInstructionRuntime` stage for
+   external `@deepseek-ai/dsh` 0.1.1-rc.2, with caller-supplied absolute Node
+   and DSH entry paths plus SHA-256 pins. Each pinned entry is streamed once in
+   bounded chunks into an owner-only private snapshot while the same bytes are
+   hashed. Version and scenarios run only from those snapshots. The adjacent
+   npm closure linked for module resolution remains unpinned and
+   unauthenticated. At most two Skill-loader result markers are written;
+   exactly one successful marker is required, otherwise parsing fails closed.
+9. Four policy-mapped attempt signals over simulated in-memory read, blocked
+   HTTP, blocked shell, and denied approval tools; no model-facing tool has a
+   host side effect.
+10. Disposable per-scenario processes/roots, bounded streams/traces, a clean
+    allowlisted environment, process-group cleanup, and allowlisted report
+    retention. No Web enable surface was added.
+11. A responsive local Evidence Console with a compact intake rail, an honest
+    pre-run audit plan, persistent processing/network boundary language,
+    keyboard-operable tabs, and a findings/evidence-first result surface. This
+    redesign changes presentation only; it does not broaden review authority
+    or add a Web enable surface for the Agent Harness.
 
-## Real-run and claim gate
+## Safety and honesty boundaries
 
-No real Provider/model run occurs until trusted operator configuration names
-the provider, exact generator and validator models, credential environment
-variable, split, repetitions, call/token/spend budget, and local report path.
-No local model dependency or weight is installed in this round without the
-separate founder approval required by `AGENTS.md`.
+- The default V1 path remains read-only. Prompt black-box remains an explicit,
+  caller-controlled, off-by-default opt-in. Skill execution is unavailable on
+  supported Review, CLI, Web, and standalone-command paths; an explicit request
+  fails closed with `sandbox_isolation_hardening_required`.
+- Reviewed content cannot set Provider, model, credentials, policy, fixture,
+  severity, or sandbox controls.
+- A bounded dynamic pass never deletes a static Finding. It may add only a
+  `not_reproduced` observation for that exact run.
+- Image fidelity is `unavailable:image_runtime_not_configured` until a real
+  image Provider/evaluator adapter exists. Agent-instruction Harness simulation
+  is unavailable by default and selected only with trusted complete CLI config.
+- Harness sends Skill instructions/scenario prompts to a real configured
+  Provider. It is not an OS/process/network sandbox; `setsid()` descendants,
+  adjacent npm dependencies outside the two entry-file hashes, and unrestricted
+  Provider egress remain explicit residuals. Strong use needs an outer
+  container/microVM, destination allowlist, and fuller image/dependency pinning.
+- No real Provider/model/scenario E2E ran in this round. A clean completion is
+  not a universal pass, safety proof, cross-Agent claim, or accuracy result.
+- Current detector breadth remains signal/partial and not evaluated. This work
+  makes no accuracy, safety, or Butler-superiority claim.
 
-Round 60 removes the Candidate Generator as a recall veto for nine historically
-zero/weak-recall types by introducing one strongest catalog-owned hypothesis
-only when bounded structured facts support it. Every hypothesis still requires
-the independent Validator. Stage diagnostics now expose extractor, catalog,
-generator and validator counts without source text or answer metadata.
+## Verification state
 
-Protocols v4 and v5 are consumed diagnostic evidence. v5 completed authorized
-remote label, Verity, and read-only Butler runs, but its first Verity command
-measured `model_only`, its legacy label attestation disagreed with 18
-precommitted labels, and Butler failed the health gate. A stronger GPT-OSS/Qwen
-diagnostic agreed on 108/112 cases; the repaired `catalog_first` product reached
-precision 1.0, recall 0.990566, safe false-positive rate 0.0, and stability
-0.990741 on that incomplete shared-consensus subset. These tuned-v5 numbers are
-not formal evidence. The comparator now emits `labels_require_adjudication`
-whenever blind consensus conflicts with precommitted hidden-holdout labels.
+The prior artifact-aware round's unit/integration/report, black-box, sandbox,
+scoring, standards, Web, static, normal `verify_repo.py`, and full-suite gates
+passed; its last measured total was `3777/3777`.
 
-Round 58 closes an operational gap in the evidence path: two explicitly
-separate, answer-hidden label-reviewer packets can now each be run through a
-bounded eval-only runner that emits validated observations plus a budget audit.
-The runner will not accept the `verity` or `butler` identities, sends no local
-alias map or author labels, and the comparator rejects a reviewer configuration
-that matches either evaluated system. This does not run a model or produce an
-accepted label set by itself; trusted real-run authorization remains required.
+For the combined Harness and Evidence Console round, Tasks 1–5 focused gates,
+offline DSH composition smoke, JavaScript syntax, compile, release-contract,
+responsive Web checks, and scoped baseline audits passed without a real
+Provider/model/scenario call. The controller's fresh full suite passed
+(`4150/4150`, one existing deprecation warning). Agent-runtime cleanup also
+passed all 120 focused tests plus repeated real-process stress runs. The final
+normal repository verification passed all 19 checks before release staging.
 
-Round 63 freezes local v6 at corpus fingerprint
-`07f8ea85f39d5653554cce48bc037226c44779da10c369b755d9e7ecf3b73df4`.
-All 112 cases reach their controlled extractor; the product-path contract is
-exactly 56 catalog hypotheses for positive cases and 56 pre-model suppressions
-for safe cases. Five blind packets exist locally and contain no answer or risk
-metadata. The freeze explicitly records that remote v6 payload egress is not
-authorized and no remote v6 observation has started.
+## Next work after this round
 
-Round 64 closes the product-path no-seed hole without consuming v6. Prompt
-types with no deterministic extractor seed receive one bounded full-prompt
-Candidate Generator call over only the registered type/subject catalog.
-Unknown or duplicate output fails closed and every candidate still requires
-the independent Validator. Risk controls now apply within their paragraph
-rather than vetoing unrelated sections. The local v6 contract remains exactly
-56 positive hypotheses, 56 safe suppressions, and zero unreachable positives.
-
-Round 65 removes Web-only downgrade choices without changing CLI/evaluation
-contracts. Web Skill reviews force `standard`; semantic review remains
-explicitly enabled but forces `redacted_evidence`. Non-secret Provider
-preferences persist in owner-only local JSON and the API credential persists
-only in macOS Keychain. The browser receives only a `keySaved` boolean.
-
-## V2 sandbox: standalone research adapter completed (2026-08-01)
-
-Per founder instruction to finish and commit the in-progress V2 sandbox
-code, `src/verity/sandbox/` (models/profile/runner/staged driver) and
-`tools/run_sandbox.py` are now complete: macOS `sandbox-exec` isolation,
-deny-by-default network, cpu/memory/wall-clock budgets enforced from
-multiple independent angles, reliable tmpdir/process-group cleanup, and
-an injectable-spawn test suite (`tests/test_sandbox.py`) plus real
-sandbox-exec integration tests gated on macOS. This is a standalone,
-explicit-opt-in research/audit command only — it is never imported by
-`review.py`, `engine.py`, or `cli.py`, and the default report contract
-is unchanged (`skillSandbox: not_implemented`, see `report.py`/
-`closure.py`). This does **not** satisfy the "Skill execution or V2
-sandbox work" gate below: wiring sandbox observation into the default
-review pipeline, or treating it as a shipped product surface, still
-requires the founder go-ahead described in the Ordered release sequence.
-
-## Separately gated work not yet started
-
-- Prompt black-box execution.
-- Skill execution or V2 sandbox work (i.e. integrating the standalone
-  adapter above into the default review pipeline/report contract).
-- Automatic prompt/Skill rewriting.
-- Treating Butler findings, model consensus, or Verity output as ground truth.
-- Retuning or rerunning protocol-v2 Selection.
-- Inspecting or consuming protocol-v2 sealed Test.
-- Treating any additional v5 run as a fresh or formal holdout result.
-
-## Ordered release sequence after the semantic gate
-
-1. Keep the frozen v6 manifest, payloads, product strategy, and packets
-   immutable. After separate remote authorization, derive independent
-   strong-reasoning labels that either agree with the precommitted labels or
-   enter adjudication.
-2. Require a healthy Butler baseline before computing relative checks. Budget
-   exhaustion, error rate above 5%, or successful-run coverage below 95%
-   makes the baseline `not_eligible`; failed calls are never filtered out to
-   inflate recall.
-3. Build and verify the formal Butler-inspired user workflow on Verity's
-   architecture. This workbench is complete; publish one trial release for
-   external users only after founder acceptance.
-4. After founder acceptance of the current workbench, start Prompt black-box
-   and Skill sandbox work in parallel. Neither dynamic track may rewrite the
-   consumed v5 evidence or the frozen v6 result.
-
-## Round-64 engineering exit criteria
-
-- The pinned crosswalk accounts for all 45 Butler checks and has zero open or
-  not-adopted items.
-- All twenty-eight current semantic Finding Types have positive and safe
-  extractor/contract cases.
-- Consumed v5 remains fingerprinted and explicitly non-formal after tuning.
-- The hidden-holdout comparator blocks all 18 legacy v5 label disagreements.
-- Final product-path diagnostics retain the four strong-reviewer disagreements
-  as exclusions and expose the one Provider error as a false negative.
-- Protocol v2 still loads and reproduces unchanged.
-- Frozen v6 refuses superiority while independent labels, label-quality
-  agreement/adjudication, or paired observations are missing.
-- Frozen v6 has 112/112 extractor coverage, a 56/56 positive catalog path,
-  a 56/56 safe suppression path, and zero payload overlap with v3/v4/v5.
-- Two independent label-reviewer runs can be produced from answer-hidden
-  packets without hand-authoring observation files, and cannot reuse the
-  evaluated systems' configuration fingerprints.
-- Full pytest and `python3 tools/verify_repo.py --require-clean` pass.
-
-## Superiority-milestone exit criteria
-
-- The Butler crosswalk has zero open gaps.
-- Independent v6 labels come from distinct stable answer-hidden reviews;
-  reviewer-name assertions alone are rejected and all use the same versioned
-  catalog judgment policy.
-- Blind reviewer consensus agrees with the precommitted labels on every case,
-  or every disagreement has an explicit independent adjudication.
-- Authorized Verity and Butler observations cover the same cases and frozen
-  configurations.
-- Verity passes absolute recall/false-positive/stability/error thresholds,
-  recall and error are non-inferior to Butler, and safe false positives are
-  strictly lower.
-- Only after all criteria pass may Verity make a formal superiority
-  claim. External release still requires founder acceptance of the workbench.
+1. Run a separately authorized real-Provider evaluation only inside outer
+   container/microVM isolation with destination-allowlisted egress.
+2. Pin the DSH/npm dependency closure or a complete runtime image, not only the
+   two JavaScript entry files.
+3. Rebuild Skill execution around separately enforced host-read, output, disk,
+   process-count/tree, observer-integrity, and report-projection boundaries;
+   keep all supported surfaces fail-closed until adversarial macOS tests prove
+   those properties.
+4. Design any Web enable surface as a separately reviewed security feature;
+   the Agent Harness adapter stays CLI-only.
+5. Build an image generation/evaluation adapter with fixed seeds and human
+   review, rather than using text output as visual proof.
+6. Expand domain profiles and oracles only with positive and safe
+   counterexamples plus registry mappings.
+7. Run the already-frozen semantic quality program independently; do not use
+   this feature round as evidence for a superiority claim.

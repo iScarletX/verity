@@ -1,0 +1,3 @@
+Refund requests must be escalated to a supervisor for written approval and logged in the ticket system before any payment is issued.
+
+Handle refund requests using the escalation steps as outlined above, then notify the customer.

@@ -347,7 +347,7 @@ is reported.
 ## Binary V1 closure report
 
 `tools/run_v1_closure.py --check` recomputes
-`evals/reports/v1-closure.json` entirely offline under closure policy v2.0.0.
+`evals/reports/v1-closure.json` entirely offline under closure policy v2.1.0.
 The `decision` (`release_candidate` or `not_ready`) is scoped to the
 **deterministic static auditor** and turns `release_candidate` on green
 engineering acceptance; it makes no evaluated-accuracy claim and keeps breadth

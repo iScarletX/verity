@@ -34,6 +34,63 @@ def _literal_process_target(node: ast.Call) -> str:
     return ""
 
 
+_WEAK_HASH_ALGORITHMS = {"md5", "sha1", "md4"}
+_SQL_EXECUTE_METHOD_NAMES = {"execute", "executemany", "executescript"}
+
+
+def _is_dynamic_sql_query(node: ast.AST) -> bool:
+    if isinstance(node, ast.JoinedStr):
+        return True
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mod, ast.Add)):
+        return True
+    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "format"):
+        return True
+    return False
+
+
+_TEMPLATE_CONSTRUCTOR_NAMES = {"Template", "jinja2.Template"}
+_TEMPLATE_FROM_STRING_METHOD_NAMES = {"from_string"}
+
+
+def _is_dynamic_template_source(node: ast.AST) -> bool:
+    if isinstance(node, ast.JoinedStr):
+        return True
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mod, ast.Add)):
+        return True
+    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "format"):
+        return True
+    return False
+
+
+_PATH_JOIN_CALL_NAMES = {"os.path.join", "posixpath.join", "ntpath.join"}
+
+
+def _is_dynamic_path_expr(node: ast.AST) -> bool:
+    if isinstance(node, ast.JoinedStr):
+        return True
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Mod, ast.Add, ast.Div)):
+        return True
+    if isinstance(node, ast.Call):
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "format":
+            return True
+        if _call_name(node.func) in _PATH_JOIN_CALL_NAMES:
+            return True
+    return False
+
+
+def _literal_weak_hash_algorithm(node: ast.Call) -> str:
+    if not node.args:
+        return ""
+    value = node.args[0]
+    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+        token = value.value.strip().lower()
+        if token in _WEAK_HASH_ALGORITHMS:
+            return token
+    return ""
+
+
 def _add(facts: Set[Tuple[str, str, str, str, int, str]],
          category: str, operation: str, path: str, source: str,
          source_line: int = 0, target: str = "") -> None:
@@ -100,6 +157,13 @@ def extract_capability_facts(snapshot, file_bytes: Dict[str, bytes],
             if name in file_calls or path_constructor_call:
                 _add(facts, "file", name, path, "python_ast",
                      getattr(node, "lineno", 0))
+            if name in file_calls and node.args and _is_dynamic_path_expr(node.args[0]):
+                _add(facts, "dynamic_path_reference", name, path, "python_ast",
+                     getattr(node, "lineno", 0))
+            elif (path_constructor_call and node.func.value.args
+                    and _is_dynamic_path_expr(node.func.value.args[0])):
+                _add(facts, "dynamic_path_reference", node.func.attr, path,
+                     "python_ast", getattr(node, "lineno", 0))
             if name in {"os.getenv", "os.environ.get"}:
                 _add(facts, "credential", "environment_access", path, "python_ast",
                      getattr(node, "lineno", 0))
@@ -107,6 +171,35 @@ def extract_capability_facts(snapshot, file_bytes: Dict[str, bytes],
                     or name in {"urllib.request.urlopen", "socket.socket"}):
                 _add(facts, "network", name, path, "python_ast",
                      getattr(node, "lineno", 0))
+            if name in {"pickle.load", "pickle.loads", "cPickle.load",
+                        "cPickle.loads", "marshal.load", "marshal.loads",
+                        "yaml.load"}:
+                _add(facts, "deserialization", name, path, "python_ast",
+                     getattr(node, "lineno", 0))
+            if name in {"hashlib.md5", "hashlib.sha1", "crypt.crypt",
+                        "ssl._create_unverified_context"}:
+                _add(facts, "weak_crypto", name, path, "python_ast",
+                     getattr(node, "lineno", 0))
+            elif name == "hashlib.new":
+                algorithm = _literal_weak_hash_algorithm(node)
+                if algorithm:
+                    _add(facts, "weak_crypto", name, path, "python_ast",
+                         getattr(node, "lineno", 0), algorithm)
+            if (isinstance(node.func, ast.Attribute)
+                    and node.func.attr in _SQL_EXECUTE_METHOD_NAMES
+                    and node.args and _is_dynamic_sql_query(node.args[0])):
+                _add(facts, "sql_query", f"*.{node.func.attr}", path,
+                     "python_ast", getattr(node, "lineno", 0))
+            if (isinstance(node.func, ast.Attribute)
+                    and node.func.attr in _TEMPLATE_FROM_STRING_METHOD_NAMES
+                    and node.args
+                    and _is_dynamic_template_source(node.args[0])):
+                _add(facts, "template_render", f"*.{node.func.attr}", path,
+                     "python_ast", getattr(node, "lineno", 0))
+            elif (name in _TEMPLATE_CONSTRUCTOR_NAMES and node.args
+                    and _is_dynamic_template_source(node.args[0])):
+                _add(facts, "template_render", name, path,
+                     "python_ast", getattr(node, "lineno", 0))
 
     return {
         "schemaVersion": CAPABILITY_FACT_SCHEMA,

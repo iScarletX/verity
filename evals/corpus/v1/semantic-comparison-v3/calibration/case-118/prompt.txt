@@ -1,0 +1,7 @@
+Blank onboarding record template for new enrollee, fields left as generic placeholders for staff training:
+
+Full name: [ENROLLEE NAME]
+Date of birth: [DATE OF BIRTH]
+Social security number: [SOCIAL SECURITY NUMBER]
+
+Confirm the enrollee's identity against the date of birth and social security number recorded above before granting portal access.

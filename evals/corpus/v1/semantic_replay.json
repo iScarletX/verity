@@ -124,6 +124,44 @@
       "labelStatus": "provisional_single_review"
     },
     {
+      "caseId": "semantic-description-quality-positive",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "path": "semantic-cases/description-quality-positive",
+      "findingType": "semantic.skill.manifest_description_quality_gap",
+      "riskId": "VR-SKILL-001",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "descriptionGapKind": "generic_boilerplate"
+      },
+      "claim": "The description is generic boilerplate that gives no signal about what the Skill specifically does.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-description-quality-safe",
+      "objectType": "skill",
+      "language": "yaml-markdown",
+      "path": "semantic-cases/description-quality-safe",
+      "findingType": "semantic.skill.manifest_description_quality_gap",
+      "riskId": "VR-SKILL-001",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "descriptionGapKind": "generic_boilerplate"
+      },
+      "claim": "The description is generic boilerplate that gives no signal about what the Skill specifically does.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
       "caseId": "semantic-trust-boundary-positive",
       "objectType": "prompt",
       "language": "zh-en",
@@ -1112,6 +1150,470 @@
         "sourceGapKind": "reproduction_limit"
       },
       "claim": "The task requests full verbatim third-party source reproduction without a bounded use policy.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-prose-reference-gap-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/prose-reference-gap-positive/prompt.txt",
+      "findingType": "semantic.prompt.prose_reference_gap",
+      "riskId": "VR-PROMPT-010",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "referenceScope": "prior_content"
+      },
+      "claim": "The prose reference points at prior content that does not actually cover the claimed exception process.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-prose-reference-gap-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/prose-reference-gap-safe/prompt.txt",
+      "findingType": "semantic.prompt.prose_reference_gap",
+      "riskId": "VR-PROMPT-010",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "referenceScope": "prior_content"
+      },
+      "claim": "The prose reference points at prior content that does not actually cover the claimed exception process.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-embedded-sensitive-information-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/embedded-sensitive-information-positive/prompt.txt",
+      "findingType": "semantic.prompt.embedded_sensitive_information",
+      "riskId": "VR-PROMPT-003",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "sensitiveInformationKind": "personal_identity"
+      },
+      "claim": "The prompt embeds a real caller's date of birth and social security number as literal content rather than a placeholder.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-embedded-sensitive-information-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/embedded-sensitive-information-safe/prompt.txt",
+      "findingType": "semantic.prompt.embedded_sensitive_information",
+      "riskId": "VR-PROMPT-003",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "sensitiveInformationKind": "personal_identity"
+      },
+      "claim": "The prompt embeds a real caller's date of birth and social security number as literal content rather than a placeholder.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-template-completeness-gap-positive",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/template-completeness-gap-positive/prompt.txt",
+      "findingType": "semantic.prompt.template_completeness_gap",
+      "riskId": "VR-PROMPT-002",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "templateGapKind": "placeholder_language"
+      },
+      "claim": "The escalation contact this refund workflow depends on is unfilled template placeholder language, not an actual contact.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-template-completeness-gap-safe",
+      "objectType": "prompt",
+      "promptKind": "system_prompt",
+      "language": "en",
+      "path": "semantic-cases/template-completeness-gap-safe/prompt.txt",
+      "findingType": "semantic.prompt.template_completeness_gap",
+      "riskId": "VR-PROMPT-002",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "templateGapKind": "placeholder_language"
+      },
+      "claim": "The escalation contact this refund workflow depends on is unfilled template placeholder language, not an actual contact.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-deserialization-trust-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/deserialization-trust-positive",
+      "findingType": "semantic.skill.deserialization_trust_gap",
+      "riskId": "VR-SKILL-007",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "trustGapKind": "untrusted_source_deserialized"
+      },
+      "claim": "代码反序列化了 Manifest 中声称来自远程第三方 Skill 的数据。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-deserialization-trust-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/deserialization-trust-safe",
+      "findingType": "semantic.skill.deserialization_trust_gap",
+      "riskId": "VR-SKILL-007",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "trustGapKind": "untrusted_source_deserialized"
+      },
+      "claim": "代码反序列化了 Manifest 中声称来自远程第三方 Skill 的数据。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-weak-crypto-sensitivity-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/weak-crypto-sensitivity-positive",
+      "findingType": "semantic.skill.weak_crypto_sensitivity_gap",
+      "riskId": "VR-SKILL-008",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "sensitivityGapKind": "weak_hash_algorithm"
+      },
+      "claim": "代码使用弱哈希算法处理 Manifest 中声称是用户密码凭证的敏感数据。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-weak-crypto-sensitivity-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/weak-crypto-sensitivity-safe",
+      "findingType": "semantic.skill.weak_crypto_sensitivity_gap",
+      "riskId": "VR-SKILL-008",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "sensitivityGapKind": "weak_hash_algorithm"
+      },
+      "claim": "代码使用弱哈希算法处理 Manifest 中声称是用户密码凭证的敏感数据。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-sql-injection-input-trust-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/sql-injection-input-trust-positive",
+      "findingType": "semantic.skill.sql_injection_input_trust_gap",
+      "riskId": "VR-SKILL-015",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "injectionTrustGapKind": "user_controlled_query_input"
+      },
+      "claim": "代码用字符串拼接方式构造 SQL 查询，拼入的值是 Manifest 中声称的用户提供输入。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-sql-injection-input-trust-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/sql-injection-input-trust-safe",
+      "findingType": "semantic.skill.sql_injection_input_trust_gap",
+      "riskId": "VR-SKILL-015",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "injectionTrustGapKind": "user_controlled_query_input"
+      },
+      "claim": "代码用字符串拼接方式构造 SQL 查询，拼入的值是 Manifest 中声称的用户提供输入。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-path-traversal-input-trust-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/path-traversal-input-trust-positive",
+      "findingType": "semantic.skill.path_traversal_input_trust_gap",
+      "riskId": "VR-SKILL-002",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "pathTrustGapKind": "user_controlled_path_reference"
+      },
+      "claim": "代码用字符串拼接方式构造本地文件路径，拼入的值是 Manifest 中声称的用户提供输入。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-path-traversal-input-trust-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/path-traversal-input-trust-safe",
+      "findingType": "semantic.skill.path_traversal_input_trust_gap",
+      "riskId": "VR-SKILL-002",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "pathTrustGapKind": "user_controlled_path_reference"
+      },
+      "claim": "代码用字符串拼接方式构造本地文件路径，拼入的值是 Manifest 中声称的用户提供输入。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-template-injection-input-trust-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/template-injection-input-trust-positive",
+      "findingType": "semantic.skill.template_injection_input_trust_gap",
+      "riskId": "VR-SKILL-010",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "templateTrustGapKind": "user_controlled_template_source"
+      },
+      "claim": "代码用 f-string 拼接方式构造 Jinja2 模板源字符串，拼入的值是 Manifest 中声称的用户提供输入。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-template-injection-input-trust-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/template-injection-input-trust-safe",
+      "findingType": "semantic.skill.template_injection_input_trust_gap",
+      "riskId": "VR-SKILL-010",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "templateTrustGapKind": "user_controlled_template_source"
+      },
+      "claim": "代码用 f-string 拼接方式构造 Jinja2 模板源字符串，拼入的值是 Manifest 中声称的用户提供输入。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-isolation-claim-trust-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/isolation-claim-trust-positive",
+      "findingType": "semantic.skill.isolation_claim_trust_gap",
+      "riskId": "VR-SKILL-014",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "isolationTrustGapKind": "contradicted_isolation_claim"
+      },
+      "claim": "Manifest 声称该 Skill 完全离线、隔离运行且无网络访问，但代码中启动了子进程。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-isolation-claim-trust-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/isolation-claim-trust-safe",
+      "findingType": "semantic.skill.isolation_claim_trust_gap",
+      "riskId": "VR-SKILL-014",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "isolationTrustGapKind": "contradicted_isolation_claim"
+      },
+      "claim": "Manifest 声称该 Skill 完全离线、隔离运行且无网络访问，但代码中启动了子进程。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-dependency-provenance-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/dependency-provenance-positive",
+      "findingType": "semantic.skill.dependency_provenance_claim_gap",
+      "riskId": "VR-SKILL-003",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "provenanceClaimGapKind": "undisclosed_external_dependency"
+      },
+      "claim": "The Skill's Manifest claims to be self-contained and dependency-free, but the artifact snapshot contains a requirements.txt file declaring an external dependency.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-dependency-provenance-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/dependency-provenance-safe",
+      "findingType": "semantic.skill.dependency_provenance_claim_gap",
+      "riskId": "VR-SKILL-003",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "provenanceClaimGapKind": "undisclosed_external_dependency"
+      },
+      "claim": "The Skill's Manifest claims to be self-contained and dependency-free, but the artifact snapshot contains a requirements.txt file declaring an external dependency.",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-hidden-encoding-positive",
+      "objectType": "prompt",
+      "language": "zh",
+      "path": "semantic-cases/hidden-encoding-positive/prompt.txt",
+      "findingType": "semantic.prompt.hidden_encoding_instruction_gap",
+      "riskId": "VR-PROMPT-005",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "encodingGapKind": "decoded_content_without_data_boundary"
+      },
+      "claim": "提示词指示将检索内容中的 base64 编码字符串解码并执行其中的指令，但没有声明将解码结果视为不可信数据的边界。",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review",
+      "promptKind": "user_prompt"
+    },
+    {
+      "caseId": "semantic-hidden-encoding-safe",
+      "objectType": "prompt",
+      "language": "zh",
+      "path": "semantic-cases/hidden-encoding-safe/prompt.txt",
+      "findingType": "semantic.prompt.hidden_encoding_instruction_gap",
+      "riskId": "VR-PROMPT-005",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "encodingGapKind": "decoded_content_without_data_boundary"
+      },
+      "claim": "提示词指示将检索内容中的 base64 编码字符串解码并执行其中的指令，但没有声明将解码结果视为不可信数据的边界。",
+      "validatorReasonCodes": [
+        "evidence_contradicts_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review",
+      "promptKind": "user_prompt"
+    },
+    {
+      "caseId": "semantic-credential-handling-positive",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/credential-handling-positive",
+      "findingType": "semantic.skill.credential_handling_claim_gap",
+      "riskId": "VR-SKILL-011",
+      "expectedAssessment": "confirmed",
+      "candidateSubject": {
+        "credentialClaimGapKind": "undisclosed_credential_access"
+      },
+      "claim": "The Skill's own Manifest description claims no credentials, API key, or authentication are required, but the artifact snapshot contains an environment-variable-access capability fact (os.getenv/os.environ.get) consistent with reading a credential at runtime.",
+      "validatorReasonCodes": [
+        "evidence_supports_claim"
+      ],
+      "provenance": "verity_synthetic",
+      "license": "Apache-2.0",
+      "labelStatus": "provisional_single_review"
+    },
+    {
+      "caseId": "semantic-credential-handling-safe",
+      "objectType": "skill",
+      "language": "python",
+      "path": "semantic-cases/credential-handling-safe",
+      "findingType": "semantic.skill.credential_handling_claim_gap",
+      "riskId": "VR-SKILL-011",
+      "expectedAssessment": "rejected",
+      "candidateSubject": {
+        "credentialClaimGapKind": "undisclosed_credential_access"
+      },
+      "claim": "The Skill's own Manifest description claims no credentials, API key, or authentication are required, but the artifact snapshot contains an environment-variable-access capability fact (os.getenv/os.environ.get) consistent with reading a credential at runtime.",
       "validatorReasonCodes": [
         "evidence_contradicts_claim"
       ],

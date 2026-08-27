@@ -232,6 +232,9 @@ class Review:
     evidences: List[EvidenceRecord]
     ruleMatches: List[RuleMatchEvent]
     findings: List[Finding]
+    # Immutable, deterministic inputs to artifact-aware dynamic selection.
+    behaviorProfile: Optional[Any] = None
+    dynamicPlan: Optional[Any] = None
     # Optional ArtifactModel produced by the engine's Parser (Skill engine).
     artifactModel: Optional[Dict[str, Any]] = None
     # Optional projection of the semantic-review sub-pipeline. Populated
@@ -240,6 +243,23 @@ class Review:
     # report projection can consume it without importing the semantic
     # module (spec: deterministic engine never imports semantic).
     semantic: Optional[Dict[str, Any]] = None
+    # Optional projection of the V1.5 Prompt black-box evaluation stage.
+    # Populated only when ReviewInputs.blackbox_config is a BlackboxConfig
+    # with enabled=True AND engine == "prompt". Default is None (stage
+    # never ran) -- report.py maps that to capabilities.promptBlackbox =
+    # "not_enabled". Contents mirror verity.blackbox.runner.BlackboxRunResult
+    # (see review._run_prompt_blackbox_stage). Same import-isolation
+    # discipline as `semantic`: the deterministic engine never imports
+    # verity.blackbox.
+    promptBlackbox: Optional[Dict[str, Any]] = None
+    # Optional public state for the unavailable V2 Skill sandbox stage.
+    # Default is None (not requested). An enabled SandboxConfig on the Skill
+    # engine is projected as failed/unavailable before any research runner is
+    # imported or constructed; report.py maps None to not_enabled.
+    skillSandbox: Optional[Dict[str, Any]] = None
+    # Optional projection of the agent-instruction runtime stage. Default is
+    # None so existing constructors and the deterministic path remain inert.
+    agentInstructionRuntime: Optional[Dict[str, Any]] = None
 
 
 # --- Baseline ----------------------------------------------------------

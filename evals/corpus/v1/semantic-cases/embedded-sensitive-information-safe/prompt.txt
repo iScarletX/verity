@@ -1,0 +1,7 @@
+Sample support ticket template for training new agents. All values below are fictional placeholders, not real customer data:
+
+Caller: Jane Doe
+Date of birth: 01/01/1900
+Social security number: XXX-XX-XXXX
+
+This is a training example only. Replace every placeholder with a real value before actual use.

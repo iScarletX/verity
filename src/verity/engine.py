@@ -479,8 +479,10 @@ _DANGEROUS_SHELL = re.compile(
 # a reviewed Skill is a strong risk signal regardless of language, since a
 # Skill is meant to run with least privilege, not to reach into the host
 # user's SSH keys, cloud credentials, shell history, or system password
-# database. Text-level only (V1 never executes anything); a real access
-# would need V2 sandbox observation to confirm actual effect.
+# database. Text-level only (V1 never executes anything); confirming actual
+# runtime access to one of these paths is V2 sandbox's job (see
+# sandbox_sensitive_path_read in sandbox/models.py::SANDBOX_SIGNAL_DETECTORS,
+# which reuses this exact pattern list against real fileEvents reads).
 _SENSITIVE_PATH_PATTERNS = [
     re.compile(rb"~?/\.ssh/(?:id_rsa|id_ed25519|id_ecdsa|authorized_keys|known_hosts)\b"),
     re.compile(rb"~?/\.aws/credentials\b"),
@@ -504,8 +506,9 @@ def skill_sensitive_path_access(ctx: RuleContext) -> List[RuleHit]:
 
     IMPORTANT: this is text-level pattern detection only; it proves the
     *literal path string is present*, not that the Skill actually reads or
-    exfiltrates it (that would require V2 sandbox observation, not yet
-    implemented). It does NOT execute the skill.
+    exfiltrates it. Confirming an actual runtime read of one of these paths
+    is V2 sandbox's sandbox_sensitive_path_read signal, a separate opt-in
+    stage -- this rule does NOT execute the skill.
 
     Boundaries:
     - Deliberately narrow, well-known credential/identity paths only — not
@@ -1570,9 +1573,12 @@ def prompt_named_dangling_reference(ctx: RuleContext) -> List[RuleHit]:
     - Only Chinese “见<name>规则/约定/协议/流程/定义/说明/部分/机制”
       forms (the shape Butler observed on the NexPlay SP). English named
       refs are left for a later iteration to keep false positives low.
-    - Existence check: the captured name must appear at least once MORE in
-      the document (outside the reference occurrence). If the name occurs
-      only at the reference site, it is dangling.
+    - Existence check: the captured name must appear at least once OUTSIDE
+      the reference occurrences (a definition/heading). Citations of the
+      same dangling name don't count as a definition of each other, so a
+      name cited many times but never defined is still flagged -- every
+      citation is collected as evidence on one Finding per distinct name,
+      so the reader can see every place it's cited, not just the first.
     - Fenced/inline code excluded.
     """
     out: List[RuleHit] = []
@@ -1585,22 +1591,24 @@ def prompt_named_dangling_reference(ctx: RuleContext) -> List[RuleHit]:
         data = ctx.file_bytes.get(f.fileId, b"")
         excluded = _excluded_ranges(data)
         text = data.decode("utf-8", "ignore")
-        seen = set()
-        for m in _NAMED_REF.finditer(text):
+        matches = list(_NAMED_REF.finditer(text))
+        citation_counts: Dict[str, int] = {}
+        for m in matches:
+            citation_counts[m.group(1)] = citation_counts.get(m.group(1), 0) + 1
+        by_name: Dict[str, List[EvidenceRecord]] = {}
+        for m in matches:
             # byte offset of the match start for code-exclusion + evidence
             byte_start = len(text[:m.start()].encode("utf-8"))
             byte_end = len(text[:m.end()].encode("utf-8"))
             if _in_ranges(byte_start, excluded):
                 continue
             name = m.group(1)
-            # The name must appear somewhere else in the document (a
-            # definition/heading). Count occurrences of the name overall;
-            # >1 means it is defined elsewhere, ==1 means only the ref.
-            if text.count(name) > 1:
+            # The name must appear somewhere else in the document besides
+            # its own citations (a definition/heading). If every occurrence
+            # of the name substring is accounted for by a citation match,
+            # it is dangling regardless of how many times it's cited.
+            if text.count(name) > citation_counts[name]:
                 continue
-            if name in seen:
-                continue
-            seen.add(name)
             ev = make_source_span_evidence(
                 snapshot_id=ctx.snapshot.snapshotId,
                 file_id=f.fileId, artifact_path=f.normalizedPath,
@@ -1608,9 +1616,11 @@ def prompt_named_dangling_reference(ctx: RuleContext) -> List[RuleHit]:
                 byte_range=(byte_start, byte_end),
                 raw_bytes=data[byte_start:byte_end], producer=prod,
             )
-            out.append(RuleHit(evidences=[ev], subject={
+            by_name.setdefault(name, []).append(ev)
+        for name, evidences in by_name.items():
+            out.append(RuleHit(evidences=evidences, subject={
                 "artifactPath": f.normalizedPath,
-                "referenceText": m.group(0),
+                "referenceText": name,
             }))
     return out
 
@@ -1626,8 +1636,11 @@ def prompt_duplicate_content_line(ctx: RuleContext) -> List[RuleHit]:
     - Only lines >= 24 visible chars are considered (short lines like
       headings, separators, list bullets repeat legitimately).
     - Markdown table/separator lines and fenced code are ignored.
-    - Reports the SECOND+ occurrence, citing it; identity is the
-      normalized line text so one Finding per duplicated line.
+    - Reports EVERY occurrence (first and all repeats) of each duplicated
+      line as evidence on one Finding per distinct line, identified by a
+      digest of its normalized text -- so two different duplicated
+      sentences in the same file never collapse into the same identity,
+      and the reader can see every place a given sentence repeats.
     """
     out: List[RuleHit] = []
     prod = Producer(componentId=ctx.rule.ruleId,
@@ -1638,8 +1651,7 @@ def prompt_duplicate_content_line(ctx: RuleContext) -> List[RuleHit]:
             continue
         data = ctx.file_bytes.get(f.fileId, b"")
         excluded = _excluded_ranges(data)
-        seen_norm: Dict[bytes, int] = {}
-        reported = set()
+        by_norm: Dict[bytes, List[EvidenceRecord]] = {}
         offset = 0
         for raw in data.splitlines(keepends=True):
             line = raw.rstrip(b"\r\n")
@@ -1654,22 +1666,23 @@ def prompt_duplicate_content_line(ctx: RuleContext) -> List[RuleHit]:
             if set(stripped) <= set(b"|-=+:_ #*"):
                 continue
             norm = b" ".join(stripped.split())
-            if norm in seen_norm:
-                if norm not in reported:
-                    reported.add(norm)
-                    ev = make_source_span_evidence(
-                        snapshot_id=ctx.snapshot.snapshotId,
-                        file_id=f.fileId, artifact_path=f.normalizedPath,
-                        file_digest=f.contentDigest or "",
-                        byte_range=(start, start + len(line)),
-                        raw_bytes=line, producer=prod,
-                    )
-                    out.append(RuleHit(evidences=[ev], subject={
-                        "artifactPath": f.normalizedPath,
-                        "duplicateCategory": "repeated_content_line",
-                    }))
-            else:
-                seen_norm[norm] = start
+            ev = make_source_span_evidence(
+                snapshot_id=ctx.snapshot.snapshotId,
+                file_id=f.fileId, artifact_path=f.normalizedPath,
+                file_digest=f.contentDigest or "",
+                byte_range=(start, start + len(line)),
+                raw_bytes=line, producer=prod,
+            )
+            by_norm.setdefault(norm, []).append(ev)
+        for norm, evidences in by_norm.items():
+            if len(evidences) < 2:
+                continue
+            out.append(RuleHit(evidences=evidences, subject={
+                "artifactPath": f.normalizedPath,
+                "duplicateCategory": "repeated_content_line",
+                "duplicateContentHash": sha256_hex(
+                    domain_tag("duplicate-content-line"), norm)[:16],
+            }))
     return out
 
 

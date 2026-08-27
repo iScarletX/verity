@@ -47,7 +47,7 @@ SUPPORTED_COMPARISON_PROTOCOL_VERSIONS = frozenset({
 })
 OBSERVATIONS = {"present", "absent", "inconclusive", "error"}
 INDEPENDENT_LABEL_STATUS = "independent_ai_review"
-DEFAULT_COMPARISON_MAX_TOTAL_CALLS = 500
+DEFAULT_COMPARISON_MAX_TOTAL_CALLS = 664
 BUTLER_REFERENCE_SKILL_MAP_VERSION = "3.0.0"
 LABEL_REVIEW_EGRESS_POLICY = "answer_hidden_label_review"
 LABEL_REVIEW_MIN_REPETITIONS = 3
@@ -68,6 +68,8 @@ BUTLER_REFERENCE_SKILLS = {
         "02_contract_output_format",),
     "semantic.skill.declared_behavior_mismatch": (
         "05_robustness_skill_dangerous_pattern",),
+    "semantic.skill.manifest_description_quality_gap": (
+        "01_clarity_task_boundary",),
     "semantic.prompt.trust_boundary_ambiguity": (
         "05_robustness_injection_defense",),
     "semantic.prompt.excessive_tool_scope": (
@@ -93,6 +95,10 @@ BUTLER_REFERENCE_SKILLS = {
     "semantic.prompt.sensitive_reasoning_exposure": (
         "03_resource_reasoning_isolation",
         "05_robustness_secret_leak"),
+    "semantic.prompt.prose_reference_gap": (
+        "02_contract_reference_integrity",),
+    "semantic.prompt.embedded_sensitive_information": (
+        "07_compliance_privacy", "05_robustness_secret_leak"),
     "semantic.prompt.verification_step_gap": (
         "06_quality_self_check",),
     "semantic.prompt.input_and_default_contract_gap": (
@@ -129,12 +135,32 @@ BUTLER_REFERENCE_SKILLS = {
         "05_robustness_safety_policy",),
     "semantic.prompt.source_use_policy_gap": (
         "07_compliance_copyright_source",),
+    "semantic.prompt.template_completeness_gap": (
+        "02_contract_section_structure",),
+    "semantic.skill.deserialization_trust_gap": (
+        "05_robustness_skill_dangerous_pattern",),
+    "semantic.skill.weak_crypto_sensitivity_gap": (
+        "05_robustness_skill_dangerous_pattern", "07_compliance_privacy"),
+    "semantic.skill.sql_injection_input_trust_gap": (
+        "05_robustness_skill_dangerous_pattern",),
+    "semantic.skill.path_traversal_input_trust_gap": (
+        "05_robustness_skill_dangerous_pattern",),
+    "semantic.skill.template_injection_input_trust_gap": (
+        "05_robustness_skill_dangerous_pattern",),
+    "semantic.skill.isolation_claim_trust_gap": (
+        "05_robustness_skill_dangerous_pattern",),
+    "semantic.skill.dependency_provenance_claim_gap": (
+        "05_robustness_skill_dangerous_pattern",),
+    "semantic.prompt.hidden_encoding_instruction_gap": (
+        "05_robustness_injection_defense",),
+    "semantic.skill.credential_handling_claim_gap": (
+        "05_robustness_secret_leak",),
 }
 
 COMPARISON_THRESHOLDS = {
     "minimumCaseCount": 112,
-    "minimumRiskCount": 27,
-    "minimumFindingTypeCount": 28,
+    "minimumRiskCount": 29,
+    "minimumFindingTypeCount": 30,
     "minimumRepetitions": 2,
     "minimumRecall": 0.90,
     "maximumSafeFalsePositiveRate": 0.20,

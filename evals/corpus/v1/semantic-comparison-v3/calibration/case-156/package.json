@@ -1,0 +1,6 @@
+{
+  "name": "case-156",
+  "dependencies": {
+    "lodash": "^4.17.21"
+  }
+}

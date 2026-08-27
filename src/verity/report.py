@@ -15,6 +15,10 @@ import json
 from dataclasses import asdict
 from typing import Any, Dict
 
+from .dynamic.report_projection import (
+    project_prompt_blackbox,
+    project_skill_sandbox,
+)
 from .models import Review
 
 
@@ -31,6 +35,10 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
         "findings": [asdict(f) for f in review.findings],
         "verdict": compute_verdict(review),
     }
+    if review.behaviorProfile is not None:
+        d["behaviorProfile"] = json.loads(json.dumps(asdict(review.behaviorProfile)))
+    if review.dynamicPlan is not None:
+        d["dynamicPlan"] = json.loads(json.dumps(asdict(review.dynamicPlan)))
     if review.artifactModel:
         # Do not leak raw YAML — only compact fields needed for the report.
         am = review.artifactModel
@@ -74,10 +82,15 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
         ftr = build_finding_type_registry()
         rr = build_skill_rule_registry(ftr)
         d["owaspCoverage"] = coverage_matrix(rr.all())
-    # Capability matrix (static / semantic / runtime).  Static is
-    # always driven by deterministic results; semantic reflects the
-    # optional sub-pipeline; runtime (prompt black-box + skill sandbox)
-    # is intentionally NOT implemented in V1.
+    # Capability matrix (static / semantic / promptBlackbox / skillSandbox /
+    # agentInstructionRuntime).
+    # Static is always driven by deterministic results; semantic reflects
+    # the optional sub-pipeline; promptBlackbox reflects the explicit V1.5
+    # opt-in. Skill sandbox execution is unavailable on supported product
+    # paths and an explicit V2 request is projected as failed/unavailable.
+    # All four fields share one vocabulary: not_enabled (never requested),
+    # completed (stage ran to completion), failed (stage was requested but
+    # could not complete).
     static_status = "completed"
     if (d.get("coverage") or {}).get("status") != "sufficient":
         static_status = "failed" if any(
@@ -101,6 +114,32 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
         d["semantic"] = sem
     else:
         semantic_status = "not_enabled"
+    # Dynamic runners retain raw payloads only long enough to judge them.
+    # Reports cross a stricter one-way projection that carries controlled
+    # outcomes, counts, digests and lengths -- never prompt/response text or
+    # sandbox exception/path/argv/SQL material.
+    if review.promptBlackbox:
+        pb = project_prompt_blackbox(review.promptBlackbox)
+        prompt_blackbox_status = pb.get("status", "failed")
+        d["promptBlackbox"] = pb
+    else:
+        prompt_blackbox_status = "not_enabled"
+    if review.skillSandbox:
+        ss = project_skill_sandbox(review.skillSandbox)
+        skill_sandbox_status = ss.get("status", "failed")
+        d["skillSandbox"] = ss
+    else:
+        skill_sandbox_status = "not_enabled"
+    if review.agentInstructionRuntime is not None:
+        agent_runtime = review.agentInstructionRuntime
+        agent_instruction_runtime_status = agent_runtime.get("status", "failed")
+        if agent_instruction_runtime_status not in {
+            "not_enabled", "completed", "failed",
+        }:
+            agent_instruction_runtime_status = "failed"
+        d["agentInstructionRuntime"] = agent_runtime
+    else:
+        agent_instruction_runtime_status = "not_enabled"
     d["capabilities"] = {
         "static": {"status": static_status,
                     "note": ("execution status only; current detection breadth "
@@ -110,13 +149,113 @@ def review_to_dict(review: Review) -> Dict[str, Any]:
                                "Provider is configured; execution status "
                                "does not imply semantic breadth or "
                                "evaluated accuracy")},
-        "promptBlackbox": {"status": "not_implemented",
-                            "note": "V1.5 planned; not part of V1"},
-        "skillSandbox": {"status": "not_implemented",
-                           "note": "V2 planned; not part of V1"},
+        "promptBlackbox": {"status": prompt_blackbox_status,
+                            "note": ("V1.5 experimental research stage; "
+                                     "integrated but OFF by default, and "
+                                     "requires an explicit caller-supplied "
+                                     "BlackboxConfig(enabled=True) with a "
+                                     "trusted model Provider -- the "
+                                     "reviewed prompt can never turn this "
+                                     "on itself. Not part of the "
+                                     "deterministic V1 release scope.")},
+        "skillSandbox": {"status": skill_sandbox_status,
+                           "note": ("V2 Skill execution is unavailable on "
+                                    "supported product paths. An explicit "
+                                    "request fails closed with "
+                                    "sandbox_isolation_hardening_required "
+                                    "without executing the reviewed Skill.")},
+        "agentInstructionRuntime": {
+            "status": agent_instruction_runtime_status,
+            "note": (
+                "Experimental agent-instruction runtime stage; OFF by "
+                "default and available only through explicit trusted "
+                "caller configuration."
+            ),
+        },
     }
     from .scoring import enrich_review
-    return enrich_review(d)
+    enrich_review(d)
+    from .issues import project_unified_issues
+    d["issues"] = project_unified_issues(d)
+    _reconcile_agent_runtime_verdict(d)
+    return d
+
+
+def _runtime_occurrence_severities(report: Dict[str, Any]) -> list[str]:
+    """Return controlled severities for every projected runtime layer."""
+    from .issues import controlled_runtime_occurrence_severities
+    return controlled_runtime_occurrence_severities(report)
+
+
+def _agent_runtime_occurrence_severities(report: Dict[str, Any]) -> list[str]:
+    """Compatibility alias retained for older internal callers/tests."""
+    return _runtime_occurrence_severities(report)
+
+
+def _reconcile_agent_runtime_verdict(report: Dict[str, Any]) -> None:
+    """Prevent the source-Finding verdict contradicting runtime facts.
+
+    The core ``Review`` verdict remains a deterministic/semantic projection;
+    dynamic signals exist only after scoring and unified-issue mapping.  This
+    final report-level reconciliation covers Prompt black-box, Skill sandbox,
+    and Agent-instruction runtime without pretending their observations are
+    source-anchored Findings.  High/Critical evidence retains priority over an
+    incomplete-stage warning, matching the CLI gate.
+    """
+    verdict = report.get("verdict")
+    if not isinstance(verdict, dict):
+        return
+    reason_codes = verdict.get("reasonCodes")
+    if not isinstance(reason_codes, list):
+        reason_codes = []
+        verdict["reasonCodes"] = reason_codes
+
+    stage_reasons = (
+        ("promptBlackbox", "prompt_blackbox_requested_but_incomplete"),
+        ("skillSandbox", "skill_sandbox_requested_but_incomplete"),
+        ("agentInstructionRuntime", "agent_runtime_requested_but_incomplete"),
+    )
+    runtime_incomplete = False
+    for stage_key, code in stage_reasons:
+        if stage_key not in report or report.get(stage_key) is None:
+            continue
+        stage = report.get(stage_key)
+        status = stage.get("status") if isinstance(stage, dict) else None
+        if status in {"not_enabled", "completed"}:
+            continue
+        runtime_incomplete = True
+        if code not in reason_codes:
+            reason_codes.append(code)
+    if runtime_incomplete:
+        subject = verdict.get("subject")
+        outcome = subject.get("outcome") if isinstance(subject, dict) else None
+        if outcome in {None, "ready", "low_detected_risk"}:
+            verdict["subject"] = None
+
+    runtime_severities = _runtime_occurrence_severities(report)
+    if not runtime_severities:
+        return
+    if any(level in {"high", "critical"} for level in runtime_severities):
+        engine = report.get("engine")
+        if engine == "skill":
+            verdict["subject"] = {
+                "engine": "skill", "outcome": "do_not_install",
+            }
+        elif engine == "prompt":
+            verdict["subject"] = {
+                "engine": "prompt", "outcome": "needs_revision",
+            }
+        code = "high_or_critical_finding_present"
+        if code not in reason_codes:
+            reason_codes.append(code)
+        return
+
+    subject = verdict.get("subject")
+    outcome = subject.get("outcome") if isinstance(subject, dict) else None
+    if report.get("engine") == "skill" and outcome == "low_detected_risk":
+        verdict["subject"] = {"engine": "skill", "outcome": "review_required"}
+    elif report.get("engine") == "prompt" and outcome == "ready":
+        verdict["subject"] = {"engine": "prompt", "outcome": "needs_revision"}
 
 
 def compute_verdict(review: Review) -> Dict[str, Any]:
@@ -198,30 +337,72 @@ def to_html(review: Review) -> str:
         e["status"] == "failed" and e["planItemId"] == "pi-parser-manifest"
         for e in d["executions"]
     )
-    if verdict["coverage"] != "sufficient":
+    subj = verdict["subject"] or {}
+    outcome = subj.get("outcome", "unknown")
+    has_high = any(
+        finding.get("severity") in {"high", "critical"}
+        for finding in findings
+    ) or any(
+        severity in {"high", "critical"}
+        for severity in _runtime_occurrence_severities(d)
+    )
+    semantic_incomplete = (
+        "semantic_requested_but_incomplete" in verdict["reasonCodes"]
+    )
+    agent_runtime_incomplete = (
+        "agent_runtime_requested_but_incomplete" in verdict["reasonCodes"]
+    )
+    prompt_blackbox_incomplete = (
+        "prompt_blackbox_requested_but_incomplete" in verdict["reasonCodes"]
+    )
+    skill_sandbox_incomplete = (
+        "skill_sandbox_requested_but_incomplete" in verdict["reasonCodes"]
+    )
+    if outcome == "do_not_install":
+        banner_msg = "Subject outcome: DO_NOT_INSTALL — do not use as-is."
+        banner_kind = "bad"
+    elif has_high:
+        if outcome == "needs_revision":
+            banner_msg = "Subject outcome: NEEDS_REVISION — do not use as-is."
+        else:
+            banner_msg = "HIGH/CRITICAL FINDINGS PRESENT — do not use as-is."
+        banner_kind = "bad"
+    elif verdict["coverage"] != "sufficient":
         banner_msg = "COVERAGE INSUFFICIENT — uncovered checks are NOT the same as no findings."
         banner_kind = "warn"
-    else:
-        subj = verdict["subject"] or {}
-        outcome = subj.get("outcome", "unknown")
-        semantic_incomplete = (
-            "semantic_requested_but_incomplete" in verdict["reasonCodes"]
+    elif outcome == "needs_revision":
+        banner_msg = "Subject outcome: NEEDS_REVISION — do not use as-is."
+        banner_kind = "bad"
+    elif prompt_blackbox_incomplete:
+        banner_msg = (
+            "PROMPT BLACK-BOX INCOMPLETE — completed results are shown, "
+            "but the explicitly requested dynamic review is not complete."
         )
-        if outcome in ("do_not_install", "needs_revision"):
-            banner_msg = f"Subject outcome: {outcome.upper()} — do not use as-is."
-            banner_kind = "bad"
-        elif outcome in ("review_required",):
-            banner_msg = "Subject outcome: REVIEW REQUIRED — human review needed before use."
-            banner_kind = "warn"
-        elif semantic_incomplete:
-            banner_msg = (
-                "SEMANTIC REVIEW INCOMPLETE — completed static results are "
-                "shown, but this review is not complete."
-            )
-            banner_kind = "warn"
-        else:
-            banner_msg = f"Subject outcome: {outcome.upper()} (no known findings; not a safety guarantee)."
-            banner_kind = "ok"
+        banner_kind = "warn"
+    elif skill_sandbox_incomplete:
+        banner_msg = (
+            "SKILL SANDBOX INCOMPLETE — completed results are shown, but "
+            "the explicitly requested dynamic review is not complete."
+        )
+        banner_kind = "warn"
+    elif agent_runtime_incomplete:
+        banner_msg = (
+            "AGENT RUNTIME INCOMPLETE — completed static results are "
+            "shown, but the requested runtime review is not complete."
+        )
+        banner_kind = "warn"
+    elif outcome in ("review_required",):
+        banner_msg = "Subject outcome: REVIEW REQUIRED — human review needed before use."
+        banner_kind = "warn"
+    elif semantic_incomplete:
+        banner_msg = (
+            "SEMANTIC REVIEW INCOMPLETE — completed static results are "
+            "shown, but this review is not complete."
+        )
+        banner_kind = "warn"
+    else:
+        banner_msg = f"Subject outcome: {outcome.upper()} (no known findings; not a safety guarantee)."
+        banner_kind = "ok"
 
     # Build a lookup so findings can render every evidence they cite.
     ev_by_id = all_ev_by_id
@@ -305,6 +486,8 @@ def to_html(review: Review) -> str:
     score = d.get("score") or {"status": "unavailable", "value": None}
     confidence = d.get("reviewConfidence") or {}
     remediations = d.get("remediations") or []
+    issues = d.get("issues") or []
+    dynamic_plan = d.get("dynamicPlan") or {}
 
     def _score_block() -> str:
         if score.get("status") != "available":
@@ -358,6 +541,58 @@ def to_html(review: Review) -> str:
                     f"{html.escape(', '.join(item.get('riskIds') or []))}</p></details>")
             body = "".join(parts)
         return f"<h2>整改与复查（{len(remediations)}）</h2>{body}"
+
+    def _issues_block() -> str:
+        if not issues:
+            return (
+                "<h2>Unified issues</h2>"
+                "<p class='muted'>No confirmed issue groups. This is not a safety guarantee.</p>"
+            )
+        cards = []
+        for issue in issues:
+            checks = "".join(
+                "<li><code>" + html.escape(str(item.get("detectorId") or ""))
+                + "</code>: " + html.escape(str(item.get("outcome") or ""))
+                + "</li>"
+                for item in issue.get("runtimeChecks") or []
+            )
+            cards.append(
+                "<article class='issue-card'>"
+                f"<h3>{html.escape(str(issue.get('title') or issue.get('riskId') or ''))}</h3>"
+                f"<p><code>{html.escape(str(issue.get('riskId') or ''))}</code> · "
+                f"<strong>{html.escape(str(issue.get('status') or 'unverified'))}</strong> · "
+                f"{html.escape(str(issue.get('severity') or ''))}</p>"
+                "<p class='muted'>Layers: "
+                + html.escape(", ".join(issue.get("sourceLayers") or []))
+                + "; occurrences: "
+                + html.escape(str(len(issue.get("occurrences") or [])))
+                + "</p>"
+                + (f"<ul>{checks}</ul>" if checks else "")
+                + "</article>"
+            )
+        return "<h2>Unified issues</h2><div class='issue-list'>" + "".join(cards) + "</div>"
+
+    def _dynamic_plan_block() -> str:
+        items = dynamic_plan.get("items") or []
+        if not items:
+            return "<h2>Dynamic check coverage</h2><p class='muted'>No dynamic plan.</p>"
+        rows = []
+        for item in items:
+            rows.append(
+                "<tr>"
+                f"<td>{html.escape(str(item.get('check_id') or ''))}</td>"
+                f"<td>{html.escape(str(item.get('stage') or ''))}</td>"
+                f"<td>{html.escape(str(item.get('status') or ''))}</td>"
+                f"<td>{html.escape(', '.join(item.get('reason_codes') or []))}</td>"
+                f"<td>{html.escape(', '.join(item.get('risk_ids') or []))}</td>"
+                "</tr>"
+            )
+        return (
+            "<h2>Dynamic check coverage</h2>"
+            "<p class='muted'>Selected checks are content-specific; not_applicable and unavailable do not mean passed.</p>"
+            "<table><tr><th>Check</th><th>Stage</th><th>Status</th><th>Reason</th><th>Risks</th></tr>"
+            + "".join(rows) + "</table>"
+        )
 
     def _parser_rows() -> str:
         if not parser_diags:
@@ -450,6 +685,9 @@ def to_html(review: Review) -> str:
   .guidance .g-prio {{ background:#eef; border:1px solid #99b; padding:.05rem .3rem; border-radius: 999px; font-size:.75rem }}
   .guidance .g-why {{ color:#333; margin-bottom: .2rem }}
   .guidance .g-actions {{ margin: .2rem 0 0 1.2rem; padding: 0 }}
+  .issue-list {{ display:grid; gap:.75rem; margin-bottom:1.5rem }}
+  .issue-card {{ border:1px solid #ccc; border-left:4px solid #667; padding:.75rem 1rem; border-radius:6px }}
+  .issue-card h3 {{ margin:.1rem 0 .4rem }}
 </style></head>
 <body>
 <h1>Verity Report</h1>
@@ -461,12 +699,14 @@ def to_html(review: Review) -> str:
    &nbsp;Prompt kind: <code>{html.escape(str(d['snapshot'].get('promptKind') or 'n/a'))}</code>
    &nbsp;Snapshot: <code>{html.escape(d['snapshot']['snapshotId'])}</code>
 </p>
-<p class="muted">V1 engineering preview: this report covers only checks that actually completed. Controlled semantic review is attempted by default when a Provider is configured (experimental, unevaluated accuracy); V1.5 prompt black-box evaluation and the V2 isolated Skill sandbox are not implemented. A numeric score is not a safety guarantee.</p>
+<p class="muted">V1 engineering preview: this report covers only checks that actually completed. Controlled semantic review is attempted by default when a Provider is configured (experimental, unevaluated accuracy). V1.5 Prompt black-box evaluation remains an explicit caller-controlled opt-in. The current product release does not execute a reviewed Skill: any explicit V2 request fails closed with <code>sandbox_isolation_hardening_required</code> until the isolation boundary is hardened. A numeric score is not a safety guarantee.</p>
 
 {_score_block()}
+{_issues_block()}
+{_dynamic_plan_block()}
 {_remediation_block()}
 
-<h2>Findings</h2>
+<h2>Raw layer findings</h2>
 <p class="muted">Severity notes: <code>low</code> = context-dependent risk marker; <code>medium</code> = quality/consistency risk with bounded evidence; <code>high</code>/<code>critical</code> = blocking risk under Verity-owned policy. Check <code>sourceLayer</code>: L0 is deterministic; L1 is a confirmed controlled-semantic assessment and is not described as mechanical proof.</p>
 <table><tr><th>Severity</th><th>Type</th><th>Guidance</th><th>Claim</th><th>Origin</th><th>Path</th><th>Evidence</th></tr>
 {_findings_rows()}

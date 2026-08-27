@@ -495,7 +495,7 @@ figcaption .src { color: var(--text-muted); }
   <div class="grid g2" style="margin-top:16px">
     <div class="card" style="margin:0">
       <h4 style="margin-top:0">三句话结论</h4>
-      <p style="margin-bottom:6px"><strong>是什么：</strong>一个跑在本地、不联网即可用的确定性规则审查引擎，外加一条独立、可选的实验性语义（LLM 辅助）审查通道。</p>
+      <p style="margin-bottom:6px"><strong>是什么：</strong>一个默认可离线运行的确定性规则审查引擎，外加受信任调用方才能配置的实验性语义、黑盒、Skill 沙箱和 CLI-only Agent Harness 通道；显式 Provider 通道会产生真实网络出站。</p>
       <p style="margin-bottom:6px"><strong>现在到哪一步：</strong>确定性静态审查 = <code>release_candidate</code>（工程可发布）；语义审查 = 同一项目里独立的实验性功能，默认会尝试运行，但还没通过它自己定的质量门槛。</p>
       <p style="margin-bottom:0"><strong>能不能信：</strong>"发布"指的是工程验收（能跑、能出报告、守得住安全边界），<strong>不是</strong>精度承诺——本项目目前没有一个正式、可对外引用的"查得准不准"的数字。完整证据见下方"结果可信吗"。</p>
     </div>
@@ -540,9 +540,8 @@ figcaption .src { color: var(--text-muted); }
   <div class="note" style="margin-top:18px">
     <div class="note-title">如何阅读这份文档</div>
     以下内容都是在撰写本文时从代码仓库中直接读出来的——源码文件、机器可读的 <code>standards/</code> 分类体系，以及
-    <code>evals/reports/</code> 下可复现的评测报告。计数与机制描述截至本次撰写时的代码仓库状态（分支 <code>main</code>，
-    最新提交 <code>57b40aa</code>；本文引用的评测事实来自其父提交 <code>4287d43</code>"Round 67"及更早各轮）。
-    Benchmark 数字都附带来源文件和它自己的限制说明，并且<strong>直接写在数字卡片内部</strong>，不是写在隔壁段落或脚注里。
+    <code>evals/reports/</code> 下可复现的评测报告。当前机制与计数按 Round 191 代码快照同步；历史 Benchmark
+    数字仍保留各自日期、来源文件和限制说明，并且<strong>直接写在数字卡片内部</strong>，不是写在隔壁段落或脚注里。
   </div>
 
   <div class="grid g4" style="margin-top:10px">
@@ -550,18 +549,18 @@ figcaption .src { color: var(--text-muted); }
       <div class="label">发布决定</div>
       <div class="value" style="font-size:19px">release_candidate</div>
       <div class="sub">仅覆盖确定性静态审查</div>
-      <div class="caveat">收尾政策 v2.0.0 · 不含精度评测结论</div>
+      <div class="caveat">收尾政策 v2.1.0 · 不含精度评测结论</div>
     </div>
     <div class="tile">
       <div class="label">确定性规则</div>
-      <div class="value">55</div>
-      <div class="sub">24 条 Prompt + 31 条 Skill</div>
+      <div class="value">63</div>
+      <div class="sub">24 条 Prompt + 39 条 Skill</div>
       <div class="caveat">直接从运行时注册表清点</div>
     </div>
     <div class="tile">
       <div class="label">语义 Finding Type</div>
-      <div class="value">28</div>
-      <div class="sub">25 条 Prompt + 3 条 Skill</div>
+      <div class="value">41</div>
+      <div class="sub">29 条 Prompt + 12 条 Skill</div>
       <div class="caveat">实验性通道，不在发布门槛内</div>
     </div>
     <div class="tile">
@@ -621,7 +620,7 @@ figcaption .src { color: var(--text-muted); }
   <div class="note caution">
     <div class="note-title">阶段推进的固定顺序（后面的阶段不会提前启动）</div>
     <code>分类标准/taxonomy → 语料库/度量指标 → 静态覆盖广度 → 语义覆盖广度 → 独立盲测的 Verity/Butler 语义对比 →
-    可解释分数/修复建议 → Prompt 黑盒评测 → 隔离 Skill 沙箱</code>
+    可解释分数/修复建议 → Prompt 黑盒评测 → 隔离 Skill 沙箱 → Agent 指令 Harness</code>
   </div>
 
   <h3 style="margin-top:24px">两个容易混淆的概念</h3>
@@ -629,10 +628,10 @@ figcaption .src { color: var(--text-muted); }
     <div class="cc"><h5>检测广度（standards/ 分类体系）</h5>回答"Verity 能多广泛地检测这一类风险？"——取值 <code>none</code> / <code>signal</code> / <code>partial</code> / <code>substantial</code> / <code>evaluated</code>。目前<strong>没有任何风险达到 substantial 或 evaluated</strong>。</div>
     <div class="cc"><h5>执行状态（ReviewPlan / Execution / Coverage）</h5>回答"这次审查里，计划要跑的检查真的跑完了吗？"——取值 <code>completed</code> / <code>failed</code> / <code>not_enabled</code> / <code>not_implemented</code> 等。</div>
     <div class="cc"><h5>分数（0–100）</h5>只在确定性 Coverage 足够时才出现；Critical/High/Medium/Low 各自把分数封顶在 39/59/79/99。<code>100</code> 只表示"已完成的检查里没有扣分项"，<strong>从不表示"100% 安全"</strong>。</div>
-    <div class="cc"><h5>安全保证</h5>缺失或失败的关键检查<strong>不会产出任何数字分数</strong>；另有一条独立的 A–D 审查置信度等级，说明语义/剖面/广度/运行时方面的限制。等级 <strong>A 目前刻意不可达</strong>（因为 V1.5、V2 和已评测广度都还不存在）。
+    <div class="cc"><h5>安全保证</h5>缺失或失败的关键检查<strong>不会产出任何数字分数</strong>；另有一条独立的 A–D 审查置信度等级，说明语义/剖面/广度/运行时方面的限制。等级 <strong>A 目前刻意不可达</strong>，因为目前仍没有已评测的检测广度；能运行动态检查并不等于已证明准确率。
     </div>
   </div>
-  <p style="font-size:13px;color:var(--text-secondary)">一次运行可以是 <code>completed</code>，同时检测广度仍停留在 <code>signal</code>——<strong>28 个语义 Finding Type 的存在，不代表语义审查已经是"完整"的。</strong></p>
+  <p style="font-size:13px;color:var(--text-secondary)">一次运行可以是 <code>completed</code>，同时检测广度仍停留在 <code>signal</code>——<strong>41 个语义 Finding Type 的存在，不代表语义审查已经是"完整"的。</strong></p>
 </section>
 
 <hr>
@@ -849,7 +848,7 @@ figcaption .src { color: var(--text-muted); }
     <tbody>
       <tr><td>工程验收</td><td>856 测试通过 · 9/9 工程检查</td><td><span class="cred cred-eng">工程验收</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
       <tr><td>L0 确定性基线</td><td>TP11/FN0 · stability 1.0（84 cases）</td><td><span class="cred cred-contract">CONTRACT-ONLY 级别</span> minimal_pair_baseline</td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
-      <tr><td>语义合约回放</td><td>56/56 · modelQualityMeasured=false</td><td><span class="cred cred-contract">CONTRACT-ONLY</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
+      <tr><td>语义合约回放</td><td>82/82 · modelQualityMeasured=false</td><td><span class="cred cred-contract">CONTRACT-ONLY</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
       <tr><td>协议 v1</td><td>—（已判定 invalidated）</td><td><span class="cred cred-consumed">已失效</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
       <tr><td>协议 v2 Selection</td><td>recall 1.0 / precision 0.875（首次）；后续复测 recall 0.857（FAIL）</td><td><span class="cred cred-consumed">CONSUMED · not_eligible</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
       <tr><td>协议 v3</td><td>recall 0.685714（覆盖度调整后 0.631579）</td><td><span class="cred cred-consumed">CONSUMED · failed(recall)</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
@@ -959,13 +958,13 @@ figcaption .src { color: var(--text-muted); }
   <div class="grid g2">
     <div class="card">
       <div class="grid g3" style="margin-bottom:6px">
-        <div><div class="label" style="font-size:11.5px;letter-spacing:.04em;color:var(--text-muted);font-weight:650">回放次数</div><div style="font-size:23px;font-weight:680">56 / 56</div></div>
+        <div><div class="label" style="font-size:11.5px;letter-spacing:.04em;color:var(--text-muted);font-weight:650">回放次数</div><div style="font-size:23px;font-weight:680">82 / 82</div></div>
         <div><div class="label" style="font-size:11.5px;letter-spacing:.04em;color:var(--text-muted);font-weight:650">稳定性</div><div style="font-size:23px;font-weight:680">1.0</div></div>
         <div><div class="label" style="font-size:11.5px;letter-spacing:.04em;color:var(--text-muted);font-weight:650">模型质量</div><div style="font-size:20px;font-weight:680">未测量</div></div>
       </div>
       <p style="font-size:13.5px;margin-bottom:0">
-        来源：<code>evals/reports/corpus-v1-semantic-contract.json</code>。56 次固定 Provider 回放，覆盖全部 28 个
-        Finding Type 的 confirmed/rejected 配对。<code>contractCorrectCases: 56</code>，<code>modelQualityMeasured: false</code>。
+        来源：<code>evals/reports/corpus-v1-semantic-contract.json</code>。82 次固定 Provider 回放，覆盖全部 41 个
+        Finding Type 的 confirmed/rejected 配对。<code>contractCorrectCases: 82</code>，<code>modelQualityMeasured: false</code>。
       </p>
     </div>
     <div class="note caution" style="margin:0">
@@ -973,7 +972,7 @@ figcaption .src { color: var(--text-muted); }
       "Fixed Provider replay validates semantic pipeline contracts only; it does not measure candidate
       generation or validator model quality."（固定 Provider 回放只验证语义流水线的契约，不测量候选生成或校验者模型的质量。）
       <p style="margin:8px 0 0">
-        换句话说：56/56 证明的是管道本身——schema 校验、证据白名单、身份重派生、严重度策略、状态映射——在收到已知
+        换句话说：82/82 证明的是管道本身——schema 校验、证据白名单、身份重派生、严重度策略、状态映射——在收到已知
         Provider 响应时，行为完全符合规格。它对"真实模型能不能答对"什么都没说。
       </p>
     </div>
@@ -1100,7 +1099,7 @@ figcaption .src { color: var(--text-muted); }
       <li><strong>没有基于真实用户提示词的真实模型精度数据</strong>——语料库里每一个案例都是 <code>verity_synthetic</code>（合成）来源。</li>
       <li><strong>没有延迟、成本或 token 消耗的 benchmark。</strong> 只有每次审查的调用预算上限
         （64 次生成调用、128 次总校验调用、每候选 2 次校验调用），以及一份记录大小和 SHA-256 摘要的调用审计日志。</li>
-      <li><strong>没有 V1.5 或 V2 的任何测量</strong>——两者都是 <code>not_implemented</code>，全部 46 项风险在这两层都是 <code>none</code>。</li>
+      <li><strong>没有 V1.5 或 V2 的已评测准确率</strong>——两条运行路径都已作为显式可选项存在，但当前广度仅为 <code>signal</code>，尚无留存的任务级 oracle 评测。</li>
       <li><strong>任何评测路径里都没有聚合安全分数。</strong> 这是刻意设计：两份语料库报告里 <code>aggregateSafetyScore</code> 都是
         <code>null</code>，架构上规定评测路径不允许包含这样的分数。</li>
       <li>唯一在记录上的真实模型产品级冒烟测试（Round 61，OpenRouter，DeepSeek 做生成器、Mistral 做校验器：
@@ -1338,31 +1337,29 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     </div>
     <div class="tile">
       <div class="label">Skill 规则</div>
-      <div class="value">31</div>
-      <div class="sub">16 条手写 + 15 条 Bandit 映射</div>
+      <div class="value">39</div>
+      <div class="sub">当前确定性 Skill 注册表</div>
       <div class="caveat">skill_rules.py + bandit_adapter + gitleaks_adapter</div>
     </div>
     <div class="tile">
       <div class="label">语义 Finding Type</div>
-      <div class="value">28</div>
-      <div class="sub">25 条 Prompt 引擎 + 3 条 Skill 引擎</div>
+      <div class="value">41</div>
+      <div class="sub">29 条 Prompt 引擎 + 12 条 Skill 引擎</div>
       <div class="caveat">封闭目录；模型不能新增</div>
     </div>
     <div class="tile">
       <div class="label">映射到的运行时组件</div>
-      <div class="value">84</div>
-      <div class="sub">55 条规则 + 1 个能力提取器 + 28 条语义类型</div>
+      <div class="value">156</div>
+      <div class="sub">63 规则 + 1 提取器 + 41 语义 + 35 黑盒 + 12 沙箱 + 4 Agent 运行时</div>
       <div class="caveat">standards/detector_mappings.json</div>
     </div>
   </div>
 
   <div class="note">
-    <div class="note-title">"55 条规则"和"24 个 <code>def prompt_</code> 函数"是怎么对上的</div>
-    24 条 Prompt 规则与 <code>prompt_*</code> 实现函数一一对应。31 条 Skill 规则是<em>注册表条目</em>：
-    16 条是手写的 <code>skill_*</code> 实现，15 条是对特定 Bandit 测试 id（B102、B301、B324、B310、B506、
-    B602、B605、B607、B701、B105、B106、B107、B501、B608、B314）的受控逐项映射，另加 4 条分别投影
-    gitleaks 结果、fake secret fixture、危险 shell 模式、敏感路径访问。每一条都是独立的注册表条目，
-    有自己的 ruleId、严重度和控制映射，这就是为什么 <code>detector_mappings.json</code> 统计出 55 条。
+    <div class="note-title">63 条确定性规则和 24 个 <code>def prompt_</code> 函数是怎么对上的</div>
+    24 条 Prompt 规则与 <code>prompt_*</code> 实现函数一一对应；39 条 Skill 规则是手写规则与受控
+    Bandit/gitleaks 投影的第一等注册表条目。两者合计 63 条确定性映射；动态场景与信号在上面的
+    156 组件总数中另行计数。
   </div>
 
   <h3 style="margin-top:26px">确定性规则 —— 可浏览列表</h3>
@@ -1379,7 +1376,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   </div>
   <div id="rule-list"></div>
 
-  <h3 style="margin-top:26px">语义 Finding Type —— 全部 28 条，含判断策略</h3>
+  <h3 style="margin-top:26px">语义 Finding Type —— 全部 41 条，含判断策略</h3>
   <p style="font-size:14px;color:var(--text-secondary)">
     每一条都带一个<strong>可证伪问题</strong>（Validator 真正被问到的问题）和四段式<strong>判断策略</strong>——
     <code>appliesWhen</code>、<code>confirmWhen</code>、<code>rejectWhen</code>、<code>insufficientWhen</code>——
@@ -1389,8 +1386,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   <div class="filters" role="group" aria-label="语义类型筛选">
     <input type="search" id="cat-search" placeholder="搜索 finding type、问题、策略文本…" aria-label="搜索语义类型">
     <button class="chip" data-cfilter="engine" data-val="all" aria-pressed="true">全部引擎</button>
-    <button class="chip" data-cfilter="engine" data-val="prompt" aria-pressed="false">Prompt（25）</button>
-    <button class="chip" data-cfilter="engine" data-val="skill" aria-pressed="false">Skill（3）</button>
+    <button class="chip" data-cfilter="engine" data-val="prompt" aria-pressed="false">Prompt（29）</button>
+    <button class="chip" data-cfilter="engine" data-val="skill" aria-pressed="false">Skill（12）</button>
     <button class="chip" data-cfilter="sev" data-val="all" aria-pressed="true">全部严重度</button>
     <button class="chip" data-cfilter="sev" data-val="high" aria-pressed="false">High</button>
     <button class="chip" data-cfilter="sev" data-val="medium" aria-pressed="false">Medium</button>
@@ -1402,8 +1399,10 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
   <h3 style="margin-top:26px">46 项统一风险及其真实覆盖广度</h3>
   <p style="font-size:14px;color:var(--text-secondary)">
     来自 <code>standards/risks.json</code>。广度等级只有 <code>none</code> / <code>signal</code> /
-    <code>partial</code> 三档在用——<strong>没有任何风险达到 <code>substantial</code> 或 <code>evaluated</code></strong>，
-    V1.5/V2 在全部 46 项上都是 <code>none</code>。凡是 L0 语料库测过的风险，其混淆矩阵会展示出来；
+    <code>partial</code> 三档在用——<strong>没有任何风险达到 <code>substantial</code> 或 <code>evaluated</code></strong>。
+    当前 V1.5 广度为 26 项 <code>none</code> / 20 项 <code>signal</code>，V2 沙箱为 30 项
+    <code>none</code> / 16 项 <code>signal</code>，V2 Agent 运行时为 42 项 <code>none</code> /
+    4 项 <code>signal</code>。凡是 L0 语料库测过的风险，其混淆矩阵会展示出来；
     为什么这些数字只是配对基线、不是广泛精度评测，见第 3 章。
   </p>
   <div class="filters" role="group" aria-label="风险筛选">
@@ -1427,7 +1426,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
 
   <h3>运行时能力矩阵</h3>
   <p style="font-size:14px;color:var(--text-secondary)">
-    这四个字段会出现在每一份报告里，与 <code>verity/report.py::review_to_dict</code> 保持同步——
+    这五个能力字段会出现在每一份报告里，与 <code>verity/report.py::review_to_dict</code> 保持同步——
     文档里记录的字符串必须与运行时字面量完全一致。
   </p>
   <div class="table-scroll">
@@ -1446,16 +1445,36 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       </tr>
       <tr>
         <td>V1.5 Prompt 黑盒</td>
-        <td><code>not_implemented</code></td>
-        <td>"V1.5 已规划；不属于 V1"</td>
+        <td><code>completed</code> / <code>failed</code> / <code>not_enabled</code></td>
+        <td>"必须显式开启；按制品画像记录已选择、不适用和不可用检查"</td>
       </tr>
       <tr>
-        <td>V2 Skill 隔离沙箱</td>
-        <td><code>not_implemented</code></td>
-        <td>"V2 已规划；不属于 V1"</td>
+        <td>V2 Skill 沙箱（隔离边界加固中）</td>
+        <td><code>failed</code> / <code>not_enabled</code></td>
+        <td>"当前产品路径不执行 Skill；显式请求会失败关闭并报告 sandbox_isolation_hardening_required"</td>
+      </tr>
+      <tr>
+        <td>Agent 指令运行时（仅 CLI）</td>
+        <td><code>completed</code> / <code>failed</code> / <code>not_enabled</code></td>
+        <td>"实验性；仅受信任调用方配置；默认关闭；与可执行 Skill 沙箱相互独立"</td>
       </tr>
     </tbody>
   </table>
+  </div>
+  <div class="note caution">
+    <div class="note-title">Agent Harness 边界：干净完成不等于安全证明</div>
+    外部 <code>@deepseek-ai/dsh</code> 固定为 <code>0.1.1-rc.2</code>，不 vendored、不自动安装，
+    也不是 Python 依赖。调用方提供 Node 与 DSH JavaScript 入口的绝对路径和 SHA-256。每个固定入口
+    只流式读取一次；同一批字节一边计算哈希，一边写入仅所有者可读的私有快照。版本检查和各场景只执行
+    这些快照，不再执行调用方路径。私有 DSH capsule 只为 Node 模块解析链接相邻 npm 闭包；
+    该闭包仍未固定、未认证，不在两个入口哈希的认证范围内。
+    Skill-loader 结果标记最多写入两个；必须恰好有一个成功标记，否则解析会失败关闭。启用后，Skill 指令与场景 Prompt 会通过真实 Provider
+    网络出站。四个模型可见工具只是模拟：内存读、阻断 HTTP、阻断 shell、拒绝审批，不产生主机读取、
+    HTTP、子进程或审批副作用。一次性进程/目录、有限输出/trace、白名单环境与进程组清理并不构成
+    OS/进程/网络安全沙箱；成功调用 <code>setsid()</code> 的后代可逃离同会话清理。更强隔离需要外层
+    container 或 microVM、目的地址白名单出站和完整依赖/镜像固定。报告只留受控枚举、计数、摘要、
+    分类与凭证标记布尔值，不留原始模型输出、参数、canary、凭证、路径或 trace。本轮没有真实
+    Provider/model/scenario E2E；完成不授权通用、跨 Agent、安全或已评测精度结论。
   </div>
   <div class="note">
     <div class="note-title">状态映射细节（report.py）</div>
@@ -1483,8 +1502,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <h4>功能</h4>
       <ul style="margin-bottom:0">
         <li>没有自动修复 / PatchSet 应用——Web UI 只能编辑草稿并重新审查。</li>
-        <li>没有 Skill 执行或沙箱。</li>
-        <li>没有 Prompt 黑盒运行器。</li>
+        <li>默认审查路径不会执行 Skill 或调用 Prompt 黑盒；两者都必须由用户显式开启。</li>
+        <li>图像渲染后的视觉保真度仍不可用。Agent Harness 没有 Web 入口或本轮真实模型 E2E，默认关闭，也不是主机/网络沙箱。</li>
         <li>没有集成 Semgrep，也没有 YARA。</li>
         <li>没有 ZIP 摄入。</li>
         <li>没有 GitHub URL 摄入。</li>
@@ -1817,8 +1836,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <ul style="font-size:13.5px;margin-bottom:0">
         <li><code>README.md</code> —— 使命、路线图表格、范围不变量、语义功能用法</li>
         <li><code>AGENTS.md</code> §0–§9 —— 使命、单一真相来源地图、阶段门槛、不可信被审对象规则</li>
-        <li><code>docs/PROGRESS.md</code> —— 顶部摘要（<code>verified_against</code>、能力矩阵、语料库基线、
-          收尾决定、故意没做的清单）以及 Round 57–67</li>
+        <li><code>docs/PROGRESS.md</code> —— 当前摘要 + Round 191，以及只追加的历史账本
+          （包括 Round 57–67）</li>
         <li><code>docs/ARCHITECTURE.md</code> —— 一页式地图、两条覆盖轴、红线</li>
         <li><code>docs/LESSONS.md</code> —— 最新的若干条目，含全部 2026-07-29 的三条</li>
         <li><code>docs/oss-mining-notes.md</code> —— 移植决定与拒绝证据</li>
@@ -1830,10 +1849,10 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <ul style="font-size:13.5px;margin-bottom:0">
         <li><code>standards/risks.json</code> —— 46 项风险、覆盖度量表、逐层广度</li>
         <li><code>standards/sources.json</code> —— 17 个官方/候选来源</li>
-        <li><code>standards/detector_mappings.json</code> —— 84 个映射组件</li>
+        <li><code>standards/detector_mappings.json</code> —— 156 个映射组件</li>
         <li><code>evals/reports/v1-closure.json</code> —— 决定、检查项、证据、阻塞项</li>
         <li><code>evals/reports/corpus-v1-l0.json</code> —— 84 案例、46 项风险结果、稳定性</li>
-        <li><code>evals/reports/corpus-v1-semantic-contract.json</code> —— 56 次回放</li>
+        <li><code>evals/reports/corpus-v1-semantic-contract.json</code> —— 82 次回放</li>
         <li><code>evals/corpus/v1/manifest.json</code> —— 案例标签与来源</li>
         <li><code>evals/reference/butler_crosswalk.json</code> —— 45 条目 + 政策</li>
       </ul>
@@ -2068,21 +2087,21 @@ score: {
   body: [
     "<div class='m-lead'>一句话结论：把已完成的 Finding 投影成一个可解释的 0–100 分数，外加一个独立的 A–D 置信度等级——两者都是策略投影，从不是检测器，也从不由模型撰写。</div>",
     "<h4>做什么</h4>",
-    "<p>依据策略 <code>verity-safety-score</code> v1.0.0 计算分数，依据 <code>verity-review-confidence</code> v1.0.0 计算置信度等级。</p>",
+    "<p>依据策略 <code>verity-safety-score</code> v1.1.0 计算分数，依据 <code>verity-review-confidence</code> v1.4.0 计算置信度等级。</p>",
     "<h4>关键机制</h4>",
     "<ul>",
     "<li>基础分 100。严重度权重：<strong>critical 45，high 25，medium 10，low 3</strong>。</li>",
     "<li><strong>同一根因的重复项递减扣分：</strong> 系数 <code>(100%、50%、25%)</code>——第四条及以后共享同一根因的 finding 不再继续扣分，但仍作为可见的修复项保留。</li>",
     "<li><strong>硬性严重度封顶</strong>（在扣分之后应用）：critical 39，high 59，medium 79，low 99。所以哪怕其它方面都很干净，出现一条 Critical finding 也不可能让分数达到 60 以上。</li>",
     "<li>每一次扣分都通过已校验的检测器映射追溯到一个统一风险 id 和一条 Finding。一条<strong>未映射</strong>的 finding 会让分数变为 <code>unavailable</code>，而不是被悄悄忽略——所以新增一条没有分类标准映射的规则，会大声地破坏分数计算，而不是悄悄少扣分。</li>",
-    "<li><code>evaluatedLayers</code> 总是列出 <code>L0_static</code>，只有语义阶段 <code>completed</code> 时才加上 <code>L1_semantic</code>。</li>",
+    "<li><code>evaluatedLayers</code> 总是列出 <code>L0_static</code>；只有对应阶段 <code>completed</code> 时，才分别加入 <code>L1_semantic</code>、<code>V1_5_blackbox</code>、<code>V2_sandbox</code> 与 <code>V2_agent_runtime</code>。</li>",
     "</ul>",
     "<h4>置信度等级机制</h4>",
     "<ul>",
     "<li><code>D</code> —— 确定性覆盖不完整，或静态检查失败，或语义被请求但失败。</li>",
     "<li><code>C</code> —— 语义未启用（限制 <code>semantic_not_enabled</code>），或一次 Skill 审查的 gitleaks 未完成（同时会把 B 降为 C）。</li>",
     "<li><code>B</code> —— 语义已完成。</li>",
-    "<li><code>A</code> —— <strong>不可达。</strong> 三条限制会被无条件追加到每一个等级上：<code>v1_5_blackbox_not_implemented</code>、<code>v2_sandbox_not_implemented</code>、<code>capability_breadth_not_evaluated</code>。</li>",
+    "<li><code>A</code> —— <strong>不可达。</strong> <code>capability_breadth_not_evaluated</code> 会被无条件追加；动态运行路径可用并不等于检测广度已经过评测。</li>",
     "</ul>",
     "<h4>边界 / 不能做什么</h4>",
     "<ul>",
@@ -2105,7 +2124,7 @@ projection: {
     "<ul>",
     "<li>确定性 Finding<em>永远</em>存在。语义 Finding 只有<strong>在语义阶段完成之后</strong>才会进入判定/门控/分数/Web/HTML/SARIF。</li>",
     "<li>这不会赋予语义代码任何写入或过滤确定性引擎的能力——这个门是靠结构保证单向的。</li>",
-    "<li><code>review_to_dict</code> 附加四项能力矩阵及其说明，然后调用 <code>enrich_review</code> 添加分数、置信度和修复建议。</li>",
+    "<li><code>review_to_dict</code> 附加五项能力矩阵及其说明，然后调用 <code>enrich_review</code> 添加分数、置信度和修复建议。</li>",
     "<li>被确认的语义 Evidence 现在会到达每一个报告消费者，包括修复建议和源码定位——相同的证据 id 和字节范围在 Web finding、JSON、HTML 和源码工作台中都能一致解析。</li>",
     "</ul>",
     "<h4>边界 / 不能做什么</h4>",
@@ -2127,16 +2146,16 @@ consumers: {
     "<li><strong>JSON</strong> —— 完整报告，schema 通过 <code>verity.cli export-schema</code> 单独导出（JSON Schema Draft 2020-12）。</li>",
     "<li><strong>HTML</strong> —— 一份独立报告。自 Round 66 起，一次<em>不完整</em>的语义运行会让 HTML 报告不再是纯绿色，同时仍保留静态 High/Critical 的结论。</li>",
     "<li><strong>SARIF 2.1.0</strong> —— 供代码扫描消费者使用。有一条历史教训：扁平的键在依赖嵌套键的脚本看来会像是“缺失”，所以这个形状是刻意设计的。</li>",
-    "<li><strong>Web 工作台</strong>（仅限本地回环，不引用任何外部资源）—— 双栏布局，含分数、置信度等级、按优先级排序的 finding、源码字节高亮、Prompt 草稿编辑加一键重新审查、下载功能，以及 Skill 项目历史记录。界面为中文。</li>",
+    "<li><strong>Web 证据审查控制台</strong>（仅限本地回环，不引用任何外部资源）—— 深色命令栏、紧凑的本地摄入轨道、运行前审查计划和证据画布组成桌面双栏；平板宽度转为单栏，手机控件保持至少 44px。它含分数、置信度等级、按优先级排序的 finding、源码字节高亮、Prompt 草稿编辑加一键重新审查、下载功能，以及 Skill 项目历史记录。静态/默认摄入的原始输入保留在本机；启用语义 Provider 时，配置允许的脱敏证据投影出站；显式确认 Prompt 黑盒时，Prompt 原文发送给单独确认的 Provider，但公开报告仅保留受控结果、计数、长度与摘要，不保留原始探针或 Provider 响应。V2 Skill 执行沙箱正在加固，当前产品路径失败关闭且不会执行 Skill。</li>",
     "</ul>",
     "<h4>关键机制：CLI 门控退出码</h4>",
     "<ul>",
     "<li><code>0</code> —— 通过。</li>",
-    "<li><code>1</code> —— <code>findings_block</code>：存在至少一条 High/Critical finding。</li>",
-    "<li><code>3</code> —— 覆盖不足，<em>或</em>一次配了完整受信任凭证却未完成的语义运行。</li>",
+    "<li><code>1</code> —— <code>findings_block</code>：存在至少一条 High/Critical finding 或 High/Critical Agent 运行时 occurrence；静态 High 保持优先。</li>",
+    "<li><code>3</code> —— 覆盖不足、一次配了完整受信任凭证却未完成的语义运行，或一次已请求但未完成且没有 High/Critical 结果的 Agent 运行时。</li>",
     "<li><code>2</code> —— 配置无效（例如一个格式错误的 <code>--semantic-validator-vote</code> 三元组）。</li>",
     "</ul>",
-    "<p>注意这里刻意设计的不对称：<code>semantic_requires_pass</code> 只有在调用方提供了<em>完整、受信任的 Provider 配置</em>时才为真。既然语义现在默认会被尝试，一个未配置的 Provider 诚实报告 <code>provider_not_configured</code> 就绝不能单独把一个面向 CI 的 0 翻成 3。</p>",
+    "<p>注意这里刻意设计的不对称：<code>semantic_requires_pass</code> 只有在调用方提供了<em>完整、受信任的 Provider 配置</em>时才为真。既然语义现在默认会被尝试，一个未配置的 Provider 诚实报告 <code>provider_not_configured</code> 就绝不能单独把一个面向 CI 的 0 翻成 3。对于显式 Agent 阶段，如果其它门槛都通过，只有 medium 级阻断网络信号不会阻塞。</p>",
     "<h4>边界 / Web 特有的不变量</h4>",
     "<ul>",
     "<li><strong>最大扫描力度策略。</strong> 本地回环 UI 和服务端强制使用 <code>standard</code> Skill 剖面和 <code>redacted_evidence</code> 语义出站策略。移除一个选择器<em>不是</em>强制执行的边界——发来 <code>minimal</code> 或 <code>metadata_only</code> 的过时客户端会被服务端升级校正。</li>",
@@ -2204,7 +2223,7 @@ consumers: {
   body: [
     "<div class='m-lead'>一句话结论：Evidence（证据）只在这一步产生——这正是 Provider 无法凭空捏造证据的原因。</div>",
     "<h4>做什么</h4>",
-    "<p>对适用于本引擎的全部 28 个已注册 Finding Type，逐一运行一个确定性的 Python 提取器扫描被审对象。</p>",
+    "<p>对适用于本引擎的全部 41 个已注册 Finding Type，逐一运行一个确定性的 Python 提取器扫描被审对象。</p>",
     "<h4>关键机制</h4>",
     "<ul>",
     "<li>每个提取器返回一组<em>种子</em>，每个种子是一个三元组 <code>(hint, evidence_ids, evidence_records)</code>。Evidence 会被合并进一个整次运行共享的 <code>evidence_pool</code>，以身份稳定的 <code>evidenceId</code> 为键。</li>",
@@ -2490,7 +2509,7 @@ consumers: {
     "<div class='m-lead'>一句话结论：给每一次审查的模型花费设置硬性上限，所以一个畸形的被审对象或一个不稳定的 Provider 都不能产生无限的调用。触及任何上限都会带着一个明确的原因码结束语义处理；确定性结果不受影响。</div>",
     "<h4>做什么：默认限额</h4>",
     "<div class=\"table-scroll\"><table><thead><tr><th>限额</th><th class=\"num\">默认值</th><th>为什么是这个数字</th></tr></thead><tbody>",
-    "<tr><td><code>max_candidate_generation_calls</code></td><td class=\"num\">64</td><td>每一个产生种子的适用类型一次调用，<em>加上每一个符合扫描条件的类型一次调用</em>。刻意远高于 28 类型的目录规模，好让默认值不会悄悄让后面的类型挨饿——这正是注意力稀释修复中被提高的那个值。</td></tr>",
+    "<tr><td><code>max_candidate_generation_calls</code></td><td class=\"num\">64</td><td>每一个产生种子的适用类型一次调用，<em>加上每一个符合扫描条件的类型一次调用</em>。刻意高于 41 类型的目录规模，好让默认值不会悄悄让后面的类型挨饿——这正是注意力稀释修复中被提高的那个值。</td></tr>",
     "<tr><td><code>max_validation_calls_per_candidate</code></td><td class=\"num\">2</td><td>一次初始校验加<em>一次</em>有边界的 schema/身份修复重试。不是一个重新抽样的配额。</td></tr>",
     "<tr><td><code>max_total_validation_calls</code></td><td class=\"num\">128</td><td>整次运行中，跨全部候选和全部校验者的总上限。</td></tr>",
     "<tr><td><code>max_candidates_per_extractor</code></td><td class=\"num\">20</td><td>限制单一类型能往队列里塞入多少候选。</td></tr>",
@@ -2599,7 +2618,7 @@ consumers: {
       key: "v1-static", label: "V1 静态", sub: "本仓库", color: "ok",
       status: "release_candidate",
       current: "确定性静态检查：Prompt + Skill 规则引擎、Bandit 和 gitleaks 适配器、JSON/HTML/SARIF 报告、Web + CLI、可解释的分数与覆盖判定。工程验收是绿色且可复现的；这是一份诚实的工程预览版，不含已评测的精度结论。",
-      includes: "全部 55 条确定性规则、Bandit/gitleaks 隔离适配器、四种报告格式、Web 工作台、CLI 门控。",
+      includes: "全部 63 条确定性规则、Bandit/gitleaks 隔离适配器、四种报告格式、Web 工作台、CLI 门控。",
       excludes: "不含精度评测结论、不含语义质量结论、不含黑盒/沙箱能力。",
       next: "已解锁并在使用中——这是当前的发布范围。"
     },
@@ -2607,7 +2626,7 @@ consumers: {
       key: "v1-semantic", label: "V1 语义", sub: "同一仓库·独立通道", color: "warn",
       status: "experimental_not_ready",
       current: "受控的 LLM 辅助审查。截至本次撰写，只要配置了受信任的 Provider，就会默认尝试运行，但它是一条独立的实验性通道，不属于发布门槛。精度尚未通过它自己冻结的评测协议。<code>--no-semantic</code> 可以完全跳过它。",
-      includes: "28 个语义 Finding Type、多 Provider 投票、目录优先候选生成、无种子扫描。",
+      includes: "41 个语义 Finding Type、多 Provider 投票、目录优先候选生成、无种子扫描。",
       excludes: "没有被接受的精度结论、没有人类专家复核、封存测试集尚未被消费。",
       next: "需要：一份通过预先声明门槛的冻结真实模型 Selection 报告 + 封存测试集被消费 + 独立标签的人工专家复核。"
     },
@@ -2621,19 +2640,27 @@ consumers: {
     },
     {
       key: "v1.5-blackbox", label: "V1.5 黑盒", sub: "动态检查", color: "neutral",
-      status: "not_implemented",
-      current: "针对模型运行提示词并对输出打分。只有当用户明确启动一次黑盒运行，并提供测试集、模型、预算和记录位置时才被允许。",
-      includes: "尚未实现。",
-      excludes: "每一份报告目前都会显示 <code>promptBlackbox: not_implemented</code>。",
-      next: "标准、语料库和静态/语义广度要先打好基础。"
+      status: "explicit_opt_in",
+      current: "先抽取被审查 Prompt 的任务、输入、输出和约束，再选择真正适用的场景并调用配置的模型。导演/分镜和画风 Prompt 有各自的契约、内容保留及多轮状态 oracle。",
+      includes: "制品画像、适用性计划、26 个通用场景，以及导演/分镜 5 个和画风 4 个任务专用检查。",
+      excludes: "没有图像渲染后的视觉保真度适配器；该项会明确显示 unavailable，不会伪装成 passed。",
+      next: "积累任务级评测语料，验证各 oracle 的精度与召回率。"
     },
     {
       key: "v2-sandbox", label: "V2 沙箱", sub: "执行检查", color: "neutral",
-      status: "not_implemented",
-      current: "一个一次性的隔离 Skill 沙箱，配有虚假文件系统、虚假凭证、受控网络，以及 CPU/内存/时长限制，观察进程/文件/网络/数据外泄行为，运行结束后可靠销毁。",
-      includes: "尚未实现。",
-      excludes: "每一份报告目前都会显示 <code>skillSandbox: not_implemented</code>。",
-      next: "只允许在一次性隔离沙箱内，配虚假凭证、默认关闭/受控网络、资源限制，并保证运行后可靠销毁。"
+      status: "unavailable_hardening_required",
+      current: "当前 Review、CLI 与 Web 产品路径失败关闭，不执行 Skill。旧研究 runner 尚未证明宿主读取限制、输出/磁盘/进程树预算、观察器完整性、可靠清理与受控公开报告投影。",
+      includes: "保留 12 类历史研究信号定义与合成夹具规划，作为未来重新设计的测试材料；不构成当前可用能力。",
+      excludes: "当前没有可用于不可信 Skill 的产品执行沙箱，也不把 dormant signal 映射称为已评测覆盖。Agent 指令使用下面独立、同样受限的 Harness 阶段。",
+      next: "先完成全部隔离边界与 macOS 对抗测试，再通过独立安全审查决定是否重新开放。"
+    },
+    {
+      key: "agent-harness", label: "Agent Harness", sub: "指令模拟", color: "warn",
+      status: "CLI_only_default_off",
+      current: "与可执行 Skill 沙箱独立的指令型 Harness。只有受信任 CLI 调用方提供完整的 Node/DSH 双入口哈希和 Provider 配置后，才选择 agent_instruction.runtime；默认 unavailable/not_enabled。",
+      includes: "4 类尝试信号、模拟内存读、阻断 HTTP/shell、拒绝审批、有限且脱敏的报告投影。",
+      excludes: "没有 Web 入口、没有本轮真实模型 E2E、不是 OS/进程/网络沙箱；真实 Provider 出站、setsid() 后代与 npm 依赖闭包仍是残余风险。",
+      next: "只有另行授权后，才在 outer container/microVM 与目的地址白名单出站下做真实 Provider 评测。"
     },
     {
       key: "embeddable", label: "可嵌入服务", sub: "终态", color: "neutral",
@@ -2982,7 +3009,7 @@ consumers: {
       "<dt>范围</dt><dd>" + r.scopes.map(function (s) { return "<code>" + esc(s) + "</code>"; }).join(" ") + "</dd>" +
       "<dt>L0 静态广度</dt><dd><code>" + esc(r.l0) + "</code></dd>" +
       "<dt>L1 语义广度</dt><dd><code>" + esc(r.l1) + "</code></dd>" +
-      "<dt>V1.5 / V2 广度</dt><dd><code>none</code> / <code>none</code>（未实现）</dd>" +
+      "<dt>V1.5 / V2 广度</dt><dd>以当前 standards 概览为准；运行映射取决于具体风险与制品。</dd>" +
       "</dl>" + metrics + "</div></details>";
   }
   riskList.innerHTML = DATA.risks.map(riskHTML).join("");

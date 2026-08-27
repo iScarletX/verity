@@ -3,17 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Verity — Prompt / Skill 审查工作台</title>
+<title>Verity Evidence Console — Prompt / Skill 审查</title>
 <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
+<div class="app-chrome">
 <header class="app-header">
   <div class="brand">
     <span class="brand-mark" aria-hidden="true">V</span>
-    <div>
-      <h1>Verity <small>审查工作台</small></h1>
+    <div class="brand-copy">
+      <span class="eyebrow">LOCAL EVIDENCE CONSOLE</span>
+      <h1>Verity <small>证据审查控制台</small></h1>
       <p class="tagline">Prompt / Agent Skill 风险审查、证据定位与整改复查。</p>
     </div>
+  </div>
+  <div class="command-meta" aria-label="当前信任边界">
+    <span><b>LOCAL</b> 127.0.0.1</span>
+    <span><b>INTAKE</b> 只读摄入</span>
+    <span><b>POLICY</b> 证据优先</span>
   </div>
   <div class="status-strip" aria-label="能力状态" role="status">
     <span class="status-chip is-ok"><span class="dot"></span>静态检查 <b>已就绪</b></span>
@@ -22,19 +29,36 @@
     </span>
   </div>
 </header>
+</div>
 
 <main class="workspace">
   <aside class="setup-rail">
 
+    <section class="rail-intro" aria-labelledby="new-review-title">
+      <span class="eyebrow">NEW REVIEW / 新建审查</span>
+      <h2 id="new-review-title">建立一份可追溯的审查卷宗</h2>
+      <p>选择审查对象。Verity 会先安全摄入，再把结论、覆盖缺口和原文证据分开呈现。</p>
+      <div class="trust-line" aria-label="默认审查边界">
+        <span>本地摄入</span>
+        <span>不安装依赖</span>
+        <span>默认不执行</span>
+      </div>
+    </section>
+
     <!-- STEP 1 — 选择审查对象。这是本页最主要的操作，所以放在最上面。 -->
     <nav class="tabs" role="tablist" aria-label="审查类型">
-      <button role="tab" aria-selected="true" aria-controls="tab-prompt" data-tab="prompt" class="active">检查 Prompt</button>
-      <button role="tab" aria-selected="false" aria-controls="tab-skill" data-tab="skill">检查 Agent Skill</button>
+      <button id="tab-mode-prompt" role="tab" aria-selected="true" aria-controls="tab-prompt" tabindex="0" data-tab="prompt" class="active">检查 Prompt</button>
+      <button id="tab-mode-skill" role="tab" aria-selected="false" aria-controls="tab-skill" tabindex="-1" data-tab="skill">检查 Agent Skill</button>
     </nav>
 
-    <section id="tab-prompt" class="tab-panel panel" role="tabpanel" aria-label="检查 Prompt">
-      <h2>粘贴一段 Prompt</h2>
-      <p class="muted">本地静态检查，不执行、不安装依赖。字节上限约 256 KiB。</p>
+    <section id="tab-prompt" class="tab-panel panel" role="tabpanel" aria-labelledby="tab-mode-prompt">
+      <div class="panel-heading">
+        <span class="step-index" aria-hidden="true">01</span>
+        <div>
+          <h2>粘贴一段 Prompt</h2>
+          <p class="muted">本地静态检查，不执行、不安装依赖。字节上限约 256 KiB。</p>
+        </div>
+      </div>
       <label class="field">
         <span class="field-label">Prompt 类型</span>
         <select id="prompt-kind">
@@ -44,25 +68,185 @@
       </label>
       <label class="field">
         <span class="field-label">Prompt 内容</span>
-        <textarea id="prompt-text" rows="12" placeholder="将 Prompt 内容粘贴到这里……"></textarea>
+        <textarea id="prompt-text" rows="8" placeholder="将 Prompt 内容粘贴到这里……"></textarea>
       </label>
-      <div class="row">
+      <label class="intake-drop is-compact" id="prompt-file-drop" for="prompt-file">
+        <span class="drop-glyph" aria-hidden="true">TXT</span>
+        <span class="drop-copy">
+          <strong>从本地文本文件导入</strong>
+          <span id="prompt-file-name">支持 .txt / .md / .json · 仅在本机读取</span>
+        </span>
+        <span class="drop-action" aria-hidden="true">选择文件</span>
+        <input class="sr-file-input" id="prompt-file" type="file" accept=".txt,.md,.json,text/plain">
+      </label>
+      <div class="row run-bar">
         <span id="prompt-count" class="counter">0 字符</span>
         <button id="prompt-submit" class="primary">开始审查</button>
       </div>
+
+      <!-- V1.5 实验性、显式 opt-in：默认折叠、默认未勾选，绝不随“开始审查”自动触发。 -->
+      <details class="setup-card" id="blackbox-panel">
+        <summary>
+          <span class="summary-title">
+            <span>Prompt 黑盒测试（V1.5，实验性）</span>
+            <span class="sub">把这段 Prompt 发给真实模型，运行一组攻击场景观察表现</span>
+          </span>
+          <span class="state-pill is-off" id="blackbox-state-pill">未启用</span>
+        </summary>
+        <div class="setup-body">
+          <p class="note warn-box"><strong>会真实联网调用模型。</strong>启用后，本页会把你正在检查的 Prompt 原文发送给下方填写的模型 Provider，运行一组内置的注入/越权探测场景，并记录每次真实响应。这不是本地静态检查，请只在信任该 Provider、并接受产生真实调用流量与费用的前提下启用。</p>
+
+          <label class="row-inline check-row">
+            <input type="checkbox" id="blackbox-enabled">
+            <span>启用本次黑盒测试（展开下方配置）</span>
+          </label>
+
+          <div id="blackbox-config" class="provider-config provider-steps">
+            <div class="provider-step">
+              <h4>模型 Provider</h4>
+              <label class="field">
+                <span class="field-label">Provider 地址</span>
+                <input type="text" id="blackbox-base-url" autocomplete="off" disabled placeholder="OpenAI 兼容接口的完整地址">
+              </label>
+              <label class="field">
+                <span class="field-label">模型 ID</span>
+                <input type="text" id="blackbox-model" autocomplete="off" disabled>
+              </label>
+              <label class="field">
+                <span class="field-label">API Key</span>
+                <input type="password" id="blackbox-api-key" autocomplete="off" spellcheck="false" disabled>
+                <span class="field-note">仅用于本次调用，不会保存，页面不会回显。</span>
+              </label>
+              <div class="provider-actions">
+                <button type="button" id="blackbox-copy-provider-btn" class="ghost" disabled>从下方“语义审查 Provider”复制地址与 Key</button>
+              </div>
+              <p class="field-note">点击才会复制；不会自动读取语义审查的配置。</p>
+            </div>
+            <div class="provider-step">
+              <h4>测试范围与预算</h4>
+              <label class="field">
+                <span class="field-label">场景选择策略</span>
+                <select id="blackbox-scenario-policy" disabled>
+                  <option value="artifact_aware" selected>按当前内容选择（推荐）</option>
+                  <option value="all">全部内置场景（研究模式）</option>
+                  <option value="explicit">仅指定场景</option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="field-label">场景 ID（指定时自动使用“仅指定”，逗号分隔）</span>
+                <input type="text" id="blackbox-scenario-ids" disabled placeholder="例如：injection_override_simple,system_prompt_extraction">
+              </label>
+              <label class="field">
+                <span class="field-label">最大调用次数（1-500）</span>
+                <input type="number" id="blackbox-max-calls" min="1" max="500" value="50" disabled>
+              </label>
+              <label class="field">
+                <span class="field-label">单次超时秒数（1-120）</span>
+                <input type="number" id="blackbox-timeout" min="1" max="120" value="30" disabled>
+              </label>
+              <label class="field">
+                <span class="field-label">单次回复最大 tokens（1-4000）</span>
+                <input type="number" id="blackbox-max-tokens" min="1" max="4000" value="800" disabled>
+              </label>
+            </div>
+          </div>
+
+          <label class="row-inline check-row">
+            <input type="checkbox" id="blackbox-confirm" disabled>
+            <span>我确认：这会把上面的 Prompt 原文发送给所填 Provider，产生真实网络请求与可能的调用费用。</span>
+          </label>
+          <p id="blackbox-status" class="status-line" role="status"></p>
+        </div>
+      </details>
     </section>
 
-    <section id="tab-skill" class="tab-panel panel" role="tabpanel" aria-label="检查 Agent Skill" hidden>
-      <h2>选择本地 Skill 文件夹</h2>
-      <p class="muted">仅读取一次，不执行代码；符号链接、特殊文件、超预算的内容会被忽略。<strong>暂不支持</strong> ZIP / GitHub URL。</p>
-      <label class="field">
-        <span class="field-label">Skill 文件夹</span>
-        <input id="skill-files" type="file" multiple webkitdirectory directory>
-      </label>
-      <div class="row">
+    <section id="tab-skill" class="tab-panel panel" role="tabpanel" aria-labelledby="tab-mode-skill" hidden>
+      <div class="panel-heading">
+        <span class="step-index" aria-hidden="true">01</span>
+        <div>
+          <h2>选择本地 Agent Skill</h2>
+          <p class="muted">当前产品路径仅读取一次、不执行 Skill 代码；V2 执行沙箱正在加固，暂不可用。符号链接、特殊文件、超预算内容会被忽略。<strong>暂不支持</strong> GitHub URL。</p>
+        </div>
+      </div>
+      <div class="intake-grid">
+        <label class="intake-drop" id="skill-folder-drop" for="skill-files">
+          <span class="drop-glyph" aria-hidden="true">DIR</span>
+          <span class="drop-copy">
+            <strong>选择 Skill 文件夹</strong>
+            <span id="skill-folder-name">包含根目录 SKILL.md · 最多 500 个文件</span>
+          </span>
+          <span class="drop-action" aria-hidden="true">打开文件夹</span>
+          <input class="sr-file-input" id="skill-files" type="file" multiple webkitdirectory directory>
+        </label>
+        <label class="intake-drop" id="skill-zip-drop" for="skill-zip">
+          <span class="drop-glyph" aria-hidden="true">ZIP</span>
+          <span class="drop-copy">
+            <strong>选择 Skill ZIP</strong>
+            <span id="skill-zip-name">单个 ZIP · 解包预算 8 MiB</span>
+          </span>
+          <span class="drop-action" aria-hidden="true">打开 ZIP</span>
+          <input class="sr-file-input" id="skill-zip" type="file" accept=".zip,application/zip">
+        </label>
+      </div>
+      <div class="row run-bar">
         <span id="skill-count" class="counter">尚未选择文件</span>
         <button id="skill-submit" class="primary">开始审查</button>
       </div>
+
+      <!-- V2 execution remains unavailable until its isolation boundary is hardened. -->
+      <details class="setup-card" id="sandbox-panel">
+        <summary>
+          <span class="summary-title">
+            <span>Skill 执行沙箱（V2，正在加固）</span>
+            <span class="sub">当前产品路径不会执行 Skill；完成宿主读取、输出、磁盘与进程边界加固后再开放</span>
+          </span>
+          <span class="state-pill is-off" id="sandbox-state-pill">暂不可用</span>
+        </summary>
+        <div class="setup-body">
+          <p class="note warn-box"><strong>当前不会执行代码。</strong>审查发现旧研究 runner 的宿主读取、报告投影、输出/磁盘预算与进程树清理不足以构成可信隔离。产品入口现已失败关闭；只有完成这些边界并通过对抗测试后才会重新开放。</p>
+
+          <label class="row-inline check-row">
+            <input type="checkbox" id="sandbox-enabled" disabled>
+            <span>暂不可启用：隔离边界正在加固</span>
+          </label>
+
+          <div id="sandbox-config" class="provider-config provider-steps">
+            <div class="provider-step">
+              <h4>入口点</h4>
+              <label class="field">
+                <span class="field-label">入口文件相对路径</span>
+                <input type="text" id="sandbox-entry-point" disabled placeholder="例如：scripts/run.py">
+                <span class="field-note">相对于本次上传的 Skill 根目录，必须是已上传文件之一。</span>
+              </label>
+              <label class="field">
+                <span class="field-label">命令行参数（可选，逗号分隔）</span>
+                <input type="text" id="sandbox-argv" disabled>
+              </label>
+            </div>
+            <div class="provider-step">
+              <h4>资源预算</h4>
+              <label class="field">
+                <span class="field-label">CPU 秒数上限（1-300）</span>
+                <input type="number" id="sandbox-cpu-seconds" min="1" max="300" value="10" disabled>
+              </label>
+              <label class="field">
+                <span class="field-label">内存上限 MB（1-4096）</span>
+                <input type="number" id="sandbox-memory-mb" min="1" max="4096" value="256" disabled>
+              </label>
+              <label class="field">
+                <span class="field-label">墙钟时间上限秒（1-600）</span>
+                <input type="number" id="sandbox-wall-seconds" min="1" max="600" value="20" disabled>
+              </label>
+            </div>
+          </div>
+
+          <label class="row-inline check-row">
+            <input type="checkbox" id="sandbox-confirm" disabled>
+            <span>执行功能重新开放时，仍会要求单独确认真实代码执行。</span>
+          </label>
+          <p id="sandbox-status" class="status-line" role="status"></p>
+        </div>
+      </details>
     </section>
 
     <!-- STEP 2 — 语义审查 Provider。始终存在的一次性配置，不是开关：
@@ -152,6 +336,71 @@
 
   <section class="review-pane">
 
+    <!-- Initial evidence canvas: the former empty result column made the
+         product look like a generic upload form.  This plan states exactly
+         what the next run can and cannot do before the user authorizes it. -->
+    <section id="review-empty" class="review-empty" aria-labelledby="review-empty-title">
+      <div class="empty-console-head">
+        <div>
+          <span class="eyebrow">AUDIT PLAN / 审查计划</span>
+          <h2 id="review-empty-title">证据链待命</h2>
+          <p>完成左侧输入后，Verity 会把每一层检查的运行状态、证据来源和覆盖缺口留在同一份卷宗里。</p>
+        </div>
+        <span class="console-state"><i aria-hidden="true"></i>等待输入</span>
+      </div>
+
+      <ol class="audit-stages" aria-label="本次审查阶段">
+        <li class="audit-stage is-ready">
+          <span class="stage-number">01</span>
+          <span class="stage-line" aria-hidden="true"></span>
+          <div>
+            <span class="stage-kind">LOCAL · DETERMINISTIC</span>
+            <strong>安全摄入与静态规则</strong>
+            <p>解析不可信内容，运行确定性规则与已安装的受控扫描器。</p>
+          </div>
+          <span class="stage-state">已就绪</span>
+        </li>
+        <li class="audit-stage is-conditional">
+          <span class="stage-number">02</span>
+          <span class="stage-line" aria-hidden="true"></span>
+          <div>
+            <span class="stage-kind">MODEL · CONDITIONAL</span>
+            <strong>语义证据</strong>
+            <p>仅在可信 Provider 已配置时调用；模型建议与确定性发现分层呈现。</p>
+          </div>
+          <span class="stage-state">按配置</span>
+        </li>
+        <li class="audit-stage is-gated">
+          <span class="stage-number">03</span>
+          <span class="stage-line" aria-hidden="true"></span>
+          <div>
+            <span class="stage-kind">RUNTIME · RESTRICTED</span>
+            <strong>黑盒测试 / 沙箱状态</strong>
+            <p>Prompt 黑盒仅在二次确认后联网；Skill 执行沙箱当前失败关闭、不可用。</p>
+          </div>
+          <span class="stage-state">按显式授权 / 可用性</span>
+        </li>
+        <li class="audit-stage">
+          <span class="stage-number">04</span>
+          <span class="stage-line" aria-hidden="true"></span>
+          <div>
+            <span class="stage-kind">EVIDENCE · DECISION</span>
+            <strong>结论与整改卷宗</strong>
+            <p>分开显示严重度、覆盖率、审查可信度、原文位置和可复查的整改步骤。</p>
+          </div>
+          <span class="stage-state">等待上游</span>
+        </li>
+      </ol>
+
+      <div class="boundary-ledger" aria-label="默认数据边界">
+        <div><span>原始输入</span><strong>默认留在本机；黑盒启用时原文出站</strong></div>
+        <div><span>语义证据</span><strong>按 Provider 配置出站</strong></div>
+        <div><span>代码执行</span><strong>产品沙箱暂不可用</strong></div>
+        <div><span>报告形态</span><strong>JSON · HTML · SARIF</strong></div>
+      </div>
+      <p class="empty-console-note">语义审查启用时，脱敏证据按 Provider 配置出站；显式启用 Prompt 黑盒时，Prompt 原文会发送给所填 Provider。完成一次检查不等于“安全保证”；未运行、失败或未覆盖的能力不会被折算成通过。</p>
+    </section>
+
     <!-- 进行中：骨架屏与结果结构一致，结果替换时不会跳版。 -->
     <section id="loading" hidden aria-live="polite" aria-busy="true">
       <div class="loading-card">
@@ -207,13 +456,18 @@
       <!-- 覆盖缺口（结论文案会直接指向这里），为空自动隐藏。 -->
       <div id="blocked" class="section"></div>
 
-      <!-- 三级信息：问题清单 + 整改 + 复查工作台。 -->
+      <!-- 三级信息：先按风险聚合，再解释动态覆盖，最后保留原始层详情。 -->
+      <div id="unified-issues" class="section"></div>
+      <div id="dynamic-plan" class="section"></div>
       <div id="findings" class="section"></div>
+      <!-- Same findings, shown in place inside the complete original
+           text instead of as extracted snippets -- every occurrence of
+           a subject lit up with the same color, in its real context
+           (see renderFullDocument in app.js). Empty and hidden when
+           there is nothing locatable to mark. -->
+      <div id="full-document" class="section"></div>
       <div id="remediations" class="section"></div>
       <div id="fix-workbench" class="section"></div>
-      <!-- Original-text location is rendered inline inside each finding
-           card above (see renderResult in app.js); there is no separate
-           standalone evidence section any more. -->
       <div id="downloads" class="section"></div>
 
       <!-- 四级信息：执行诊断，默认折叠；出现异常时由 app.js 自动展开。 -->
@@ -227,6 +481,8 @@
           <div id="semantic-view" class="section"></div>
           <div id="analyzers" class="section"></div>
           <div id="capabilities" class="section"></div>
+          <div id="blackbox-result-view" class="section"></div>
+          <div id="sandbox-result-view" class="section"></div>
           <div class="section" id="owasp-section">
             <h3>OWASP AST10 覆盖矩阵</h3>
             <div id="owasp"></div>
@@ -240,7 +496,7 @@
 </main>
 
 <footer>
-  Verity 本地 MVP。显式 Skill 项目历史保存在本机安全数据目录；临时 standalone 报告在重启后丢失。停止服务请在启动 Verity 的终端按 <code>Ctrl+C</code>。
+  Verity Evidence Console · Loopback-only。本地项目历史保存在安全数据目录；临时 standalone 报告在重启后丢失。停止服务请在启动 Verity 的终端按 <code>Ctrl+C</code>。
 </footer>
 
 <script src="/static/app.js"></script>

@@ -32,9 +32,35 @@ def test_coverage_incomplete_view_and_html_say_unavailable():
     assert view["score"]["status"] == "unavailable"
     assert view["score"]["value"] is None
     rendered = to_html(r)
+    assert (
+        '<div class="banner warn"><strong>COVERAGE INSUFFICIENT'
+        in rendered
+    )
     assert "暂不评分" in rendered
     assert "coverage_insufficient" in rendered
     assert "<strong>None / 100</strong>" not in rendered
+
+
+def test_static_high_outweighs_insufficient_coverage_in_html():
+    snap, data = intake_text("allowed_tools: *\n", prompt_kind="system_prompt")
+    r = run_review(ReviewInputs("prompt", snap, data))
+    assert any(f.severity in ("high", "critical") for f in r.findings)
+    r = replace(
+        r,
+        coverage=replace(
+            r.coverage,
+            status="insufficient",
+            reasonCodes=["synthetic_gap"],
+        ),
+    )
+
+    rendered = to_html(r)
+
+    assert (
+        '<div class="banner bad"><strong>HIGH/CRITICAL FINDINGS PRESENT'
+        in rendered
+    )
+    assert "Coverage: <code>insufficient</code>" in rendered
 
 
 def test_static_html_contains_explainable_score_and_proposal_only_remediation():

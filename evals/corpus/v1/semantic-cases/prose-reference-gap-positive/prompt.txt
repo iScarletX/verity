@@ -1,0 +1,3 @@
+Only escalate account deletion requests to a human reviewer, and never delete an account without that sign-off.
+
+When a user asks for a refund, follow the exception process as described above before issuing any payment.

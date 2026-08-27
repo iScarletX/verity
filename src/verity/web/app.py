@@ -17,11 +17,14 @@ Design rules:
 
 from __future__ import annotations
 
+import io
 import json
 import mimetypes
 import os
+import secrets
 import shutil
 import tempfile
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -74,6 +77,38 @@ WEB_PROVIDER_FIELD_NAMES = {
 # to the persisted settings store for the connection details.
 WEB_VALIDATOR_MODELS_FIELD_NAME = "validator_models"
 MAX_WEB_VALIDATOR_MODELS = 3
+
+# --- V1.5 Prompt black-box / V2 Skill sandbox compatibility fields ------
+#
+# Deliberately NOT modelled on WEB_PROVIDER_FIELD_NAMES's "any field present
+# means the caller wants this" convention. Prompt black-box makes a real
+# outbound model call, so it requires two independent explicit signals. The
+# sandbox fields are retained only for API compatibility: a fully confirmed
+# request is passed to run_review, which fails closed before any runner import
+# or construction. The reviewed artifact cannot activate either path.
+WEB_BLACKBOX_FIELD_NAMES = {
+    "blackbox_enabled",
+    "blackbox_confirm",
+    "blackbox_base_url",
+    "blackbox_api_key",
+    "blackbox_model",
+    "blackbox_scenario_policy",
+    "blackbox_scenario_ids",
+    "blackbox_max_calls",
+    "blackbox_timeout_seconds",
+    "blackbox_max_tokens",
+}
+_MAX_BLACKBOX_KEY_BYTES = 8 * 1024
+
+WEB_SANDBOX_FIELD_NAMES = {
+    "sandbox_enabled",
+    "sandbox_confirm",
+    "sandbox_entry_point",
+    "sandbox_argv",
+    "sandbox_cpu_seconds",
+    "sandbox_memory_mb",
+    "sandbox_wall_seconds",
+}
 
 
 # --- Middleware --------------------------------------------------------
@@ -182,9 +217,9 @@ class MultipartPathError(IntakeError):
     pass
 
 
-def _sanitize_upload_path(raw: str) -> str:
-    """Normalise a browser-supplied relative path. Rejects the same
-    unsafe cases as ``intake._normalize_relative`` and adds a length cap.
+def _reject_unsafe_path(raw: str) -> None:
+    """Shared zip-slip / NUL / backslash / absolute-path guard for both
+    browser folder-upload paths and ZIP archive entry names.
     """
     if not raw:
         raise MultipartPathError("empty file path")
@@ -196,13 +231,20 @@ def _sanitize_upload_path(raw: str) -> str:
         raise MultipartPathError("backslash not allowed")
     if raw.startswith("/") or ":" in raw:
         raise MultipartPathError("absolute or drive-letter path not allowed")
+    for p in raw.split("/"):
+        if p in _FORBIDDEN_PATH_SEGMENTS:
+            raise MultipartPathError(f"forbidden path segment: {p!r}")
+
+
+def _sanitize_upload_path(raw: str) -> str:
+    """Normalise a browser-supplied relative path. Rejects the same
+    unsafe cases as ``intake._normalize_relative`` and adds a length cap.
+    """
+    _reject_unsafe_path(raw)
     parts = raw.split("/")
     # Drop the leading "root" directory produced by the browser folder
     # picker; the intake layer keys off relative paths, and every file
     # already shares the same first segment.
-    for p in parts:
-        if p in _FORBIDDEN_PATH_SEGMENTS:
-            raise MultipartPathError(f"forbidden path segment: {p!r}")
     if len(parts) < 2:
         raise MultipartPathError(
             "expected a folder upload (relative path with subdirectory)")
@@ -210,6 +252,122 @@ def _sanitize_upload_path(raw: str) -> str:
     if not normalised:
         raise MultipartPathError("empty normalized path after root strip")
     return normalised
+
+
+def _sanitize_zip_entry_path(raw: str) -> str:
+    """Validate a raw ZIP entry name for zip-slip / NUL / drive-letter
+    tricks. Unlike ``_sanitize_upload_path`` this does not require or
+    strip a leading root segment -- a ZIP archive may or may not wrap its
+    contents in one folder; the caller decides whether to strip one.
+    """
+    _reject_unsafe_path(raw)
+    return raw
+
+
+class _ZipUploadError(Exception):
+    def __init__(self, code: str, message: str, status: int = 400) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status = status
+
+
+_ZIP_READ_CHUNK = 65536
+
+
+def _extract_skill_zip(data: bytes, tmpdir: str, *, fallback_root_name: str
+                       ) -> tuple[str, Dict[str, str]]:
+    """Safely extract a Skill ZIP upload into ``tmpdir``.
+
+    Applies the same protections as the folder-upload path (zip-slip /
+    absolute / forbidden path segment rejection, per-file and total size
+    budgets, max entry count) plus a zip-bomb guard: entries are read
+    incrementally with a hard cap rather than trusting the archive's own
+    declared (and forgeable) uncompressed-size metadata. Returns the
+    artifact root name to label the review with -- the ZIP's own wrapping
+    folder if every entry shares one, otherwise ``fallback_root_name`` --
+    plus a path -> decoded-text map so the Web UI can still show
+    original-text evidence locations (the folder-upload flow gets this
+    for free by reading File objects directly in the browser; a ZIP
+    upload has no per-entry File objects for the client to read).
+    """
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile:
+        raise _ZipUploadError("bad_zip", "not a valid ZIP file")
+    infos = [i for i in zf.infolist() if not i.is_dir()]
+    if not infos:
+        raise _ZipUploadError("no_files", "ZIP archive contains no files")
+    if len(infos) > MAX_SKILL_FILES:
+        raise _ZipUploadError(
+            "too_many_files", f"more than {MAX_SKILL_FILES} files", 413)
+
+    rel_by_info: Dict[Any, str] = {}
+    common_root: Any = None
+    for info in infos:
+        try:
+            rel = _sanitize_zip_entry_path(info.filename)
+        except MultipartPathError as e:
+            raise _ZipUploadError("bad_path", str(e))
+        rel_by_info[info] = rel
+        segments = rel.split("/")
+        if len(segments) < 2:
+            common_root = False
+        elif common_root is None:
+            common_root = segments[0]
+        elif common_root is not False and common_root != segments[0]:
+            common_root = False
+
+    strip_root = bool(common_root)
+    seen: set = set()
+    seen_lower: set = set()
+    total = 0
+    source_files: Dict[str, str] = {}
+    for info in infos:
+        rel = rel_by_info[info]
+        if strip_root:
+            rel = rel.split("/", 1)[1]
+        if not rel:
+            raise _ZipUploadError("bad_path", "empty path after root strip")
+        if rel in seen or rel.lower() in seen_lower:
+            raise _ZipUploadError(
+                "bad_path", "duplicate or case-colliding path in ZIP")
+        seen.add(rel)
+        seen_lower.add(rel.lower())
+
+        dst = Path(tmpdir) / rel
+        try:
+            dst.resolve().relative_to(Path(tmpdir).resolve())
+        except ValueError:
+            raise _ZipUploadError("bad_path", "path escapes upload directory")
+
+        chunks = []
+        file_total = 0
+        with zf.open(info) as src:
+            while True:
+                chunk = src.read(_ZIP_READ_CHUNK)
+                if not chunk:
+                    break
+                file_total += len(chunk)
+                if file_total > MAX_SKILL_FILE_BYTES:
+                    raise _ZipUploadError(
+                        "file_too_large", f"{rel} exceeds per-file budget", 413)
+                total += len(chunk)
+                if total > MAX_SKILL_TOTAL_BYTES:
+                    raise _ZipUploadError(
+                        "total_too_large",
+                        "total archive contents exceed budget", 413)
+                chunks.append(chunk)
+        file_data = b"".join(chunks)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(file_data)
+        try:
+            source_files[rel] = file_data.decode("utf-8")
+        except UnicodeDecodeError:
+            source_files[rel] = ""
+
+    root_name = common_root if strip_root else fallback_root_name
+    return root_name, source_files
 
 
 # ---------------- Endpoints --------------------------------------------
@@ -359,6 +517,202 @@ def _validator_kwargs(validator_or_validators) -> Dict[str, Any]:
     if isinstance(validator_or_validators, list):
         return {"validators": validator_or_validators}
     return {"validator": validator_or_validators}
+
+
+def _numeric_payload_field(payload: Dict[str, Any], name: str, default):
+    """Return ``payload[name]`` as a bare number, or ``default`` if
+    absent/empty — never coerces a string, so a stray ``"30"`` gives a clear
+    400 instead of silently working. Returns ``(value, error_response)``;
+    caller must check ``error_response`` before using ``value``.
+    """
+    v = payload.get(name, default)
+    if v in (None, ""):
+        return default, None
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return None, _error_response(
+            "bad_" + name, f"{name} must be a number", 400)
+    return v, None
+
+
+def _maybe_blackbox_run(payload: Dict[str, Any]):
+    """Resolve an explicit, user-confirmed V1.5 black-box run request.
+
+    Returns one of:
+      * ``None`` — black-box was not requested; ``ReviewInputs.blackbox_config``
+        must stay ``None`` (the only default path).
+      * ``(BlackboxConfig, env_name)`` — a real run. ``env_name`` is an
+        ephemeral API-key env var (same discipline as
+        ``provider_web.build_semantic_config_with_ephemeral_key``); the
+        caller MUST call ``clear_ephemeral_key(env_name)`` in a ``finally``.
+      * a ``JSONResponse`` error — anything requested-but-incomplete/invalid.
+        Never silently falls back to a default/no-op config.
+
+    This stage sends the reviewed prompt to a real model to run live attack
+    scenarios, so — unlike the semantic Provider panel — mere field
+    presence is never enough: both ``blackbox_enabled`` and
+    ``blackbox_confirm`` must be exactly ``True``, and it always uses its
+    OWN base_url/model/api_key from this payload, never a value silently
+    borrowed from the persisted semantic Provider settings store.
+    """
+    if payload.get("blackbox_enabled") is not True:
+        return None
+    if payload.get("blackbox_confirm") is not True:
+        return _error_response(
+            "blackbox_confirmation_required",
+            "blackbox_confirm must be true to run the V1.5 black-box stage "
+            "(it sends the reviewed prompt to a real model).", 400)
+
+    base_url = payload.get("blackbox_base_url")
+    model_id = payload.get("blackbox_model")
+    api_key = payload.get("blackbox_api_key")
+    if not isinstance(base_url, str) or not base_url.strip():
+        return _error_response("blackbox_base_url_required",
+                               "blackbox_base_url is required", 400)
+    if (not isinstance(model_id, str) or not model_id.strip()
+            or len(model_id) > 200):
+        return _error_response("blackbox_model_required",
+                               "blackbox_model is required (<=200 chars)", 400)
+    if not isinstance(api_key, str) or not api_key.strip():
+        return _error_response("blackbox_api_key_required",
+                               "blackbox_api_key is required", 400)
+    if len(api_key.encode("utf-8")) > _MAX_BLACKBOX_KEY_BYTES:
+        return _error_response("blackbox_api_key_too_large",
+                               "blackbox_api_key is too large", 400)
+
+    from .provider_web import ProviderWebError, validate_base_url
+    try:
+        url = validate_base_url(base_url)
+    except ProviderWebError as exc:
+        return _error_response(exc.code, exc.message, 400)
+
+    scenario_ids_raw = payload.get("blackbox_scenario_ids")
+    scenario_ids: tuple = ()
+    if scenario_ids_raw not in (None, "", []):
+        if (not isinstance(scenario_ids_raw, list)
+                or not all(isinstance(s, str) for s in scenario_ids_raw)):
+            return _error_response(
+                "bad_blackbox_scenario_ids",
+                "blackbox_scenario_ids must be an array of scenario id "
+                "strings", 400)
+        scenario_ids = tuple(s.strip() for s in scenario_ids_raw if s.strip())
+    scenario_policy = payload.get("blackbox_scenario_policy") or "artifact_aware"
+    if not isinstance(scenario_policy, str):
+        return _error_response(
+            "bad_blackbox_scenario_policy",
+            "blackbox_scenario_policy must be a string", 400)
+
+    max_calls, err = _numeric_payload_field(payload, "blackbox_max_calls", 50)
+    if err is not None:
+        return err
+    timeout_seconds, err = _numeric_payload_field(
+        payload, "blackbox_timeout_seconds", 30.0)
+    if err is not None:
+        return err
+    max_tokens, err = _numeric_payload_field(
+        payload, "blackbox_max_tokens", 800)
+    if err is not None:
+        return err
+
+    from .provider_web import clear_ephemeral_key
+    env_name = "VERITY_WEB_BLACKBOX_KEY_" + secrets.token_hex(16).upper()
+    os.environ[env_name] = api_key.strip()
+    try:
+        from ..blackbox import BlackboxConfig, BlackboxCredentials
+        cfg = BlackboxConfig(
+            enabled=True,
+            base_url=url,
+            model_id=model_id.strip(),
+            credentials=BlackboxCredentials(api_key_env=env_name),
+            scenario_policy=scenario_policy,
+            scenario_ids=scenario_ids,
+            max_calls=max_calls,
+            timeout_seconds=timeout_seconds,
+            max_tokens_per_response=max_tokens,
+        )
+    except (ValueError, TypeError) as exc:
+        clear_ephemeral_key(env_name)
+        return _error_response("bad_blackbox_config", str(exc), 400)
+    except Exception:
+        clear_ephemeral_key(env_name)
+        raise
+    return (cfg, env_name)
+
+
+def _maybe_sandbox_run(form: Dict[str, Any]):
+    """Resolve an explicit, user-confirmed V2 sandbox run request from a
+    Skill review multipart form.
+
+    Mirrors ``_maybe_blackbox_run``'s two-signal (``sandbox_enabled`` +
+    ``sandbox_confirm``) discipline, but multipart fields are always plain
+    strings, so both must equal the literal string ``"true"``. Returns
+    ``None`` (not requested), a ``SandboxConfig`` ready to pass as
+    ``ReviewInputs.sandbox_config``, or a ``JSONResponse`` error. The product
+    review stage currently fails closed before runner construction; parsing
+    these legacy fields does not make Skill execution available.
+    """
+    if form.get("sandbox_enabled") != "true":
+        return None
+    if form.get("sandbox_confirm") != "true":
+        return _error_response(
+            "sandbox_confirmation_required",
+            'sandbox_confirm must be "true" to record an explicit V2 request. '
+            "Skill execution is currently unavailable and the product path "
+            "does not execute uploaded code.", 400)
+
+    entry_point = form.get("sandbox_entry_point") or ""
+    if not isinstance(entry_point, str) or not entry_point.strip():
+        return _error_response("sandbox_entry_point_required",
+                               "sandbox_entry_point is required", 400)
+
+    argv: tuple = ()
+    argv_raw = form.get("sandbox_argv")
+    if argv_raw not in (None, ""):
+        try:
+            parsed = json.loads(argv_raw)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            return _error_response(
+                "bad_sandbox_argv",
+                "sandbox_argv must be a JSON array of strings", 400)
+        if (not isinstance(parsed, list)
+                or not all(isinstance(a, str) for a in parsed)):
+            return _error_response(
+                "bad_sandbox_argv",
+                "sandbox_argv must be a JSON array of strings", 400)
+        argv = tuple(parsed)
+
+    def _int_form_field(name: str, default: int):
+        v = form.get(name)
+        if v in (None, ""):
+            return default, None
+        try:
+            return int(v), None
+        except (ValueError, TypeError):
+            return None, _error_response(
+                "bad_" + name, f"{name} must be an integer", 400)
+
+    cpu_seconds, err = _int_form_field("sandbox_cpu_seconds", 10)
+    if err is not None:
+        return err
+    memory_mb, err = _int_form_field("sandbox_memory_mb", 256)
+    if err is not None:
+        return err
+    wall_seconds, err = _int_form_field("sandbox_wall_seconds", 20)
+    if err is not None:
+        return err
+
+    from ..sandbox import SandboxConfig
+    try:
+        cfg = SandboxConfig(
+            enabled=True,
+            entry_point=entry_point.strip(),
+            argv=argv,
+            cpu_seconds=cpu_seconds,
+            memory_mb=memory_mb,
+            wall_seconds=wall_seconds,
+        )
+    except ValueError as exc:
+        return _error_response("bad_sandbox_config", str(exc), 400)
+    return cfg
 
 
 async def list_models(request: Request) -> Response:
@@ -553,16 +907,31 @@ async def review_prompt(request: Request) -> Response:
     if plan is not None:
         sem_cfg, generator, validator_or_validators, env_name = plan
     validator_kwargs = _validator_kwargs(validator_or_validators)
+
+    blackbox_plan = _maybe_blackbox_run(payload)
+    if isinstance(blackbox_plan, JSONResponse):
+        if env_name:
+            from .provider_web import clear_ephemeral_key
+            clear_ephemeral_key(env_name)
+        return blackbox_plan
+    blackbox_config = blackbox_env_name = None
+    if blackbox_plan is not None:
+        blackbox_config, blackbox_env_name = blackbox_plan
+
     try:
         review = run_review(ReviewInputs(engine="prompt", snapshot=snap,
                                           file_bytes=byts,
-                                          semantic_config=sem_cfg),
+                                          semantic_config=sem_cfg,
+                                          blackbox_config=blackbox_config),
                             candidate_generator=generator,
                             **validator_kwargs)
     finally:
         if env_name:
             from .provider_web import clear_ephemeral_key
             clear_ephemeral_key(env_name)
+        if blackbox_env_name:
+            from .provider_web import clear_ephemeral_key
+            clear_ephemeral_key(blackbox_env_name)
     stored = _make_report(review, "prompt")
     rid = request.app.state.store.put(stored)
     view = _view_for(review, "prompt", rid)
@@ -597,51 +966,77 @@ async def review_skill(request: Request) -> Response:
     files = [v for v in form.getlist("files") if isinstance(v, UploadFile)]
     if not files:
         return _error_response("no_files", "no files uploaded", 400)
-    if len(files) > MAX_SKILL_FILES:
-        return _error_response("too_many_files",
-                               f"more than {MAX_SKILL_FILES} files", 413)
+
+    archive_format = form.get("archive_format") or ""
+    if archive_format not in ("", "zip"):
+        return _error_response(
+            "bad_archive_format", "archive_format must be zip", 400)
 
     tmpdir = tempfile.mkdtemp(prefix="verity-web-skill-")
     try:
-        total = 0
-        seen_upload_paths: set[str] = set()
-        seen_upload_paths_lower: set[str] = set()
         upload_root_name: Optional[str] = None
-        for uf in files:
+        source_files: Dict[str, str] = {}
+        if archive_format == "zip":
+            if len(files) != 1:
+                return _error_response(
+                    "bad_archive", "ZIP upload expects exactly one file", 400)
+            uf = files[0]
             raw_name = uf.filename or ""
-            try:
-                rel = _sanitize_upload_path(raw_name)
-            except MultipartPathError as e:
-                return _error_response("bad_path", str(e), 400)
-            root_name = raw_name.split("/", 1)[0]
-            if upload_root_name is None:
-                upload_root_name = root_name
-            elif upload_root_name != root_name:
+            if not raw_name.lower().endswith(".zip"):
                 return _error_response(
-                    "bad_path", "all files must share one upload root", 400)
-            if rel in seen_upload_paths or rel.lower() in seen_upload_paths_lower:
-                return _error_response(
-                    "bad_path", "duplicate or case-colliding upload path", 400)
-            seen_upload_paths.add(rel)
-            seen_upload_paths_lower.add(rel.lower())
-            # Read with size cap.
+                    "bad_archive", "expected a .zip file", 400)
             data = await uf.read()
-            if len(data) > MAX_SKILL_FILE_BYTES:
-                return _error_response("file_too_large",
-                                       f"{rel} exceeds per-file budget", 413)
-            total += len(data)
-            if total > MAX_SKILL_TOTAL_BYTES:
-                return _error_response("total_too_large",
-                                       "total upload exceeds budget", 413)
-            dst = Path(tmpdir) / rel
-            # Second-line defence: ensure dst.resolve() is inside tmpdir.
+            if len(data) > MAX_SKILL_TOTAL_BYTES:
+                return _error_response(
+                    "total_too_large", "ZIP file exceeds upload budget", 413)
+            fallback_root_name = Path(raw_name).stem or "skill"
             try:
-                dst.resolve().relative_to(Path(tmpdir).resolve())
-            except ValueError:
-                return _error_response("bad_path",
-                                       "path escapes upload directory", 400)
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            dst.write_bytes(data)
+                upload_root_name, source_files = _extract_skill_zip(
+                    data, tmpdir, fallback_root_name=fallback_root_name)
+            except _ZipUploadError as e:
+                return _error_response(e.code, e.message, e.status)
+        else:
+            if len(files) > MAX_SKILL_FILES:
+                return _error_response("too_many_files",
+                                       f"more than {MAX_SKILL_FILES} files", 413)
+            total = 0
+            seen_upload_paths: set[str] = set()
+            seen_upload_paths_lower: set[str] = set()
+            for uf in files:
+                raw_name = uf.filename or ""
+                try:
+                    rel = _sanitize_upload_path(raw_name)
+                except MultipartPathError as e:
+                    return _error_response("bad_path", str(e), 400)
+                root_name = raw_name.split("/", 1)[0]
+                if upload_root_name is None:
+                    upload_root_name = root_name
+                elif upload_root_name != root_name:
+                    return _error_response(
+                        "bad_path", "all files must share one upload root", 400)
+                if rel in seen_upload_paths or rel.lower() in seen_upload_paths_lower:
+                    return _error_response(
+                        "bad_path", "duplicate or case-colliding upload path", 400)
+                seen_upload_paths.add(rel)
+                seen_upload_paths_lower.add(rel.lower())
+                # Read with size cap.
+                data = await uf.read()
+                if len(data) > MAX_SKILL_FILE_BYTES:
+                    return _error_response("file_too_large",
+                                           f"{rel} exceeds per-file budget", 413)
+                total += len(data)
+                if total > MAX_SKILL_TOTAL_BYTES:
+                    return _error_response("total_too_large",
+                                           "total upload exceeds budget", 413)
+                dst = Path(tmpdir) / rel
+                # Second-line defence: ensure dst.resolve() is inside tmpdir.
+                try:
+                    dst.resolve().relative_to(Path(tmpdir).resolve())
+                except ValueError:
+                    return _error_response("bad_path",
+                                           "path escapes upload directory", 400)
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                dst.write_bytes(data)
 
         # Now run the SAME safe intake path as the CLI.
         try:
@@ -671,10 +1066,20 @@ async def review_skill(request: Request) -> Response:
         if plan is not None:
             sem_cfg, generator, validator_or_validators, env_name = plan
         validator_kwargs = _validator_kwargs(validator_or_validators)
+
+        sandbox_plan = _maybe_sandbox_run(form)
+        if isinstance(sandbox_plan, JSONResponse):
+            if env_name:
+                from .provider_web import clear_ephemeral_key
+                clear_ephemeral_key(env_name)
+            return sandbox_plan
+        sandbox_config = sandbox_plan  # None or a SandboxConfig
+
         try:
             review = run_review(ReviewInputs(engine="skill", snapshot=snap,
                                              file_bytes=byts, profile=profile,
-                                             semantic_config=sem_cfg),
+                                             semantic_config=sem_cfg,
+                                             sandbox_config=sandbox_config),
                                 candidate_generator=generator,
                                 **validator_kwargs)
         except ValueError as e:
@@ -688,6 +1093,12 @@ async def review_skill(request: Request) -> Response:
         stored = _make_report(review, "skill")
         rid = request.app.state.store.put(stored)
         view = _view_for(review, "skill", rid)
+        if source_files:
+            # ZIP upload only: the client has no per-entry File objects of
+            # its own to read for the "original text" evidence view, so
+            # echo back what was already uploaded (the user's own content,
+            # already decoded during extraction above).
+            view["sourceFiles"] = source_files
         return JSONResponse(view)
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)

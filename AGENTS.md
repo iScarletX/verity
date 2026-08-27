@@ -171,27 +171,46 @@ requires heavy deps (torch/transformers) and downloading model weights,
 so per §6 an agent must get explicit founder go-ahead + a concrete plan
 before installing/downloading anything on the founder's machine.
 
-**V1.5 Prompt black-box (roadmap, NOT yet implemented).** Runs a paste
-prompt against a model and scores outputs — a core part of the mission's
-*dynamic* checking. Allowed only when the user explicitly starts a
-black-box run and supplies a test set, model, budget, and recording
-location. Until built, reports say `promptBlackbox: not_implemented`.
-Don't claim it works before it does.
+**V1.5 Prompt black-box (integrated, default OFF).** Runs a reviewed
+prompt against a REAL model under adversarial scenarios and scores the
+outputs — a core part of the mission's *dynamic* checking. Since Round
+74, `src/verity/blackbox/` (config/runner/scenarios) is wired into
+`review.run_review` via `ReviewInputs.blackbox_config`
+(`verity.blackbox.BlackboxConfig`), plus `verity review --engine prompt
+--enable-prompt-blackbox --blackbox-base-url ... --blackbox-model ...
+--blackbox-api-key-env ...` on the CLI. It is allowed to run only when
+the caller explicitly passes a config with `enabled=True` AND a
+resolvable Provider + API key — the reviewed prompt can never flip this
+on itself, and a bare `verity review` (no flags) never touches this
+code path. Default `verity review` reports say `promptBlackbox:
+not_enabled` (see `report.py`/`closure.py`); an enabled-but-unconfigured
+run honestly reports `failed`/`provider_not_configured` rather than
+silently skipping. `tools/run_blackbox.py` remains the standalone
+research entry point for ad hoc runs outside the review pipeline.
 
-**V2 Skill sandbox (standalone research adapter exists; NOT wired into
-the default review path).** Executes a reviewed skill to observe its
-runtime/file/network/exfiltration behaviour — the mission's
-*execution-process* checking. Allowed **only** inside a one-shot
-isolated sandbox with fake credentials, default-off / controlled
-network, cpu / memory / wall-clock limits, and reliable destruction
-after the run. `src/verity/sandbox/` + `tools/run_sandbox.py` implement
-exactly this (macOS `sandbox-exec`, deny-by-default network, multi-angle
-budget enforcement) but are reachable only through that explicit CLI —
-never imported by `review.py`, `engine.py`, or `cli.py`. Default `verity
-review` reports still say `skillSandbox: not_implemented` (see
-`report.py`/`closure.py`) and this remains accurate: wiring sandbox
-observation into the default pipeline/report contract is a separate,
-still-ungated step. Don't claim the default path works before it does.
+**V2 Skill sandbox (product execution unavailable).** The earlier
+`src/verity/sandbox/` research runner and its twelve signal definitions
+remain test material, but they are not a security boundary for untrusted
+Skills. Release review found broad host-read access, incomplete
+stdout/stderr/tmpdir/process-tree budgets, same-interpreter observer
+tampering, non-verifying process cleanup, and raw exception/path/argv/SQL
+report fields. Supported `review.run_review`, CLI, Web, and standalone
+entry points therefore fail closed as
+`sandbox_isolation_hardening_required` before importing or constructing
+the runner. Default reports remain `skillSandbox: not_enabled`; an
+explicit request is `failed`/`unavailable`, never `completed`. The Web
+card is disabled and must not imply that execution can be authorized.
+Re-enabling this stage requires restrictive host-read allowlists,
+streaming output limits, disk/process-count limits, observer separation,
+verified process-tree cleanup, controlled detector projections, real
+macOS adversarial tests, and an independent security review.
+
+Since Round 75, Prompt black-box remains exposed in the Web UI behind
+two independent signals — an "enable" checkbox AND a separately-gated
+"confirm" checkbox restating real Provider egress. A bare form
+submission behaves identically to the CLI's bare `verity review`.
+Public black-box reports retain controlled ids/outcomes/counts/lengths/
+digests only, never Prompt/probe text or raw Provider responses.
 
 **Embeddable service (roadmap).** The mission includes Verity being
 callable by other agents in real time. The same isolation and honest-
@@ -267,8 +286,8 @@ intentionally self-contained.
 ```text
 You are joining an ongoing project called "Verity" — a local,
 read-only static auditor for LLM Prompts and Agent Skills. The
-repository is at /Users/sixiang/KianWorkspace/Verity (on my Mac) and
-mirrored at https://github.com/iScarletX/verity.
+repository root is the current working directory (`<repo-root>`) and the
+public mirror is https://github.com/iScarletX/verity.
 
 Before doing anything else:
 

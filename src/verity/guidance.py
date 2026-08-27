@@ -693,6 +693,21 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         ],
         priority="P1",
     ),
+    "semantic.skill.manifest_description_quality_gap": Guidance(
+        id="semantic.skill.manifest_description_quality_gap",
+        plainTitle="Skill 的 name/description 可能不足以支撑调用决策",
+        whyItMatters=(
+            "description 只是空泛套话、或没写清触发场景与范围边界时，调用方无法"
+            "判断该在什么情况下选用这个 Skill、而不是选用别的 Skill。这与实现是否"
+            "与声明一致（declared_behavior_mismatch）是两个不同的问题：这里判断的"
+            "是声明本身写得够不够具体。该判断来自 LLM Validator，只作为参考。"
+        ),
+        whatToDo=[
+            "把 description 改写为具体任务、输入类型和使用场景，避免套话。",
+            "写明该 Skill 的适用边界，帮助调用方在多个 Skill 之间正确选择。",
+        ],
+        priority="P2",
+    ),
     "semantic.prompt.trust_boundary_ambiguity": Guidance(
         id="semantic.prompt.trust_boundary_ambiguity",
         plainTitle="Prompt 可能没有分清不可信内容与指令",
@@ -737,6 +752,119 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
             "固定可信来源和内容摘要，验证签名或 SHA-256。",
             "把外部内容按数据解析，不允许其改变工具、权限或系统指令。",
         ], priority="P0",
+    ),
+    "semantic.skill.deserialization_trust_gap": Guidance(
+        id="semantic.skill.deserialization_trust_gap",
+        plainTitle="Skill 可能反序列化了 Manifest 自称不可信的外部数据",
+        whyItMatters=(
+            "pickle/marshal 反序列化、以及未加安全 Loader 的 yaml.load 都能在解析时"
+            "实例化任意对象甚至执行代码。当 Manifest 自己写明这份数据来自外部、第三方、"
+            "下载内容或另一个 Skill/Agent 时，这个反序列化调用就是一个真实的可信边界"
+            "缺口，而不只是静态规则能判断的 API 出现模式。该判断来自 LLM Validator，"
+            "只作为参考，不能替代对调用点的人工复核。"
+        ),
+        whatToDo=[
+            "改用 json 或其他不具备对象执行能力的安全格式解析外部/第三方数据。",
+            "如果必须使用 pickle/yaml，先做来源校验（签名、摘要）并在解析前拒绝不可信来源。",
+            "yaml.load 一律改为 yaml.safe_load 或显式传入 SafeLoader。",
+        ],
+        priority="P0",
+    ),
+    "semantic.skill.weak_crypto_sensitivity_gap": Guidance(
+        id="semantic.skill.weak_crypto_sensitivity_gap",
+        plainTitle="Skill 可能用弱加密方式保护 Manifest 自称敏感的数据",
+        whyItMatters=(
+            "MD5/SHA1 等弱哈希、以及关闭证书校验的 TLS 请求都无法为真正敏感的数据"
+            "（密码、凭证、令牌、个人信息）提供有效保护。当 Manifest 自己写明这份数据"
+            "是敏感数据时，弱加密调用就是一个真实的保护缺口，而不只是静态规则能判断的"
+            "API 出现模式。该判断来自 LLM Validator，只作为参考，不能替代对调用点的"
+            "人工复核。"
+        ),
+        whatToDo=[
+            "改用 SHA-256 及以上强度的哈希算法保护密码/凭证等敏感数据。",
+            "启用 TLS 证书校验(移除 verify=False / _create_unverified_context)。",
+            "如果该数据确实不敏感，在 Manifest 描述中明确写明，避免误报。",
+        ],
+        priority="P1",
+    ),
+    "semantic.skill.sql_injection_input_trust_gap": Guidance(
+        id="semantic.skill.sql_injection_input_trust_gap",
+        plainTitle="Skill 可能把 Manifest 自称用户可控的输入拼接进 SQL 查询",
+        whyItMatters=(
+            "通过 f-string、%格式化、字符串拼接或 .format() 构造的 SQL 查询，一旦"
+            "拼入的值来自用户或外部输入，就能让攻击者改变查询结构，这是经典的 SQL"
+            "注入。当 Manifest 自己写明这个值来自用户输入、外部输入或请求参数时，"
+            "这个字符串拼接查询就是一个真实的注入风险，而不只是静态规则能判断的"
+            "调用形态。该判断来自 LLM Validator，只作为参考，不能替代对调用点的"
+            "人工复核。"
+        ),
+        whatToDo=[
+            "改用参数化查询/预处理语句（如 execute(sql, params)），不要拼接字符串。",
+            "如果必须动态拼接，先对输入做严格校验或使用 ORM 的安全查询构造。",
+            "如果该值确实固定或来自内部数据，在 Manifest 描述中明确写明，避免误报。",
+        ],
+        priority="P0",
+    ),
+    "semantic.skill.path_traversal_input_trust_gap": Guidance(
+        id="semantic.skill.path_traversal_input_trust_gap",
+        plainTitle="Skill 可能把 Manifest 自称用户可控的输入拼接进本地文件路径",
+        whyItMatters=(
+            "通过 f-string、字符串拼接、%格式化、.format() 或 os.path.join 构造的"
+            "文件路径，一旦拼入的值来自用户或外部输入，攻击者就能用 ../ 等方式跳出"
+            "预期目录读写任意文件，这是经典的路径穿越（CWE-22）。当 Manifest 自己"
+            "写明这个值来自用户输入、外部输入或文件路径参数时，这个拼接路径就是一个"
+            "真实的穿越风险，而不只是静态规则能判断的调用形态。该判断来自 LLM "
+            "Validator，只作为参考，不能替代对调用点的人工复核。"
+        ),
+        whatToDo=[
+            "对拼入路径的值做白名单校验，或规范化后确认仍在预期目录之内。",
+            "优先使用固定的基础目录加不可包含路径分隔符的文件名，而不是拼接任意路径。",
+            "如果该值确实固定或来自内部数据，在 Manifest 描述中明确写明，避免误报。",
+        ],
+        priority="P0",
+    ),
+    "semantic.skill.template_injection_input_trust_gap": Guidance(
+        id="semantic.skill.template_injection_input_trust_gap",
+        plainTitle="Skill 可能把 Manifest 自称用户可控的输入拼接进 Jinja2 模板源",
+        whyItMatters=(
+            "通过 f-string、%格式化、字符串拼接或 .format() 构造出的 Jinja2 模板"
+            "源字符串（而不是传给 render() 的上下文参数），一旦拼入的值来自用户或"
+            "外部输入，攻击者就能注入模板语法本身，执行服务器端模板注入（SSTI），"
+            "进而读取任意数据甚至执行代码。当 Manifest 自己写明这个值来自用户输入、"
+            "外部输入或远程调用方时，这个拼接出的模板源就是一个真实的注入风险，而"
+            "不只是静态规则能判断的调用形态。该判断来自 LLM Validator，只作为参考，"
+            "不能替代对调用点的人工复核。"
+        ),
+        whatToDo=[
+            "不要用用户可控的值拼接模板源字符串；模板本身应固定，只把变量传给 "
+            "render() 的上下文参数。",
+            "如果必须支持可配置模板，先对模板来源做严格白名单校验或使用沙箱化的模板环境。",
+            "如果该值确实固定或来自内部数据，在 Manifest 描述中明确写明，避免误报。",
+        ],
+        priority="P0",
+    ),
+    "semantic.skill.isolation_claim_trust_gap": Guidance(
+        id="semantic.skill.isolation_claim_trust_gap",
+        plainTitle="Skill 自称沙箱化/离线运行，但代码里有进程或网络调用",
+        whyItMatters=(
+            "当 Manifest 描述明确宣称该 Skill 是沙箱化、离线、不联网或不产生外部"
+            "命令执行的一次性最小权限运行，而代码中实际存在子进程启动或网络调用"
+            "这类需要更宽主机权限的能力事实时，Manifest 自己的隔离承诺就与观察到"
+            "的能力事实相矛盾——这正是宿主机逃逸风险评估中人工评审最容易被文档"
+            "措辞误导忽略的一类落差。该判断只评估 Manifest 文本给出的隔离承诺"
+            "是否与静态能力事实一致，不能证明运行时真正实现了隔离；来自 LLM "
+            "Validator，只作为参考，不能替代对代码调用点的人工复核，也不能替代"
+            "真正的沙箱执行验证。"
+        ),
+        whatToDo=[
+            "如果 Skill 确实需要联网或启动子进程，在 Manifest 描述中明确写明这项"
+            "需求及其用途，不要笼统宣称沙箱化或离线运行。",
+            "如果该 Skill 本应完全离线/隔离，移除或说明这些进程/网络调用点，"
+            "或改用受限的子集（例如仅允许调用固定的白名单命令/域名）。",
+            "对确需要的主机访问，配合 V2 沙箱能力（一次性隔离、假凭据、受限网络"
+            "策略）做实际运行时验证，而不是只依赖 Manifest 文本自证。",
+        ],
+        priority="P0",
     ),
     "semantic.prompt.output_budget_pressure": Guidance(
         id="semantic.prompt.output_budget_pressure",
@@ -809,6 +937,33 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         whatToDo=[
             "只输出最终结论和必要的可核验证据，不要求完整思维链或草稿。",
             "把内部策略与面向用户的公开规则分开，并明确禁止在最终输出中泄露。",
+        ], priority="P0",
+    ),
+    "semantic.prompt.prose_reference_gap": Guidance(
+        id="semantic.prompt.prose_reference_gap",
+        plainTitle="正文式引用（“如上所述”）可能指向不存在的内容",
+        whyItMatters=(
+            "“如上所述”“见下文”等非编号引用无法用结构化规则核实是否存在；文档改版"
+            "删除或改写被指向的内容后，引用仍留在原地，模型执行时会找不到依据或"
+            "凭空编造。"
+        ),
+        whatToDo=[
+            "尽量改用编号小节或具体规则名称引用，方便机器核实其是否存在。",
+            "若必须使用正文式引用，确认被指向的内容确实存在且覆盖所声称的行为。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.embedded_sensitive_information": Guidance(
+        id="semantic.prompt.embedded_sensitive_information",
+        plainTitle="Prompt 正文直接写入了真实的个人、金融、医疗或凭据数据",
+        whyItMatters=(
+            "以字面内容嵌入的真实身份证号、信用卡号、病历、凭据等数据一旦进入"
+            "模型上下文，就可能被输出、留存或转发；这与是否规定了处理策略无关"
+            "——具体数值本身已经构成披露。"
+        ),
+        whatToDo=[
+            "将示例中的真实数值替换为明确标注的虚构或已脱敏占位数据。",
+            "若确需引用真实数据，改为引用外部受控存储的标识符，而不是把数值本身"
+            "写入 Prompt 正文。",
         ], priority="P0",
     ),
     "semantic.prompt.verification_step_gap": Guidance(
@@ -989,6 +1144,20 @@ _RULE_GUIDANCE: Dict[str, Guidance] = {
         whatToDo=[
             "优先摘要、改写或提取事实；只在必要时使用有界短摘录并标注来源。",
             "声明用户自有、已许可、公版和未知权利状态各自允许的处理方式。",
+        ], priority="P1",
+    ),
+    "semantic.prompt.template_completeness_gap": Guidance(
+        id="semantic.prompt.template_completeness_gap",
+        plainTitle="正文式占位语言表明模板未真正填写完成",
+        whyItMatters=(
+            "“lorem ipsum”“待补充”“此处填写”等未被 {{}}、${}、<> 或 [] 等结构化"
+            "占位符语法包裹的自由文本，静态规则无法识别；这类内容留在提示词里，"
+            "说明作者本应替换的关键内容其实从未真正写入。"
+        ),
+        whatToDo=[
+            "补全被占位语言标记的实际内容，或删除该段落。",
+            "若该文字是给终端用户或下游代理的填写说明而非提示词自身未完成的证据，"
+            "在文档中明确标注其用途以避免误判。",
         ], priority="P1",
     ),
 }

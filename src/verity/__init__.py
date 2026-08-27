@@ -1,14 +1,18 @@
-"""Verity — local, read-only Prompt & Skill Auditor.
+"""Verity — local Prompt & Skill Auditor.
 
-V1 engineering preview. Implemented engineering paths are acceptance-tested,
-but the V1 release decision remains ``not_ready`` until the quality-evidence
-blockers in ``evals/reports/v1-closure.json`` are resolved.
+The deterministic engineering-preview scope is a release candidate; optional
+semantic and dynamic stages remain experimental.
 
 Explicit scope (see README):
-- V1 does NOT execute skills, install their dependencies, or start unknown
-  services. Controlled semantic review is default-OFF and explicit opt-in.
-- V1.5 Prompt black-box evaluation and V2 isolated Skill sandbox are not
-  implemented.
+- The default review path is read-only and does not execute Skills, install
+  dependencies, start unknown services, or make Provider calls.
+- Controlled semantic review is attempted by CLI/Web only when a trusted
+  Provider is configured; its evaluated-accuracy track is not release-ready.
+- Prompt black-box is integrated as an explicit opt-in. Skill execution is
+  unavailable on supported product paths until V2 isolation is hardened; an
+  explicit request fails closed without constructing the research runner. The
+  separate Agent-instruction runtime is CLI-only and OFF by default. Reviewed
+  artifacts cannot enable or configure these stages.
 """
 
 __version__ = "0.1.0"

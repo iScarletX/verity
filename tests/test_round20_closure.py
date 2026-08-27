@@ -143,6 +143,337 @@ def test_confirmed_high_semantic_finding_blocks_web_cli_html_and_sarif():
     assert props["verity.reviewConfidence.grade"] == report["reviewConfidence"]["grade"]
 
 
+def _runtime_gate_report(*, runtime_status="completed", capability_status="completed"):
+    return {
+        "coverage": {"status": "sufficient"},
+        "findings": [],
+        "issues": [],
+        "agentInstructionRuntime": {"status": runtime_status},
+        "capabilities": {
+            "agentInstructionRuntime": {"status": capability_status},
+        },
+    }
+
+
+def test_dynamic_gate_counts_each_controlled_occurrence_by_own_severity():
+    report = _runtime_gate_report()
+    report["issues"] = [
+        {
+            "severity": "high",
+            "occurrences": [
+                {"sourceLayer": "V2_agent_runtime", "severity": "medium",
+                 "findingId": "agent:medium"},
+                {"sourceLayer": "V2_agent_runtime", "severity": "low",
+                 "findingId": "agent:low"},
+                {"sourceLayer": "V2_sandbox", "severity": "critical",
+                 "findingId": "sandbox:critical"},
+            ],
+        },
+    ]
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        agent_runtime_requires_pass=True,
+    ) == ("findings_block", 1, 3, 1)
+
+
+@pytest.mark.parametrize(
+    ("source_layer", "result_key", "requires_kwarg"),
+    [
+        (
+            "V1_5_blackbox",
+            "promptBlackbox",
+            "prompt_blackbox_requires_pass",
+        ),
+        (
+            "V2_sandbox",
+            "skillSandbox",
+            "skill_sandbox_requires_pass",
+        ),
+    ],
+)
+def test_completed_dynamic_high_occurrence_blocks_cli_gate(
+    source_layer,
+    result_key,
+    requires_kwarg,
+):
+    report = _runtime_gate_report()
+    report[result_key] = {"status": "completed"}
+    report["capabilities"][result_key] = {"status": "completed"}
+    report["issues"] = [{
+        "occurrences": [{
+            "sourceLayer": source_layer,
+            "severity": "high",
+            "findingId": "dynamic:high",
+        }],
+    }]
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        **{requires_kwarg: True},
+    ) == ("findings_block", 1, 1, 1)
+
+
+@pytest.mark.parametrize(
+    ("report_key", "capability_key", "requires_kwarg"),
+    [
+        (
+            "promptBlackbox",
+            "promptBlackbox",
+            "prompt_blackbox_requires_pass",
+        ),
+        (
+            "skillSandbox",
+            "skillSandbox",
+            "skill_sandbox_requires_pass",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("result_status", "capability_status"),
+    [
+        ("failed", "failed"),
+        ("completed", "failed"),
+        ("failed", "completed"),
+        (None, "completed"),
+        ("completed", None),
+    ],
+)
+def test_requested_dynamic_stage_requires_result_and_capability_completed(
+    report_key,
+    capability_key,
+    requires_kwarg,
+    result_status,
+    capability_status,
+):
+    report = {
+        "coverage": {"status": "sufficient"},
+        "findings": [],
+        "issues": [],
+        report_key: (
+            {"status": result_status}
+            if result_status is not None
+            else "malformed-result"
+        ),
+        "capabilities": {
+            capability_key: (
+                {"status": capability_status}
+                if capability_status is not None
+                else "malformed-capability"
+            ),
+        },
+    }
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        **{requires_kwarg: True},
+    ) == ("coverage_block", 3, 0, 0)
+
+
+@pytest.mark.parametrize(
+    ("report_key", "capability_key", "requires_kwarg"),
+    [
+        (
+            "promptBlackbox",
+            "promptBlackbox",
+            "prompt_blackbox_requires_pass",
+        ),
+        (
+            "skillSandbox",
+            "skillSandbox",
+            "skill_sandbox_requires_pass",
+        ),
+    ],
+)
+def test_unrequested_not_enabled_dynamic_stage_does_not_block(
+    report_key,
+    capability_key,
+    requires_kwarg,
+):
+    report = {
+        "coverage": {"status": "sufficient"},
+        "findings": [],
+        "issues": [],
+        report_key: {"status": "not_enabled"},
+        "capabilities": {
+            capability_key: {"status": "not_enabled"},
+        },
+    }
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        **{requires_kwarg: False},
+    ) == ("pass", 0, 0, 0)
+
+
+@pytest.mark.parametrize(
+    ("report_key", "requires_kwarg"),
+    [
+        ("promptBlackbox", "prompt_blackbox_requires_pass"),
+        ("skillSandbox", "skill_sandbox_requires_pass"),
+    ],
+)
+def test_requested_completed_dynamic_stage_keeps_pass_gate(
+    report_key,
+    requires_kwarg,
+):
+    report = {
+        "coverage": {"status": "sufficient"},
+        "findings": [],
+        "issues": [],
+        report_key: {"status": "completed"},
+        "capabilities": {
+            report_key: {"status": "completed"},
+        },
+    }
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        **{requires_kwarg: True},
+    ) == ("pass", 0, 0, 0)
+
+
+def test_agent_runtime_high_occurrence_wins_over_runtime_and_coverage_failure():
+    report = _runtime_gate_report(
+        runtime_status="failed",
+        capability_status="failed",
+    )
+    report["coverage"]["status"] = "insufficient"
+    report["issues"] = [{
+        "occurrences": [{
+            "sourceLayer": "V2_agent_runtime",
+            "severity": "high",
+            "findingId": "agent:high",
+        }],
+    }]
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        agent_runtime_requires_pass=True,
+    ) == ("findings_block", 1, 1, 1)
+
+
+@pytest.mark.parametrize(
+    ("runtime_status", "capability_status"),
+    [
+        ("failed", "failed"),
+        ("completed", "failed"),
+        ("failed", "completed"),
+    ],
+)
+def test_requested_agent_runtime_requires_both_completed_statuses(
+    runtime_status, capability_status,
+):
+    report = _runtime_gate_report(
+        runtime_status=runtime_status,
+        capability_status=capability_status,
+    )
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        agent_runtime_requires_pass=True,
+    ) == ("coverage_block", 3, 0, 0)
+
+
+@pytest.mark.parametrize(
+    ("result_key", "requires_kwarg"),
+    [
+        ("promptBlackbox", "prompt_blackbox_requires_pass"),
+        ("skillSandbox", "skill_sandbox_requires_pass"),
+        ("agentInstructionRuntime", "agent_runtime_requires_pass"),
+    ],
+)
+def test_static_high_keeps_priority_over_requested_dynamic_failure(
+    result_key,
+    requires_kwarg,
+):
+    report = {
+        "coverage": {"status": "insufficient"},
+        "findings": [{"severity": "high"}],
+        "issues": [],
+        result_key: {"status": "failed"},
+        "capabilities": {
+            result_key: {"status": "failed"},
+        },
+    }
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        **{requires_kwarg: True},
+    ) == ("findings_block", 1, 1, 1)
+
+
+def test_requested_dynamic_gate_fails_closed_on_malformed_occurrences():
+    report = _runtime_gate_report()
+    report["issues"] = [
+        None,
+        "issue",
+        {},
+        {"occurrences": None},
+        {"occurrences": [None, "occurrence", []]},
+        {"occurrences": [{
+            "sourceLayer": "V2_agent_runtime",
+            "severity": "unexpected",
+        }, {
+            "sourceLayer": "V1_5_blackbox",
+            "severity": None,
+        }, {
+            "sourceLayer": "V2_sandbox_typo",
+            "severity": "critical",
+        }]},
+    ]
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        agent_runtime_requires_pass=True,
+    ) == ("coverage_block", 3, 0, 0)
+
+
+@pytest.mark.parametrize(
+    "malformed_issues",
+    [
+        1,
+        True,
+        {"occurrences": []},
+        [{"occurrences": 1}],
+        [{"occurrences": True}],
+    ],
+)
+def test_requested_dynamic_gate_fails_closed_on_malformed_issue_containers(
+        malformed_issues):
+    report = _runtime_gate_report()
+    report["issues"] = malformed_issues
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+        agent_runtime_requires_pass=True,
+    ) == ("coverage_block", 3, 0, 0)
+
+
+def test_unrequested_dynamic_gate_ignores_malformed_issue_projection():
+    report = {
+        "coverage": {"status": "sufficient"},
+        "findings": [],
+        "issues": {"malformed": True},
+        "capabilities": {},
+    }
+
+    assert _gate_from_report(
+        report,
+        semantic_requires_pass=False,
+    ) == ("pass", 0, 0, 0)
+
+
 def test_rejected_semantic_candidate_never_becomes_finding_or_deduction():
     case = semantic_case("semantic.prompt.excessive_tool_scope", "rejected")
     review, _, _ = _review_semantic_case(case)

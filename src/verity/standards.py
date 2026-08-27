@@ -14,7 +14,13 @@ from urllib.parse import urlsplit
 
 STANDARDS_DIR = Path(__file__).resolve().parents[2] / "standards"
 COVERAGE_LEVELS = ("none", "signal", "partial", "substantial", "evaluated")
-DETECTION_LAYERS = ("L0_static", "L1_semantic", "V1_5_blackbox", "V2_sandbox")
+DETECTION_LAYERS = (
+    "L0_static",
+    "L1_semantic",
+    "V1_5_blackbox",
+    "V2_sandbox",
+    "V2_agent_runtime",
+)
 SCOPES = {
     "prompt", "system_prompt", "skill", "agent_config", "mcp",
     "supply_chain", "governance",
@@ -31,7 +37,8 @@ SOURCE_KINDS = {
     "detector_documentation", "detector_candidate_documentation",
 }
 DETECTOR_TYPES = {
-    "deterministic_rule", "semantic_finding_type", "capability_extractor"
+    "deterministic_rule", "semantic_finding_type", "capability_extractor",
+    "blackbox_scenario", "sandbox_signal", "agent_runtime_signal",
 }
 
 
@@ -234,8 +241,12 @@ def load_detector_mappings(
             raise StandardsError(f"detector {did} has unknown risks")
         if detector["contribution"] not in {"signal", "partial"}:
             raise StandardsError(f"detector {did} has invalid contribution")
-        layer = ("L1_semantic" if dtype == "semantic_finding_type"
-                 else "L0_static")
+        layer = {
+            "semantic_finding_type": "L1_semantic",
+            "blackbox_scenario": "V1_5_blackbox",
+            "sandbox_signal": "V2_sandbox",
+            "agent_runtime_signal": "V2_agent_runtime",
+        }.get(dtype, "L0_static")
         contradictory = [
             rid for rid in risk_ids
             if risks[rid]["currentCoverage"][layer] == "none"
@@ -252,6 +263,10 @@ def validate_runtime_detector_coverage() -> None:
     from .builtins import (build_finding_type_registry,
                            build_prompt_rule_registry,
                            build_skill_rule_registry)
+    from .blackbox.scenarios import BUILTIN_SCENARIOS
+    from .agent_runtime.models import AGENT_RUNTIME_SIGNAL_DETECTORS
+    from .dynamic.planner import CHECK_DEFINITIONS
+    from .sandbox.models import SANDBOX_SIGNAL_DETECTORS
     from .semantic.catalog import CATALOG
 
     mappings = load_detector_mappings()
@@ -273,6 +288,24 @@ def validate_runtime_detector_coverage() -> None:
     mapped_capabilities = {
         did for dtype, did in mappings if dtype == "capability_extractor"
     }
+    scenario_ids = {s.scenario_id for s in BUILTIN_SCENARIOS}
+    scenario_ids.update(
+        definition.check_id
+        for definition in CHECK_DEFINITIONS
+        if definition.stage == "prompt_blackbox"
+        and definition.scenario_id is None
+    )
+    mapped_scenarios = {
+        did for dtype, did in mappings if dtype == "blackbox_scenario"
+    }
+    signal_ids = set(SANDBOX_SIGNAL_DETECTORS)
+    mapped_signals = {
+        did for dtype, did in mappings if dtype == "sandbox_signal"
+    }
+    agent_runtime_signal_ids = set(AGENT_RUNTIME_SIGNAL_DETECTORS)
+    mapped_agent_runtime_signals = {
+        did for dtype, did in mappings if dtype == "agent_runtime_signal"
+    }
     if rule_ids != mapped_rules:
         missing = sorted(rule_ids - mapped_rules)
         stale = sorted(mapped_rules - rule_ids)
@@ -288,6 +321,22 @@ def validate_runtime_detector_coverage() -> None:
         stale = sorted(mapped_capabilities - capability_ids)
         raise StandardsError(
             f"capability mapping drift: missing={missing} stale={stale}")
+    if scenario_ids != mapped_scenarios:
+        missing = sorted(scenario_ids - mapped_scenarios)
+        stale = sorted(mapped_scenarios - scenario_ids)
+        raise StandardsError(
+            f"blackbox scenario mapping drift: missing={missing} stale={stale}")
+    if signal_ids != mapped_signals:
+        missing = sorted(signal_ids - mapped_signals)
+        stale = sorted(mapped_signals - signal_ids)
+        raise StandardsError(
+            f"sandbox signal mapping drift: missing={missing} stale={stale}")
+    if agent_runtime_signal_ids != mapped_agent_runtime_signals:
+        missing = sorted(agent_runtime_signal_ids - mapped_agent_runtime_signals)
+        stale = sorted(mapped_agent_runtime_signals - agent_runtime_signal_ids)
+        raise StandardsError(
+            "agent runtime signal mapping drift: "
+            f"missing={missing} stale={stale}")
 
 
 def summarize_coverage() -> Dict[str, Any]:

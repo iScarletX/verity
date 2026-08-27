@@ -18,6 +18,11 @@ What it does, in order:
    subprocess-like events — only ``argv0`` + a capped preview, to avoid
    ever writing this process's real environment variables, which may
    contain live secrets, into the observation file).
+1b. Wraps ``sqlite3.connect`` (see ``_install_sqlite3_instrumentation``)
+   so raw SQL statement text reaching the stdlib sqlite3 driver is also
+   recorded, bounded the same way. This one is deliberately NOT part of
+   the audit hook above — CPython only added sqlite3's own audit events
+   in Python 3.12, and this driver must work down to 3.9.
 2. Sets ``sys.argv`` to ``[entry_point] + extra_argv`` (matching normal
    ``python3 entry_point.py ...`` semantics) and runs the reviewed
    script via ``runpy.run_path(entry_point, run_name="__main__")``.
@@ -42,9 +47,11 @@ import sys
 _MAX_FILE_EVENTS = 500
 _MAX_NETWORK_ATTEMPTS = 50
 _MAX_SUBPROCESS_ATTEMPTS = 50
+_MAX_SQL_ATTEMPTS = 50
 _MAX_ARGV_PREVIEW_ITEMS = 20
 _MAX_ARGV_ITEM_CHARS = 200
 _MAX_PATH_CHARS = 4096
+_MAX_SQL_STATEMENT_CHARS = 500
 _MAX_EXC_MESSAGE_CHARS = 2000
 
 _TMPDIR = os.path.dirname(os.path.realpath(__file__))
@@ -53,7 +60,9 @@ _OBSERVATION_PATH = os.path.join(_TMPDIR, "_verity_observation.json")
 _file_events = []
 _network_attempts = []
 _subprocess_attempts = []
-_truncated = {"fileEvents": False, "networkAttempts": False, "subprocessAttempts": False}
+_sql_attempts = []
+_truncated = {"fileEvents": False, "networkAttempts": False, "subprocessAttempts": False,
+              "sqlAttempts": False}
 
 
 def _inside_tmpdir(path) -> bool:
@@ -111,6 +120,63 @@ def _record_subprocess(argv0, argv) -> None:
         "argv0": str(argv0)[:_MAX_ARGV_ITEM_CHARS] if argv0 is not None else None,
         "argvPreview": _preview_argv(argv),
     })
+
+
+def _record_sql(statement) -> None:
+    if len(_sql_attempts) >= _MAX_SQL_ATTEMPTS:
+        _truncated["sqlAttempts"] = True
+        return
+    _sql_attempts.append({"statement": str(statement)[:_MAX_SQL_STATEMENT_CHARS]})
+
+
+def _install_sqlite3_instrumentation() -> None:
+    """Best-effort only, and deliberately NOT built on ``sys.addaudithook``
+    like every event above -- CPython only added sqlite3's own
+    ``sqlite3.execute``/``executemany``/``executescript`` audit events in
+    Python 3.12, and this driver must run on the same interpreter Verity
+    itself supports (3.9+). Instead this wraps ``sqlite3.connect`` (an
+    ordinary, patchable module-level function) so every ``Connection`` it
+    returns is a subclass whose ``cursor()`` override hands back a
+    ``Cursor`` subclass recording each statement's raw text before
+    delegating to the real implementation. Subclassing ``sqlite3.Cursor``/
+    ``sqlite3.Connection`` is permitted even though patching their methods
+    directly is not (they are immutable C extension types). Connection-level
+    ``execute``/``executemany``/``executescript`` (called without an
+    explicit cursor) already route through ``self.cursor()`` internally, so
+    overriding only the three ``Cursor`` methods observes every call site
+    without double-counting. Never raises: if sqlite3 is unavailable or its
+    shape ever changes, the reviewed script still runs normally with no SQL
+    observation, identical to a script that never touches sqlite3 at all.
+    """
+    try:
+        import sqlite3
+
+        class _RecordingCursor(sqlite3.Cursor):
+            def execute(self, sql, *args, **kwargs):
+                _record_sql(sql)
+                return super().execute(sql, *args, **kwargs)
+
+            def executemany(self, sql, *args, **kwargs):
+                _record_sql(sql)
+                return super().executemany(sql, *args, **kwargs)
+
+            def executescript(self, sql, *args, **kwargs):
+                _record_sql(sql)
+                return super().executescript(sql, *args, **kwargs)
+
+        class _RecordingConnection(sqlite3.Connection):
+            def cursor(self, *args, **kwargs):
+                return super().cursor(_RecordingCursor)
+
+        _real_connect = sqlite3.connect
+
+        def _recording_connect(*args, **kwargs):
+            kwargs["factory"] = _RecordingConnection
+            return _real_connect(*args, **kwargs)
+
+        sqlite3.connect = _recording_connect
+    except Exception:
+        pass
 
 
 def _audit_hook(event: str, args: tuple) -> None:
@@ -175,6 +241,7 @@ def _exception_payload(exc: BaseException):
 
 def main() -> int:
     sys.addaudithook(_audit_hook)
+    _install_sqlite3_instrumentation()
 
     if len(sys.argv) < 2:
         raised = {"type": "ValueError", "message": "no entry point supplied to driver"}
@@ -215,6 +282,7 @@ def _write_observation(raised, exit_code) -> None:
         "fileEvents": _file_events,
         "networkAttempts": _network_attempts,
         "subprocessAttempts": _subprocess_attempts,
+        "sqlAttempts": _sql_attempts,
         "truncated": _truncated,
         "driverExitCode": exit_code,
     }
