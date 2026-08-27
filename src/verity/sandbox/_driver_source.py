@@ -141,12 +141,14 @@ def _install_sqlite3_instrumentation() -> None:
     delegating to the real implementation. Subclassing ``sqlite3.Cursor``/
     ``sqlite3.Connection`` is permitted even though patching their methods
     directly is not (they are immutable C extension types). Connection-level
-    ``execute``/``executemany``/``executescript`` (called without an
-    explicit cursor) already route through ``self.cursor()`` internally, so
-    overriding only the three ``Cursor`` methods observes every call site
-    without double-counting. Never raises: if sqlite3 is unavailable or its
-    shape ever changes, the reviewed script still runs normally with no SQL
-    observation, identical to a script that never touches sqlite3 at all.
+    ``execute``/``executemany``/``executescript`` convenience methods are
+    also overridden to delegate through that recording cursor. CPython 3.9
+    happened to dispatch those C methods through ``self.cursor()``, but 3.12
+    does not; spelling out the delegation keeps observation identical across
+    supported interpreter versions without double-counting. Never raises: if
+    sqlite3 is unavailable or its shape ever changes, the reviewed script
+    still runs normally with no SQL observation, identical to a script that
+    never touches sqlite3 at all.
     """
     try:
         import sqlite3
@@ -167,6 +169,15 @@ def _install_sqlite3_instrumentation() -> None:
         class _RecordingConnection(sqlite3.Connection):
             def cursor(self, *args, **kwargs):
                 return super().cursor(_RecordingCursor)
+
+            def execute(self, sql, *args, **kwargs):
+                return self.cursor().execute(sql, *args, **kwargs)
+
+            def executemany(self, sql, *args, **kwargs):
+                return self.cursor().executemany(sql, *args, **kwargs)
+
+            def executescript(self, sql, *args, **kwargs):
+                return self.cursor().executescript(sql, *args, **kwargs)
 
         _real_connect = sqlite3.connect
 

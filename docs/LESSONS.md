@@ -14,6 +14,22 @@ adding, put the most recent entry at the TOP.
 
 ---
 
+### 2026-08-27 — C-extension convenience dispatch can change across Python versions
+
+- **Symptom**: SQLite instrumentation tests passed under the local Python 3.9
+  interpreter but produced no SQL attempts under GitHub's Python 3.12.
+- **Root cause**: The recorder overrode `Connection.cursor()` and assumed the
+  C-implemented `Connection.execute()`, `executemany()`, and `executescript()`
+  convenience methods would dynamically dispatch through it. CPython 3.9 did;
+  CPython 3.12 bypassed the override.
+- **Fix**: Override the three connection convenience methods in the subclass
+  and explicitly delegate each call through the recording cursor.
+- **Prevention**: For supported-version contracts around C extension types,
+  test the oldest and CI-pinned interpreters and avoid relying on undocumented
+  internal dispatch between convenience methods and overridable methods.
+- **Evidence**: GitHub Actions run `33077960491` and
+  `TestDriverSqliteInstrumentation` under Python 3.12.13.
+
 ### 2026-08-27 — Provenance gates need commit history in CI checkouts
 
 - **Symptom**: Local `verify_repo.py --require-clean` passed, but the first

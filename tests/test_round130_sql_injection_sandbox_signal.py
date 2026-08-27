@@ -18,10 +18,11 @@ both are immutable C extension types. ``_driver_source.py`` instead wraps
 ``sqlite3.connect`` -- an ordinary, patchable module-level function -- with a
 ``Connection`` subclass whose ``cursor()`` override returns a ``Cursor``
 subclass that records each statement's raw text before delegating to the
-real implementation. ``Connection.execute``/``executemany``/``executescript``
-(called without an explicit cursor) already route through ``self.cursor()``
-internally, so overriding only the three ``Cursor`` methods observes every
-call site without double-counting.
+real implementation. The connection convenience methods explicitly delegate
+through that cursor as well: CPython 3.9 happened to call the override from
+its C methods, while 3.12 bypasses it. Explicit delegation therefore observes
+both direct-cursor and convenience calls exactly once on every supported
+interpreter.
 
 No new decoy is planted for this round: the signal reuses the EXISTING
 Round 114 canary (``_INJECTED_CONTENT_CANARY``, already embedded in
