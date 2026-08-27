@@ -770,7 +770,9 @@ def test_ci_yaml_is_parseable_and_declares_permissions(tmp_path, monkeypatch):
     assert "push" in on_key or "pull_request" in on_key
     jobs = data["jobs"]
     assert "verify" in jobs
-    steps = jobs["verify"]["steps"]
+    verify_job = jobs["verify"]
+    assert verify_job.get("timeout-minutes") == 30
+    steps = verify_job["steps"]
     step_names = [s.get("uses") or s.get("name") for s in steps]
     assert any("actions/checkout" in (s or "") for s in step_names)
     assert any("actions/setup-python" in (s or "") for s in step_names)
@@ -796,3 +798,11 @@ def test_ci_workflow_gate_requires_history_for_verified_commit(
     result = next(row for row in rep.results if row.name == "ci_workflow_shape")
     assert result.ok is False
     assert "fetch-depth" in result.detail
+
+    workflow.write_text(text.replace("    timeout-minutes: 30\n", "", 1))
+    rep = verify_repo.VerifyReport()
+    verify_repo.check_ci_workflow_shape(rep)
+
+    result = next(row for row in rep.results if row.name == "ci_workflow_shape")
+    assert result.ok is False
+    assert "timeout-minutes" in result.detail

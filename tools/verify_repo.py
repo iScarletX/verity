@@ -880,10 +880,18 @@ def check_ci_workflow_shape(rep: VerifyReport) -> None:
             return
     if data is not None:
         verify_job = jobs.get("verify") if isinstance(jobs, dict) else None
+        if (
+            not isinstance(verify_job, dict)
+            or verify_job.get("timeout-minutes") != 30
+        ):
+            rep.append_fail(
+                "ci_workflow_shape",
+                "verify job must set timeout-minutes: 30",
+            )
+            return
         steps = (
             verify_job.get("steps")
-            if isinstance(verify_job, dict)
-            else None
+            if isinstance(verify_job, dict) else None
         )
         checkout_steps = [
             step for step in (steps or [])
@@ -905,9 +913,15 @@ def check_ci_workflow_shape(rep: VerifyReport) -> None:
             "ci.yml must fetch history for verified ancestor checks",
         )
         return
+    if data is None and "timeout-minutes: 30" not in text:
+        rep.append_fail(
+            "ci_workflow_shape",
+            "ci.yml must bound the verify job with timeout-minutes: 30",
+        )
+        return
     rep.append_ok(
         "ci_workflow_shape",
-        "ci.yml permissions + full-history checkout + steps ok",
+        "ci.yml permissions + full-history checkout + 30m timeout + steps ok",
     )
 
 

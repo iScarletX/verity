@@ -9,7 +9,7 @@ verified_against:
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "4f0c081"
+  commit: "03766e1"
   tests_collected: 4151
   tests_passed: 4151
   tests_skipped: 0
