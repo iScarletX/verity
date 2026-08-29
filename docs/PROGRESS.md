@@ -5,13 +5,13 @@
 <!-- verify_repo.py: begin verified_against block -->
 ```yaml
 verified_against:
-  date: "2026-08-27"
+  date: "2026-08-29"
   # Commit that was HEAD when the numbers below were measured. Must be
   # an ancestor of HEAD at verify time (or equal to it). This avoids
   # a doc trying to know its own future commit hash.
-  commit: "03766e1"
-  tests_collected: 4151
-  tests_passed: 4151
+  commit: "f8c16cd"
+  tests_collected: 4163
+  tests_passed: 4163
   tests_skipped: 0
   verify_command: "python3 tools/verify_repo.py"
 ```
@@ -39,7 +39,7 @@ default; the reviewed artifact cannot enable or configure it.
 
 | Capability                          | Possible status                    |
 |-------------------------------------|-------------------------------------|
-| Static (deterministic) auditing     | `completed`                        |
+| Static (deterministic) auditing     | `completed` / `failed`             |
 | Semantic (LLM-assisted) auditing    | `completed` / `failed` / `not_enabled` |
 | V1.5 Prompt black-box               | `completed` / `failed` / `not_enabled` |
 | V2 Skill sandbox (hardening required) | `failed` / `not_enabled` |
@@ -53,11 +53,57 @@ default; the reviewed artifact cannot enable or configure it.
 
 **Next step.** Exercise the artifact-aware Prompt black-box path on representative real director and art-style fixtures, then build a frozen task-level evaluation set for its oracles. Before any executable-Skill product run, redesign and prove restrictive host reads, bounded output/disk/process trees, observer integrity, reliable cleanup, and a controlled detector projection; the current V2 sandbox path is unavailable, not an opt-in safety claim. Any real Agent-Harness evaluation requires separate authorization plus an outer container or microVM, destination-allowlisted Provider egress, and fuller DSH/npm dependency or image pinning; a Web enable surface would require its own security review. Image-rendered visual-fidelity checking remains unavailable, not a silent pass. The fresh v6 semantic corpus and five answer-hidden packets remain locally frozen; sending any v6 payload remotely still requires separate authorization.
 
-**What ships right now.** Version 0.1.0 engineering preview: read-only default intake (prompt text, a local Skill folder, or a single Skill ZIP archive — `_extract_skill_zip` in `verity/web/app.py` applies the same zip-slip/absolute-path/forbidden-segment rejection, per-file and total size budgets, and max-entry-count guard as the folder-upload path, plus an incremental-read zip-bomb guard that never trusts the archive's declared uncompressed size), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned), JSON / HTML / SARIF reports, and a responsive local Evidence Console with a compact intake rail, explicit audit stages and network boundary, prioritized findings, source-byte highlighting, a Prompt editing draft, direct re-review, downloads, and Skill project history. Static/default intake remains local; a trusted semantic Provider receives only the configured redacted-evidence request, while an explicitly enabled Prompt black-box run sends the Prompt original to its separately confirmed Provider. Public black-box reports retain controlled outcomes, counts, lengths and digests, never raw probes or Provider responses. V2 Skill execution is unavailable on supported product paths: explicit requests fail closed before the research runner is imported or constructed. Web Skill reviews always use the gitleaks-enabled `standard` profile. Non-secret Provider preferences persist in owner-only local JSON, while the API key is held only in the current macOS user's Keychain and is never returned to the browser. The controlled semantic pipeline (attempted by default when a trusted Provider is configured) has 41 Finding Types. Catalog-first structured hypotheses, paragraph-scoped safe controls, and one independent closed-catalog full-prompt sweep call per applicable Finding Type (not one call packed with every type, which was found to silently starve some types of a real model's attention) reduce Candidate Generator recall vetoes without allowing the model to invent Finding Types, severity, or evidence; every accepted hypothesis still requires the independent Validator, which may itself be backed by more than one Provider for majority voting. `model_only` remains an explicit evaluation strategy so Provider quality can be measured without product catalog shortcuts. Confirmed semantic Evidence now reaches every report consumer, including remediation and source positioning. An explicitly requested semantic review that fails or remains incomplete now has no numeric score or pass verdict. A separate experimental `agentInstructionRuntime` is available only through explicit trusted CLI configuration and is OFF by default; there is no Web enable surface. It composes external DSH 0.1.1-rc.2 with four Verity-owned synthetic/no-side-effect tools and reports bounded attempt signals only.
+**What ships right now.** Version 0.1.0 engineering preview: read-only default intake (prompt text, a local Skill folder, or a single Skill ZIP archive — `_extract_skill_zip` in `verity/web/app.py` applies the same zip-slip/absolute-path/forbidden-segment rejection, per-file and total size budgets, and max-entry-count guard as the folder-upload path, plus an incremental-read zip-bomb guard that never trusts the archive's declared uncompressed size), deterministic Prompt + Skill rule engines, Bandit + gitleaks (pinned), JSON / HTML / SARIF reports, and a responsive local Evidence Console with a compact intake rail, explicit audit stages and network boundary, prioritized findings, source-byte highlighting, a Prompt editing draft, direct re-review, downloads, and Skill project history. Static/default intake remains local; a trusted semantic Provider receives only the configured redacted-evidence request, while an explicitly enabled Prompt black-box run sends the Prompt original to its separately confirmed Provider. Public black-box reports retain controlled outcomes, counts, lengths and digests, never raw probes or Provider responses. V2 Skill execution is unavailable on supported product paths: explicit requests fail closed before the research runner is imported or constructed. Web Skill reviews always use the gitleaks-enabled `standard` profile. Non-secret semantic Provider preferences persist in owner-only local JSON; the saved semantic API key is held in the current macOS user's Keychain and is never returned to the browser. A Prompt black-box key is supplied per review, used through a temporary environment variable, cleaned afterward, not persisted, and never inherited from the saved semantic key. The controlled semantic pipeline (attempted by default when a trusted Provider is configured) has 41 Finding Types. Catalog-first structured hypotheses, paragraph-scoped safe controls, and one independent closed-catalog full-prompt sweep call per applicable Finding Type (not one call packed with every type, which was found to silently starve some types of a real model's attention) reduce Candidate Generator recall vetoes without allowing the model to invent Finding Types, severity, or evidence; every accepted hypothesis still requires the independent Validator, which may itself be backed by more than one Provider for majority voting. `model_only` remains an explicit evaluation strategy so Provider quality can be measured without product catalog shortcuts. Confirmed semantic Evidence now reaches every report consumer, including remediation and source positioning. An explicitly requested semantic review that fails or remains incomplete now has no numeric score or pass verdict. A separate experimental `agentInstructionRuntime` is available only through explicit trusted CLI configuration and is OFF by default; there is no Web enable surface. It composes external DSH 0.1.1-rc.2 with four Verity-owned synthetic/no-side-effect tools and reports bounded attempt signals only.
 
 **Deliberately absent.** No accepted semantic or dynamic-oracle quality result and no claim that Verity equals or exceeds Butler. v3, v4, and v5 are consumed diagnostic evidence; the strong-reasoning v5 report is explicitly non-formal. There is no automatic remediation/PatchSet apply: the UI edits a draft and reruns review only. There is currently no supported executable-Skill sandbox: Review, CLI, Web, and the standalone command fail closed while isolation is hardened. Prompt black-box probing remains explicit trusted opt-in. The Agent Harness has no Web surface, no real Provider/model/scenario E2E from this round, and is not an OS/process/network sandbox; its clean completion is not a safety, universal, cross-Agent, or evaluated-accuracy claim. The image renderer remains unavailable. No Semgrep/YARA or GitHub-URL intake. A score of 100 is not a safety guarantee; Coverage gaps have no numeric score and confidence grade A is intentionally unreachable today.
 
 ---
+
+## Round 193 (2026-08-29) → interactive Chinese manual and documentation truth alignment
+
+Upgraded `docs/verity-manual-zh.html` into the canonical, self-contained
+Chinese handbook for the full Verity project. It now covers product identity,
+first use, the current Prompt and Skill review paths, trust boundaries, Web
+and CLI operation, report fields, project history, troubleshooting, 79
+searchable FAQ entries, and 25 glossary entries. The interactive inventory
+renders all 63 runtime deterministic rules alongside the existing 41 semantic
+Finding Types and 46 unified risks. Prompt and Skill each expose the current
+12-stage source order, with every stage documenting its input, action, output,
+failure state, data boundary, and source location.
+
+The handbook remains one dependency-free HTML file with no external assets,
+network calls, browser persistence, analytics, or service worker. Global
+search supports keyboard navigation and reveals locally filtered targets;
+workflow, architecture, path, FAQ, glossary, copy, theme, mobile-navigation,
+progress, and modal controls expose accessible state. Dark-theme contrast,
+mobile target sizes, malformed hash handling, dynamic attribute escaping,
+focus trapping/restoration, and desktop/tablet/mobile overflow were verified
+and regression-tested. Core FAQ, glossary, process, boundary, and source
+content remains readable when JavaScript is disabled.
+
+Founder-facing documentation was reconciled with the current source. Web
+supports one guarded Skill ZIP while CLI remains directory-only and GitHub URL
+intake is absent. BehaviorProfile and DynamicPlan precede deterministic
+Coverage in `run_review`; a selected dynamic check is not an execution or
+pass. Semantic Candidate/Validator egress, Prompt black-box full-Prompt egress,
+and Agent-Harness egress are separate paths. V1.5 is a real explicit opt-in;
+the V2 executable-Skill product request still fails closed without executing
+the Skill. Report capability fields, conditional top-level sections, 15
+Bandit ids, analyzer provenance, Validator-count differences, disposition
+semantics, L0 label counts, current engineering evidence, and semantic versus
+black-box credential lifetimes were corrected in the Chinese manual and the
+legacy English explainer. The README now points to the manual and provides a
+loopback-only static-server command without claiming GitHub Pages deployment.
+
+Independent factual and UX adversarial reviews found no P0 issue. All material
+P1 findings were fixed. The focused handbook contract passed `12/12`; browser
+checks covered 1440px, 768px, and 390px widths with no page-level horizontal
+overflow, 63/63 rendered rules, both 12-stage workflows, correct search focus,
+modal focus restoration, theme/mobile navigation, and no console errors. With
+the pinned gitleaks 8.28.0 local install present, the final serial suite passed
+`4163/4163` with zero skips and one existing HTTPX deprecation warning. The
+normal `python3 tools/verify_repo.py` gate then passed all 19 checks. No real
+Provider/model/scenario run or reviewed-Skill execution was performed.
 
 ## Round 192 (2026-08-27) → local Evidence Console and deterministic macOS process cleanup
 

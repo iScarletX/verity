@@ -51,6 +51,21 @@
 > entirely (`--no-semantic`); running without complete configuration
 > honestly returns `provider_not_configured` rather than failing the run.
 
+## 中文完整说明书
+
+- [Verity 中文交互式完整说明书](docs/verity-manual-zh.html)：从产品定位、首次使用、Prompt/Skill
+  完整流程，到静态/语义/黑盒/沙箱/Harness 边界、报告字段、项目历史、故障排查、FAQ
+  与术语索引。
+- GitHub 的文件预览页只展示 HTML 源码。要使用搜索、流程探索和问答筛选，请下载仓库后直接打开该文件，
+  或在项目根目录运行：
+
+  ```bash
+  python3 -m http.server 8766 --bind 127.0.0.1 --directory docs
+  ```
+
+  然后访问 `http://127.0.0.1:8766/verity-manual-zh.html`。这条命令只提供静态说明书，
+  不会启动 Verity 审查服务；真正的 Evidence Console 仍按下文启动。
+
 ## Mission & roadmap (must not be lost)
 
 **Mission.** Verity is being built to become a maximally-capable auditor
@@ -814,7 +829,8 @@ passed the frozen protocol quality gate.
 
 ## Known limitations
 
-- No ZIP / GitHub URL intake yet.
+- Web accepts one guarded local Skill ZIP or a local Skill folder. CLI Skill
+  review remains directory-only, and GitHub URL intake is not implemented.
 - Only Python has an AST-level scanner (Bandit + one hand-picked rule);
   other languages (Shell/JS/TS/Ruby/Go) are still text-level only.
 - The Web UI configures the experimental semantic path via an OpenAI-

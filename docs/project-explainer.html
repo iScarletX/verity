@@ -359,7 +359,7 @@ figcaption .src { color: var(--text-muted); }
       <a href="#surface">Detection surface</a>
       <a href="#benchmarks">Benchmarks</a>
       <a href="#limits">Limitations</a>
-      <a href="#session">This session</a>
+      <a href="#session">Round 67 history</a>
     </nav>
     <button class="iconbtn" id="theme-toggle" type="button">Dark</button>
   </div>
@@ -382,10 +382,12 @@ figcaption .src { color: var(--text-muted); }
     <div class="note-title">How to read this document</div>
     Everything below was read out of the repository at the time of writing — source files, the
     machine-readable <code>standards/</code> taxonomy, and the reproducible reports under
-    <code>evals/reports/</code>. Counts and mechanism descriptions are exact as of this session
-    for the current Round 191 code snapshot. Historical benchmark numbers retain their dated
-    source file and disclosed limits inline — where a number is provisional or
-    non-formal, it says so <em>next to the number</em>, not in a footnote.
+    <code>evals/reports/</code>. Mechanism descriptions and registry-derived counts describe the
+    current artifact-aware dynamic + Agent Harness + Evidence Console snapshot. Dated Round and
+    closure figures are retained as <strong>historical evidence</strong>, not silently presented as
+    the current test-suite state; the latest verified current-state figures are identified from
+    <code>docs/PROGRESS.md</code>. Where a number is provisional or non-formal, that limit appears
+    next to the number rather than in a footnote.
   </div>
 
   <div class="grid g4" style="margin-top:18px">
@@ -472,7 +474,7 @@ figcaption .src { color: var(--text-muted); }
       <div class="rm-stage">V1 — semantic<span class="rm-layer">same repo, separate track</span></div>
       <div>
         <span class="badge warn"><span class="dot"></span>experimental_not_ready</span>
-        Controlled LLM-assisted review. As of this session it is <strong>attempted by default</strong>
+        Controlled LLM-assisted review. In the current code it is <strong>attempted by default</strong>
         whenever a trusted Provider is configured, but it is a <strong>separate experimental track
         and is NOT part of the release gate</strong>. Accuracy has not passed its frozen evaluation
         protocol. <code>--no-semantic</code> skips it entirely.
@@ -636,41 +638,59 @@ figcaption .src { color: var(--text-muted); }
     <div class="vjoin">&darr;</div>
 
     <div class="flow-rail">
-      <button class="node sem" data-node="semantic-entry" style="flex:1 1 100%">
+      <button class="node det" data-node="dynamic-plan">
         <span class="n-more">i</span>
-        <div class="n-step">STEP 5 · optional, attempted by default when a Provider is configured</div>
-        <div class="n-title">Semantic pipeline (experimental) — see the sub-flow below</div>
-        <div class="n-file">verity/semantic/orchestrator.py::SemanticOrchestrator.run</div>
+        <div class="n-step">STEP 5</div>
+        <div class="n-title">Capability facts &rarr; behavior profile &rarr; DynamicPlan</div>
+        <div class="n-file">capabilities.py · dynamic/profile.py · dynamic/planner.py</div>
       </button>
-    </div>
-
-    <div class="vjoin">&darr;</div>
-
-    <div class="flow-rail">
+      <div class="arrow">&rarr;</div>
       <button class="node gate" data-node="coverage">
         <span class="n-more">i</span>
         <div class="n-step">STEP 6</div>
         <div class="n-title">Coverage assessment</div>
         <div class="n-file">review.py::run_review (critical gaps)</div>
       </button>
-      <div class="arrow">&rarr;</div>
-      <button class="node gate" data-node="score">
+    </div>
+
+    <div class="vjoin">&darr;</div>
+
+    <div class="flow-rail">
+      <button class="node sem" data-node="semantic-entry">
         <span class="n-more">i</span>
-        <div class="n-step">STEP 7</div>
-        <div class="n-title">Score + confidence grade</div>
-        <div class="n-file">verity/scoring.py</div>
+        <div class="n-step">STEP 7a · optional semantic stage</div>
+        <div class="n-title">Semantic pipeline (experimental) — see the sub-flow below</div>
+        <div class="n-file">verity/semantic/orchestrator.py::SemanticOrchestrator.run</div>
       </button>
       <div class="arrow">&rarr;</div>
+      <button class="node gate" data-node="runtime-stages">
+        <span class="n-more">i</span>
+        <div class="n-step">STEP 7b–d · trusted caller configuration only</div>
+        <div class="n-title">Black-box &rarr; sandbox request &rarr; Agent Harness</div>
+        <div class="n-file">review.py::run_review (in this exact order)</div>
+      </button>
+    </div>
+
+    <div class="vjoin">&darr;</div>
+
+    <div class="flow-rail">
       <button class="node proj" data-node="projection">
         <span class="n-more">i</span>
         <div class="n-step">STEP 8</div>
-        <div class="n-title">Report projection</div>
-        <div class="n-file">findings_view.py · report.py · sarif.py</div>
+        <div class="n-title">Core report projection + base verdict</div>
+        <div class="n-file">findings_view.py · report.py</div>
+      </button>
+      <div class="arrow">&rarr;</div>
+      <button class="node gate" data-node="score">
+        <span class="n-more">i</span>
+        <div class="n-step">STEP 9</div>
+        <div class="n-title">Score + confidence + Issues + final verdict</div>
+        <div class="n-file">scoring.py · issues.py · report.py</div>
       </button>
       <div class="arrow">&rarr;</div>
       <button class="node proj" data-node="consumers">
         <span class="n-more">i</span>
-        <div class="n-step">STEP 9</div>
+        <div class="n-step">STEP 10</div>
         <div class="n-title">JSON / HTML / SARIF / Web / CLI gate</div>
         <div class="n-file">cli.py · web/view.py</div>
       </button>
@@ -717,14 +737,14 @@ figcaption .src { color: var(--text-muted); }
     <div class="flow-rail" style="margin-top:10px">
       <button class="node sem" data-node="sem-gate">
         <span class="n-more">i</span>
-        <div class="n-step">5.0</div>
+        <div class="n-step">7a.0</div>
         <div class="n-title">Config + Provider gate</div>
         <div class="n-file">semantic/config.py::SemanticConfig</div>
       </button>
       <div class="arrow">&rarr;</div>
       <button class="node sem" data-node="sem-extract">
         <span class="n-more">i</span>
-        <div class="n-step">5.1</div>
+        <div class="n-step">7a.1</div>
         <div class="n-title">Deterministic extractor (per Finding Type)</div>
         <div class="n-file">semantic/catalog.py::CATALOG[ft] extractor</div>
       </button>
@@ -735,19 +755,19 @@ figcaption .src { color: var(--text-muted); }
     <div class="branch">
       <button class="node sem" data-node="sem-catalog">
         <span class="n-more">i</span>
-        <div class="n-step">5.2a · seed found, structured facts present</div>
+        <div class="n-step">7a.2a · seed found, structured facts present</div>
         <div class="n-title">Catalog hypothesis (no generator call)</div>
         <div class="n-file">orchestrator.run &rarr; candidateHints</div>
       </button>
       <button class="node sem" data-node="sem-modelcand">
         <span class="n-more">i</span>
-        <div class="n-step">5.2b · seed found, no catalog hint</div>
+        <div class="n-step">7a.2b · seed found, no catalog hint</div>
         <div class="n-title">Model candidate call, or explicit safe gate</div>
         <div class="n-file">egress.py::build_generator_request</div>
       </button>
       <button class="node sem" data-node="sem-sweep">
         <span class="n-more">i</span>
-        <div class="n-step">5.2c · no seed (prompt engine only)</div>
+        <div class="n-step">7a.2c · no seed (prompt engine only)</div>
         <div class="n-title">Independent full-prompt sweep — one call per type</div>
         <div class="n-file">egress.py::build_catalog_sweep_request</div>
       </button>
@@ -758,28 +778,28 @@ figcaption .src { color: var(--text-muted); }
     <div class="flow-rail">
       <button class="node sem" data-node="sem-candidate">
         <span class="n-more">i</span>
-        <div class="n-step">5.3</div>
+        <div class="n-step">7a.3</div>
         <div class="n-title">Candidate (identity re-derived by Verity)</div>
         <div class="n-file">orchestrator::_parse_and_check_candidates</div>
       </button>
       <div class="arrow">&rarr;</div>
       <button class="node sem" data-node="sem-vote">
         <span class="n-more">i</span>
-        <div class="n-step">5.4</div>
+        <div class="n-step">7a.4</div>
         <div class="n-title">Validator vote(s) — 1..N independent Providers</div>
         <div class="n-file">orchestrator::_cast_validator_vote</div>
       </button>
       <div class="arrow">&rarr;</div>
       <button class="node sem" data-node="sem-aggregate">
         <span class="n-more">i</span>
-        <div class="n-step">5.5</div>
+        <div class="n-step">7a.5</div>
         <div class="n-title">Majority aggregation</div>
         <div class="n-file">orchestrator::_aggregate_votes</div>
       </button>
       <div class="arrow">&rarr;</div>
       <button class="node sem" data-node="sem-finding">
         <span class="n-more">i</span>
-        <div class="n-step">5.6</div>
+        <div class="n-step">7a.6</div>
         <div class="n-title">Finding projection (policy severity only)</div>
         <div class="n-file">SemanticFindingProjection</div>
       </button>
@@ -788,7 +808,7 @@ figcaption .src { color: var(--text-muted); }
     <div class="flow-rail" style="margin-top:12px">
       <button class="node sem" data-node="sem-egress" style="flex:1 1 46%">
         <span class="n-more">i</span>
-        <div class="n-step">CROSS-CUTTING · every outbound call</div>
+        <div class="n-step">CROSS-CUTTING · every semantic Provider call</div>
         <div class="n-title">Egress gate + payload audit</div>
         <div class="n-file">verity/semantic/egress.py</div>
       </button>
@@ -878,10 +898,12 @@ python3 -m verity.cli review --engine prompt --input-file p.md \
 # skip semantic review entirely:
 python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</code></pre>
     <p style="font-size:13px;margin-bottom:0;color:var(--text-secondary)">
-      Each <code>--semantic-validator-vote</code> adds one more independent Validator (repeatable, up
-      to 4 extra on top of the required primary). <strong>2–3 total votes across different models is
-      the recommended range.</strong> Distinct role-bound Provider objects are constructed per vote
-      even when two votes share an endpoint, so no client shares state across votes.
+      Each <code>--semantic-validator-vote</code> adds one more independent Validator. The CLI flag is
+      repeatable and currently has no separate vote-count guard; the semantic call budget still
+      bounds actual calls. <strong>2–3 total votes across different models is the recommended
+      range.</strong> The Web path separately caps the complete Validator-model list at 3. Distinct
+      role-bound Provider objects are constructed per vote even when two votes share an endpoint,
+      so no client shares state across votes.
     </p>
   </div>
 </section>
@@ -905,7 +927,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <div class="label">Prompt rules</div>
       <div class="value">24</div>
       <div class="sub">deterministic, <code>^def prompt_</code> in engine.py</div>
-      <div class="caveat">23 before this session + <code>system_prompt_extraction_request</code></div>
+      <div class="caveat">Round 67 added <code>system_prompt_extraction_request</code> to the prior 23</div>
     </div>
     <div class="tile">
       <div class="label">Skill rules</div>
@@ -1020,43 +1042,50 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     </ul>
   </div>
 
-  <h3 style="margin-top:24px">5.1 Engineering acceptance (this is what the release decision rests on)</h3>
+  <h3 style="margin-top:24px">5.1 Historical V1 / Round 67 engineering acceptance</h3>
+  <div class="note">
+    <div class="note-title">Historical closure evidence, not the current suite count</div>
+    The four tiles below preserve the dated evidence used by the V1 closure decision. The latest
+    verified current-state block in <code>docs/PROGRESS.md</code> is dated 2026-08-29 and records
+    <strong>4,163 / 4,163 tests passed</strong>; its final repository gate passed
+    <strong>19 checks</strong>. Those current gate checks are not the same object as the nine named
+    historical <code>engineeringChecks</code> in <code>evals/reports/v1-closure.json</code>.
+  </div>
   <div class="grid g4">
     <div class="tile">
-      <div class="label">Tests passing</div>
+      <div class="label">Historical Round 67 tests passing</div>
       <div class="value">856</div>
-      <div class="sub">856 passed · <code>verify_repo.py</code> PASS</div>
-      <div class="caveat">Round 67 commit message, <code>4287d43</code>. PROGRESS.md's <code>verified_against</code> block still records the previous 786 / <code>5b4691c7</code> figure.</div>
+      <div class="sub">856 passed · historical <code>verify_repo.py</code> PASS</div>
+      <div class="caveat">Round 67 commit <code>4287d43</code>; retained as dated evidence only.</div>
     </div>
     <div class="tile">
-      <div class="label">Engineering checks</div>
+      <div class="label">Historical closure checks</div>
       <div class="value">9 / 9</div>
       <div class="sub">all <code>true</code></div>
       <div class="caveat">v1-closure.json <code>engineeringChecks</code></div>
     </div>
     <div class="tile">
-      <div class="label">Release blockers</div>
+      <div class="label">Historical deterministic release blockers</div>
       <div class="value">0</div>
       <div class="sub">deterministic scope</div>
       <div class="caveat">3 items explicitly <code>deferred</code>, not failed</div>
     </div>
     <div class="tile">
-      <div class="label">Semantic-track blockers</div>
+      <div class="label">Historical semantic-track blockers</div>
       <div class="value">5</div>
       <div class="sub">open, <code>inReleaseGate: false</code></div>
       <div class="caveat">cannot be averaged away by passing tests</div>
     </div>
   </div>
   <p style="font-size:13px;color:var(--text-secondary)">
-    The 9 green engineering checks are <code>tests_and_ci</code>, <code>prompt_web_cli</code>,
+    The nine historical closure checks are <code>tests_and_ci</code>, <code>prompt_web_cli</code>,
     <code>skill_web_cli</code>, <code>json_html_sarif</code>, <code>coverage_failure</code>,
     <code>score_confidence_remediation</code>, <code>history_v1_v2_diff</code>,
     <code>security_boundaries</code>, <code>install_start_preflight</code> — each with named test
-    evidence in the report. The 3 deferred items are V1.5 black-box, V2 sandbox, and Provider Web
-    productization. <em>Note the doc/runtime skew: Round 67 reports 856 passing tests and a green
-    repo gate, while PROGRESS.md's <code>verified_against</code> block still carries 786 measured at
-    <code>5b4691c7</code> — that block is refreshed per round and lags by design, since a document
-    cannot know its own future commit hash.</em>
+    evidence in the closure report. That historical artifact also retains three dated deferred
+    entries. They are not a current capability list: Prompt black-box is now integrated behind
+    explicit opt-in, the semantic Provider has a Web surface, and executable-Skill sandbox requests
+    currently fail closed without execution while isolation is hardened.
   </p>
 
   <h3 style="margin-top:26px">5.2 L0 deterministic corpus — a minimal <em>paired</em> baseline</h3>
@@ -1135,8 +1164,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       where the answer key said and nowhere else, twice in a row. It does <em>not</em> mean 100%
       detection accuracy on real prompts — the project has its own lesson entry titled "A tiny passing
       corpus is not 100% detection accuracy" (<code>docs/LESSONS.md</code>, 2026-07-21). Corpus labels
-      are <span class="provisional">PROVISIONAL</span> for 58 of 84 cases and
-      <code>independent_ai_review</code> (not human expert review) for the other 26.
+      are <span class="provisional">PROVISIONAL</span> for 23 of 84 cases and
+      <code>independent_ai_review</code> (not human expert review) for the other 61.
       <span class="src">Source: evals/reports/corpus-v1-l0.json, evals/corpus/v1/manifest.json.</span>
     </figcaption>
   </figure>
@@ -1375,8 +1404,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <table>
         <thead><tr><th>Label status</th><th class="num">L0 corpus</th><th class="num">semantic protocol v2</th></tr></thead>
         <tbody>
-          <tr><td><code>provisional_single_review</code> <span class="provisional">PROVISIONAL</span></td><td class="num">58</td><td class="num">14</td></tr>
-          <tr><td><code>independent_ai_review</code></td><td class="num">26</td><td class="num">28</td></tr>
+          <tr><td><code>provisional_single_review</code> <span class="provisional">PROVISIONAL</span></td><td class="num">23</td><td class="num">14</td></tr>
+          <tr><td><code>independent_ai_review</code></td><td class="num">61</td><td class="num">28</td></tr>
           <tr><td><strong>human expert review</strong></td><td class="num"><strong>0</strong></td><td class="num"><strong>0</strong></td></tr>
         </tbody>
       </table>
@@ -1422,8 +1451,10 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <li><strong>No latency, cost, or token benchmark.</strong> Only per-review call budgets exist
         (64 generation calls, 128 total validation calls, 2 validation calls per candidate), plus a
         payload audit recording sizes and SHA-256 digests.</li>
-      <li><strong>No evaluated V1.5 or V2 accuracy</strong> — runtime checks exist as explicit opt-ins,
-        but their current breadth is only <code>signal</code> and no held-out task-level oracle evaluation exists.</li>
+      <li><strong>No evaluated V1.5 or V2 accuracy.</strong> Prompt black-box is a real explicit
+        opt-in execution path. V2 sandbox definitions remain research mappings, but an enabled
+        product request fails closed as <code>sandbox_isolation_hardening_required</code> without
+        executing the Skill. Neither layer has a held-out task-level oracle evaluation.</li>
       <li><strong>No aggregate safety score in any evaluation path.</strong> Deliberate:
         <code>aggregateSafetyScore: null</code> in both corpus reports, and the architecture states no
         evaluation path may contain one.</li>
@@ -1453,12 +1484,12 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     <tbody>
       <tr>
         <td>Static (deterministic) auditing</td>
-        <td><code>completed</code></td>
-        <td>"execution status only; current detection breadth is signal/partial in the standards taxonomy"</td>
+        <td><code>completed</code> / <code>failed</code></td>
+        <td>"execution status only; <code>failed</code> records an analyzer/parser execution failure when Coverage is insufficient; current detection breadth is signal/partial in the standards taxonomy"</td>
       </tr>
       <tr>
         <td>Semantic (LLM-assisted) auditing</td>
-        <td><code>not_enabled</code><br><span style="font-size:12px;color:var(--text-muted)">when no Provider is configured; becomes <code>completed</code> / <code>failed</code> per run</span></td>
+        <td><code>not_enabled</code> / <code>completed</code> / <code>failed</code><br><span style="font-size:12px;color:var(--text-muted)"><code>not_enabled</code> covers an unattached/unrequested stage or an explicitly disabled semantic run; an attempted run without a usable Provider is <code>failed</code> with <code>provider_not_configured</code></span></td>
         <td>"experimental, attempted by default when a Provider is configured; execution status does not imply semantic breadth or evaluated accuracy"</td>
       </tr>
       <tr>
@@ -1532,7 +1563,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
         <li>No Skill execution on supported product paths while V2 isolation is hardened; explicit requests fail closed. Prompt black-box probing remains an explicit opt-in.</li>
         <li>Image-rendered visual fidelity remains unavailable. Agent Harness has no Web surface or real-model E2E, stays OFF by default, and is not a host/network sandbox.</li>
         <li>No Semgrep, no YARA.</li>
-        <li>No ZIP intake.</li>
+        <li>Web accepts one guarded local Skill ZIP or a local Skill folder; CLI Skill review remains directory-only.</li>
         <li>No GitHub-URL intake.</li>
       </ul>
     </div>
@@ -1586,14 +1617,18 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
 
 <section id="session">
   <div class="section-eyebrow">Section 7</div>
-  <h2>This session's changes (Round 67)</h2>
+  <h2>Historical implementation record — Round 67</h2>
   <div class="note">
     <div class="note-title">Status of this section</div>
-    Researched against the working tree mid-session and finalized after the round landed as commit
+    This section is retained as a dated implementation record; it does <strong>not</strong> describe
+    the current working tree or current suite totals. It was researched mid-session and finalized
+    after the round landed as commit
     <code>4287d43</code>, "Round 67: semantic review default-on, per-type sweep, multi-Provider voting,
     OSS mining round 2" — 35 modified tracked files (+2,536 / −640 lines) plus 4 new corpus case
     directories, a new dev tool, a new test module and a new mining-notes document.
-    <strong>Full suite: 856 passed; <code>verify_repo.py</code>: PASS.</strong>
+    <strong>Historical Round 67 suite: 856 passed; <code>verify_repo.py</code>: PASS.</strong>
+    For the latest verified current-state block, use <code>docs/PROGRESS.md</code> (4,163 / 4,163
+    tests and 19 repository-gate checks as of 2026-08-29).
   </div>
 
   <div class="card">
@@ -1659,8 +1694,9 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <li>New <code>SemanticVoteRecord</code>; <code>SemanticAssessmentRecord</code> now carries a
         <code>votes</code> list. New <code>_aggregate_votes</code> implements three-state majority with
         <code>vote_split → insufficient_evidence</code> on a tie.</li>
-      <li>New CLI flag <code>--semantic-validator-vote URL,MODEL,API_KEY_ENV</code> (repeatable, up to
-        4 extra votes; 2–3 total across different models recommended).</li>
+      <li>New CLI flag <code>--semantic-validator-vote URL,MODEL,API_KEY_ENV</code> (repeatable;
+        2–3 total across different models recommended). The current CLI parser does not enforce a
+        separate maximum count; the Web path separately caps the total Validator-model list at 3.</li>
       <li><strong>Bug found and fixed within the same change:</strong> a candidate that two of three
         voters correctly confirmed still made the whole run report <code>status: failed</code>, because
         one voter's transient HTTP error set <code>result.status</code> inside the per-call helper
@@ -1830,7 +1866,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
         app <em>without</em> an isolated Provider credential store, so they silently inherited whatever
         the real macOS Keychain and <code>.verity-data</code> preferences on the running machine
         happened to hold. One such test was discovered <strong>firing a real outbound Provider call
-        during this session's own verification pass</strong> — the exact class of accident the
+        during the Round 67 verification pass</strong> — the exact class of accident the
         isolation rules exist to prevent. Tests now inject an isolated credential store rather than
         inheriting the user's real Keychain.</li>
     </ul>
@@ -1848,7 +1884,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <ul style="font-size:13.5px;margin-bottom:0">
         <li><code>README.md</code> — mission, roadmap table, scope invariants, semantic usage</li>
         <li><code>AGENTS.md</code> §0–§9 — mission, SSOT map, phase gates, untrusted-artifact rules</li>
-        <li><code>docs/PROGRESS.md</code> — current summary + Round 191, plus the append-only
+        <li><code>docs/PROGRESS.md</code> — current summary, plus the append-only
           historical ledger (including Rounds 57–66)</li>
         <li><code>docs/ARCHITECTURE.md</code> — one-page map, two coverage axes, bright lines</li>
         <li><code>docs/LESSONS.md</code> — newest 8 entries incl. all three 2026-07-29 entries</li>
@@ -1888,20 +1924,21 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
           and the catalog dict</strong>, not by reading documentation.</li>
         <li>Aggregate corpus confusion was <strong>recomputed</strong> from the 24 measured
           <code>riskResults</code> entries in the report, and matches every per-risk value.</li>
-        <li>Session changes were taken from <code>git status</code> / <code>git diff</code> on the
+        <li>The historical Round 67 changes were taken from <code>git status</code> / <code>git diff</code> on the
           working tree, cross-checked against the newest LESSONS entries.</li>
-        <li>No code was modified to produce this document; no test suite or repo gate was run.</li>
+        <li>The current founder-facing explainers are release documents and are checked by the repository gate.</li>
       </ul>
     </div>
   </div>
 
   <p class="footer-note">
-    Generated as a documentation deliverable for the project owner, from the repository as of this
-    session (2026-07-29/30, branch <code>main</code> at commit <code>4287d43</code>). Self-contained:
+    Maintained as a founder-facing documentation deliverable for the current artifact-aware dynamic branch.
+    Self-contained:
     no external stylesheets, scripts, fonts, or images — it loads nothing over the network. Mechanism
     descriptions are precise to the code that was read; numbers carry their own source and limits.
-    Because a concurrent workstream may still be adjusting files, treat the counts as a snapshot of
-    this session rather than a permanent fact — re-derive them from the registries if in doubt.
+    Registry-derived counts describe the inspected current snapshot; dated Round/closure figures
+    remain explicitly historical. Re-derive current counts from the registries and use the latest
+    <code>docs/PROGRESS.md</code> verified block rather than promoting an old Round total.
   </p>
 </section>
 
@@ -1942,7 +1979,7 @@ intake: {
     "</ul>",
     "<h4>Invariants enforced here</h4>",
     "<ul>",
-    "<li>V1 does <strong>not</strong> extract ZIPs, fetch GitHub URLs, or recursively expand nested archives. These are later gates, not oversights — a safe streaming decompressor is its own project.</li>",
+    "<li>The core/CLI intake does <strong>not</strong> extract ZIPs. The ordinary Web Skill review may safely unpack exactly one local ZIP before invoking this same bounded intake; GitHub URL intake and recursive nested-archive expansion are still unsupported.</li>",
     "<li>One Review corresponds to exactly one Artifact. Batch scanning is deferred by spec.</li>",
     "<li>The reviewed artifact is untrusted input from this point on: it must not choose Provider endpoints or models, must not decide egress policy, must not flip phase gates, and must not appear unredacted in reports, SARIF, or LLM payloads.</li>",
     "</ul>"
@@ -1982,7 +2019,7 @@ plan: {
     "</ul>",
     "<h4>Invariants enforced here</h4>",
     "<ul>",
-    "<li>Rule applicability is decided <strong>before</strong> execution. That is one of only two ways a deterministic Finding can be absent from the projection (the other being an explicit DispositionRecord).</li>",
+    "<li>Rule applicability is decided <strong>before</strong> execution. A non-applicable rule therefore produces no Finding; it does not remove a Finding that was already produced. Human dispositions are separate annotations and never filter the report projection.</li>",
     "<li>The plan has a revision and phase (<code>initial</code>, expansionDepth 0), so a re-review can be compared against the same scope.</li>",
     "</ul>"
   ].join("")
@@ -2020,9 +2057,9 @@ analyzers: {
     "<ul>",
     "<li><strong>Version pinning is enforced, not documented.</strong> Bandit is registered at <code>1.7.10</code> and gitleaks at <code>8.28.0</code>. A <code>version_mismatch</code> status becomes a <em>failed</em> plan item, not a warning.</li>",
     "<li><strong>Gating class differs by tool.</strong> Bandit is <code>normal</code>; gitleaks is <code>critical</code>. A gitleaks failure therefore makes Coverage insufficient and suppresses the numeric score, because \"we could not scan for secrets\" must never read as \"no secrets found\".</li>",
-    "<li>Each runner stages files, records <code>stagedFileCount</code>, a <code>pathMap</code>, exit code, duration, tool path and tool SHA-256 — so a report can prove <em>which binary</em> produced the results.</li>",
+    "<li>Both runners stage files and internally record <code>stagedFileCount</code>, a <code>pathMap</code>, exit code and duration. Their provenance differs: <code>BanditRunResult</code> has neither tool path nor binary SHA; <code>GitleaksRunResult</code> records both internally. The public report intentionally omits every tool path and <code>pathMap</code>, exposes the gitleaks SHA, and exposes no Bandit SHA. It therefore must not claim universal binary-level provenance.</li>",
     "<li><strong>gitleaks output is redacted by the runner</strong> before it reaches the artifact model. Secret evidence carries a sensitivity marker that survives all the way into the Web projection, where it always renders the redacted preview rather than reconstructing bytes from the local source.</li>",
-    "<li>Only an allow-listed set of Bandit test ids is mapped to rules (18 of them), each with its own severity and OWASP AST control. Unmapped Bandit output does not silently become a finding.</li>",
+    "<li>Only an allow-listed set of Bandit test ids is mapped to rules (15 of them), each with its own severity and OWASP AST control. Unmapped Bandit output does not silently become a finding.</li>",
     "</ul>",
     "<h4>Invariants enforced here</h4>",
     "<ul>",
@@ -2046,13 +2083,25 @@ findings: {
     "<li>A rule may attach multiple Evidence records to one Finding (e.g. the two conflicting assignments of the same key). The list is order-preserving and the first is the display anchor.</li>",
     "</ul>",
     "<h4>Invariants enforced here — read this one carefully</h4>",
-    "<p>Once produced, a deterministic Finding is removed from the report projection by <strong>exactly two</strong> mechanisms:</p>",
-    "<ol>",
-    "<li>the rule was <strong>not applicable</strong> — decided before execution, in the Plan step;</li>",
-    "<li>an explicit <strong>DispositionRecord</strong> (a human decision, recorded and expiring).</li>",
-    "</ol>",
-    "<p><strong>No component — candidate generator, validator, meta-LLM, scorer, or Web view — has a code path that can drop or downgrade a deterministic Finding.</strong> An AST-level import inspection test in <code>tests/test_architecture.py</code> enforces the structural half of this.</p>",
+    "<p>Once produced in the current run, a deterministic Finding remains in the report projection. A rule declared <strong>not applicable</strong> produces no Finding in the first place; it is not a post-production removal mechanism. Across versions, a Finding may disappear because the artifact or rule outcome changed, and baseline coverage then classifies it as <code>resolved</code> or <code>unknown_due_to_coverage</code>.</p>",
+    "<p>An explicit, expiring human disposition also does <strong>not</strong> remove the Finding. History attaches it as an annotation; only an active <code>accept_risk</code> disposition, combined with the CLI's explicit <code>--respect-dispositions</code>, can alter the High/Critical gate decision.</p>",
+    "<p><strong>No component — candidate generator, validator, meta-LLM, scorer, or Web view — has a code path that can drop or downgrade a deterministic Finding.</strong> An AST-level import inspection test in <code>tests/test_semantic.py</code> enforces the structural half of this.</p>",
     "<p>Advisory dispositions are constrained too: <code>accept_risk</code> and <code>false_positive</code> never rewrite severity or the raw score. They change what a gate does about a finding, not what the finding <em>is</em>.</p>"
+  ].join("")
+},
+
+"dynamic-plan": {
+  title: "Step 5 — Capability facts, behavior profile, and DynamicPlan",
+  sub: "verity/review.py :: run_review → capabilities.py · dynamic/profile.py · dynamic/planner.py",
+  body: [
+    "<p><strong>What it does.</strong> Immediately after deterministic engine execution, Skill reviews add capability facts, every review derives an artifact behavior profile, and the dynamic planner classifies every registered dynamic check. Only after these facts and the DynamicPlan exist does <code>run_review</code> construct the outer ReviewPlan and compute static Coverage.</p>",
+    "<h4>Three applicability states — not execution outcomes</h4>",
+    "<ul>",
+    "<li><code>selected</code> means the artifact profile makes the check applicable. It does not mean the check ran or passed.</li>",
+    "<li><code>not_applicable</code> means the declared profile requirements did not match.</li>",
+    "<li><code>unavailable</code> is currently used for a matching <code>runtime_adapter</code> check whose trusted adapter is absent, including an instruction-only Agent Harness that was not configured.</li>",
+    "</ul>",
+    "<p><strong>Sandbox distinction.</strong> Applicable executable-Skill sandbox definitions are marked <code>selected</code> in this plan. The later product execution stage still fails closed as <code>sandbox_isolation_hardening_required</code>; planner applicability and execution availability are deliberately separate facts.</p>"
   ].join("")
 },
 
@@ -2076,11 +2125,24 @@ coverage: {
   ].join("")
 },
 
-score: {
-  title: "Step 7 — Safety score and review-confidence grade",
-  sub: "verity/scoring.py :: compute_score / compute_confidence / build_remediations",
+"runtime-stages": {
+  title: "Step 7b–d — Optional runtime stages after semantic review",
+  sub: "verity/review.py :: run_review (black-box → sandbox request → Agent Harness)",
   body: [
-    "<p><strong>What it does.</strong> Projects completed Findings into an explainable 0–100 number, plus a <em>separate</em> A–D confidence grade describing how much of the review space was actually examined. Scoring is a <strong>policy projection, never a detector and never model-authored</strong>.</p>",
+    "<p><strong>Exact source order.</strong> After the optional semantic stage, <code>run_review</code> considers three distinct caller-controlled stages in this order:</p>",
+    "<ol>",
+    "<li><strong>Prompt black-box.</strong> Prompt-only, explicit opt-in. It sends the complete reviewed Prompt as the model's system message through its own Provider transport; it does not use the semantic egress projector.</li>",
+    "<li><strong>Skill sandbox request.</strong> Skill-only. An unrequested stage is absent/not enabled; an enabled request currently returns <code>failed</code> with observation <code>unavailable</code> and reason <code>sandbox_isolation_hardening_required</code>, before any reviewed Skill is executed.</li>",
+    "<li><strong>Agent-instruction Harness.</strong> Skill-only, CLI-only and OFF by default. Trusted complete configuration may run the bounded external DSH adapter with synthetic no-side-effect tools. This path is not an executable-Skill sandbox and does not use semantic egress.</li>",
+    "</ol>"
+  ].join("")
+},
+
+score: {
+  title: "Step 9 — Score, confidence, Issues, and final verdict",
+  sub: "verity/scoring.py → issues.py → report.py::_reconcile_agent_runtime_verdict",
+  body: [
+    "<p><strong>What it does.</strong> After <code>review_to_dict</code> has built the core report and base verdict, <code>enrich_review</code> projects completed Findings into an explainable 0–100 number, a separate A–D confidence grade, and proposal-only remediation. The report then creates unified Issues and performs the final Agent-runtime verdict reconciliation. Scoring is a <strong>policy projection, never a detector and never model-authored</strong>.</p>",
     "<h4>Score mechanism (policy <code>verity-safety-score</code> v1.1.0)</h4>",
     "<ul>",
     "<li>Base 100. Severity weights: <strong>critical 45, high 25, medium 10, low 3</strong>.</li>",
@@ -2107,7 +2169,7 @@ score: {
 },
 
 projection: {
-  title: "Step 8 — Report projection (the consumer boundary)",
+  title: "Step 8 — Core report projection (the consumer boundary)",
   sub: "verity/findings_view.py :: completed_findings · verity/report.py :: review_to_dict",
   body: [
     "<p><strong>What it does.</strong> Decides, once, which findings every consumer is allowed to see — and therefore which findings can affect a verdict, a gate, a score, or a UI. Every consumer reads this same projection.</p>",
@@ -2128,7 +2190,7 @@ projection: {
 },
 
 consumers: {
-  title: "Step 9 — Consumers: JSON, HTML, SARIF, Web, CLI gate",
+  title: "Step 10 — Consumers: JSON, HTML, SARIF, Web, CLI gate",
   sub: "verity/report.py · verity/sarif.py · verity/web/view.py · verity/cli.py",
   body: [
     "<p><strong>What it does.</strong> Renders the one projection into every output surface, and turns it into an exit code for automation.</p>",
@@ -2150,14 +2212,15 @@ consumers: {
     "<h4>Web-specific invariants</h4>",
     "<ul>",
     "<li><strong>Maximum-scan policy.</strong> The loopback UI and server force the <code>standard</code> Skill profile and <code>redacted_evidence</code> semantic egress. Removing a selector is <em>not</em> the enforcement boundary — stale clients sending <code>minimal</code> or <code>metadata_only</code> are upgraded server-side.</li>",
-    "<li><strong>Stored credential → browser is forbidden.</strong> The settings API returns only non-secret preferences plus a <code>keySaved</code> boolean, never the key. JavaScript uses no browser storage for credentials. The API key lives only in the current macOS user's Keychain; URL and model preferences live in owner-only (0600) local JSON.</li>",
-    "<li>A request-supplied Provider URL never inherits a saved key, and changing the saved URL requires a new key — so an old credential can never be paired with a new endpoint.</li>",
+    "<li><strong>Saved semantic credential → browser is forbidden.</strong> The semantic settings API returns only non-secret preferences plus a <code>keySaved</code> boolean, never the saved key. That semantic Provider key lives only in the current macOS user's Keychain; URL and model preferences live in owner-only (0600) local JSON.</li>",
+    "<li><strong>Black-box credentials follow a different path.</strong> A black-box key must be supplied in the current page session and loopback review request. The server places it in a random ephemeral environment variable for that run and clears it afterwards; it is not persisted and never silently inherits the saved semantic Provider key.</li>",
+    "<li>A request-supplied semantic Provider URL never inherits a saved key, and changing the saved URL requires a new key — so an old credential can never be paired with a new endpoint.</li>",
     "<li>Keychain access is bounded, shell-free, runs outside the ASGI event loop, supplies the secret via stdin rather than argv, and detaches from any controlling TTY.</li>",
     "</ul>"
   ].join("")
 },
 "semantic-entry": {
-  title: "Step 5 — The semantic stage as a whole",
+  title: "Step 7a — The semantic stage as a whole",
   sub: "verity/review.py :: run_review (semantic block) → semantic/orchestrator.py",
   body: [
     "<p><strong>What it does.</strong> After the deterministic path has fully completed and Coverage has been computed, the orchestrator is handed a <em>projection dict</em> and asked to propose additional, model-validated findings.</p>",
@@ -2177,10 +2240,10 @@ consumers: {
 },
 
 "sem-gate": {
-  title: "Step 5.0 — Config and Provider gate",
+  title: "Step 7a.0 — Config and Provider gate",
   sub: "verity/semantic/config.py :: SemanticConfig / ProviderConfig / ProviderCredentials",
   body: [
-    "<p><strong>What it does.</strong> Decides whether semantic review runs at all, and on what terms. This is the single most security-sensitive configuration surface in the project, because it is the only place where anything leaves the machine.</p>",
+    "<p><strong>What it does.</strong> Decides whether the controlled semantic review runs, and on what terms. This configuration surface governs semantic Candidate/Validator egress only. Prompt black-box and Agent Harness requests use separate trusted configurations and separate transports.</p>",
     "<h4>Three distinct outcomes — none of them silent</h4>",
     "<ol>",
     "<li><code>cfg.enabled == False</code> → status <code>off</code>, reason <code>not_requested_by_profile</code>, plan item <code>not_applicable</code>. This is what <code>--no-semantic</code> produces.</li>",
@@ -2189,7 +2252,7 @@ consumers: {
     "</ol>",
     "<h4>Configuration mechanism</h4>",
     "<ul>",
-    "<li><strong>Defaults as of this session:</strong> <code>enabled=True</code>, <code>egress_policy=\"redacted_evidence\"</code>, <code>candidate_strategy=\"catalog_first\"</code>.</li>",
+    "<li><strong>Current defaults:</strong> <code>enabled=True</code>, <code>egress_policy=\"redacted_evidence\"</code>, <code>candidate_strategy=\"catalog_first\"</code>.</li>",
     "<li><code>enabled=True</code> with <code>egress_policy=\"off\"</code> is a <strong>construction-time ValueError</strong>, not a silent no-op. You cannot accidentally configure a semantic run that can never send anything.</li>",
     "<li><strong><code>ProviderCredentials</code> never contains a secret.</strong> It holds <code>api_key_env</code> — the <em>name</em> of an environment variable, validated against <code>[A-Za-z_][A-Za-z0-9_]{0,127}</code> — and resolves the value from <code>os.environ</code> at call time. This keeps keys out of serialised config, out of <code>ReviewInputs</code>, out of process arguments, and out of every report.</li>",
     "<li><strong><code>base_url</code> validation at construction time:</strong> only <code>https://</code>, or <code>http://</code> to <code>127.0.0.1</code> / <code>localhost</code> / <code>::1</code>. A URL carrying username, password, query, or fragment is rejected. Trailing slashes are normalized off.</li>",
@@ -2207,7 +2270,7 @@ consumers: {
 },
 
 "sem-extract": {
-  title: "Step 5.1 — Deterministic extractor, per Finding Type",
+  title: "Step 7a.1 — Deterministic extractor, per Finding Type",
   sub: "verity/semantic/catalog.py :: CATALOG[findingType] → extractor(review_dict, file_bytes)",
   body: [
     "<p><strong>What it does.</strong> For each of the 41 registered Finding Types applicable to this engine, runs a deterministic Python extractor over the artifact. <strong>Evidence records are produced only here</strong> — this is the step that makes it impossible for a Provider to invent evidence.</p>",
@@ -2233,7 +2296,7 @@ consumers: {
 },
 
 "sem-catalog": {
-  title: "Step 5.2a — Catalog-first hypotheses (the precision mechanism)",
+  title: "Step 7a.2a — Catalog-first hypotheses (the precision mechanism)",
   sub: "orchestrator.run → deterministic_hint_payloads → _parse_and_check_candidates",
   body: [
     "<p><strong>What it does.</strong> When the deterministic extractor found <em>structured</em> facts strong enough to state a hypothesis itself, Verity states it — and skips the candidate-generator model call entirely, sending the hypothesis straight to the independent Validator.</p>",
@@ -2261,7 +2324,7 @@ consumers: {
 },
 
 "sem-modelcand": {
-  title: "Step 5.2b — Model candidate call, or explicit safe gate",
+  title: "Step 7a.2b — Model candidate call, or explicit safe gate",
   sub: "verity/semantic/egress.py :: build_generator_request → generator.generate_candidates",
   body: [
     "<p><strong>What it does.</strong> When there is a real seed but no structured catalog hypothesis, one candidate-generator call is made <em>for that one Finding Type</em>, with a tightly-bounded request. Alternatively, if every seed for the type declared <code>skip_without_catalog_hint</code>, no call is made at all.</p>",
@@ -2290,7 +2353,7 @@ consumers: {
   ].join("")
 },
 "sem-sweep": {
-  title: "Step 5.2c — The no-seed sweep: ONE INDEPENDENT CALL PER FINDING TYPE",
+  title: "Step 7a.2c — The no-seed sweep: ONE INDEPENDENT CALL PER FINDING TYPE",
   sub: "catalog.py :: extract_prompt_catalog_sweep · egress.py :: build_catalog_sweep_request · orchestrator sweep loop",
   body: [
     "<p><strong>What it does.</strong> Closes the recall hole where a real risk is phrased outside every deterministic trigger vocabulary. For each prompt-engine Finding Type whose extractor produced <em>no</em> seed, Verity makes <strong>one independent model call</strong> asking: given the whole prompt, does <em>this one</em> Finding Type apply?</p>",
@@ -2298,7 +2361,7 @@ consumers: {
     "<h4>Why it exists at all</h4>",
     "<p>All 45 Butler checks had mapped Verity detectors, yet a detailed visual prompt with no concrete task could finish with no semantic finding. The lesson entry title is exact: <strong>\"A complete catalog is not complete recall.\"</strong> <code>catalog_first</code> was treating a zero-seed extractor as a <em>final negative</em> — architecture with breadth on paper but no controlled fallback for phrasing outside the trigger vocabularies.</p>",
 
-    "<h4>The bug that reshaped it — attention dilution (fixed this session)</h4>",
+    "<h4>The Round 67 bug that reshaped it — attention dilution</h4>",
     "<p><strong>Symptom.</strong> Real-model testing against a realistic system prompt found up to <strong>17 of 25</strong> prompt-engine semantic Finding Types producing zero candidates in a single review — <em>including</em> types whose deterministic extractor had a real lexical seed pointing at a genuine risk. Nothing failed loudly: the response validated against schema and named real Finding Types. It simply stopped proposing for a subset of the requested types, with no error signal.</p>",
     "<p><strong>Root cause.</strong> The sweep packed <em>every</em> sweep-eligible Finding Type's taxonomy and judgment policy into <strong>one</strong> generator call and asked for at most one candidate per type. Under a real model this degrades as the packed catalog grows: attention is diluted across many simultaneous judgment tasks in a single context, and the model <em>quietly under-reports</em> instead of erroring.</p>",
     "<p><strong>Fix.</strong> The sweep loop now issues one call per sweep-eligible type, each with a single-entry <code>finding_catalog</code>. Call volume rises — one call per no-seed type rather than one shared call — and <code>max_candidate_generation_calls</code> was raised to <strong>64</strong> specifically so the default cannot silently starve later types. The code comment says it plainly: the per-review budget \"is sized to cover the full registered catalog for this reason.\"</p>",
@@ -2333,7 +2396,7 @@ consumers: {
 },
 
 "sem-candidate": {
-  title: "Step 5.3 — Candidate acceptance and identity re-derivation",
+  title: "Step 7a.3 — Candidate acceptance and identity re-derivation",
   sub: "orchestrator :: _parse_and_check_candidates",
   body: [
     "<p><strong>What it does.</strong> Turns a Provider (or catalog) proposal into an authoritative <code>SemanticCandidateRecord</code> — or silently drops it. This is the containment layer, and it runs identically for model output and catalog hypotheses.</p>",
@@ -2361,7 +2424,7 @@ consumers: {
 },
 
 "sem-vote": {
-  title: "Step 5.4 — Validator vote (one call per Provider, per candidate)",
+  title: "Step 7a.4 — Validator vote (one call per Provider, per candidate)",
   sub: "orchestrator :: _cast_validator_vote · egress.py :: build_validator_request",
   body: [
     "<p><strong>What it does.</strong> Asks each independently configured Validator Provider, separately, to judge exactly one candidate against the type's falsification question and judgment policy. Each Provider produces one vote.</p>",
@@ -2383,7 +2446,7 @@ consumers: {
     "</ul>",
     "<h4>The bounded repair retry (one, and only for format problems)</h4>",
     "<p>If the state is <code>validation_failed</code> <em>and</em> the reason is exactly <code>schema_violation</code> or <code>candidateId_mismatch</code>, and budget remains, the <strong>same</strong> Provider is called once more with the identical request. This is deliberately a <em>format-repair retry, not a second opinion</em> — it does not add a vote, and it cannot turn a rejection into a confirmation by resampling. A transport failure on the retry ends the vote as <code>validation_failed</code>.</p>",
-    "<h4>The bug fixed this session — one failed vote must not poison a majority</h4>",
+    "<h4>The Round 67 fix — one failed vote must not poison a majority</h4>",
     "<p><strong>Symptom.</strong> A candidate that two of three voters correctly confirmed still made the whole semantic run report <code>status: failed</code>. The final assessment was correctly <code>confirmed</code>, but the run-level status contradicted it.</p>",
     "<p><strong>Root cause.</strong> This helper was refactored from single-Validator code that set <code>result.status</code>/<code>reasonCode</code> directly on a failed call — correct when there was only ever one vote, since a failed call was always the final word. After adding multiple votes, that per-vote side effect was never removed, so any one voter's transient HTTP error could override a majority the other voters still reached.</p>",
     "<p><strong>Fix.</strong> <code>_cast_validator_vote</code> no longer sets <code>result.status</code> on a per-vote failure. The one exception is <code>run_budget_exhausted</code>, which is a genuine <em>global</em> resource signal (further calls will also fail) and is surfaced immediately. Whether the run status reflects failure is now decided once, after aggregation, in <code>run()</code>. Regression test: <code>test_failed_voter_does_not_count_toward_majority</code>.</p>",
@@ -2392,7 +2455,7 @@ consumers: {
 },
 
 "sem-aggregate": {
-  title: "Step 5.5 — Three-state majority aggregation",
+  title: "Step 7a.5 — Three-state majority aggregation",
   sub: "orchestrator :: _aggregate_votes",
   body: [
     "<p><strong>What it does.</strong> Collapses 1..N independent votes into one assessment state, one reason-code list, and at most one rationale.</p>",
@@ -2430,7 +2493,7 @@ consumers: {
 },
 
 "sem-finding": {
-  title: "Step 5.6 — Finding projection (policy severity only)",
+  title: "Step 7a.6 — Finding projection (policy severity only)",
   sub: "orchestrator :: SemanticFindingProjection",
   body: [
     "<p><strong>What it does.</strong> Only a <code>confirmed</code> aggregate produces a semantic Finding. The projection is built entirely from Verity-owned facts plus the candidate's claim text.</p>",
@@ -2456,7 +2519,7 @@ consumers: {
   title: "Cross-cutting — Egress gate and payload audit",
   sub: "verity/semantic/egress.py",
   body: [
-    "<p><strong>What it does.</strong> Every single outbound Provider request passes through this module. It is the only place where artifact-derived content is allowed to be serialised for the network, and it is written as a deny-by-default projection rather than a filter.</p>",
+    "<p><strong>What it does.</strong> Every semantic Candidate/Validator request is built through this module. Within the controlled semantic pipeline it is the only place that serialises artifact-derived evidence for the network, and it is written as a deny-by-default projection rather than a filter. Prompt black-box requests deliberately send the full Prompt through <code>blackbox/runner.py</code>, while Agent Harness traffic is owned by its separate external runtime adapter; neither path passes through this semantic projector.</p>",
     "<h4>The redaction policy, mechanism by mechanism</h4>",
     "<ol>",
     "<li><strong>Sensitive evidence is dropped, not masked.</strong> Any evidence whose <code>sensitivity != \"normal\"</code> never leaves the process. A detected secret is not sent to a model in redacted form — it is <em>not sent</em>.</li>",
@@ -2574,7 +2637,8 @@ consumers: {
 (function () {
   function esc(s) {
     return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
   function sevBadge(s) {
     return '<span class="sev sev-' + esc(s) + '">' + esc(s) + "</span>";

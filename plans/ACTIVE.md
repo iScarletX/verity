@@ -1,9 +1,10 @@
 # Active implementation: artifact-aware dynamic audit + Agent Harness + Evidence Console
 
-Status: **implementation complete; release gate passed**. The controller
-measured `4151/4151` passing tests for the combined dynamic, Harness, and
-Evidence Console round, and the final normal `python3 tools/verify_repo.py`
-gate passed all 19 checks.
+Status: **implementation and owner-authorized documentation round complete;
+release gate passed; publication in progress**. The controller measured `4163/4163`
+passing tests after adding the interactive Chinese manual contracts. The
+combined dynamic, Harness, and Evidence Console release and this documentation
+round both passed all 19 normal `python3 tools/verify_repo.py` checks.
 
 Owner authorization: 2026-08-10
 
@@ -112,3 +113,18 @@ normal repository verification passed all 19 checks before release staging.
    counterexamples plus registry mappings.
 7. Run the already-frozen semantic quality program independently; do not use
    this feature round as evidence for a superiority claim.
+
+## Owner-authorized documentation round — 2026-08-29
+
+Status: **implementation and final repository gate complete; publication in
+progress**.
+
+The owner requested one detailed, interactive, all-Chinese project manual and
+explicitly requested that the completed result be pushed to GitHub. This round
+upgrades the existing canonical `docs/verity-manual-zh.html` instead of adding
+a competing explainer. It covers first use, current Prompt/Skill flows,
+artifact-aware dynamic planning, report interpretation, trust boundaries,
+project history, troubleshooting, searchable FAQ, glossary, and accessible
+interaction behavior. It also corrects founder-facing ZIP, semantic-status,
+Skill-sandbox, and source-citation drift. It does not broaden any runtime
+capability or authorize Provider/model/Skill execution.

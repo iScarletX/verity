@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh" data-theme="light">
+<html lang="zh-Hans" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,21 +16,23 @@
   --surface-2:      #f2f1ed;
   --text-primary:   #0b0b0b;
   --text-secondary: #52514e;
-  --text-muted:     #898781;
+  --text-muted:     #667085;
   --grid:           #e1e0d9;
   --baseline:       #c3c2b7;
   --border:         rgba(11,11,11,0.10);
   --border-strong:  rgba(11,11,11,0.22);
-  --series-1:       #2a78d6;
+  --series-1:       #315cf3;
+  --series-1-fill:  #315cf3;
   --series-2:       #eb6834;
   --series-3:       #1baf7a;
   --seq-100:        #cde2fb;
   --seq-250:        #86b6ef;
   --seq-450:        #2a78d6;
   --seq-650:        #104281;
-  --st-good:        #0ca30c;
-  --st-warning:     #fab219;
+  --st-good:        #067647;
+  --st-warning:     #94510a;
   --st-serious:     #ec835a;
+  --st-serious-fill:#9a3412;
   --st-critical:    #d03b3b;
   --code-bg:        #f2f1ed;
   --shadow:         0 1px 2px rgba(11,11,11,.05), 0 10px 30px rgba(11,11,11,.07);
@@ -42,14 +44,19 @@
   --surface-2:      #232322;
   --text-primary:   #ffffff;
   --text-secondary: #c3c2b7;
-  --text-muted:     #898781;
+  --text-muted:     #a9b2c1;
   --grid:           #2c2c2a;
   --baseline:       #383835;
   --border:         rgba(255,255,255,0.10);
   --border-strong:  rgba(255,255,255,0.26);
-  --series-1:       #3987e5;
-  --series-2:       #d95926;
-  --series-3:       #199e70;
+  --series-1:       #78a9ff;
+  --series-1-fill:  #1d4ed8;
+  --series-2:       #ff8b66;
+  --series-3:       #5ee19b;
+  --st-good:        #5ee19b;
+  --st-warning:     #f5b95f;
+  --st-serious:     #ff9672;
+  --st-critical:    #ff7a7a;
   --seq-100:        #184f95;
   --seq-250:        #256abf;
   --seq-450:        #3987e5;
@@ -58,7 +65,7 @@
   --shadow:         0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; scroll-padding-top: 82px; }
 body {
   margin: 0;
   background: var(--plane);
@@ -77,7 +84,7 @@ pre {
   border-radius: 8px; padding: 12px 14px; overflow-x: auto;
   font-size: 12.5px; line-height: 1.55; margin: 12px 0;
 }
-pre code { background: none; padding: 0; }
+pre code { display: block; min-width: 0; background: none; padding: 0; }
 a { color: var(--series-1); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 h1, h2, h3, h4 { line-height: 1.3; margin: 0 0 .4em; font-weight: 650; letter-spacing: 0; }
 h1 { font-size: 28px; }
@@ -118,6 +125,45 @@ nav.toc a.trust.active { background: color-mix(in srgb, var(--st-serious) 16%, t
   font: inherit; font-size: 12.5px; padding: 4px 10px; flex: none;
 }
 .iconbtn:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.iconbtn:focus-visible, a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--series-1) 34%, transparent);
+  outline-offset: 3px;
+}
+.skip-link {
+  position: fixed; left: 12px; top: 8px; z-index: 120; padding: 9px 13px;
+  color: #fff; background: #111827; border-radius: 8px; transform: translateY(-160%);
+  transition: transform .15s ease; text-decoration: none; font-weight: 700;
+}
+.skip-link:focus { transform: translateY(0); }
+.reading-progress {
+  position: fixed; inset: 0 0 auto 0; z-index: 110; height: 3px;
+  background: transparent; pointer-events: none;
+}
+.reading-progress > span { display: block; width: 0; height: 100%; background: var(--series-1); }
+.search-shell { position: relative; flex: 1 1 280px; max-width: 390px; }
+.search-shell input {
+  width: 100%; min-height: 38px; border: 1px solid var(--border-strong); border-radius: 9px;
+  background: var(--surface-1); color: var(--text-primary); padding: 7px 84px 7px 34px; font: inherit;
+}
+.search-shell::before { content: "⌕"; position: absolute; left: 11px; top: 5px; color: var(--text-muted); font-size: 20px; }
+.search-hint { position: absolute; right: 9px; top: 8px; color: var(--text-muted); font-size: 11px; }
+.search-results {
+  position: fixed; z-index: 105; left: 50%; top: 61px; width: min(720px, calc(100vw - 28px));
+  max-height: min(70vh, 620px); overflow: auto; transform: translateX(-50%);
+  background: var(--surface-1); border: 1px solid var(--border-strong); border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.22); padding: 10px;
+}
+.search-results[hidden] { display: none; }
+.search-result { display: block; padding: 10px 11px; border-radius: 8px; text-decoration: none; color: var(--text-primary); }
+.search-result:hover, .search-result:focus-visible { background: var(--surface-2); }
+.search-result small { display: block; color: var(--text-muted); }
+.search-empty { padding: 18px; color: var(--text-secondary); text-align: center; }
+.visually-hidden {
+  position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important;
+  margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important;
+  white-space: nowrap !important; border: 0 !important;
+}
+.mobile-nav-toggle { display: none; }
 section { padding-top: 34px; scroll-margin-top: 64px; }
 .section-eyebrow {
   font-size: 11.5px; letter-spacing: .06em; color: var(--text-muted); font-weight: 600; margin-bottom: 6px;
@@ -213,6 +259,7 @@ tr:last-child td { border-bottom: 0; }
   background: var(--surface-1); border: 1px solid var(--border);
   border-radius: 11px; padding: 14px 16px;
 }
+.tile, .detail-cell { min-width: 0; overflow-wrap: anywhere; }
 .tile .label { font-size: 11.5px; letter-spacing: .04em; color: var(--text-muted); font-weight: 650; }
 .tile .value { font-size: 26px; font-weight: 680; letter-spacing: -.01em; margin: 3px 0 1px; }
 .tile .sub { font-size: 12.5px; color: var(--text-secondary); }
@@ -362,7 +409,7 @@ tr:last-child td { border-bottom: 0; }
   font: inherit; font-size: 12.5px; padding: 5px 11px; border-radius: 999px; cursor: pointer;
   border: 1px solid var(--border-strong); background: var(--surface-1); color: var(--text-secondary);
 }
-.chip[aria-pressed="true"] { background: var(--series-1); border-color: var(--series-1); color: #fff; }
+.chip[aria-pressed="true"] { background: var(--series-1-fill); border-color: var(--series-1-fill); color: #fff; }
 .result-count { font-size: 12.5px; color: var(--text-muted); margin-left: auto; }
 details.item {
   border: 1px solid var(--border); border-radius: 9px; background: var(--surface-1);
@@ -447,15 +494,97 @@ figcaption .src { color: var(--text-muted); }
 .compare .cc h5 { margin: 0 0 6px; font-size: 12.5px; color: var(--text-muted); }
 @media (max-width: 640px) { .compare { grid-template-columns: 1fr; } .compare .cc:nth-child(odd) { border-right: none; border-bottom: 1px solid var(--grid); } }
 
+/* ---------- 完整说明书新增组件 ---------- */
+.truth-table td:first-child { font-weight: 700; min-width: 118px; }
+.status-word { display: block; font-weight: 750; margin-bottom: 3px; }
+.status-ready { color: var(--st-good); }
+.status-experimental { color: var(--st-warning); }
+.status-unavailable { color: var(--st-critical); }
+.quick-steps { counter-reset: quick; }
+.quick-step { position: relative; padding-left: 48px; }
+.quick-step::before {
+  counter-increment: quick; content: counter(quick); position: absolute; left: 14px; top: 14px;
+  width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+  background: var(--series-1-fill); color: #fff; font-weight: 800;
+}
+.command-box { position: relative; padding-right: 94px; }
+.copy-button { position: absolute; right: 8px; top: 8px; min-height: 44px; }
+.path-options, .workflow-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.path-option, .workflow-tab {
+  min-height: 44px; padding: 8px 13px; border: 1px solid var(--border-strong); border-radius: 9px;
+  background: var(--surface-1); color: var(--text-primary); font: inherit; cursor: pointer;
+}
+.path-option[aria-pressed="true"], .workflow-tab[aria-pressed="true"] {
+  color: #fff; background: var(--series-1-fill); border-color: var(--series-1-fill);
+}
+.path-detail, .workflow-detail, .architecture-detail { min-height: 150px; }
+.stage-lane { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 9px; }
+.stage-button {
+  min-height: 92px; padding: 10px; text-align: left; border: 1px solid var(--border-strong);
+  border-radius: 10px; background: var(--surface-1); color: var(--text-primary); font: inherit; cursor: pointer;
+}
+.stage-button[aria-current="step"] { border: 2px solid var(--series-1); background: color-mix(in srgb, var(--series-1) 7%, var(--surface-1)); }
+.stage-button .stage-no { display: block; color: var(--text-muted); font-size: 11px; }
+.stage-button .stage-name { display: block; font-weight: 750; margin: 3px 0; }
+.stage-button .stage-state { font-size: 11px; color: var(--text-secondary); }
+.detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap: 10px; }
+.detail-cell { padding: 10px 12px; border-radius: 8px; background: var(--surface-2); }
+.detail-cell strong { display: block; font-size: 11px; color: var(--text-muted); letter-spacing: .04em; margin-bottom: 3px; }
+.trust-map { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px,1fr)); gap: 10px; align-items: stretch; }
+.trust-node { min-height: 118px; text-align: left; padding: 12px; border-radius: 10px; border: 2px solid var(--border-strong); background: var(--surface-1); color: var(--text-primary); font: inherit; cursor: pointer; }
+.trust-node strong { display: block; margin-bottom: 5px; }
+.trust-node.local { border-color: var(--series-1); }
+.trust-node.egress { border-color: var(--st-warning); }
+.trust-node.blocked { border-color: var(--st-critical); }
+.trust-node[aria-pressed="true"] { box-shadow: 0 0 0 3px color-mix(in srgb, var(--series-1) 18%, transparent); }
+.field-tree details, .faq-item, .glossary-item {
+  border: 1px solid var(--border); border-radius: 9px; background: var(--surface-1); margin: 7px 0; overflow: hidden;
+}
+.field-tree summary, .faq-item > summary, .glossary-item > summary { cursor: pointer; padding: 11px 13px; font-weight: 700; }
+.field-tree details > div, .faq-item > div, .glossary-item > div { padding: 0 13px 13px; color: var(--text-secondary); }
+.faq-item .short-answer { color: var(--text-primary); font-weight: 650; }
+.faq-toolbar, .glossary-toolbar { display: flex; gap: 9px; flex-wrap: wrap; align-items: center; margin: 13px 0; }
+.faq-toolbar input, .glossary-toolbar input { flex: 1 1 250px; min-height: 44px; padding: 8px 11px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-1); color: var(--text-primary); font: inherit; }
+.faq-item[hidden], .glossary-item[hidden], [data-search-hidden="true"] { display: none !important; }
+.chapter-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 26px; }
+.back-to-top { position: fixed; right: 20px; bottom: 20px; z-index: 45; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface-1); color: var(--text-primary); box-shadow: var(--shadow); cursor: pointer; }
+.back-to-top[hidden] { display: none; }
+.nojs-note { border: 1px solid var(--st-warning); padding: 10px 12px; border-radius: 8px; margin: 10px 0; }
+
 @media (max-width: 720px) {
+  button, input[type="search"] { min-height: 44px; }
+  a.jump { display: inline-flex; min-height: 44px; align-items: center; }
+  .modal .m-close { width: 44px; height: 44px; }
   .barrow { grid-template-columns: 1fr; gap: 3px; }
   .barrow .bv { text-align: left; }
   .modal { padding: 18px; margin: 0 auto; }
   .tree-cols, .timeline { grid-template-columns: 1fr; }
-  nav.toc { max-width: 100%; }
+  .top-inner { flex-wrap: nowrap; padding: 8px 12px; }
+  .brand span { display: none; }
+  .search-shell { flex-basis: auto; }
+  .search-hint { display: none; }
+  .mobile-nav-toggle { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
+  nav.toc { display: none; position: fixed; inset: 61px 10px auto 10px; max-width: none; padding: 10px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--surface-1); box-shadow: var(--shadow); }
+  nav.toc.open { display: grid; grid-template-columns: 1fr 1fr; }
+  nav.toc a { min-height: 44px; display: flex; align-items: center; }
+  #theme-toggle { min-width: 44px; min-height: 44px; font-size: 0; }
+  #theme-toggle::after { content: "◐"; font-size: 18px; }
+  .trust-map { grid-template-columns: 1fr; }
+  .stage-lane { grid-template-columns: 1fr 1fr; }
+  .wrap { padding-left: 14px; padding-right: 14px; }
+}
+@media (max-width: 460px) {
+  h1 { font-size: 25px; }
+  .stage-lane { grid-template-columns: 1fr; }
+  .command-box { padding-right: 12px; padding-top: 50px; }
+  .copy-button { left: 8px; right: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .001ms !important; animation-duration: .001ms !important; }
+  .node:hover, .node:focus-visible { transform: none; }
 }
 @media print {
-  header.top, .iconbtn, .filters { display: none; }
+  header.top, .iconbtn, .filters, .reading-progress, .back-to-top, .copy-button { display: none; }
   .card, .tile { box-shadow: none; break-inside: avoid; }
   details.item { break-inside: avoid; }
 }
@@ -463,39 +592,54 @@ figcaption .src { color: var(--text-muted); }
 </head>
 <body>
 
+<a class="skip-link" href="#main">跳到正文</a>
+<a class="skip-link" href="#global-search">跳到搜索</a>
+<div class="reading-progress" id="reading-progress" role="progressbar" aria-label="阅读进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+
 <header class="top">
   <div class="top-inner">
     <div class="brand">Verity <span>/ 项目说明书</span></div>
+    <button class="iconbtn mobile-nav-toggle" id="mobile-nav-toggle" type="button" aria-expanded="false" aria-controls="toc" aria-label="打开章节目录">☰</button>
+    <div class="search-shell">
+      <label class="visually-hidden" for="global-search">搜索整份说明书</label>
+      <input id="global-search" type="search" autocomplete="off" placeholder="搜索 Agent、黑盒、ZIP、报告字段…" aria-controls="search-results" aria-expanded="false">
+      <span class="search-hint">⌘K / Ctrl K</span>
+    </div>
     <nav class="toc" aria-label="章节导航" id="toc">
       <a href="#summary" data-sec="summary">摘要</a>
-      <a href="#whatisit" data-sec="whatisit">这是什么</a>
+      <a href="#quickstart" data-sec="quickstart">开始使用</a>
       <a href="#howitworks" data-sec="howitworks">怎么运作</a>
+      <a href="#operations" data-sec="operations">操作手册</a>
+      <a href="#report-reference" data-sec="report-reference">读报告</a>
       <a href="#trust" data-sec="trust" class="trust">结果可信吗</a>
-      <a href="#mechanism" data-sec="mechanism">深入机制</a>
       <a href="#surface" data-sec="surface">检测清单</a>
-      <a href="#limits" data-sec="limits">已知边界</a>
-      <a href="#changelog" data-sec="changelog">本轮变更</a>
+      <a href="#faq" data-sec="faq">问答</a>
+      <a href="#glossary" data-sec="glossary">术语</a>
       <a href="#sources" data-sec="sources">来源</a>
     </nav>
     <button class="iconbtn" id="theme-toggle" type="button">深色</button>
   </div>
 </header>
 
-<div class="wrap">
+<div id="search-status" class="visually-hidden" role="status" aria-live="polite"></div>
+<div id="search-results" class="search-results" hidden aria-label="搜索结果"></div>
+<div id="copy-status" class="visually-hidden" role="status" aria-live="polite"></div>
+
+<main class="wrap" id="main" tabindex="-1">
 
 <section id="summary" style="padding-top:40px">
   <div class="section-eyebrow">说明书 · 流程与真相参考</div>
-  <h1>Verity 项目说明书 —— 它是什么、到底怎么运作、它的数字有多少能信</h1>
+  <h1>Verity 中文交互式完整说明书</h1>
   <p class="lede">
-    Verity 是一个本地、只读的审查工具，用来检查 AI 提示词（Prompt）和智能体技能包（Agent Skill）里的安全与质量问题。
-    这份文档按源码逐步追踪真实的审查流程，列出每一个检测器，并把项目自己测得的数字连同它的每一条限制一起摆出来——
-    点击流程图中的任意方框，都能看到具体机制、对应的函数/文件，以及那一步强制遵守的安全约束。
+    这是一份从“它是不是 Agent”一直讲到源码、报告字段和故障排查的总手册。Verity 本身不是通用 Agent，也不是搭建
+    Agent 的框架；它是一个本地 Prompt / Agent Skill 审查器与证据工作台。你可以按使用场景阅读，也可以直接搜索问题、
+    命令、风险编号或源码路径。每项能力都会同时说明：能做什么、默认是否运行、是否联网、能证明什么，以及不能证明什么。
   </p>
 
   <div class="grid g2" style="margin-top:16px">
     <div class="card" style="margin:0">
       <h4 style="margin-top:0">三句话结论</h4>
-      <p style="margin-bottom:6px"><strong>是什么：</strong>一个默认可离线运行的确定性规则审查引擎，外加受信任调用方才能配置的实验性语义、黑盒、Skill 沙箱和 CLI-only Agent Harness 通道；显式 Provider 通道会产生真实网络出站。</p>
+      <p style="margin-bottom:6px"><strong>是什么：</strong>一个默认可在本地完成静态审查的 Prompt / Skill 审查器，外加受信任调用方才能配置的实验性语义、Prompt 黑盒和 CLI-only Agent Harness。可执行 Skill 产品沙箱当前不可用，显式请求也会失败关闭。</p>
       <p style="margin-bottom:6px"><strong>现在到哪一步：</strong>确定性静态审查 = <code>release_candidate</code>（工程可发布）；语义审查 = 同一项目里独立的实验性功能，默认会尝试运行，但还没通过它自己定的质量门槛。</p>
       <p style="margin-bottom:0"><strong>能不能信：</strong>"发布"指的是工程验收（能跑、能出报告、守得住安全边界），<strong>不是</strong>精度承诺——本项目目前没有一个正式、可对外引用的"查得准不准"的数字。完整证据见下方"结果可信吗"。</p>
     </div>
@@ -505,11 +649,21 @@ figcaption .src { color: var(--text-muted); }
         <span class="badge warn" style="margin-left:6px"><span class="dot"></span>experimental_not_ready（语义）</span>
       </div>
       <div><span class="badge crit"><span class="dot"></span>无"优于/等于 Butler"结论被授权发出</span></div>
-      <a href="#trust" style="display:inline-block;margin-top:6px;font-weight:700;font-size:14.5px;padding:9px 16px;border-radius:8px;background:var(--st-serious);color:#fff;text-decoration:none">看结果可信吗 →</a>
+      <a href="#trust" style="display:inline-block;margin-top:6px;font-weight:700;font-size:14.5px;padding:9px 16px;border-radius:8px;background:var(--st-serious-fill);color:#fff;text-decoration:none">看结果可信吗 →</a>
     </div>
   </div>
 
   <div class="navcards">
+    <a class="navcard" href="#quickstart">
+      <div class="nc-time">约 5 分钟 · 第一次用</div>
+      <div class="nc-title">从安装到第一份报告</div>
+      <div class="nc-desc">启动 Web、检查 Prompt/Skill 文件夹或 ZIP、下载 JSON/HTML/SARIF</div>
+    </a>
+    <a class="navcard" href="#pathfinder">
+      <div class="nc-time">约 1 分钟 · 做选择</div>
+      <div class="nc-title">我该走哪条审查路径</div>
+      <div class="nc-desc">根据对象、联网边界与目标，生成建议阶段和命令</div>
+    </a>
     <a class="navcard" href="#whatisit">
       <div class="nc-time">约 2 分钟</div>
       <div class="nc-title">这是什么</div>
@@ -535,12 +689,18 @@ figcaption .src { color: var(--text-muted); }
       <div class="nc-title">已知边界</div>
       <div class="nc-desc">能力矩阵与项目自己列出的"故意没做"清单</div>
     </a>
+    <a class="navcard" href="#faq">
+      <div class="nc-time">随查随用</div>
+      <div class="nc-title">别人问我时怎么回答</div>
+      <div class="nc-desc">可搜索常见问答，覆盖定位、操作、动态能力、安全、报告与评测</div>
+    </a>
   </div>
 
   <div class="note" style="margin-top:18px">
     <div class="note-title">如何阅读这份文档</div>
     以下内容都是在撰写本文时从代码仓库中直接读出来的——源码文件、机器可读的 <code>standards/</code> 分类体系，以及
-    <code>evals/reports/</code> 下可复现的评测报告。当前机制与计数按 Round 191 代码快照同步；历史 Benchmark
+    <code>evals/reports/</code> 下可复现的评测报告。当前机制与计数按 artifact-aware dynamic、Agent Harness
+    与 Evidence Console 组合版本同步；历史 Benchmark
     数字仍保留各自日期、来源文件和限制说明，并且<strong>直接写在数字卡片内部</strong>，不是写在隔壁段落或脚注里。
   </div>
 
@@ -570,6 +730,180 @@ figcaption .src { color: var(--text-muted); }
       <div class="caveat">这是覆盖广度基线，不是精度分数</div>
     </div>
   </div>
+</section>
+
+<hr>
+
+<section id="capabilities" data-search-item data-search-type="章节" data-search-title="当前能力真相矩阵">
+  <div class="section-eyebrow">先看真相 · 当前版本</div>
+  <h2>五项审查能力：哪些能用、哪些实验、哪些不可用</h2>
+  <p class="lede">同一个“完成”在不同层里含义不同。下面把执行状态、网络边界和结论强度放在一张表里，避免把仓库中存在的研究代码误认成可用产品。</p>
+
+  <div class="table-scroll">
+    <table class="truth-table">
+      <thead>
+        <tr><th>能力</th><th>当前状态与默认</th><th>Provider / 出站</th><th>真的执行什么</th><th>入口</th><th>能证明 / 不能证明</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>确定性静态审查</td>
+          <td><span class="status-word status-ready">可用 · 发布范围</span>Prompt 与 Skill 默认运行；执行失败会明确报告。</td>
+          <td>默认不需要 Provider；被审原文不出站。</td>
+          <td>规则、解析、Python Bandit 与 gitleaks 受信任分析器；<strong>不执行被审 Skill</strong>。</td>
+          <td>Web、CLI、Python core</td>
+          <td>证明计划内静态检查的执行与证据；不证明检测面完整或 Artifact 安全。</td>
+        </tr>
+        <tr>
+          <td>语义审查</td>
+          <td><span class="status-word status-experimental">已集成 · experimental_not_ready</span>CLI 默认尝试；Web 配好 Provider 后自动尝试；Python core 需显式配置。</td>
+          <td>需要受信任 Provider。CLI 默认 <code>metadata_only</code>；Web 固定 <code>redacted_evidence</code>。</td>
+          <td>Candidate + Validator 的受控 JSON 判断；不运行 Artifact 代码。</td>
+          <td>Web、CLI、Python core</td>
+          <td><code>completed</code> 只证明流程跑完；不证明模型判断质量通过冻结门槛。</td>
+        </tr>
+        <tr>
+          <td>Prompt 黑盒</td>
+          <td><span class="status-word status-experimental">已集成 · 默认关闭</span>仅在受信任调用方显式启用后运行。</td>
+          <td>需要单独 Provider 与确认；会发送<strong>完整被审 Prompt</strong>和固定 Scenario。</td>
+          <td>让真实模型按对抗或契约场景响应，再用有界 Oracle 判断。</td>
+          <td>Web（双确认）、CLI、Python core；仅 Prompt</td>
+          <td>说明一个模型/配置/场景下的行为；不是跨模型、通用安全或图像保真证明。</td>
+        </tr>
+        <tr>
+          <td>可执行 Skill 沙箱</td>
+          <td><span class="status-word status-unavailable">产品路径不可用</span>未请求为 <code>not_enabled</code>；显式请求为 <code>failed</code>。</td>
+          <td>不会进入执行或网络阶段。</td>
+          <td><strong>什么都不执行。</strong>在构造旧研究 runner 之前失败关闭。</td>
+          <td>Web 控件禁用；CLI/Review 只保留失败关闭兼容入口</td>
+          <td>原因码 <code>sandbox_isolation_hardening_required</code> 证明系统拒绝越过未加固边界；不能观察 Skill 真实运行。</td>
+        </tr>
+        <tr>
+          <td>Agent 指令 Harness</td>
+          <td><span class="status-word status-experimental">实验性 · CLI-only · 默认关闭</span>只适用于 instruction-only Skill。</td>
+          <td>需要受信任 Provider；Skill 指令和 Scenario Prompt 会出站。</td>
+          <td>通过外部 DSH 运行四个合成/无副作用工具：内存读、阻断 HTTP、阻断 shell、拒绝审批。</td>
+          <td>仅 CLI；无 Web 启用面</td>
+          <td>记录模型的尝试信号；<strong>不是</strong> OS、进程或网络沙箱，也不是安全证明。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note critical">
+    <div class="note-title">30 秒答法：Verity 是 Agent 吗？</div>
+    不是。Verity 是审查 Prompt 和 Agent Skill 的工具。它可以检查一个 Agent 的提示词、Skill 包和有界运行信号，
+    但它不负责替你持续对话、编排业务工具或搭建 Agent。外部 DeepSeek Harness 只是它可选使用的一条实验性适配器路径。
+  </div>
+</section>
+
+<hr>
+
+<section id="quickstart" data-search-item data-search-type="章节" data-search-title="五分钟快速开始 安装 启动 Web CLI">
+  <div class="section-eyebrow">第一次使用 · 约 5 分钟</div>
+  <h2>从安装到第一份报告</h2>
+  <p class="lede">需要 Python <code>&gt;=3.9,&lt;3.14</code>。普通用户推荐本地 Evidence Console；自动化与高级动态配置使用 CLI。</p>
+
+  <div class="quick-steps">
+    <div class="card quick-step" data-search-item data-search-type="命令" data-search-title="安装 Verity Python 依赖">
+      <h3>创建虚拟环境并安装固定依赖</h3>
+      <div class="command-box">
+        <button class="iconbtn copy-button" type="button" data-copy-target="cmd-install">复制命令</button>
+        <pre id="cmd-install"><code>python3 -m venv .venv
+. .venv/bin/activate
+python3 -m pip install --upgrade pip setuptools wheel
+pip install -r requirements.lock
+pip install -e .</code></pre>
+      </div>
+      <p>开发和测试再安装 <code>requirements-dev.lock</code>。所有命令都应在仓库根目录运行。</p>
+    </div>
+
+    <div class="card quick-step" data-search-item data-search-type="命令" data-search-title="安装 gitleaks 8.28.0 Secret 扫描">
+      <h3>安装固定版本 gitleaks</h3>
+      <div class="command-box">
+        <button class="iconbtn copy-button" type="button" data-copy-target="cmd-gitleaks">复制命令</button>
+        <pre id="cmd-gitleaks"><code>python3 tools/install_gitleaks.py</code></pre>
+      </div>
+      <p>Web 的 Skill 审查固定使用 <code>standard</code> profile，gitleaks 是关键检查。缺失、版本不符或二进制哈希漂移都会让 Coverage 不足；系统不会悄悄降级并声称没有 Secret。</p>
+    </div>
+
+    <div class="card quick-step" data-search-item data-search-type="命令" data-search-title="启动 Evidence Console 127.0.0.1 8765">
+      <h3>启动本地 Evidence Console</h3>
+      <div class="command-box">
+        <button class="iconbtn copy-button" type="button" data-copy-target="cmd-web">复制命令</button>
+        <pre id="cmd-web"><code>python3 tools/start_local_web.py</code></pre>
+      </div>
+      <p>浏览器默认打开 <code>http://127.0.0.1:8765/</code>。也可双击 <code>start-verity.command</code>，或用 <code>--port 9000</code> 换端口。服务拒绝 <code>0.0.0.0</code> 等非 loopback 地址。</p>
+    </div>
+
+    <div class="card quick-step">
+      <h3>选择 Prompt 或 Skill</h3>
+      <div class="grid g2">
+        <div>
+          <h4>检查 Prompt</h4>
+          <ol>
+            <li>粘贴文本或载入 <code>.txt/.md/.json</code>。</li>
+            <li>选择 <code>user_prompt</code> 或 <code>system_prompt</code>。</li>
+            <li>若只想本地静态检查，不配置 Provider、不启用黑盒。</li>
+            <li>点击“开始审查”。</li>
+          </ol>
+        </div>
+        <div>
+          <h4>检查 Agent Skill</h4>
+          <ol>
+            <li>选择本地文件夹，或上传一个 <code>.zip</code>。</li>
+            <li><strong>Web 支持单个 Skill ZIP</strong>，会检查路径穿越、条目冲突和解压预算。</li>
+            <li><strong>CLI 仍只接受 Skill 文件夹</strong>，不直接接 ZIP。</li>
+            <li>当前 Skill 执行沙箱禁用；静态规则、Bandit、gitleaks 仍正常运行。</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <div class="card quick-step" data-search-item data-search-type="命令" data-search-title="CLI 审查 Prompt Skill 输出 report.json html sarif">
+      <h3>需要自动化时使用 CLI</h3>
+      <div class="command-box">
+        <button class="iconbtn copy-button" type="button" data-copy-target="cmd-cli-basic">复制命令</button>
+        <pre id="cmd-cli-basic"><code>python3 -m verity.cli review --engine prompt \
+  --prompt-kind user_prompt --input-file prompt.txt --out out/prompt
+
+python3 -m verity.cli review --engine skill \
+  --profile standard --input-dir ./my-skill --out out/skill</code></pre>
+      </div>
+      <p>每次 CLI 审查写出 <code>report.json</code>、<code>report.html</code> 和 <code>report.sarif</code>。退出码 0/1/3 分别对应 pass、High/Critical 阻断、Coverage/请求阶段未完成；参数错误由 argparse 返回 2。</p>
+    </div>
+
+    <div class="card quick-step">
+      <h3>读结果、下载、停止</h3>
+      <p>先看 Verdict 与 Coverage，再看统一 Issues、Finding 证据、动态计划和整改建议。Web 报告链接存在进程内 TTL/LRU 中，服务器重启后会失效；需要长期保存就下载报告文件。停止服务时回到启动它的终端按 <kbd>Ctrl</kbd>+<kbd>C</kbd>。</p>
+      <div class="note"><strong>说明书服务器不是审查服务：</strong>如果只想交互阅读本页，可运行 <code>python3 -m http.server 8766 --bind 127.0.0.1 --directory docs</code>；它只监听本机回环地址，不会启动 Verity API。</div>
+    </div>
+  </div>
+  <noscript><div class="nojs-note">JavaScript 已关闭：正文和命令仍可阅读；搜索、场景切换与复制按钮不可用。</div></noscript>
+</section>
+
+<hr>
+
+<section id="pathfinder" data-search-item data-search-type="章节" data-search-title="审查路径选择助手">
+  <div class="section-eyebrow">路径助手 · 先决定网络与执行边界</div>
+  <h2>我该走哪条审查路径？</h2>
+  <p class="lede">选择最接近你的目标。结果会同时告诉你运行阶段、数据出站、可得到的状态和不能越过的边界。</p>
+  <div class="path-options" id="path-options" role="group" aria-label="选择审查场景">
+    <button class="path-option" type="button" data-path="local-prompt" aria-pressed="true" aria-controls="path-detail">只做本地 Prompt 检查</button>
+    <button class="path-option" type="button" data-path="semantic-blackbox" aria-pressed="false" aria-controls="path-detail">语义 + Prompt 黑盒</button>
+    <button class="path-option" type="button" data-path="skill-standard" aria-pressed="false" aria-controls="path-detail">检查 Skill 文件夹 / ZIP</button>
+    <button class="path-option" type="button" data-path="agent-harness" aria-pressed="false" aria-controls="path-detail">检查指令型 Agent Skill</button>
+    <button class="path-option" type="button" data-path="executable-skill" aria-pressed="false" aria-controls="path-detail">想执行可执行 Skill</button>
+  </div>
+  <div class="card path-detail" id="path-detail" tabindex="-1" role="region" aria-label="路径建议" aria-live="polite" aria-atomic="true">
+    <h3>建议：本地静态 Prompt 审查</h3>
+    <p>运行确定性规则、行为画像、动态适用性计划、Coverage、分数与报告。不要配置 Provider，并在 CLI 使用 <code>--no-semantic</code> 明确跳过语义。</p>
+    <div class="detail-grid">
+      <div class="detail-cell"><strong>离开本机</strong>无</div>
+      <div class="detail-cell"><strong>真实模型调用</strong>无</div>
+      <div class="detail-cell"><strong>可证明</strong>计划内静态检查完成情况</div>
+      <div class="detail-cell"><strong>不能证明</strong>Prompt 在真实模型上的通用行为</div>
+    </div>
+  </div>
+  <noscript><div class="nojs-note">选择逻辑：Prompt 本地审查无需 Provider；语义发送受控证据；黑盒发送 Prompt 原文；Skill 文件夹/ZIP 做静态审查；Agent Harness 仅 CLI；可执行 Skill 产品沙箱当前不可用。</div></noscript>
 </section>
 
 <hr>
@@ -637,13 +971,50 @@ figcaption .src { color: var(--text-muted); }
 <hr>
 
 <section id="howitworks">
-  <div class="section-eyebrow">第 2 章</div>
-  <h2>怎么运作：审查流水线总览</h2>
+  <div class="section-eyebrow">完整流程 · 当前源码顺序</div>
+  <h2>怎么运作：从不可信 Artifact 到统一报告</h2>
   <p class="lede">
-    追踪自 <code>verity/review.py::run_review</code> 与 <code>verity/engine.py::Engine.run</code>。
-    一次审查从"拿到文件"到"出报告"一共 9 步；其中第 5 步（语义审查）是可选的独立子流程，有自己的分支逻辑，
-    完整展开见第 4 章「深入机制」。每张卡片都可以点击查看详情。
+    追踪自 <code>verity/review.py::run_review</code>、<code>report.py::review_to_dict</code> 和各隔离适配器。
+    当前流程先完成静态引擎，再生成行为画像和动态适用性计划，随后计算静态 Coverage，最后才进入可选语义/动态阶段；
+    最终投影分数、置信度、统一 Issues、Verdict 与消费者格式。下面可切换 Prompt 和 Skill，点击任一步查看输入、动作、输出、失败状态、数据边界和源码。
   </p>
+
+  <div class="workflow-tabs" id="workflow-tabs" role="group" aria-label="选择审查对象">
+    <button class="workflow-tab" type="button" data-workflow="prompt" aria-pressed="true" aria-controls="workflow-steps workflow-detail">Prompt 流程</button>
+    <button class="workflow-tab" type="button" data-workflow="skill" aria-pressed="false" aria-controls="workflow-steps workflow-detail">Agent Skill 流程</button>
+  </div>
+  <div class="stage-lane" id="workflow-steps" aria-label="审查步骤"></div>
+  <div class="card workflow-detail" id="workflow-detail" tabindex="-1" role="region" aria-label="所选审查步骤详情" aria-live="polite" aria-atomic="true">
+    <h3>1. 安全摄入</h3>
+    <div class="detail-grid">
+      <div class="detail-cell"><strong>输入</strong>一段 Prompt 文本，或一个有边界的 Skill 文件集合</div>
+      <div class="detail-cell"><strong>动作</strong>拒绝危险路径/NUL/预算超限，冻结内存字节</div>
+      <div class="detail-cell"><strong>输出</strong><code>ArtifactSnapshot</code> 与 <code>file_bytes</code></div>
+      <div class="detail-cell"><strong>失败状态</strong><code>IntakeError</code>，不继续审查</div>
+      <div class="detail-cell"><strong>数据边界</strong>本地；无 Provider、无 Artifact 执行</div>
+      <div class="detail-cell"><strong>源码</strong><code>src/verity/intake.py</code></div>
+    </div>
+  </div>
+  <details class="note">
+    <summary><strong>无 JavaScript时的完整 12 阶段清单</strong></summary>
+    <ol>
+      <li>安全摄入与不可变快照。</li>
+      <li>构造确定性 ReviewPlan。</li>
+      <li>运行静态规则、Parser、Bandit/gitleaks。</li>
+      <li>从 Manifest、文本和 AST 提取 BehaviorProfile；它是事实，不是漏洞。</li>
+      <li>构造 DynamicPlan，把每个检查标为 selected / not_applicable / unavailable。</li>
+      <li>计算静态 Coverage，保留所有失败和不适用原因。</li>
+      <li>按可信配置运行实验性语义审查；静态 Findings 只读且不可被删除。</li>
+      <li>Prompt 可选黑盒；Skill 可执行沙箱请求失败关闭；instruction-only Skill 可选 CLI Harness。</li>
+      <li>把完成阶段的证据映射到统一风险，计算 Score、Confidence 和 proposal-only 整改。</li>
+      <li>生成统一 Issues，同时保留每个静态、语义和运行时 occurrence。</li>
+      <li>计算 Verdict 与 CLI gate；Coverage 不足时不生成乐观主体结论。</li>
+      <li>输出 JSON、HTML、SARIF、Web 视图与受控项目历史投影。</li>
+    </ol>
+  </details>
+
+  <h3 style="margin-top:28px">静态核心与语义子流程的机制节点</h3>
+  <p style="color:var(--text-secondary);font-size:13.5px">下面保留原有的可点击机制地图，用于深入某个函数；它不是严格时序编号。严格时序以上面的 12 阶段为准。</p>
 
   <div class="pipe-rail">
 
@@ -770,9 +1141,9 @@ figcaption .src { color: var(--text-muted); }
   </div>
 
   <div class="pipe-optional">
-    <div class="po-badge">步骤 5 · 可选分支 · 仅当配置了 Provider 时才会尝试运行 · 实验性</div>
+    <div class="po-badge">可选语义阶段 · 静态 Coverage 与动态计划之后 · 有受信任 Provider 时尝试 · 实验性</div>
     <p style="margin:6px 0 8px;font-size:14px">
-      <strong>语义审查（实验性）</strong>——发生在步骤 4c 完成之后、步骤 6（Coverage）之前，接收一份只读的 review 投影字典，
+      <strong>语义审查（实验性）</strong>——在静态引擎和静态 Coverage 完成之后运行，接收一份只读的 review 投影字典，
       不影响任何确定性结果。它有自己的分支逻辑（找没找到关键词种子 → 走目录假设 or 独立扫描；多模型投票 → 多数决/打平），
       完整决策树见第 4 章。
     </p>
@@ -797,6 +1168,239 @@ figcaption .src { color: var(--text-muted); }
     <strong>语义 → 确定性：绝不写回。</strong> orchestrator 接收的是一份普通的投影字典
     （<code>reviewId</code>、<code>engine</code>、<code>snapshot</code>、<code>artifactModel</code>、<code>evidences</code>），
     返回一个独立的结果对象。候选生成器、校验器、或任何元 LLM，都没有任何代码路径能够删除或降级一条确定性 Finding。
+  </div>
+</section>
+
+<hr>
+
+<section id="architecture" data-search-item data-search-type="章节" data-search-title="架构 数据流 信任边界 Provider 出站">
+  <div class="section-eyebrow">架构 · 点击信任区看数据</div>
+  <h2>系统架构与数据流：什么留在本机，什么可能出站</h2>
+  <p class="lede">架构的核心不是“所有东西都离线”，而是<strong>每条跨边界路径都必须由受信任调用方开启、按最小投影传输，并且不能让被审 Artifact 配置审查环境</strong>。</p>
+
+  <div class="trust-map" id="architecture-map" aria-label="Verity 信任边界图">
+    <button class="trust-node local" type="button" data-architecture="intake" aria-pressed="true" aria-controls="architecture-detail"><strong>1. 不可信输入区</strong>Prompt、Skill 文件夹或 Web 单 ZIP。内容只能被摄入，不能配置 Provider、策略或工具。</button>
+    <button class="trust-node local" type="button" data-architecture="deterministic" aria-pressed="false" aria-controls="architecture-detail"><strong>2. 本机确定性区</strong>Snapshot、Parser、规则、Bandit、gitleaks、Coverage、行为画像、动态计划。</button>
+    <button class="trust-node egress" type="button" data-architecture="provider" aria-pressed="false" aria-controls="architecture-detail"><strong>3. 受控 Provider 区</strong>语义发送受控证据；黑盒发送完整 Prompt；Harness 发送 Skill 指令和场景。</button>
+    <button class="trust-node blocked" type="button" data-architecture="execution" aria-pressed="false" aria-controls="architecture-detail"><strong>4. 执行边界</strong>Prompt 可调用真实模型；可执行 Skill 产品沙箱当前禁止执行；Harness 工具为合成模拟。</button>
+    <button class="trust-node local" type="button" data-architecture="projection" aria-pressed="false" aria-controls="architecture-detail"><strong>5. 安全投影区</strong>Score、Confidence、Issues、Verdict、JSON/HTML/SARIF 与受控历史记录。</button>
+  </div>
+  <div class="card architecture-detail" id="architecture-detail" tabindex="-1" role="region" aria-label="所选信任区域详情" aria-live="polite" aria-atomic="true">
+    <h3>不可信输入区</h3>
+    <p><strong>职责：</strong>把一个 Prompt 或 Skill 变成受预算约束的内存快照。Skill 目录拒绝逃逸路径并不跟随符号链接；Web ZIP 还拒绝重复/大小写冲突路径并按实际增量读取计数。</p>
+    <p><strong>红线：</strong>被审内容不能选择 Provider、模型、凭证、出站策略、严重度、Scenario、预算、工具路径或沙箱开关。</p>
+    <p><strong>源码：</strong><code>src/verity/intake.py</code>、<code>src/verity/web/app.py::_extract_skill_zip</code>。</p>
+  </div>
+
+  <h3 style="margin-top:24px">四条真实数据路径</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>路径</th><th>发送/保存什么</th><th>明确不发送/不保存什么</th><th>谁能开启</th></tr></thead>
+      <tbody>
+        <tr><td>静态默认</td><td>本机内存快照、受控报告；Skill 历史只存 allowlist 投影。</td><td>不向 Provider 发送 Artifact；历史不存原文件、Evidence 原文、Provider 信息或主机路径。</td><td>默认运行。</td></tr>
+        <tr><td>语义</td><td>CLI 默认 metadata；Web 固定脱敏 Evidence、受控 subject、位置、策略和预算审计。</td><td>敏感 Evidence 整条不外发；没有 <code>raw_full_artifact</code>；不保存 Provider 错误 body。</td><td>受信任 CLI/Web 配置；Artifact 无权。</td></tr>
+        <tr><td>Prompt 黑盒</td><td>完整被审 Prompt 作为 system message、固定 Scenario probe、多轮前序回复。</td><td>集成公开报告不保留 Prompt、probe 或原始 Provider response，只留 ID、计数、长度、摘要与 digest。</td><td>Web 双确认或 CLI 显式参数。</td></tr>
+        <tr><td>Agent Harness</td><td>Skill 指令、Scenario Prompt 与真实 Provider 交互。</td><td>报告不留原始模型输出、工具参数、canary、凭证、主机路径或原始 trace。</td><td>仅受信任 CLI 完整配置；默认关闭。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note caution"><strong>不要混淆集成报告和研究工具：</strong>上表的黑盒隐私承诺适用于 <code>run_review</code> 生成的产品报告。独立研究脚本 <code>tools/run_blackbox.py</code> 会在终端打印片段，也可写出含原始 Scenario 结果的 JSON；它的输出应按敏感材料处理，不能套用集成报告的受控投影承诺。</div>
+  <div class="note caution"><strong>API Key：</strong>CLI 只接受环境变量名。Web 的<strong>语义 Provider</strong>设置可把 Key 保存到当前 macOS 用户 Keychain，浏览器只能读到 <code>keySaved</code>；语义审查时再把它放入随机临时环境变量并在之后清理。Prompt 黑盒的 Key 则由每次审查请求单独提供，只进入临时环境变量，审查后清理，既不持久化，也不会复用已保存的语义 Key。非秘密 URL/模型偏好存于 owner-only 本地 JSON。</div>
+</section>
+
+<hr>
+
+<section id="operations" data-search-item data-search-type="章节" data-search-title="Web Evidence Console CLI 完整操作手册">
+  <div class="section-eyebrow">操作手册 · Web 与 CLI</div>
+  <h2>怎么实际使用每个入口</h2>
+
+  <h3>Web Evidence Console 逐区说明</h3>
+  <div class="grid g2">
+    <div class="card" data-search-item data-search-type="操作" data-search-title="Web Prompt 审查 黑盒双确认">
+      <h4>Prompt 摄入与黑盒</h4>
+      <ul>
+        <li>粘贴 Prompt 或选择本地文本文件，明确 user/system 类型。</li>
+        <li>静态审查不需要 Provider。</li>
+        <li>黑盒有“启用”和“确认完整 Prompt 出站”两个独立信号；缺一都不运行。</li>
+        <li><code>artifact_aware</code> 按行为画像选场景；<code>all</code> 跑历史 26 场景；<code>explicit</code> 只跑指定 ID。</li>
+      </ul>
+    </div>
+    <div class="card" data-search-item data-search-type="操作" data-search-title="Web Skill 文件夹 ZIP standard sandbox 禁用">
+      <h4>Skill 文件夹、ZIP 与沙箱卡</h4>
+      <ul>
+        <li>普通检查可选文件夹或单个 ZIP，二选一。</li>
+        <li>Web 服务端强制 <code>standard</code>，旧客户端请求 weaker profile 也会被升级。</li>
+        <li>Skill 沙箱卡解释隔离缺口且不可启用；伪造表单也只会失败关闭。</li>
+        <li>Bandit/gitleaks 是受信任分析器 subprocess，不等于执行被审 Skill。</li>
+      </ul>
+    </div>
+    <div class="card" data-search-item data-search-type="操作" data-search-title="Provider 设置 模型列表 多 Validator Keychain">
+      <h4>语义 Provider</h4>
+      <ul>
+        <li>配置 OpenAI-compatible base URL、API Key、Candidate 模型和 Validator 模型。</li>
+        <li>可增加独立 Validator，总票数推荐 2–3；平票成为 <code>insufficient_evidence</code>。</li>
+        <li>保存设置时，Key 进入 Keychain；页面不会读回明文。</li>
+        <li>没配完整 Provider 时，语义内部状态为 <code>provider_not_configured</code>，报告能力投影为 <code>failed</code>；这本身不自动阻断 CLI。</li>
+      </ul>
+    </div>
+    <div class="card" data-search-item data-search-type="操作" data-search-title="结果画布 issues evidence source remediation download diagnostics">
+      <h4>结果画布</h4>
+      <ul>
+        <li>先读 Verdict、Coverage、Score 与 Confidence，不要只看一个数字。</li>
+        <li>统一 Issues 按风险聚合静态、语义、黑盒和运行时 occurrence。</li>
+        <li>源码工作台用 byte range 定位 Evidence；Secret 预览保持脱敏。</li>
+        <li>修复工作台只改 Prompt 草稿并重新审查，或给出 Skill 建议；没有自动 Patch 应用。</li>
+        <li>可下载 JSON、HTML、SARIF，并查看动态计划与诊断原因码。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3 style="margin-top:26px">CLI 常用命令</h3>
+  <div class="grid g2">
+    <div class="card" data-search-item data-search-type="命令" data-search-title="语义 Provider CLI metadata_only">
+      <h4>配置语义 Candidate + Validator</h4>
+      <div class="command-box">
+        <button class="iconbtn copy-button" type="button" data-copy-target="cmd-semantic">复制命令</button>
+        <pre id="cmd-semantic"><code>python3 -m verity.cli review --engine prompt \
+  --input-file prompt.txt --out out/semantic \
+  --semantic-provider-kind openai_compatible \
+  --semantic-generator-url https://provider.example \
+  --semantic-generator-model model-a \
+  --semantic-generator-api-key-env GENERATOR_KEY \
+  --semantic-validator-url https://provider.example \
+  --semantic-validator-model model-b \
+  --semantic-validator-api-key-env VALIDATOR_KEY</code></pre>
+      </div>
+    </div>
+    <div class="card" data-search-item data-search-type="命令" data-search-title="Prompt 黑盒 CLI artifact_aware">
+      <h4>显式开启 Prompt 黑盒</h4>
+      <div class="command-box">
+        <button class="iconbtn copy-button" type="button" data-copy-target="cmd-blackbox">复制命令</button>
+        <pre id="cmd-blackbox"><code>python3 -m verity.cli review --engine prompt \
+  --input-file prompt.txt --out out/blackbox \
+  --enable-prompt-blackbox \
+  --blackbox-base-url https://provider.example \
+  --blackbox-model model-name \
+  --blackbox-api-key-env BLACKBOX_KEY \
+  --blackbox-scenario-policy artifact_aware</code></pre>
+      </div>
+    </div>
+    <div class="card" data-search-item data-search-type="命令" data-search-title="Agent Harness CLI DSH SHA256">
+      <h4>Agent Harness（参数骨架）</h4>
+      <div class="command-box">
+        <button class="iconbtn copy-button" type="button" data-copy-target="cmd-harness">复制命令</button>
+        <pre id="cmd-harness"><code>--enable-agent-runtime
+--agent-runtime-node-path PATH --agent-runtime-node-sha256 SHA256
+--agent-runtime-dsh-path PATH --agent-runtime-dsh-sha256 SHA256
+--agent-runtime-version 0.1.1-rc.2
+--agent-runtime-base-url HTTPS_URL --agent-runtime-model MODEL
+--agent-runtime-api-key-env ENV_NAME</code></pre>
+      </div>
+      <p>这些参数附加到 Skill review。外部 DSH 不 vendored、不自动安装；两个哈希只认证入口文件，不认证相邻 npm 闭包。</p>
+    </div>
+    <div class="card" data-search-item data-search-type="命令" data-search-title="export-schema JSON Schema">
+      <h4>导出报告 Schema</h4>
+      <div class="command-box">
+        <button class="iconbtn copy-button" type="button" data-copy-target="cmd-schema">复制命令</button>
+        <pre id="cmd-schema"><code>python3 -m verity.cli export-schema --out schema.json</code></pre>
+      </div>
+      <p>本地 Web 的 <code>/api/*</code> 路由是 UI 后端，不是已发布的公网稳定 API；可嵌入服务仍在路线图上。</p>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<section id="report-reference" data-search-item data-search-type="章节" data-search-title="报告字段字典 score confidence coverage verdict issues capabilities">
+  <div class="section-eyebrow">报告参考 · 先分清四个结论</div>
+  <h2>如何读懂 JSON / HTML / SARIF 报告</h2>
+  <div class="compare">
+    <div class="cc"><h5>Coverage</h5>回答“计划中的关键检查完成了吗？”不足时不能给乐观主体 Verdict，也没有数字 Score。</div>
+    <div class="cc"><h5>Verdict</h5>回答“在当前证据和覆盖下，该 Prompt/Skill 该如何处置？”与 CLI 是否阻断不是完全同一件事。</div>
+    <div class="cc"><h5>Score</h5>0–100 的可解释扣分投影。100 只表示已完成检查里没有扣分，不表示 100% 安全。</div>
+    <div class="cc"><h5>Review Confidence</h5>A–D 的结论可信度。A 当前不可达；它不等于安全分，也不表示模型信心。</div>
+  </div>
+
+  <h3 style="margin-top:24px">顶层字段词典</h3>
+  <div class="field-tree" data-search-item data-search-type="报告" data-search-title="report JSON 顶层字段">
+    <details open><summary><code>reviewId</code> / <code>engine</code></summary><div>一次审查的高熵标识和对象类型（prompt / skill）。它们不等于 Skill 项目身份。</div></details>
+    <details><summary><code>snapshot</code></summary><div>Artifact 快照的内容摘要、文件元数据与摄入状态。下游不回读原目录。</div></details>
+    <details><summary><code>plan</code> / <code>executions</code></summary><div>确定性计划及每项真实状态：completed、not_applicable、failed、blocked_by_upstream_failure 等。</div></details>
+    <details><summary><code>coverage</code></summary><div>计划是否充分完成、关键 gap 和 policy id。缺口不是“没发现问题”，而是“没有完成检查”。</div></details>
+    <details><summary><code>evidences</code> / <code>ruleMatches</code> / <code>findings</code></summary><div>字节事实 → 规则命中事件 → 可报告问题。Finding 的严重度由本地规则/目录决定。</div></details>
+    <details><summary><code>behaviorProfile</code></summary><div>任务、runtime kind、输入输出、工具、状态、副作用、敏感数据和外部内容事实；它本身不是漏洞。</div></details>
+    <details><summary><code>dynamicPlan</code></summary><div>每个动态检查为何 selected、not_applicable 或 unavailable。selected 只代表值得运行，不代表已执行或通过。</div></details>
+    <details><summary><code>artifactModel</code></summary><div>解析器/能力提取形成的受控 Artifact 结构，供后续规则和语义阶段使用。</div></details>
+    <details><summary><code>semantic</code>（条件字段）</summary><div>只在构造了语义运行结果时出现：受控语义计划、调用审计、候选评估和确认 Finding。只有阶段完整完成的确认 Finding 才进入正式投影。</div></details>
+    <details><summary><code>promptBlackbox</code>（条件字段）</summary><div>只在 Prompt 黑盒被请求并形成运行结果时出现：Scenario 选择、受控结果与运行摘要；公开投影不保留原 Prompt、probe 或 Provider response。</div></details>
+    <details><summary><code>skillSandbox</code>（条件字段）</summary><div>只在 Skill 沙箱被显式请求时出现；当前产品路径投影为 failed / observation unavailable，并给出 <code>sandbox_isolation_hardening_required</code>。</div></details>
+    <details><summary><code>agentInstructionRuntime</code>（条件字段）</summary><div>只在 CLI 受信任调用方提供 Harness 配置时出现：有界场景和 attempt signals；完成不代表 OS 隔离或 Agent 安全。</div></details>
+    <details><summary><code>capabilities</code>（始终存在）</summary><div>static、semantic、promptBlackbox、skillSandbox、agentInstructionRuntime 五维状态账本。五项始终都有状态；其中 <code>static</code> 可为 <code>completed</code> 或 <code>failed</code>，其余未请求时为 <code>not_enabled</code>。</div></details>
+    <details><summary><code>score</code></summary><div>按统一风险和严重度做递减扣分，Critical/High/Medium/Low 分数上限分别为 39/59/79/99；覆盖不足时 unavailable。</div></details>
+    <details><summary><code>reviewConfidence</code></summary><div>说明静态、语义、画像、动态与 breadth 限制；始终披露 <code>capability_breadth_not_evaluated</code>。</div></details>
+    <details><summary><code>remediations</code></summary><div>按优先级给出 actions 和同范围复查项；<code>applyMode=proposal_only</code>，不会自动修改文件。</div></details>
+    <details><summary><code>issues</code></summary><div>按稳定风险 ID 聚合多层 occurrence，但保留所有来源身份和证据。</div></details>
+    <details><summary><code>verdict</code></summary><div>Coverage、主体处置、原因码和 policy。Prompt 有 Finding 通常 needs_revision；Skill 依严重度为 do_not_install/review_required/low_detected_risk。</div></details>
+    <details><summary><code>owaspCoverage</code>（Skill）</summary><div>Skill 风险到 OWASP Agentic/相关控制的映射视图；不是额外检测器。</div></details>
+  </div>
+
+  <h3 style="margin-top:24px">统一 Issue 的五种状态</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>状态</th><th>含义</th><th>最容易误解的点</th></tr></thead>
+      <tbody>
+        <tr><td><code>runtime_confirmed</code></td><td>静态/语义问题在有界运行中也被观察到。</td><td>仍不是跨配置安全结论。</td></tr>
+        <tr><td><code>runtime_only</code></td><td>运行时出现信号，但没有对应静态 Finding。</td><td>信号可能只是一次具体 Scenario 的尝试。</td></tr>
+        <tr><td><code>not_reproduced</code></td><td>所有相关有界动态检查本次未复现。</td><td><strong>不会删除静态 Finding</strong>，只增加本次观察。</td></tr>
+        <tr><td><code>static_only</code></td><td>只有静态/语义证据，动态未选择或不适用。</td><td>不代表动态反驳了问题。</td></tr>
+        <tr><td><code>unverified</code></td><td>需要的动态适配器不可用或运行未完成。</td><td>不能把“没跑”当作 pass。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin-top:24px">CLI 退出码</h3>
+  <div class="table-scroll"><table><thead><tr><th>退出码</th><th>gate</th><th>含义</th></tr></thead><tbody>
+    <tr><td>0</td><td><code>pass</code></td><td>Coverage 足够且没有 High/Critical 阻断。Medium/Low 默认不阻断。</td></tr>
+    <tr><td>1</td><td><code>findings_block</code></td><td>存在 High/Critical Finding 或对应运行时 occurrence；优先于 Coverage 阻断。</td></tr>
+    <tr><td>3</td><td><code>coverage_block</code></td><td>Coverage 不足或显式/完整配置请求的阶段未完成，且没有更高优先级的 High/Critical。</td></tr>
+    <tr><td>2</td><td>argparse</td><td>命令行用法或参数错误。</td></tr>
+  </tbody></table></div>
+</section>
+
+<hr>
+
+<section id="history" data-search-item data-search-type="章节" data-search-title="Skill 项目历史 五状态 diff disposition 处置">
+  <div class="section-eyebrow">版本复查 · 仅 Skill 项目</div>
+  <h2>Skill 项目历史、五状态差异与处置</h2>
+  <p class="lede">项目身份来自你先在 Verity 注册的可信项目，不从目录名、digest、相似度或被审内容中猜测。当前项目版本审查实质是静态 Skill 历史。</p>
+  <div class="command-box" data-search-item data-search-type="命令" data-search-title="project create list review diff dispose dispositions">
+    <button class="iconbtn copy-button" type="button" data-copy-target="cmd-projects">复制命令</button>
+    <pre id="cmd-projects"><code>python3 -m verity.cli project create --name "My Skill" --alias my-skill
+python3 -m verity.cli project list
+python3 -m verity.cli project review --project my-skill --input-dir ./skill --profile standard
+python3 -m verity.cli project diff --project my-skill
+python3 -m verity.cli project dispose --project my-skill --fingerprint SHA256 \
+  --status accept_risk --expiry 30 --note "说明"
+python3 -m verity.cli project dispositions --project my-skill</code></pre>
+  </div>
+  <div class="grid g5" style="margin-top:14px">
+    <div class="tile"><div class="label">new</div><div class="sub">新版本第一次出现</div></div>
+    <div class="tile"><div class="label">existing</div><div class="sub">同一 occurrence 仍存在</div></div>
+    <div class="tile"><div class="label">changed</div><div class="sub">同一问题身份但证据/位置变化</div></div>
+    <div class="tile"><div class="label">resolved</div><div class="sub">相关检查完成且旧问题消失</div></div>
+    <div class="tile"><div class="label">unknown_due_to_coverage</div><div class="sub">当前检查未完成，不能假装已修复</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card">
+      <h3>处置标记</h3>
+      <p><code>acknowledged</code>、<code>accept_risk</code>、<code>false_positive</code>、<code>wont_fix</code> 都必须有期限，最长 180 天。它们默认只做审阅注释，不改变 Finding 严重度或原始 Score。</p>
+      <p>只有 CLI 显式传 <code>--respect-dispositions</code> 时，仍有效的 <code>accept_risk</code> 才会影响 High gate。</p>
+    </div>
+    <div class="card">
+      <h3>保存与不保存</h3>
+      <p>默认目录是 gitignored 的 <code>.verity-data/</code>，目录 0700、文件 0600、原子替换，并检查 owner/软链接/组与其他用户写权限。</p>
+      <p>历史不保存 Artifact 原字节、Evidence 原文、Provider 信息、Secret、主机路径或工具细节。普通 Web 报告缓存则是 32 项、24 小时 TTL 的进程内 LRU，重启即丢失。</p>
+    </div>
   </div>
 </section>
 
@@ -846,7 +1450,7 @@ figcaption .src { color: var(--text-muted); }
   <table>
     <thead><tr><th>评测批次</th><th>关键数字</th><th>可信度标签</th><th>能否支持"Verity 优于/等于 Butler"</th></tr></thead>
     <tbody>
-      <tr><td>工程验收</td><td>856 测试通过 · 9/9 工程检查</td><td><span class="cred cred-eng">工程验收</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
+      <tr><td>工程验收</td><td>当前 4163 / 4163 测试 · 仓库门禁 19 / 19；历史 V1 收尾制品 9 / 9</td><td><span class="cred cred-eng">工程验收</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
       <tr><td>L0 确定性基线</td><td>TP11/FN0 · stability 1.0（84 cases）</td><td><span class="cred cred-contract">CONTRACT-ONLY 级别</span> minimal_pair_baseline</td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
       <tr><td>语义合约回放</td><td>82/82 · modelQualityMeasured=false</td><td><span class="cred cred-contract">CONTRACT-ONLY</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
       <tr><td>协议 v1</td><td>—（已判定 invalidated）</td><td><span class="cred cred-consumed">已失效</span></td><td><span class="badge crit"><span class="dot"></span>否</span></td></tr>
@@ -865,20 +1469,20 @@ figcaption .src { color: var(--text-muted); }
   <div class="grid g4">
     <div class="tile">
       <div class="label">测试通过数</div>
-      <div class="value">856</div>
-      <div class="sub"><code>verify_repo.py</code> PASS</div>
+      <div class="value">4163 / 4163</div>
+      <div class="sub">当前全量测试基线</div>
       <span class="cred cred-eng">工程验收 ≠ 精度评测</span>
     </div>
     <div class="tile">
-      <div class="label">工程检查项</div>
+      <div class="label">当前仓库门禁</div>
+      <div class="value">19 / 19</div>
+      <div class="sub"><code>tools/verify_repo.py</code></div>
+      <span class="cred cred-eng">工程验收 ≠ 精度评测</span>
+    </div>
+    <div class="tile">
+      <div class="label">历史 V1 收尾制品</div>
       <div class="value">9 / 9</div>
-      <div class="sub">全部 <code>true</code></div>
-      <span class="cred cred-eng">工程验收 ≠ 精度评测</span>
-    </div>
-    <div class="tile">
-      <div class="label">发布阻塞项</div>
-      <div class="value">0</div>
-      <div class="sub">确定性范围内；3 项明确<code>deferred</code>，非失败</div>
+      <div class="sub"><code>v1-closure.json</code> 的历史快照</div>
       <span class="cred cred-eng">工程验收 ≠ 精度评测</span>
     </div>
     <div class="tile">
@@ -889,7 +1493,9 @@ figcaption .src { color: var(--text-muted); }
     </div>
   </div>
   <p style="font-size:13px;color:var(--text-secondary)">
-    9 项绿色工程检查是 <code>tests_and_ci</code>、<code>prompt_web_cli</code>、<code>skill_web_cli</code>、
+    <code>docs/PROGRESS.md</code> 顶部 verified block 和 <code>tools/verify_repo.py</code> 描述的是当前仓库门禁；
+    <code>evals/reports/v1-closure.json</code> 则是历史 V1 收尾制品，不能拿其中 9 / 9 替代当前 19 / 19。
+    历史 9 项绿色工程检查是 <code>tests_and_ci</code>、<code>prompt_web_cli</code>、<code>skill_web_cli</code>、
     <code>json_html_sarif</code>、<code>coverage_failure</code>、<code>score_confidence_remediation</code>、
     <code>history_v1_v2_diff</code>、<code>security_boundaries</code>、<code>install_start_preflight</code>——每一项
     在报告里都有具名的测试证据。3 项 deferred 是 V1.5 黑盒、V2 沙箱、Provider Web 产品化。
@@ -948,7 +1554,7 @@ figcaption .src { color: var(--text-muted); }
         这个"1.0"的意思是：在 42 个人工编写、被设计为"应该能被检出"的合成案例和 42 个近乎一致的安全对照案例上，
         规则恰好在答案标注的地方触发、其它地方都没触发，且重复了一次结果不变。它<em>不</em>代表在真实提示词上有 100% 的检出准确率——
         项目自己有一条 LESSONS 条目标题就是"一个很小的通过语料库不等于 100% 检出准确率"（2026-07-21）。语料标签中，
-        84 个案例里 58 个仍是 <span class="cred cred-consumed">PROVISIONAL</span>，其余 26 个是 <code>independent_ai_review</code>
+        84 个案例里 23 个仍是 <span class="cred cred-consumed">PROVISIONAL</span>，其余 61 个是 <code>independent_ai_review</code>
         （AI 交叉复核，不是人类专家复核）。
       </p>
     </div>
@@ -1058,8 +1664,8 @@ figcaption .src { color: var(--text-muted); }
           <table>
             <thead><tr><th>标签状态</th><th class="num">L0 语料库</th><th class="num">语义协议 v2</th></tr></thead>
             <tbody>
-              <tr><td><code>provisional_single_review</code> <span class="cred cred-consumed" style="margin-top:0">PROVISIONAL</span></td><td class="num">58</td><td class="num">14</td></tr>
-              <tr><td><code>independent_ai_review</code></td><td class="num">26</td><td class="num">28</td></tr>
+              <tr><td><code>provisional_single_review</code> <span class="cred cred-consumed" style="margin-top:0">PROVISIONAL</span></td><td class="num">23</td><td class="num">14</td></tr>
+              <tr><td><code>independent_ai_review</code></td><td class="num">61</td><td class="num">28</td></tr>
               <tr><td><strong>人类专家复核</strong></td><td class="num"><strong>0</strong></td><td class="num"><strong>0</strong></td></tr>
             </tbody>
           </table>
@@ -1099,7 +1705,7 @@ figcaption .src { color: var(--text-muted); }
       <li><strong>没有基于真实用户提示词的真实模型精度数据</strong>——语料库里每一个案例都是 <code>verity_synthetic</code>（合成）来源。</li>
       <li><strong>没有延迟、成本或 token 消耗的 benchmark。</strong> 只有每次审查的调用预算上限
         （64 次生成调用、128 次总校验调用、每候选 2 次校验调用），以及一份记录大小和 SHA-256 摘要的调用审计日志。</li>
-      <li><strong>没有 V1.5 或 V2 的已评测准确率</strong>——两条运行路径都已作为显式可选项存在，但当前广度仅为 <code>signal</code>，尚无留存的任务级 oracle 评测。</li>
+      <li><strong>没有 V1.5 或 V2 的已评测准确率</strong>——V1.5 是可显式开启的真实黑盒运行路径，但当前广度仅为 <code>signal</code>，尚无留存的任务级 oracle 评测；V2 只有失败关闭的请求路径，当前产品代码不会执行被审 Skill，因此它还不是一条可运行的沙箱能力。</li>
       <li><strong>任何评测路径里都没有聚合安全分数。</strong> 这是刻意设计：两份语料库报告里 <code>aggregateSafetyScore</code> 都是
         <code>null</code>，架构上规定评测路径不允许包含这样的分数。</li>
       <li>唯一在记录上的真实模型产品级冒烟测试（Round 61，OpenRouter，DeepSeek 做生成器、Mistral 做校验器：
@@ -1301,8 +1907,8 @@ python3 -m verity.cli review --engine prompt --input-file p.md \
 # 完全跳过语义审查：
 python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</code></pre>
     <p style="font-size:13px;margin-bottom:0;color:var(--text-secondary)">
-      每加一个 <code>--semantic-validator-vote</code> 就多一个独立校验者（可重复，最多额外 4 个）。
-      <strong>推荐总共使用 2–3 个来自不同模型的票。</strong> 即使两个投票指向同一个端点，也会构造出彼此独立的 Provider 对象，
+      每加一个 <code>--semantic-validator-vote</code> 就多一个独立校验者。CLI 当前不限制重复传入的校验者票数，
+      但<strong>推荐总共使用 2–3 个来自不同模型的票</strong>；Web 最多允许 3 名校验者（含主校验者）。即使两个投票指向同一个端点，也会构造出彼此独立的 Provider 对象，
       不会在多个投票间共享客户端状态。
     </p>
   </div>
@@ -1327,6 +1933,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     里直接清点得到的，不是从文档里数出来的。<code>standards.validate_runtime_detector_coverage()</code>
     把它们全部绑定到分类标准上，注册表漂移会导致构建失败。
   </p>
+  <noscript><div class="nojs-note">JavaScript 已关闭：动态清单不会渲染。仍可阅读本页的能力矩阵、流程、边界、FAQ 与术语；完整规则事实源见 <code>src/verity/builtins.py</code>、<code>src/verity/skill_rules.py</code>、<code>src/verity/semantic/catalog.py</code> 和 <code>standards/risks.json</code>。</div></noscript>
 
   <div class="grid g4">
     <div class="tile">
@@ -1372,7 +1979,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     <button class="chip" data-rfilter="sev" data-val="high" aria-pressed="false">High</button>
     <button class="chip" data-rfilter="sev" data-val="medium" aria-pressed="false">Medium</button>
     <button class="chip" data-rfilter="sev" data-val="low" aria-pressed="false">Low</button>
-    <span class="result-count" id="rule-count"></span>
+    <span class="result-count" id="rule-count" role="status" aria-live="polite"></span>
   </div>
   <div id="rule-list"></div>
 
@@ -1392,7 +1999,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     <button class="chip" data-cfilter="sev" data-val="high" aria-pressed="false">High</button>
     <button class="chip" data-cfilter="sev" data-val="medium" aria-pressed="false">Medium</button>
     <button class="chip" data-cfilter="sev" data-val="low" aria-pressed="false">Low</button>
-    <span class="result-count" id="cat-count"></span>
+    <span class="result-count" id="cat-count" role="status" aria-live="polite"></span>
   </div>
   <div id="cat-list"></div>
 
@@ -1413,7 +2020,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     <button class="chip" data-kfilter="l0" data-val="none" aria-pressed="false">L0 none（19）</button>
     <button class="chip" data-kfilter="m" data-val="all" aria-pressed="true">全部</button>
     <button class="chip" data-kfilter="m" data-val="measured" aria-pressed="false">语料库中已测量（24）</button>
-    <span class="result-count" id="risk-count"></span>
+    <span class="result-count" id="risk-count" role="status" aria-live="polite"></span>
   </div>
   <div id="risk-list"></div>
 </section>
@@ -1435,12 +2042,12 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
     <tbody>
       <tr>
         <td>确定性静态审查</td>
-        <td><code>completed</code></td>
+        <td><code>completed</code> / <code>failed</code></td>
         <td>"仅表示执行状态；当前检测广度在分类标准中是 signal/partial"</td>
       </tr>
       <tr>
         <td>语义（LLM 辅助）审查</td>
-        <td><code>not_enabled</code><br><span style="font-size:12px;color:var(--text-muted)">未配置 Provider 时；配置后按运行结果变为 <code>completed</code> / <code>failed</code></span></td>
+        <td><code>completed</code> / <code>failed</code> / <code>not_enabled</code><br><span style="font-size:12px;color:var(--text-muted)">显式关闭时为 <code>not_enabled</code>；默认尝试但 Provider 不完整时，能力投影为 <code>failed</code>，内部原因是 <code>provider_not_configured</code></span></td>
         <td>"实验性，配置了 Provider 时默认尝试运行；执行状态不代表语义广度或已评测精度"</td>
       </tr>
       <tr>
@@ -1502,10 +2109,10 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <h4>功能</h4>
       <ul style="margin-bottom:0">
         <li>没有自动修复 / PatchSet 应用——Web UI 只能编辑草稿并重新审查。</li>
-        <li>默认审查路径不会执行 Skill 或调用 Prompt 黑盒；两者都必须由用户显式开启。</li>
+        <li>默认审查路径不会执行 Skill 或调用 Prompt 黑盒。Prompt 黑盒可由受信任调用方显式开启；可执行 Skill 沙箱当前即使显式请求也会失败关闭，不会执行 Skill。</li>
         <li>图像渲染后的视觉保真度仍不可用。Agent Harness 没有 Web 入口或本轮真实模型 E2E，默认关闭，也不是主机/网络沙箱。</li>
         <li>没有集成 Semgrep，也没有 YARA。</li>
-        <li>没有 ZIP 摄入。</li>
+        <li>Web 支持单个 Skill ZIP，并应用路径、数量、单文件、总量与增量解压预算；CLI 仍只接受 Skill 文件夹。</li>
         <li>没有 GitHub URL 摄入。</li>
       </ul>
     </div>
@@ -1551,9 +2158,67 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
 
 <hr>
 
+<section id="troubleshooting" data-search-item data-search-type="章节" data-search-title="故障排查 connection refused port gitleaks Provider Coverage ZIP Harness">
+  <div class="section-eyebrow">故障排查 · 先看原因码</div>
+  <h2>常见问题为什么发生、该怎么处理</h2>
+  <div class="field-tree">
+    <details open data-search-item data-search-type="故障" data-search-title="ERR_CONNECTION_REFUSED 127.0.0.1 8765">
+      <summary>浏览器显示 <code>ERR_CONNECTION_REFUSED</code></summary>
+      <div>该端口没有进程监听。回到仓库根目录运行 <code>python3 tools/start_local_web.py</code>；若你打开的是说明书端口 8766，请确认静态服务器仍在运行。不要把 8765 的 Evidence Console 和 8766 的说明书静态服务器混在一起。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="port already in use 端口占用">
+      <summary><code>port 127.0.0.1:8765 is already in use</code></summary>
+      <div>换用 <code>python3 tools/start_local_web.py --port 9000</code>，或自行停止占用方。启动器不会 kill 其它进程，也不会后台留守。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="refusing to bind non-loopback 0.0.0.0">
+      <summary><code>refusing to bind non-loopback host</code></summary>
+      <div>这是安全边界，不是网络故障。Web 只接受 127.0.0.1、localhost 或 ::1，没有外网绑定开关。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="Missing dependency starlette uvicorn">
+      <summary>缺少 Starlette / Uvicorn 等依赖</summary>
+      <div>激活正确虚拟环境并运行 <code>pip install -r requirements.lock</code>；开发测试再安装 <code>requirements-dev.lock</code>。不要在未确认的 Python 环境里混装。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="gitleaks not available version hash Coverage">
+      <summary><code>gitleaks: NOT available</code>、版本或哈希不符</summary>
+      <div>运行 <code>python3 tools/install_gitleaks.py</code> 安装固定 8.28.0。standard Skill 审查把它当作关键检查；缺失意味着 Coverage insufficient，不意味着“没有 Secret”。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="provider_not_configured semantic failed CLI pass">
+      <summary>语义显示 <code>provider_not_configured</code> / <code>failed</code>，CLI 却可能退出 0</summary>
+      <div>能力状态诚实记录默认尝试没有完成；CLI 只有在调用方给出完整受信 Provider 配置、从而明确要求语义成功时，才把该失败升级为 Coverage gate。若只做本地静态，使用 <code>--no-semantic</code> 得到明确的 <code>not_enabled</code>。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="Provider failed HTTPS redirect budget JSON schema">
+      <summary>Provider 配好了但语义/黑盒仍失败</summary>
+      <div>依次核对 HTTPS/loopback URL、模型名、环境变量是否存在、预算、响应 JSON schema 和状态原因码。Verity 不跟随重定向，不接受任意 header，也不会把 Provider 错误 body写进报告。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="Coverage insufficient no score no verdict">
+      <summary>为什么没有数字分数或主体 Verdict？</summary>
+      <div>至少一个关键检查未完成，或被显式请求的语义/动态阶段失败。查看 <code>coverage.gaps</code>、各 capability 和 dynamic plan；先恢复检查能力，不要把“没有分数”当作零风险。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="ZIP unsafe path too large collision zip bomb">
+      <summary>Skill ZIP 被拒绝</summary>
+      <div>Web 只接受一个 ZIP；会拒绝绝对路径、盘符、反斜杠、NUL、空段、<code>.</code>/<code>..</code>、重复或大小写冲突路径、超过 500 条目/512 KiB 单文件/8 MiB 总量的内容，以及实际增量解压超预算。修正压缩包，不要绕过检查。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="report URL expired restart 404">
+      <summary>之前的 Web 报告 URL 失效</summary>
+      <div>普通报告存在进程内 LRU/TTL，重启服务器会让全部 URL 失效。需要留档时下载 JSON/HTML/SARIF；Skill 项目历史是另一套持久化安全投影。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="sandbox_isolation_hardening_required Skill">
+      <summary>请求 Skill 沙箱得到 <code>sandbox_isolation_hardening_required</code></summary>
+      <div>这是当前设计的成功失败关闭：系统在构造旧 research runner 前拒绝执行。没有配置能把它变成可用产品能力；需要等待 host-read、输出/磁盘/进程树、观察器和清理边界完成独立加固。</div>
+    </details>
+    <details data-search-item data-search-type="故障" data-search-title="Agent Harness config incomplete DSH Node SHA256">
+      <summary>Agent Harness 报配置不完整或版本/哈希错误</summary>
+      <div>必须提供 Node 和 DSH JavaScript 入口的绝对路径与 SHA-256、DSH 0.1.1-rc.2、Provider URL/模型、API Key 环境变量名。入口在私有快照中校验并执行；相邻 npm 闭包仍不在这两个哈希认证范围内。</div>
+    </details>
+  </div>
+</section>
+
+<hr>
+
 <section id="changelog">
-  <div class="section-eyebrow">第 7 章</div>
-  <h2>本轮变更记录</h2>
+  <div class="section-eyebrow">历史附录 · 旧语义研究节选</div>
+  <h2>早期里程碑记录</h2>
+  <div class="note">本节保留 Round 67–69 的历史语义研究，帮助理解为什么项目拒绝夸大精度。它不代表当前“本轮变更”；当前版本状态以本手册能力矩阵和 <code>docs/PROGRESS.md</code> 顶部为准。</div>
   <details class="section-collapse" open>
     <summary>Round 69：正式跑第二次协议 v2 Selection —— not_eligible（点击展开）</summary>
     <div class="sc-body">
@@ -1680,7 +2345,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
             <code>votes</code> 列表。新增 <code>_aggregate_votes</code> 实现三态多数决，打平时
             <code>vote_split → insufficient_evidence</code>。</li>
           <li>新增 CLI 参数 <code>--semantic-validator-vote URL,MODEL,API_KEY_ENV</code>
-            （可重复，最多额外 4 票；推荐总共 2–3 票、来自不同模型）。</li>
+            （可重复；CLI 当前没有硬上限，推荐总共 2–3 票、来自不同模型；Web 最多 3 名校验者）。</li>
           <li><strong>同一次改动中发现并修复的 bug：</strong> 一个被三票中两票正确确认的候选，仍会让整次运行报告
             <code>status: failed</code>，因为某一票的临时 HTTP 错误在聚合之前就在单次调用的辅助函数里设置了
             <code>result.status</code>。这个副作用在只有一票的旧代码里是正确的。<code>_cast_validator_vote</code>
@@ -1827,6 +2492,315 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
 
 <hr>
 
+<section id="faq" data-search-item data-search-type="章节" data-search-title="常见问题 FAQ 别人问我怎么回答">
+  <div class="section-eyebrow">问答速查 · 先给 30 秒回答，再给边界</div>
+  <h2>别人问我任何关于 Verity 的常见问题，我怎么回答？</h2>
+  <p class="lede">输入关键词或按主题筛选。每个问题都保留一个可独立复述的短答案，并把最容易说过头的边界写在后面。</p>
+  <div class="faq-toolbar">
+    <label class="visually-hidden" for="faq-search">搜索常见问题</label>
+    <input id="faq-search" type="search" placeholder="搜索 Agent、Harness、联网、分数、ZIP…">
+    <button class="chip" type="button" data-faq-filter="all" aria-pressed="true">全部</button>
+    <button class="chip" type="button" data-faq-filter="product" aria-pressed="false">定位</button>
+    <button class="chip" type="button" data-faq-filter="use" aria-pressed="false">操作</button>
+    <button class="chip" type="button" data-faq-filter="flow" aria-pressed="false">流程</button>
+    <button class="chip" type="button" data-faq-filter="dynamic" aria-pressed="false">动态</button>
+    <button class="chip" type="button" data-faq-filter="security" aria-pressed="false">安全</button>
+    <button class="chip" type="button" data-faq-filter="report" aria-pressed="false">报告</button>
+    <button class="chip" type="button" data-faq-filter="evidence" aria-pressed="false">评测</button>
+    <span id="faq-count" class="result-count" role="status" aria-live="polite">79 / 79 个问题</span>
+  </div>
+
+  <h3>产品定位与当前状态</h3>
+  <details class="faq-item" id="faq-is-agent" data-category="product" data-search-item data-search-type="问答" data-search-title="Verity 是跟 Codex 一样的 Agent 吗">
+    <summary>Verity 是一个和 Codex 一样的 Agent 吗？</summary><div><p class="short-answer">不是。Verity 是 Prompt / Agent Skill 审查器与证据工作台。</p><p>它检查已有 Prompt、Skill 包和有界运行信号，不负责持续对话、规划任务或替用户调用业务工具。未来“嵌入其它 Agent 实时把关”仍是路线图。</p></div>
+  </details>
+  <details class="faq-item" id="faq-build-agent" data-category="product" data-search-item data-search-type="问答" data-search-title="可以用 Verity 搭建 Agent 吗">
+    <summary>可以用 Verity 搭建一个 Agent 吗？</summary><div><p class="short-answer">不能直接搭建；它负责检查你已经写好的 Agent Prompt 或 Skill。</p><p>Agent 的编排、记忆、工具、部署由其它框架完成，Verity 的价值是发现契约、安全、依赖、权限和运行行为风险。</p></div>
+  </details>
+  <details class="faq-item" id="faq-deepseek-harness" data-category="product" data-search-item data-search-type="问答" data-search-title="DeepSeek Harness DSH 和 Verity 关系">
+    <summary>DeepSeek Harness 就是 Verity 吗？</summary><div><p class="short-answer">不是。DSH 是 Verity 可选接入的一条外部 Agent 指令运行时。</p><p>Verity 通过 CLI-only 适配器组合外部 <code>@deepseek-ai/dsh</code>，再提供 Verity 自己的合成工具、场景、限制和报告投影；它不是 Verity 本体。</p></div>
+  </details>
+  <details class="faq-item" id="faq-current-release" data-category="product" data-search-item data-search-type="问答" data-search-title="当前发布范围 release_candidate">
+    <summary>当前真正发布的范围是什么？</summary><div><p class="short-answer">确定性静态 Prompt/Skill 审查是 <code>release_candidate</code> 工程预览。</p><p>语义、黑盒和 Harness 各自是实验层；可执行 Skill 产品沙箱不可用。发布决定不包含 evaluated-accuracy 结论。</p></div>
+  </details>
+  <details class="faq-item" id="faq-production-safe" data-category="product" data-search-item data-search-type="问答" data-search-title="release candidate 生产安全">
+    <summary><code>release_candidate</code> 是否代表可以证明生产安全？</summary><div><p class="short-answer">不代表，只说明确定性工程验收可复现。</p><p>它证明工具能构建、执行计划、出报告并守住声明边界；没有任何统一风险达到 substantial/evaluated，因此不能据此声称真实世界完整检出。</p></div>
+  </details>
+  <details class="faq-item" id="faq-semantic-ready" data-category="product" data-search-item data-search-type="问答" data-search-title="语义审查正式可用 experimental_not_ready">
+    <summary>语义审查正式可用了吗？</summary><div><p class="short-answer">功能已集成，但仍是 <code>experimental_not_ready</code>。</p><p>它有严格 schema、候选目录、证据边界和多 Validator 投票，但真实模型质量没有通过冻结评测门槛，不能当确定性结论。</p></div>
+  </details>
+  <details class="faq-item" id="faq-blackbox-ready" data-category="product" data-search-item data-search-type="问答" data-search-title="Prompt 黑盒做好了吗">
+    <summary>Prompt 黑盒做好了吗？</summary><div><p class="short-answer">已集成，默认关闭，显式配置后可以运行。</p><p>它只适用于 Prompt，需要真实 Provider，会发送完整 Prompt。结果只对应给定模型、参数与 Scenario，不是通用安全证明。</p></div>
+  </details>
+  <details class="faq-item" id="faq-sandbox-ready" data-category="product" data-search-item data-search-type="问答" data-search-title="Skill 沙箱做好了吗">
+    <summary>可执行 Skill 沙箱做好了吗？</summary><div><p class="short-answer">没有；当前所有支持产品路径都失败关闭，不执行 Skill。</p><p>仓库保留旧研究 runner 与 12 类信号作为测试材料，但 host read、输出/磁盘/进程树、观察器和清理边界尚未被证明。</p></div>
+  </details>
+  <details class="faq-item" id="faq-harness-ready" data-category="product" data-search-item data-search-type="问答" data-search-title="Agent Harness 做好了吗">
+    <summary>Agent Harness 做好了吗？</summary><div><p class="short-answer">有实验性 CLI-only 适配器，默认关闭。</p><p>它有假 runner、真实进程清理与离线 DSH 组合证据，但没有本轮真实 Provider/model/scenario E2E，也没有 Web 入口。</p></div>
+  </details>
+  <details class="faq-item" id="faq-butler-better" data-category="product" data-search-item data-search-type="问答" data-search-title="Verity 超过 Butler 了吗">
+    <summary>Verity 已经超过 Butler 了吗？</summary><div><p class="short-answer">没有任何授权发出的“等于或优于 Butler”结论。</p><p>45/45 crosswalk 只表示每个 Butler 检查项有实质映射，不代表完整召回或更高精度；历史 Butler 对照运行也没有通过健康门槛。</p></div>
+  </details>
+
+  <h3 style="margin-top:24px">输入、安装与第一次使用</h3>
+  <details class="faq-item" id="faq-start-web" data-category="use" data-search-item data-search-type="问答" data-search-title="最简单启动 Web 8765">
+    <summary>普通用户最简单怎么启动？</summary><div><p class="short-answer">在仓库根目录运行 <code>python3 tools/start_local_web.py</code>。</p><p>也可双击 <code>start-verity.command</code>。默认打开 <code>http://127.0.0.1:8765/</code>，停止时在终端按 Ctrl+C。</p></div>
+  </details>
+  <details class="faq-item" id="faq-public-bind" data-category="use" data-search-item data-search-type="问答" data-search-title="0.0.0.0 公网访问 loopback">
+    <summary>可以监听 <code>0.0.0.0</code> 给别人访问吗？</summary><div><p class="short-answer">不可以，服务端会拒绝非 loopback 绑定。</p><p>本地 Web 同时检查 Host 和 Origin；若要做远程服务，需要独立设计认证、授权、隔离和安全评审，当前没有隐藏开关。</p></div>
+  </details>
+  <details class="faq-item" id="faq-prompt-input" data-category="use" data-search-item data-search-type="问答" data-search-title="Prompt 粘贴 文件 text input-file">
+    <summary>Prompt 可以怎么输入？</summary><div><p class="short-answer">Web 可粘贴或读取文本文件；CLI 可用 <code>--text</code> 或 <code>--input-file</code>。</p><p>单个 Prompt 上限 256 KiB，拒绝 NUL；必须声明 user_prompt 或 system_prompt。</p></div>
+  </details>
+  <details class="faq-item" id="faq-prompt-kind" data-category="use" data-search-item data-search-type="问答" data-search-title="user_prompt system_prompt 区别">
+    <summary>为什么 Prompt 要区分 user 和 system？</summary><div><p class="short-answer">因为权限、Secret 和工具授权等规则只对 system prompt 有意义。</p><p>不适用于 user prompt 的规则不会静默消失，而是以带原因的 <code>not_applicable</code> 记录在计划中。</p></div>
+  </details>
+  <details class="faq-item" id="faq-skill-folder" data-category="use" data-search-item data-search-type="问答" data-search-title="Skill 文件夹 input-dir">
+    <summary>Skill 可以上传文件夹吗？</summary><div><p class="short-answer">可以。Web 用目录选择器，CLI 用 <code>--input-dir</code>。</p><p>摄入会冻结内存快照，不跟随符号链接，并对文件数量和大小做预算。</p></div>
+  </details>
+  <details class="faq-item" id="faq-skill-zip" data-category="use" data-search-item data-search-type="问答" data-search-title="Skill ZIP 支持 Web CLI">
+    <summary>Skill 可以上传 ZIP 吗？</summary><div><p class="short-answer">普通 Web Skill 审查支持一个 ZIP；CLI 仍只支持目录。</p><p>ZIP 会检查 zip-slip、绝对路径、反斜杠、NUL、重复/大小写冲突、条目与实际解压预算；项目历史的新增版本接口仍是文件夹上传。</p></div>
+  </details>
+  <details class="faq-item" id="faq-github-url" data-category="use" data-search-item data-search-type="问答" data-search-title="GitHub URL 导入">
+    <summary>可以直接填 GitHub URL 审查吗？</summary><div><p class="short-answer">不可以，GitHub URL 摄入尚未实现。</p><p>先可信地克隆或下载到本地，再选择目录/ZIP。Verity 不会把外部仓库 URL 当作可自动抓取的指令。</p></div>
+  </details>
+  <details class="faq-item" id="faq-batch" data-category="use" data-search-item data-search-type="问答" data-search-title="批量审查 多个 Skill">
+    <summary>一次可以批量审查多个 Artifact 吗？</summary><div><p class="short-answer">不可以；一次 Review 对应一个 Prompt 或一个 Skill。</p><p>需要批处理时由调用方逐个调用 CLI，并保留每个 Artifact 独立的 Snapshot、Coverage 与报告身份。</p></div>
+  </details>
+  <details class="faq-item" id="faq-intake-budget" data-category="use" data-search-item data-search-type="问答" data-search-title="500 文件 512 KiB 8 MiB 预算">
+    <summary>Skill 摄入预算是多少？</summary><div><p class="short-answer">最多 500 个文件、单文件 512 KiB、总量 8 MiB。</p><p>Web multipart 外层还有 12 MiB 请求上限；超限是可见失败，不会抽样后假装审查完整。</p></div>
+  </details>
+  <details class="faq-item" id="faq-languages" data-category="use" data-search-item data-search-type="问答" data-search-title="支持语言 Python Shell JavaScript TypeScript Ruby Go">
+    <summary>支持哪些编程语言？</summary><div><p class="short-answer">Python 有 AST/Bandit 级分析；Shell、JS、TS、Ruby、Go 等目前主要是文本信号。</p><p>看见某语言后缀不等于拥有完整数据流分析，报告的 breadth 会诚实保持 signal/partial。</p></div>
+  </details>
+  <details class="faq-item" id="faq-gitleaks" data-category="use" data-search-item data-search-type="问答" data-search-title="为什么安装 gitleaks 8.28.0">
+    <summary>为什么要单独安装 gitleaks？</summary><div><p class="short-answer">standard Skill profile 把真实 Secret 扫描作为关键检查。</p><p>Verity 固定 gitleaks 8.28.0 的下载和二进制哈希；启动器不会自动安装，缺失会令 Coverage insufficient。</p></div>
+  </details>
+  <details class="faq-item" id="faq-output-files" data-category="use" data-search-item data-search-type="问答" data-search-title="report json html sarif 输出">
+    <summary>一次审查输出什么？</summary><div><p class="short-answer">CLI 固定输出 <code>report.json</code>、<code>report.html</code>、<code>report.sarif</code>。</p><p>Web 可下载同三种格式；HTML 是转义后的单文件报告，SARIF 2.1.0 供代码扫描消费者使用。</p></div>
+  </details>
+
+  <h3 style="margin-top:24px">核心流程与静态证据</h3>
+  <details class="faq-item" id="faq-first-step" data-category="flow" data-search-item data-search-type="问答" data-search-title="审查第一步 intake">
+    <summary>审查第一步发生什么？</summary><div><p class="short-answer">安全摄入一个 Artifact，并冻结为内存快照。</p><p>路径、类型、数量、大小与读取竞态先被约束；失败就停止，不会把半截内容送进后续阶段。</p></div>
+  </details>
+  <details class="faq-item" id="faq-snapshot" data-category="flow" data-search-item data-search-type="问答" data-search-title="ArtifactSnapshot 不可变快照">
+    <summary><code>ArtifactSnapshot</code> 是什么？</summary><div><p class="short-answer">一次内容寻址、不可变的被审对象快照。</p><p>它记录文件元数据和 digest；下游使用冻结的 <code>file_bytes</code>，不再直接读取用户目录。</p></div>
+  </details>
+  <details class="faq-item" id="faq-review-plan" data-category="flow" data-search-item data-search-type="问答" data-search-title="ReviewPlan 计划">
+    <summary><code>ReviewPlan</code> 是什么？</summary><div><p class="short-answer">本次确定性审查应该执行哪些 Parser、Analyzer 和规则的账本。</p><p>每项有适用性、门控和最终执行状态；Coverage 正是拿计划与执行结果对账。</p></div>
+  </details>
+  <details class="faq-item" id="faq-not-applicable" data-category="flow" data-search-item data-search-type="问答" data-search-title="not_applicable 失败吗">
+    <summary><code>not_applicable</code> 是失败吗？</summary><div><p class="short-answer">不是，只要有注册表给出的明确适用性原因。</p><p>例如 system-only 规则在 user prompt 中不适用；这种透明跳过可以满足计划，不等同于漏跑。</p></div>
+  </details>
+  <details class="faq-item" id="faq-upstream-failure" data-category="flow" data-search-item data-search-type="问答" data-search-title="blocked_by_upstream_failure">
+    <summary><code>blocked_by_upstream_failure</code> 是通过吗？</summary><div><p class="short-answer">不是，表示上游 Parser/Analyzer 失败导致依赖检查没能运行。</p><p>它形成 Coverage gap；不能因为下游没有 Finding 就声称对象干净。</p></div>
+  </details>
+  <details class="faq-item" id="faq-evidence-finding" data-category="flow" data-search-item data-search-type="问答" data-search-title="Evidence RuleMatch Finding 区别">
+    <summary>Evidence、RuleMatch、Finding 有什么区别？</summary><div><p class="short-answer">Evidence 是字节事实，RuleMatch 是规则命中事件，Finding 是最终问题身份。</p><p>分层让同一证据可复用、同类命中可去重，并让历史 fingerprint 和报告位置稳定。</p></div>
+  </details>
+  <details class="faq-item" id="faq-bandit-subprocess" data-category="flow" data-search-item data-search-type="问答" data-search-title="Bandit gitleaks subprocess 执行 Skill">
+    <summary>静态不执行 Skill，为什么还会有 subprocess？</summary><div><p class="short-answer">subprocess 运行的是受信任的 Bandit/gitleaks 分析器，不是被审代码。</p><p>Verity 把快照字节暂存给工具扫描，再将受控结果映射成 Finding；不会安装或启动 Skill 自己的入口。</p></div>
+  </details>
+  <details class="faq-item" id="faq-behavior-profile" data-category="flow" data-search-item data-search-type="问答" data-search-title="BehaviorProfile 行为画像">
+    <summary>行为画像是什么？</summary><div><p class="short-answer">对任务、runtime、输入输出、工具、状态、副作用和数据边界的证据化事实摘要。</p><p>它不是 Finding、不直接扣分，也不执行代码；它帮助动态 Planner 只选与 Artifact 相关的检查。</p></div>
+  </details>
+  <details class="faq-item" id="faq-profile-guess" data-category="flow" data-search-item data-search-type="问答" data-search-title="行为画像猜测">
+    <summary>行为画像会猜测不存在的能力吗？</summary><div><p class="short-answer">不会把没有证据的正向能力写进画像。</p><p>事实来自 manifest、文本模式和 Python AST；覆盖不足会留空或 unavailable，而不是用模型臆测补齐。</p></div>
+  </details>
+  <details class="faq-item" id="faq-dynamic-plan" data-category="flow" data-search-item data-search-type="问答" data-search-title="DynamicPlan selected not_applicable unavailable">
+    <summary>动态计划是什么？</summary><div><p class="short-answer">把注册的动态检查逐项标为 selected、not_applicable 或 unavailable。</p><p><code>selected</code> 只代表依据画像值得运行，不代表已经执行，更不代表通过。</p></div>
+  </details>
+
+  <h3 style="margin-top:24px">语义、黑盒、沙箱与 Harness</h3>
+  <details class="faq-item" id="faq-semantic-how" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="语义审查 Candidate Validator 工作">
+    <summary>语义审查怎么工作？</summary><div><p class="short-answer">Candidate 提出受控候选，Validator 按固定策略和 Evidence 验证。</p><p>确认后才形成语义 Finding；完整 Prompt sweep 也按 Finding Type 独立调用，避免把大量类型塞进一次请求而稀释注意力。</p></div>
+  </details>
+  <details class="faq-item" id="faq-model-invent" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="模型发明 Finding Type">
+    <summary>模型可以发明新的 Finding Type 吗？</summary><div><p class="short-answer">不可以，只能使用本地封闭目录中注册的类型。</p><p>响应 schema、subject taxonomy 和本地身份重派生会拒绝未知类型、字段与额外权限。</p></div>
+  </details>
+  <details class="faq-item" id="faq-model-severity" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="模型决定严重度">
+    <summary>模型可以决定严重度吗？</summary><div><p class="short-answer">不可以，严重度来自 Verity 的本地目录策略。</p><p>Validator schema 禁止 severity，最终投影也直接读取本地 Finding Type 定义。</p></div>
+  </details>
+  <details class="faq-item" id="faq-multi-validator" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="多个 Validator 多数票">
+    <summary>为什么支持多个 Validator？</summary><div><p class="short-answer">用独立模型多数票降低单一判断器偏差。</p><p>推荐 2–3 个总票源；Provider 失败不投票，意见打平不会被静默判成通过或拒绝。</p></div>
+  </details>
+  <details class="faq-item" id="faq-vote-tie" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="投票打平 vote_split">
+    <summary>Validator 投票打平怎么办？</summary><div><p class="short-answer">返回 <code>insufficient_evidence</code> 并保留 <code>vote_split</code> 原因。</p><p>这把“模型意见冲突”与“所有模型都认为证据不足”区分开来，不强行选边。</p></div>
+  </details>
+  <details class="faq-item" id="faq-semantic-vs-blackbox" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="语义和黑盒区别">
+    <summary>语义审查和 Prompt 黑盒有什么区别？</summary><div><p class="short-answer">语义判断受控证据；黑盒把完整 Prompt 交给真实模型执行场景。</p><p>二者 Provider、外发内容、预算和结论都独立；不能用语义的“脱敏证据”承诺描述黑盒。</p></div>
+  </details>
+  <details class="faq-item" id="faq-blackbox-default" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="黑盒默认开启">
+    <summary>Prompt 黑盒默认开启吗？</summary><div><p class="short-answer">不，默认关闭。</p><p>Web 要启用加二次出站确认；CLI 要显式 <code>--enable-prompt-blackbox</code> 与完整 Provider/Key 环境变量配置。</p></div>
+  </details>
+  <details class="faq-item" id="faq-artifact-aware" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="artifact_aware 场景策略">
+    <summary><code>artifact_aware</code> 黑盒策略是什么意思？</summary><div><p class="short-answer">根据行为画像只选择与该 Prompt 任务和契约相关的场景。</p><p>每个注册检查仍会记录 selected/not_applicable/unavailable 和理由；不是悄悄少跑。</p></div>
+  </details>
+  <details class="faq-item" id="faq-blackbox-count" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="35 黑盒场景 26 5 4">
+    <summary>当前有多少 Prompt 黑盒检查？</summary><div><p class="short-answer">35 个映射组件：26 个通用场景，加 5 个导演/分镜和 4 个画风文本契约检查。</p><p>这只是注册规模；每个 Artifact 的实际选择取决于画像和适配器可用性。</p></div>
+  </details>
+  <details class="faq-item" id="faq-image-fidelity" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="图像视觉保真度 画风">
+    <summary>画风检查能验证最终图像长得对不对吗？</summary><div><p class="short-answer">不能；当前检查的是文本契约与 trace，不是渲染图像。</p><p>没有图像 Provider/evaluator 时，视觉保真度必须明确为 <code>unavailable:image_runtime_not_configured</code>。</p></div>
+  </details>
+  <details class="faq-item" id="faq-sandbox-why" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="为什么关闭 Skill 沙箱">
+    <summary>为什么关闭可执行 Skill 沙箱？</summary><div><p class="short-answer">旧 runner 尚未证明限制宿主读取、输出、磁盘、进程树和观察器篡改。</p><p>报告还可能泄露 exception/path/argv/SQL；在这些边界和真实 macOS 对抗测试完成前，产品必须失败关闭。</p></div>
+  </details>
+  <details class="faq-item" id="faq-enable-sandbox" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="显式启用 Skill 沙箱执行代码">
+    <summary>显式勾选或传参会执行 Skill 吗？</summary><div><p class="short-answer">不会。当前请求在 import/construct research runner 前就失败。</p><p>Web 控件禁用，CLI 兼容参数只产生 <code>sandbox_isolation_hardening_required</code> 诊断。</p></div>
+  </details>
+  <details class="faq-item" id="faq-harness-vs-sandbox" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="Harness 和 Skill 沙箱区别">
+    <summary>Agent Harness 与 Skill 沙箱有什么区别？</summary><div><p class="short-answer">Harness 模拟 instruction-only Skill 的 Agent 行为；沙箱原本面向可执行代码。</p><p>Harness 的工具无副作用，不能替代 host/process/network 隔离；两条路径的适用对象和结论完全不同。</p></div>
+  </details>
+  <details class="faq-item" id="faq-harness-web" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="Harness Web 入口">
+    <summary>Agent Harness 在 Web 里能开吗？</summary><div><p class="short-answer">不能，仅 CLI。</p><p>增加 Web 启用面会扩大凭证、外部 DSH、Provider 和运行时边界，必须另做安全设计与审查。</p></div>
+  </details>
+  <details class="faq-item" id="faq-harness-install" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="Harness 自动安装 DSH">
+    <summary>Harness 会自动安装 DSH 吗？</summary><div><p class="short-answer">不会。DSH 不 vendored，也不是 Python 依赖。</p><p>受信任调用方提供外部 Node/DSH 入口、SHA-256 和确切 0.1.1-rc.2；Verity 不改变全局环境。</p></div>
+  </details>
+  <details class="faq-item" id="faq-harness-tools" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="Harness 四个工具 副作用">
+    <summary>Harness 的四个模型可见工具会产生真实副作用吗？</summary><div><p class="short-answer">不会：内存合成读、阻断 HTTP、阻断 shell、拒绝审批。</p><p>attempt signal 表示模型尝试调用模拟工具，不表示主机文件被读、网络真的发送或命令真的执行。</p></div>
+  </details>
+  <details class="faq-item" id="faq-harness-network" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="Harness 联网 Provider">
+    <summary>Harness 会联网吗？</summary><div><p class="short-answer">会；启用后 Skill 指令和 Scenario Prompt 会发送给真实 Provider。</p><p>模拟工具不产生 HTTP 副作用，但 DSH/Node 进程与 Provider 请求本身仍是真实边界。</p></div>
+  </details>
+  <details class="faq-item" id="faq-harness-sandbox" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="Harness OS 网络沙箱 setsid npm">
+    <summary>Harness 是 OS / 进程 / 网络沙箱吗？</summary><div><p class="short-answer">不是。</p><p><code>setsid()</code> 后代可能逃出同 session 清理，两个入口哈希不认证相邻 npm 闭包，Provider 出站也没有目的地址隔离；强使用需要外层 container/microVM。</p></div>
+  </details>
+  <details class="faq-item" id="faq-harness-proof" data-category="dynamic" data-search-item data-search-type="问答" data-search-title="Harness completed 安全证明">
+    <summary>Harness 完成且没有信号，是否证明 Agent 安全？</summary><div><p class="short-answer">不证明，只说明这次有界实验完成。</p><p>它不是通用 pass、跨 Agent 结论或已评测精度结果；未选择的场景和未模拟的工具仍然未知。</p></div>
+  </details>
+
+  <h3 style="margin-top:24px">数据、安全与隐私</h3>
+  <details class="faq-item" id="faq-no-provider-network" data-category="security" data-search-item data-search-type="问答" data-search-title="不配置 Provider 联网">
+    <summary>不配置 Provider 时会联网吗？</summary><div><p class="short-answer">默认静态路径不会发 Provider 请求。</p><p>CLI 默认会“尝试”语义配置解析，但没有完整 Provider 时只记录 <code>provider_not_configured</code>；使用 <code>--no-semantic</code> 可明确关闭。</p></div>
+  </details>
+  <details class="faq-item" id="faq-semantic-egress" data-category="security" data-search-item data-search-type="问答" data-search-title="语义发送什么 metadata redacted evidence">
+    <summary>配置语义 Provider 后会发送什么？</summary><div><p class="short-answer">受控 subject、位置、策略和 metadata；Web 可附短的脱敏 Evidence snippet。</p><p>敏感 Evidence 整条不发，字符串和位置有上限，主机路径会被剥离；完整 Artifact 出站模式没有实现。</p></div>
+  </details>
+  <details class="faq-item" id="faq-blackbox-egress" data-category="security" data-search-item data-search-type="问答" data-search-title="黑盒发送完整 Prompt system role">
+    <summary>Prompt 黑盒会发送什么？</summary><div><p class="short-answer">完整被审 Prompt、固定 probe 和多轮前序回复。</p><p>实现始终把被审 Prompt 放在模型的 system role；这条路径不受语义 metadata/redacted-evidence 策略保护。</p></div>
+  </details>
+  <details class="faq-item" id="faq-api-key-cli" data-category="security" data-search-item data-search-type="问答" data-search-title="API key CLI 环境变量">
+    <summary>CLI 会把 API Key 放在参数里吗？</summary><div><p class="short-answer">不会，只接受 API Key 的环境变量名。</p><p>Key 值在调用时解析，不进入序列化配置、报告、SARIF 或 process argv。</p></div>
+  </details>
+  <details class="faq-item" id="faq-api-key-web" data-category="security" data-search-item data-search-type="问答" data-search-title="Web Keychain keySaved">
+    <summary>Web API Key 存在哪里？浏览器能读回吗？</summary><div><p class="short-answer">只有保存的语义 Provider Key 进入当前 macOS 用户 Keychain；浏览器只能得到 <code>keySaved</code> 布尔值。</p><p>语义 URL/模型偏好存 owner-only JSON，审查时语义 Key 进入随机临时环境变量并在结束后清理；没有明文文件 fallback。Prompt 黑盒 Key 每次审查单独提供，只在临时环境变量中使用后清理，不持久化，也不复用语义 Key。</p></div>
+  </details>
+  <details class="faq-item" id="faq-artifact-config" data-category="security" data-search-item data-search-type="问答" data-search-title="被审 Skill 修改 Provider 模型配置">
+    <summary>被审 Skill 能修改 Provider、模型或检查策略吗？</summary><div><p class="short-answer">不能。</p><p>Artifact 只能提供被解析的事实；Provider、凭证、Scenario、严重度、预算、工具路径、处置和 phase gate 来自受信任调用方与本地注册表。</p></div>
+  </details>
+  <details class="faq-item" id="faq-report-secret" data-category="security" data-search-item data-search-type="问答" data-search-title="报告保存 Secret 原文">
+    <summary>报告会保存原始 Secret 吗？</summary><div><p class="short-answer">不会；gitleaks 结果在进入对象模型前就脱敏。</p><p>敏感性标记一直传到 Web 投影，页面不会从源码重新构造 Secret 预览。</p></div>
+  </details>
+  <details class="faq-item" id="faq-history-raw" data-category="security" data-search-item data-search-type="问答" data-search-title="项目历史保存原始文件 Evidence Provider">
+    <summary>项目历史会保存原始文件或 Provider 内容吗？</summary><div><p class="short-answer">不会，只保存 allowlist 安全投影。</p><p>不保存 Artifact 原字节、Evidence 原文、Provider payload/response、API Key、RedactionMap、主机/临时/工具路径。</p></div>
+  </details>
+
+  <h3 style="margin-top:24px">报告、分数、版本与门控</h3>
+  <details class="faq-item" id="faq-report-fields" data-category="report" data-search-item data-search-type="问答" data-search-title="报告顶层字段">
+    <summary>报告最重要的顶层字段有哪些？</summary><div><p class="short-answer"><code>coverage</code>、<code>behaviorProfile</code>、<code>dynamicPlan</code>、<code>findings</code>、五项 capabilities、<code>score</code>、<code>reviewConfidence</code>、<code>issues</code>、<code>verdict</code>。</p><p>完整字段树见本手册“如何读懂报告”章节。</p></div>
+  </details>
+  <details class="faq-item" id="faq-unified-issue" data-category="report" data-search-item data-search-type="问答" data-search-title="统一 Issue">
+    <summary>统一 Issue 是什么？</summary><div><p class="short-answer">按稳定风险 ID 聚合静态、语义和运行时 occurrence 的视图。</p><p>它让同一根风险能横跨层对照，同时保留每个原始 Finding、Scenario、signal 和 Evidence 身份。</p></div>
+  </details>
+  <details class="faq-item" id="faq-not-reproduced" data-category="report" data-search-item data-search-type="问答" data-search-title="not_reproduced 删除静态 Finding">
+    <summary><code>not_reproduced</code> 表示静态问题被删除了吗？</summary><div><p class="short-answer">不表示；静态 Finding 永远保留。</p><p>它只增加“相关有界动态检查本次没有复现”的观察，不能推翻静态事实或保证其它模型/配置也不复现。</p></div>
+  </details>
+  <details class="faq-item" id="faq-score-how" data-category="report" data-search-item data-search-type="问答" data-search-title="安全分怎么算">
+    <summary>安全分怎么计算？</summary><div><p class="short-answer">把完成阶段的 occurrence 映射到统一风险，按严重度递减扣分并应用上限。</p><p>Critical/High/Medium/Low 基础扣分为 45/25/10/3，同一 root 后续为 50%、25%，分数上限分别 39/59/79/99。</p></div>
+  </details>
+  <details class="faq-item" id="faq-score-100" data-category="report" data-search-item data-search-type="问答" data-search-title="分数 100 安全">
+    <summary>分数 100 是否代表 100% 安全？</summary><div><p class="short-answer">不代表，只表示已完成检查中没有扣分项。</p><p>未实现、未选择、不可用和当前 breadth 未覆盖的风险不可能靠这个数字消失。</p></div>
+  </details>
+  <details class="faq-item" id="faq-no-score" data-category="report" data-search-item data-search-type="问答" data-search-title="什么时候没有分数">
+    <summary>什么时候没有数字分数？</summary><div><p class="short-answer">Coverage 不足、映射不一致，或被请求的语义/黑盒/沙箱/Harness 未完成时。</p><p>unavailable 是诚实的“无法形成结论”，不是 0 分，也不是 100 分。</p></div>
+  </details>
+  <details class="faq-item" id="faq-confidence" data-category="report" data-search-item data-search-type="问答" data-search-title="Confidence A B C D">
+    <summary>Review Confidence 与安全分相同吗？</summary><div><p class="short-answer">不同。Confidence 说明结论证据条件，Score 说明完成检查中的风险扣分。</p><p>当前静态完整/语义未启用通常为 C，语义完成可到 B，失败为 D；A 因 breadth 未 evaluated 而不可达。</p></div>
+  </details>
+  <details class="faq-item" id="faq-exit-zero" data-category="report" data-search-item data-search-type="问答" data-search-title="CLI exit 0 pass">
+    <summary>CLI 退出码 0 代表什么？</summary><div><p class="short-answer">Coverage 足够且没有 High/Critical 阻断。</p><p>它不代表没有 Medium/Low，也不代表所有动态层启用或检测面已评测；查看报告 capability 与 gap。</p></div>
+  </details>
+  <details class="faq-item" id="faq-exit-one" data-category="report" data-search-item data-search-type="问答" data-search-title="CLI exit 1 findings_block">
+    <summary>CLI 退出码 1 代表什么？</summary><div><p class="short-answer">至少一个 High/Critical Finding 或对应运行时 occurrence。</p><p>findings_block 优先于 coverage_block，所以即使同时有 Coverage 缺口仍返回 1。</p></div>
+  </details>
+  <details class="faq-item" id="faq-exit-three" data-category="report" data-search-item data-search-type="问答" data-search-title="CLI exit 3 coverage_block">
+    <summary>CLI 退出码 3 代表什么？</summary><div><p class="short-answer">Coverage 不足或显式/完整配置请求的关键阶段未完成，且没有 High/Critical。</p><p>它刻意避开 argparse 的退出码 2。</p></div>
+  </details>
+  <details class="faq-item" id="faq-medium-block" data-category="report" data-search-item data-search-type="问答" data-search-title="Medium Low 阻断 CI">
+    <summary>Medium / Low 默认阻断 CI 吗？</summary><div><p class="short-answer">不阻断；默认 gate 只阻断 High/Critical。</p><p>Prompt 产品 Verdict 仍可能是 <code>needs_revision</code>，因为“需要改进”与“CI 是否硬阻断”是两套政策。</p></div>
+  </details>
+  <details class="faq-item" id="faq-auto-fix" data-category="report" data-search-item data-search-type="问答" data-search-title="自动修复 PatchSet remediation">
+    <summary>整改建议会自动修改代码或 Prompt 吗？</summary><div><p class="short-answer">不会，<code>applyMode=proposal_only</code>。</p><p>Web 可编辑 Prompt 草稿并重新审查；Skill 只给有证据的 actions 和同范围复查项，没有自动 PatchSet apply。</p></div>
+  </details>
+  <details class="faq-item" id="faq-disposition-score" data-category="report" data-search-item data-search-type="问答" data-search-title="accept risk false positive 严重度 分数">
+    <summary>接受风险或误报会修改严重度和原始分数吗？</summary><div><p class="short-answer">不会，处置默认只是有期限的审阅注释。</p><p>只有 CLI 显式 <code>--respect-dispositions</code> 时，有效 <code>accept_risk</code> 才影响 High gate；原始证据和 Score 保留。</p></div>
+  </details>
+  <details class="faq-item" id="faq-diff-states" data-category="report" data-search-item data-search-type="问答" data-search-title="项目差异 new existing changed resolved unknown_due_to_coverage">
+    <summary>Skill 项目差异有哪五种状态？</summary><div><p class="short-answer">new、existing、changed、resolved、unknown_due_to_coverage。</p><p>相关检查未完成时，旧问题消失只能是 unknown，不能被误报为 resolved。</p></div>
+  </details>
+
+  <h3 style="margin-top:24px">覆盖与评测可信度</h3>
+  <details class="faq-item" id="faq-risk-count" data-category="evidence" data-search-item data-search-type="问答" data-search-title="46 风险 156 映射">
+    <summary>当前有多少统一风险和映射组件？</summary><div><p class="short-answer">46 个统一风险、156 个运行时映射组件。</p><p>156 = 63 规则 + 1 capability extractor + 41 语义类型 + 35 黑盒 + 12 dormant 沙箱信号 + 4 Harness 信号。</p></div>
+  </details>
+  <details class="faq-item" id="faq-completed-complete" data-category="evidence" data-search-item data-search-type="问答" data-search-title="completed 检测完整">
+    <summary><code>completed</code> 是否代表检测完整？</summary><div><p class="short-answer">不代表，它只是本次阶段执行状态。</p><p>检测广度是另一条 none/signal/partial/substantial/evaluated 轴；当前没有任何风险达到 substantial/evaluated。</p></div>
+  </details>
+  <details class="faq-item" id="faq-l0-corpus" data-category="evidence" data-search-item data-search-type="问答" data-search-title="84 L0 合成案例 1.0 精度">
+    <summary>84 个 L0 合成案例上的高数字能当真实精度吗？</summary><div><p class="short-answer">不能，那是每风险极少量刻意正例/安全对照的配对基线。</p><p>它适合检查回归与机械契约，不足以代表真实分布、长尾语言或对抗改写。</p></div>
+  </details>
+  <details class="faq-item" id="faq-semantic-replay" data-category="evidence" data-search-item data-search-type="问答" data-search-title="82 语义回放证明">
+    <summary>82 次语义合约回放证明什么？</summary><div><p class="short-answer">证明 JSON schema、候选身份、投票和投影等流水线契约。</p><p>固定回放不调用真实模型，因此不能证明 Provider 的判断准确率。</p></div>
+  </details>
+  <details class="faq-item" id="faq-butler-no-result" data-category="evidence" data-search-item data-search-type="问答" data-search-title="为什么没有 Butler 比较结果">
+    <summary>为什么没有可引用的 Butler 优越性结果？</summary><div><p class="short-answer">历史 Butler 运行健康度不足，标签和配对观察也不满足正式门槛。</p><p>比较器因此返回 not_eligible，不输出相对结论；拒绝产生数字本身是质量控制的一部分。</p></div>
+  </details>
+  <details class="faq-item" id="faq-human-review" data-category="evidence" data-search-item data-search-type="问答" data-search-title="代替人工安全审查">
+    <summary>Verity 能完全代替人工安全审查吗？</summary><div><p class="short-answer">不能。</p><p>它提供可复现证据、门控和优先级，适合持续审查与缩小人工范围；架构、业务授权、真实环境和未知攻击仍需人工与独立测试。</p></div>
+  </details>
+</section>
+
+<hr>
+
+<section id="glossary" data-search-item data-search-type="章节" data-search-title="中文术语表 glossary">
+  <div class="section-eyebrow">术语表 · 报告字段与口头解释对照</div>
+  <h2>看懂 Verity 必须知道的词</h2>
+  <div class="glossary-toolbar">
+    <label class="visually-hidden" for="glossary-search">搜索术语</label>
+    <input id="glossary-search" type="search" placeholder="搜索 Artifact、Finding、Coverage…">
+    <span id="glossary-count" class="result-count" role="status" aria-live="polite">25 / 25 个术语</span>
+  </div>
+  <details class="glossary-item" id="term-artifact" data-search-item data-search-type="术语" data-search-title="Artifact 被审对象"><summary>Artifact（被审对象）</summary><div>一次审查的一个 Prompt 或一个 Agent Skill。它是输入，不是 Verity 自己的代码，也没有权配置审查环境。</div></details>
+  <details class="glossary-item" id="term-snapshot" data-search-item data-search-type="术语" data-search-title="ArtifactSnapshot 快照"><summary>ArtifactSnapshot（制品快照）</summary><div>摄入后冻结的内容寻址元数据和内存字节集合；下游分析不回读原始目录。</div></details>
+  <details class="glossary-item" id="term-evidence" data-search-item data-search-type="术语" data-search-title="Evidence 证据"><summary>Evidence（证据）</summary><div>来自明确文件与 byte range 的受控事实。它不是模型主观理由，也不一定单独构成问题。</div></details>
+  <details class="glossary-item" id="term-rulematch" data-search-item data-search-type="术语" data-search-title="RuleMatchEvent 规则命中"><summary>RuleMatchEvent（规则命中事件）</summary><div>某个注册规则对 Evidence 的一次机械匹配，是从事实到 Finding 的中间层。</div></details>
+  <details class="glossary-item" id="term-finding" data-search-item data-search-type="术语" data-search-title="Finding 问题"><summary>Finding（问题）</summary><div>有稳定类型、subject、严重度、证据和 occurrence fingerprint 的可报告问题。模型不能自定严重度。</div></details>
+  <details class="glossary-item" id="term-issue" data-search-item data-search-type="术语" data-search-title="Issue 统一问题"><summary>Issue（统一问题）</summary><div>按统一风险 ID 聚合多个静态、语义、黑盒或运行时 occurrence 的报告视图；不会吞掉原始 Finding。</div></details>
+  <details class="glossary-item" id="term-plan" data-search-item data-search-type="术语" data-search-title="ReviewPlan 审查计划"><summary>ReviewPlan（审查计划）</summary><div>本次应该运行哪些确定性组件，以及它们的适用性和门控要求。</div></details>
+  <details class="glossary-item" id="term-coverage" data-search-item data-search-type="术语" data-search-title="Coverage 覆盖完成度"><summary>Coverage（执行覆盖）</summary><div>计划中的关键检查是否完成。它不同于“检测广度”，也不同于代码覆盖率。</div></details>
+  <details class="glossary-item" id="term-breadth" data-search-item data-search-type="术语" data-search-title="Detection breadth 检测广度"><summary>Detection breadth（检测广度）</summary><div>对一个风险类别的实质检测能力等级：none、signal、partial、substantial、evaluated。当前最高只有 partial。</div></details>
+  <details class="glossary-item" id="term-provider" data-search-item data-search-type="术语" data-search-title="Provider 模型服务"><summary>Provider（模型服务）</summary><div>由受信任调用方配置的外部或 loopback 模型端点。被审 Artifact 不能选择它。</div></details>
+  <details class="glossary-item" id="term-candidate" data-search-item data-search-type="术语" data-search-title="Candidate 候选"><summary>Candidate（语义候选）</summary><div>由本地 extractor/catalog 或受控生成器提出、尚待 Validator 证实的 Finding 假设。</div></details>
+  <details class="glossary-item" id="term-validator" data-search-item data-search-type="术语" data-search-title="Validator 校验者"><summary>Validator（校验者）</summary><div>只能看到候选、白名单 Evidence 和书面策略的独立判断者；可以用多 Provider 多数票。</div></details>
+  <details class="glossary-item" id="term-profile" data-search-item data-search-type="术语" data-search-title="BehaviorProfile 行为画像"><summary>BehaviorProfile（行为画像）</summary><div>Artifact 的任务/runtime/数据/工具/状态/副作用事实摘要。它是适用性输入，不是漏洞列表。</div></details>
+  <details class="glossary-item" id="term-dynamic-plan" data-search-item data-search-type="术语" data-search-title="DynamicPlan 动态计划"><summary>DynamicPlan（动态适用性计划）</summary><div>记录每个动态检查为何 selected、not_applicable 或 unavailable；selected 不等于 executed/pass。</div></details>
+  <details class="glossary-item" id="term-blackbox" data-search-item data-search-type="术语" data-search-title="Black-box 黑盒"><summary>Black-box（黑盒）</summary><div>把完整 Prompt 交给真实模型按固定 Scenario 运行，再从输出判断行为。它会产生明确网络出站。</div></details>
+  <details class="glossary-item" id="term-sandbox" data-search-item data-search-type="术语" data-search-title="Sandbox 沙箱"><summary>Sandbox（执行沙箱）</summary><div>理论上约束可执行 Skill 的 host/process/network 边界；Verity 当前产品路径不可用，不能与 Harness 混称。</div></details>
+  <details class="glossary-item" id="term-harness" data-search-item data-search-type="术语" data-search-title="Agent Harness DSH"><summary>Agent Harness（指令运行时适配器）</summary><div>CLI-only、默认关闭的 instruction-only Skill 模拟层，组合外部 DSH 与四个无副作用工具；不是 OS 沙箱。</div></details>
+  <details class="glossary-item" id="term-fail-closed" data-search-item data-search-type="术语" data-search-title="Fail closed 失败关闭"><summary>Fail closed（失败关闭）</summary><div>当隔离、配置、预算或输出不满足要求时返回失败/不可用，而不是继续运行或把未知当成 pass。</div></details>
+  <details class="glossary-item" id="term-redaction" data-search-item data-search-type="术语" data-search-title="Redacted egress 脱敏出站"><summary>Redacted egress（脱敏出站）</summary><div>只发送受控 metadata 和可允许的短 Evidence 片段；敏感 Evidence 整条不发，完整 Artifact 模式不存在。</div></details>
+  <details class="glossary-item" id="term-score" data-search-item data-search-type="术语" data-search-title="Score 安全分"><summary>Score（安全分）</summary><div>完成检查中按风险/严重度计算的可解释扣分投影。100 不是安全保证，Coverage 不足时没有数字。</div></details>
+  <details class="glossary-item" id="term-confidence" data-search-item data-search-type="术语" data-search-title="Review Confidence 审查置信度"><summary>Review Confidence（审查置信度）</summary><div>对本次结论证据条件的 A–D 标签；A 当前不可达，与模型置信度或安全分无关。</div></details>
+  <details class="glossary-item" id="term-verdict" data-search-item data-search-type="术语" data-search-title="Verdict 判定"><summary>Verdict（主体判定）</summary><div>在当前 Coverage 和 Findings 下，对 Prompt/Skill 的处置结论；不等同于 CLI process exit code。</div></details>
+  <details class="glossary-item" id="term-disposition" data-search-item data-search-type="术语" data-search-title="Disposition 处置"><summary>Disposition（处置标记）</summary><div>acknowledged、accept_risk、false_positive 或 wont_fix 等有期限的人类注释；默认不改严重度和原始分。</div></details>
+  <details class="glossary-item" id="term-sarif" data-search-item data-search-type="术语" data-search-title="SARIF 2.1.0"><summary>SARIF</summary><div>Static Analysis Results Interchange Format 2.1.0，供代码扫描消费者读取；Verity 生成文件，但不自动上传 GitHub Code Scanning。</div></details>
+  <details class="glossary-item" id="term-baseline" data-search-item data-search-type="术语" data-search-title="Baseline 五状态差异"><summary>Baseline（版本基线）</summary><div>Skill 项目两个受控历史版本的比较基础，用于 new/existing/changed/resolved/unknown_due_to_coverage 五状态。</div></details>
+</section>
+
+<hr>
+
 <section id="sources">
   <div class="section-eyebrow">附录</div>
   <h2>本文每一条事实的来源</h2>
@@ -1836,7 +2810,7 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
       <ul style="font-size:13.5px;margin-bottom:0">
         <li><code>README.md</code> —— 使命、路线图表格、范围不变量、语义功能用法</li>
         <li><code>AGENTS.md</code> §0–§9 —— 使命、单一真相来源地图、阶段门槛、不可信被审对象规则</li>
-        <li><code>docs/PROGRESS.md</code> —— 当前摘要 + Round 191，以及只追加的历史账本
+        <li><code>docs/PROGRESS.md</code> —— 当前摘要，以及只追加的历史账本
           （包括 Round 57–67）</li>
         <li><code>docs/ARCHITECTURE.md</code> —— 一页式地图、两条覆盖轴、红线</li>
         <li><code>docs/LESSONS.md</code> —— 最新的若干条目，含全部 2026-07-29 的三条</li>
@@ -1880,15 +2854,15 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
         <li>规则和 Finding Type 计数是通过<strong>实例化运行时注册表和目录字典</strong>得到的，不是读文档数出来的。</li>
         <li>语料库的整体混淆矩阵是从报告中 24 条被测量的 <code>riskResults</code> 条目<strong>重新计算</strong>得出的，
           与每一条单独的数值都对得上。</li>
-        <li>本轮变更来自对工作树的 <code>git status</code> / <code>git diff</code>，并与最新的 LESSONS 条目做了交叉核对。</li>
-        <li>撰写本文过程中没有修改任何代码，也没有运行测试套件或仓库门控。</li>
+        <li>当前版本事实来自运行时注册表、报告投影、Web 表单与发布契约的交叉核对。</li>
+        <li>本手册本身属于发布文档；其结构、事实锚点和脚本语法由专项测试与仓库门控检查。</li>
       </ul>
     </div>
   </div>
 
   <p class="footer-note">
-    作为面向项目所有者的文档交付物生成，取自撰写本文时的代码仓库状态（分支 <code>main</code>，
-    评测事实的验证提交为 <code>4287d43</code>）。自包含：不引用任何外部样式表、脚本、字体或图片——
+    作为面向项目所有者的持续维护文档，当前对应 artifact-aware dynamic 分支的产品事实。
+    自包含：不引用任何外部样式表、脚本、字体或图片——
     通过本地文件打开时不会向网络发出任何请求。机制描述精确对应被读取的源码；数字都各自附带来源和限制。
     由于可能有并行的工作在继续调整文件，请把这些计数当作本次撰写时的快照，而不是永久事实——如有疑问，
     应从注册表重新推导。
@@ -1896,7 +2870,9 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
 </section>
 
 
-</div>
+</main>
+
+<button class="back-to-top" id="back-to-top" type="button" aria-label="返回页面顶部" hidden>↑</button>
 
 <div class="modal-back" id="modal-back" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div class="modal">
@@ -1911,6 +2887,17 @@ python3 -m verity.cli review --engine prompt --input-file p.md --no-semantic</co
 
 <script>
 var DATA = {"rules": [{"id": "prompt.instruction_override_marker", "e": "prompt", "t": "文本中包含一个广为人知的指令覆盖标记。这是一个风险信号，不是已证实的攻击——该标记也可能只是良性引用。代码块/行内代码中的出现会被排除。", "s": "low", "c": ["OWASP-LLM01:2025"], "ft": "prompt.instruction_override_marker", "impl": "impl.prompt.jailbreak_marker.v1", "v": "1.0.0"}, {"id": "prompt.unfilled_placeholder", "e": "prompt", "t": "提示词中出现看起来像是未填充的模板占位符（{{...}}、${...}、<TODO>、[INSERT ...]）。代码块/行内代码中的出现会被排除。", "s": "medium", "c": ["quality.template"], "ft": "prompt.unfilled_placeholder", "impl": "impl.prompt.unfilled_placeholder.v1", "v": "1.0.0"}, {"id": "prompt.system_hardcoded_secret", "e": "prompt", "t": "系统提示词中包含硬编码的、类似密钥的令牌。任何嵌入在系统提示词中的密钥都可以直接被提取出来，应当移出提示词本体。", "s": "high", "c": ["OWASP-LLM02:2025", "OWASP-LLM07:2025"], "ft": "prompt.system_hardcoded_secret", "impl": "impl.prompt.system_hardcoded_secret.v1", "v": "1.0.0"}, {"id": "prompt.duplicate_numeric_assignment", "e": "prompt", "t": "同一个参数键以严格的 `key: N` / `key = N` 形式被赋予了两个不同的数值。", "s": "medium", "c": ["quality.consistency"], "ft": "prompt.duplicate_numeric_assignment", "impl": "impl.prompt.duplicate_numeric_assignment.v1", "v": "1.0.0"}, {"id": "prompt.control_character", "e": "prompt", "t": "提示词文本中包含 ASCII 控制字符、Unicode 双向文字覆写符、不可见格式化字符，或一连串（PyRIT 所称的“变体选择符/sneaky bits”）变体选择符/不可见数学运算符字符。双向覆写符和不可见信道连续段是已被记录的提示注入/数据走私手段；其它控制字符通常是复制粘贴产生的意外。", "s": "medium", "c": ["OWASP-LLM01:2025"], "ft": "prompt.control_character", "impl": "impl.prompt.control_character.v1", "v": "1.0.0"}, {"id": "prompt.empty_or_whitespace", "e": "prompt", "t": "提示词为空或只包含空白字符。", "s": "medium", "c": ["quality.non_empty"], "ft": "prompt.empty_or_whitespace", "impl": "impl.prompt.empty_or_whitespace.v1", "v": "1.0.0"}, {"id": "prompt.open_ended_tool_wildcard", "e": "prompt", "t": "系统提示词以严格、可机器解析的形式用通配符授权工具（allowed_tools: * / permissions: [\"*\"] / tools: [\"*\"]）。", "s": "high", "c": ["OWASP-AST-03"], "ft": "prompt.open_ended_tool_wildcard", "impl": "impl.prompt.open_ended_tool_wildcard.v1", "v": "1.0.0"}, {"id": "prompt.untrusted_input_boundary_undeclared", "e": "prompt", "t": "系统提示词声明会接受外部/用户提供的内容，但文档中任何地方都没有明确声明信任边界或防注入覆写的规则。", "s": "medium", "c": ["OWASP-LLM01:2025"], "ft": "prompt.untrusted_input_boundary_undeclared", "impl": "impl.prompt.untrusted_input_boundary_undeclared.v1", "v": "1.1.0"}, {"id": "prompt.dangling_section_reference", "e": "prompt", "t": "提示词引用了一个带编号的章节/规则（例如“见第7节”/“see section 7”），但该编号在文档自身的标题里并不存在。", "s": "medium", "c": ["quality.consistency"], "ft": "prompt.dangling_section_reference", "impl": "impl.prompt.dangling_section_reference.v1", "v": "1.0.0"}, {"id": "prompt.embedded_system_role_marker", "e": "prompt", "t": "提示词文本中嵌入了聊天模板/系统角色控制令牌（例如 <|im_start|>system、[system](#assistant)、<<SYS>>、{{#system~}}），当该被审内容被当作数据处理时可能劫持指令层级。改写自 vigil-llm 的 SystemInstructions YARA 签名。", "s": "medium", "c": ["OWASP-LLM01:2025"], "ft": "prompt.embedded_system_role_marker", "impl": "impl.prompt.embedded_system_role_marker.v1", "v": "1.0.0"}, {"id": "prompt.markdown_data_exfiltration", "e": "prompt", "t": "提示词文本中包含一个带查询字符串的 markdown 图片链接，这是已知的数据外泄信道（模型被诱导渲染一个把秘密数据放在查询参数里的图片 URL）。改写自 vigil-llm 的 MarkdownExfiltration YARA 规则。", "s": "medium", "c": ["OWASP-LLM01:2025"], "ft": "prompt.markdown_data_exfiltration", "impl": "impl.prompt.markdown_data_exfiltration.v1", "v": "1.0.0"}, {"id": "prompt.encoded_injection_payload", "e": "prompt", "t": "提示词文本中包含一段 base64/十六进制数据块，解码后得到一句绕过指令的短语（编码隐藏指令走私）。只有当解码字节确实匹配绕过语法时才会触发，从而将误报率维持在接近零的水平。受 NVIDIA garak 的编码注入探测思路启发。", "s": "medium", "c": ["OWASP-LLM01:2025"], "ft": "prompt.encoded_injection_payload", "impl": "impl.prompt.encoded_injection_payload.v1", "v": "1.0.0"}, {"id": "prompt.named_dangling_reference", "e": "prompt", "t": "提示词引用了一个具名的规则/章节（例如“见回复规则”、“见输出约定”），但该名称在文档其它地方从未作为标题或定义出现过。", "s": "medium", "c": ["quality.consistency"], "ft": "prompt.named_dangling_reference", "impl": "impl.prompt.named_dangling_reference.v1", "v": "1.0.0"}, {"id": "prompt.duplicate_content_line", "e": "prompt", "t": "一行有实质内容的文本（≥24 字符）在提示词中逐字出现了多次，稀释了注意力并带来编辑不一致的风险。", "s": "low", "c": ["quality.consistency"], "ft": "prompt.duplicate_content_line", "impl": "impl.prompt.duplicate_content_line.v1", "v": "1.0.0"}, {"id": "prompt.fullwidth_mixed", "e": "prompt", "t": "提示词中使用了全角 ASCII 变体字符（U+FF01–FF5E）或全角空格，与半角形式混用时可能破坏精确的字段名/JSON 解析。", "s": "low", "c": ["quality.consistency"], "ft": "prompt.fullwidth_mixed", "impl": "impl.prompt.fullwidth_mixed.v1", "v": "1.0.0"}, {"id": "prompt.structured_quote_inconsistency", "e": "prompt", "t": "一段被明确描述为 JSON 的片段使用了智能引号、单引号键或反引号键，因此不是合法的 JSON。", "s": "low", "c": ["quality.consistency"], "ft": "prompt.structured_quote_inconsistency", "impl": "impl.prompt.structured_quote_inconsistency.v1", "v": "1.0.0"}, {"id": "prompt.topic_splice", "e": "prompt", "t": "一段图片/媒体风格描述被拼接在智能体系统提示词的开头（跨领域的头部与主体不一致）。这是对神经网络主题一致性检测的一种确定性、无依赖近似；只有同时出现风格化头部、智能体主体，且两者词汇几乎零重叠时才会触发。", "s": "medium", "c": ["quality.consistency"], "ft": "prompt.topic_splice", "impl": "impl.prompt.topic_splice.v1", "v": "1.0.0"}, {"id": "prompt.version_naming_inconsistent", "e": "prompt", "t": "同一实体被用不一致的版本表述方式指代（例如“v2.0”与“version 2”与“2.0.0”）。只有当表述形式不同但数字版本对同一实体前缀兼容时才会触发；不同实体的确实不同的版本号不会被标记。", "s": "low", "c": ["quality.consistency"], "ft": "prompt.version_naming_inconsistent", "impl": "impl.prompt.version_naming_inconsistent.v1", "v": "1.0.0"}, {"id": "prompt.model_endpoint_no_fallback", "e": "prompt", "t": "提示词为某个必须执行的步骤指定了固定的模型/端点/API，但文档任何地方都没有声明回退/降级/重试路径。这是一个确定性的“结构性缺失”信号；该步骤是否真的关键需要人工判断。", "s": "low", "c": ["quality.consistency"], "ft": "prompt.model_endpoint_no_fallback", "impl": "impl.prompt.model_endpoint_no_fallback.v1", "v": "1.0.0"}, {"id": "prompt.output_format_conflict", "e": "prompt", "t": "提示词给出了互斥的顶层输出格式指令：仅 JSON 与明确非 JSON/纯文本同时存在。字段级自然语言内容、示例和已声明的回退分支会被排除。", "s": "medium", "c": ["quality.consistency"], "ft": "prompt.output_format_conflict", "impl": "impl.prompt.output_format_conflict.v1", "v": "1.0.0"}, {"id": "prompt.output_budget_conflict", "e": "prompt", "t": "显式的条目数量乘以显式的每条最小规模，超过了显式声明的总输出上限（同一单位）。这是一个机械可证明的预算冲突；Verity 从不臆测每条条目的估计大小。", "s": "medium", "c": ["quality.consistency"], "ft": "prompt.output_budget_conflict", "impl": "impl.prompt.output_budget_conflict.v1", "v": "1.0.0"}, {"id": "prompt.autonomy_without_approval", "e": "prompt", "t": "系统提示词同时具备自主行动授权和高影响力的外部副作用，但没有声明审批/确认边界。有帮助但不产生副作用的主动分析会被排除。", "s": "medium", "c": ["quality.authorization"], "ft": "prompt.autonomy_without_approval", "impl": "impl.prompt.autonomy_without_approval.v1", "v": "1.0.0"}, {"id": "prompt.failure_strategy_missing", "e": "prompt", "t": "提示词要求执行外部调用、检索或解析步骤，但文档任何地方都没有声明失败、超时、重试、回退、空结果或结构化错误策略。", "s": "low", "c": ["quality.resilience"], "ft": "prompt.failure_strategy_missing", "impl": "impl.prompt.failure_strategy_missing.v1", "v": "1.0.0"}, {"id": "prompt.system_prompt_extraction_request", "e": "prompt", "t": "文本要求模型披露/展示/显示/打印/复述其系统提示词、系统消息或隐藏/原始指令（OWASP LLM07 系统提示词泄露请求）。带有相同关键词的防御性“不得披露”指令不会被标记。改写自 Microsoft PyRIT 的 StaticPromptInjectionScorer 系统提示词提取/提示词泄露模式族——PyRIT 自身将其归类为 OWASP LLM01 提示注入的子类。", "s": "medium", "c": ["OWASP-LLM01:2025"], "ft": "prompt.system_prompt_extraction_request", "impl": "impl.prompt.system_prompt_extraction_request.v1", "v": "1.0.0"}, {"id": "skill.missing_skill_md", "e": "skill", "t": "被审对象缺少 SKILL.md —— 没有可供审查的机器可读清单。", "s": "high", "c": ["OWASP-AST04"], "ft": "skill.manifest_issue", "impl": "impl.skill.missing_skill_md.v1", "v": "1.0.0"}, {"id": "skill.manifest_parse_failure", "e": "skill", "t": "SKILL.md 的 frontmatter 解析失败，或超出了安全预算。", "s": "high", "c": ["OWASP-AST04"], "ft": "skill.manifest_parse_failure", "impl": "impl.skill.manifest_parse_failure.v1", "v": "1.0.0"}, {"id": "skill.manifest_name_issue", "e": "skill", "t": "清单中的 `name` 字段缺失、为空，或语法不合法。", "s": "medium", "c": ["OWASP-AST04"], "ft": "skill.manifest_field_issue", "impl": "impl.skill.manifest_name_issue.v2", "v": "2.0.0"}, {"id": "skill.manifest_description_missing", "e": "skill", "t": "清单中的 `description` 字段缺失或为空。", "s": "medium", "c": ["OWASP-AST04"], "ft": "skill.manifest_field_issue", "impl": "impl.skill.manifest_description_missing.v2", "v": "2.0.0"}, {"id": "skill.manifest_optional_field_issue", "e": "skill", "t": "某个可选的 Agent Skills frontmatter 字段违反了官方规定的类型或长度约束。", "s": "medium", "c": ["AGENT-SKILLS-SPEC"], "ft": "skill.manifest_field_issue", "impl": "impl.skill.manifest_optional_field_issue.v1", "v": "1.0.0"}, {"id": "skill.manifest_missing_reference", "e": "skill", "t": "清单引用了一个在被审对象快照中不存在的本地文件。", "s": "medium", "c": ["OWASP-AST04"], "ft": "skill.manifest_reference_issue", "impl": "impl.skill.manifest_missing_reference.v1", "v": "1.0.0"}, {"id": "skill.manifest_unsafe_reference_path", "e": "skill", "t": "清单引用使用了绝对路径、`..` 逃逸，或反斜杠分隔符。", "s": "high", "c": ["OWASP-AST04"], "ft": "skill.manifest_reference_issue", "impl": "impl.skill.manifest_unsafe_reference_path.v1", "v": "1.0.0"}, {"id": "skill.manifest_unpinned_dependency", "e": "skill", "t": "清单中的依赖版本没有锁定到具体发布版本（例如浮动范围、`latest`、`*`，或缺失）。", "s": "medium", "c": ["OWASP-AST02"], "ft": "skill.manifest_dependency_issue", "impl": "impl.skill.manifest_unpinned_dependency.v1", "v": "1.0.0"}, {"id": "skill.manifest_permission_wildcard", "e": "skill", "t": "清单权限授予了一个开放式通配符或根路径（例如 '*'、'/'、'**'）。", "s": "high", "c": ["OWASP-AST03"], "ft": "skill.manifest_permission_wildcard", "impl": "impl.skill.manifest_permission_wildcard.v1", "v": "1.0.0"}, {"id": "skill.manifest_external_instructions", "e": "skill", "t": "清单将一个外部 URL 声明为运行时指令来源（fetch_and_follow / runtime_fetch 模式）。", "s": "high", "c": ["OWASP-AST05"], "ft": "skill.manifest_external_instructions", "impl": "impl.skill.manifest_external_instructions.v1", "v": "1.0.0"}, {"id": "skill.manifest_script_suffix_mismatch", "e": "skill", "t": "清单声明的脚本路径后缀与被审对象中实际文件的后缀不一致。", "s": "medium", "c": ["OWASP-AST04"], "ft": "skill.manifest_reference_issue", "impl": "impl.skill.manifest_script_suffix_mismatch.v1", "v": "1.0.0"}, {"id": "skill.python_subprocess_shell_true", "e": "skill", "t": "Python 源码中包含一个 shell=True 的 subprocess.* 调用。这是机械检测出的危险模式；Verity 不会执行这段代码。当 Bandit 在同一位置成功运行时，会被 skill.bandit.B602 取代。", "s": "high", "c": ["OWASP-AST01"], "ft": "skill.python_subprocess_shell_true", "impl": "impl.skill.python_subprocess_shell_true.v1", "v": "1.0.0"}, {"id": "skill.bandit.B102", "e": "skill", "t": "[Bandit B102] exec() 被用在不可信输入上。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "high", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B102", "v": "1.0.0"}, {"id": "skill.bandit.B301", "e": "skill", "t": "[Bandit B301] 从不可信来源加载 pickle（可导致任意代码执行）。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "high", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B301", "v": "1.0.0"}, {"id": "skill.bandit.B324", "e": "skill", "t": "[Bandit B324] 使用了不安全的 MD4/MD5/SHA1 哈希（hashlib 或 crypt）；CWE-327。（Bandit 基于黑名单的 B303 检查已被这个基于 AST 的检查在 Python 3.9+ 上取代，且在此 Python 版本下从不实际触发——已通过实测验证，见 Round 39。）（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "medium", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B324", "v": "1.0.0"}, {"id": "skill.bandit.B310", "e": "skill", "t": "[Bandit B310] urllib_urlopen 使用了不可信的协议（file://、ftp://）。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "medium", "c": ["OWASP-AST05"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B310", "v": "1.0.0"}, {"id": "skill.bandit.B506", "e": "skill", "t": "[Bandit B506] 使用 yaml.load 且未指定 SafeLoader（可导致任意对象反序列化）。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "high", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B506", "v": "1.0.0"}, {"id": "skill.bandit.B602", "e": "skill", "t": "[Bandit B602] subprocess 调用使用了 shell=True（Bandit 检出）。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "high", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B602", "v": "1.0.0"}, {"id": "skill.bandit.B605", "e": "skill", "t": "[Bandit B605] os.system 被用于执行一段 shell 命令字符串。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "high", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B605", "v": "1.0.0"}, {"id": "skill.bandit.B607", "e": "skill", "t": "[Bandit B607] 进程以部分可执行文件路径启动。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "medium", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B607", "v": "1.0.0"}, {"id": "skill.bandit.B701", "e": "skill", "t": "[Bandit B701] jinja2 模板的自动转义被禁用。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "medium", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B701", "v": "1.0.0"}, {"id": "skill.bandit.B105", "e": "skill", "t": "[Bandit B105] 硬编码的密码字符串。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "medium", "c": ["OWASP-AST02"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B105", "v": "1.0.0"}, {"id": "skill.bandit.B106", "e": "skill", "t": "[Bandit B106] 硬编码的密码默认参数。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "medium", "c": ["OWASP-AST02"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B106", "v": "1.0.0"}, {"id": "skill.bandit.B107", "e": "skill", "t": "[Bandit B107] 硬编码的密码默认参数值。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "medium", "c": ["OWASP-AST02"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B107", "v": "1.0.0"}, {"id": "skill.bandit.B501", "e": "skill", "t": "[Bandit B501] 发起 HTTPS/TLS 请求时禁用了证书验证（例如 requests.get(..., verify=False)）；CWE-295。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "high", "c": ["OWASP-AST02"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B501", "v": "1.0.0"}, {"id": "skill.bandit.B608", "e": "skill", "t": "[Bandit B608] SQL 查询通过字符串拼接/格式化构建，而非使用参数化绑定；CWE-89。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "medium", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B608", "v": "1.0.0"}, {"id": "skill.bandit.B314", "e": "skill", "t": "[Bandit B314] 使用 xml.etree.ElementTree 解析不可信的 XML（存在 XXE/实体扩展风险）；CWE-20。与 B405（import 级别检查）不同。（Verity 将 Bandit 作为外部子进程，针对该 skill Python 文件的临时副本运行；代码不会被执行。）", "s": "medium", "c": ["OWASP-AST01"], "ft": "skill.bandit_finding", "impl": "impl.skill.bandit.B314", "v": "1.0.0"}, {"id": "skill.gitleaks_finding", "e": "skill", "t": "gitleaks 在一个已加入暂存区的 skill 文件中检出一个类似密钥的令牌。Verity 将 gitleaks 作为外部、版本锁定的子进程，针对该 skill 文件的临时副本运行；代码不会被执行，且原始密钥会在所有 Verity 输出中被脱敏。", "s": "high", "c": ["OWASP-AST02"], "ft": "skill.gitleaks_finding", "impl": "impl.skill.gitleaks.v1", "v": "1.0.0"}, {"id": "skill.fake_secret_fixture", "e": "skill", "t": "Skill 中包含一个类似密钥的测试固定样例令牌。", "s": "high", "c": ["OWASP-AST02"], "ft": "skill.fake_secret_fixture", "impl": "impl.skill.fake_secret.v1", "v": "1.0.0"}, {"id": "skill.dangerous_shell_pattern", "e": "skill", "t": "Skill 文本中包含危险的 shell 模式（curl|sh、rm -rf /、forkbomb）。", "s": "high", "c": ["OWASP-AST01"], "ft": "skill.dangerous_shell_pattern", "impl": "impl.skill.dangerous_shell.v1", "v": "1.0.0"}, {"id": "skill.sensitive_path_access", "e": "skill", "t": "Skill 文本中字面引用了一个广为人知的敏感主机路径（SSH 密钥、云凭证、shell 历史记录、系统密码文件）。", "s": "high", "c": ["OWASP-AST06"], "ft": "skill.sensitive_path_access", "impl": "impl.skill.sensitive_path_access.v1", "v": "1.0.0"}], "catalog": [{"id": "semantic.prompt.instruction_conflict", "e": "prompt", "s": "medium", "q": "被引用的两行提示词中，是否包含在各自实际适用范围内无法同时满足的指令？", "p": {"a": ["至少两条被引用的指令约束着同一个响应。", "它们的目标对象、阶段、条件和例外范围可以被比较。"], "c": ["这些指令管辖同一个目标对象和范围。", "满足其中一条指令必然违反另一条。"], "r": ["一条指令管辖开头段落，另一条管辖后面的段落。", "一条规则管辖外层格式，另一条管辖字段内部的内容。", "文中声明的例外或条件使两条指令都能被满足。"], "i": ["当共同的目标对象或范围没有证据支持时，判定为拒绝或证据不足。"]}, "sf": ["conflictKind"], "ow": [], "ex": "extract_instruction_conflict"}, {"id": "semantic.prompt.missing_output_contract", "e": "prompt", "s": "low", "q": "提示词是否要求机器可结构化解析的输出，却遗漏了实质性的字段或 schema 契约？", "p": {"a": ["提示词要求输出 JSON、YAML、表格或其它机器可结构化解析的结果。"], "c": ["只指定了容器格式，缺少必需字段或 schema。", "对于直接下游使用而言，缺少实质性的类型、必需性、单位或取值约束。"], "r": ["必需字段及其可用结构已被明确声明。", "要求的输出是给人看的自由格式文字，不是机器契约。"], "i": ["当输出消费方或被引用的 schema 参照不可得时，判定为证据不足。"]}, "sf": ["expectedFormat", "gapKind"], "ow": [], "ex": "extract_missing_output_contract"}, {"id": "semantic.skill.declared_behavior_mismatch", "e": "skill", "s": "medium", "q": "清单中声明的行为，是否与静态观测到的能力族在实质上不兼容？", "p": {"a": ["引用了一条清单行为声明和至少一项实现层能力事实。"], "c": ["观测到的能力被拒绝，或实质性超出了声明的行为范围。", "观测到的范围实质性宽于声明。", "一个显式 declaredBehaviorMatch=false（由被拒绝的能力加一条被引用的调用点事实支持）支持静态行为不匹配的判断。"], "r": ["归一化后声明的能力族与观测到的能力族一致。", "一个显式 declaredBehaviorMatch=true 可以证伪对应的不匹配判断。", "声明获取一个公开端点与观测到的网络访问兼容。", "对同一狭窄操作的不同措辞不算不匹配。"], "i": ["当事实只是 import 级别、行为声明不足以被归一化，或需要运行时可达性验证时，判定为证据不足。"]}, "sf": ["mismatchKind"], "ow": ["OWASP-AST04"], "ex": "extract_declared_behavior_mismatch"}, {"id": "semantic.prompt.trust_boundary_ambiguity", "e": "prompt", "s": "medium", "q": "不可信内容是否缺少清晰的“仅作数据”指令边界？", "p": {"a": ["提示词会消费用户、检索得到、外部或工具产生的内容。"], "c": ["该内容可能被解释为指令，且没有声明“仅作数据”的边界。"], "r": ["内容被清晰界定、引用或声明为不可信数据。", "提示词明确禁止执行在该内容中发现的指令。"], "i": ["当内容插入边界没有展示出来时，判定为证据不足。"]}, "sf": ["boundaryKind"], "ow": [], "ex": "extract_trust_boundary_ambiguity"}, {"id": "semantic.prompt.excessive_tool_scope", "e": "prompt", "s": "medium", "q": "声明的工具是否实质性宽于有证据支持的任务所需范围？", "p": {"a": ["提示词声明了工具或权限，并陈述了一个可供做必要性比较的任务。"], "c": ["存在一个高影响力或不相关的能力，但任务并不需要它。", "一个必要的能力被授予了实质性更宽的范围，且没有审批边界。"], "r": ["每一项被引用的能力都是任务所必需的，且被窄范围限定。", "高影响力的使用仅限于草稿，或要求明确的人工审批。"], "i": ["当任务范围或工具语义没有证据支持时，判定为证据不足。"]}, "sf": ["scopeKind"], "ow": [], "ex": "extract_tool_necessity"}, {"id": "semantic.skill.permission_capability_mismatch", "e": "skill", "s": "medium", "q": "经过归一化的能力族与目标匹配后，声明的权限与观测到的静态能力是否存在实质性不一致？", "p": {"a": ["引用了一条权限声明和一项实现层能力事实。"], "c": ["观测到的能力族没有对应的声明权限。", "一个受命令限制的权限指定了一个不同的固定命令目标。", "一个显式 declaredPermissionMatch=false（配合已解析的静态能力族或固定命令目标）支持不匹配判断。"], "r": ["归一化后的权限族与观测到的能力族一致。", "一个显式 declaredPermissionMatch=true 可以证伪对应的不匹配判断。", "Bash(command:*) 与该命令的一次固定调用相匹配。", "对同一狭窄能力使用不同的 API 名称视为等价。"], "i": ["当一个动态命令目标无法被静态解析时，判定为证据不足。"]}, "sf": ["mismatchKind"], "ow": ["OWASP-AST03"], "ex": "extract_permission_capability_mismatch"}, {"id": "semantic.skill.external_instruction_trust_gap", "e": "skill", "s": "high", "q": "该 Skill 是否在没有来源验证、完整性校验或“仅作数据”边界的情况下，把外部材料当作可执行指令处理？", "p": {"a": ["该 Skill 声明了一条外部指令或内容引用。"], "c": ["远程材料可以在没有完整性和信任控制的情况下改变指令或行为。"], "r": ["内容通过摘要锁定或签名验证，且仅被当作数据处理。", "该引用只是给人看的文档，运行时不会被抓取或跟随。"], "i": ["当引用方式或信任控制没有证据支持时，判定为证据不足。"]}, "sf": ["trustGapKind"], "ow": ["OWASP-AST05"], "ex": "extract_external_instruction_trust_gap"}, {"id": "semantic.prompt.output_budget_pressure", "e": "prompt", "s": "medium", "q": "要求的细节量与输出上限是否在实质上不太可能兼容，或在需要权衡时说明不足？", "p": {"a": ["提示词同时提出了体量/细节方面的要求和一个输出上限。"], "c": ["即便有一个隐含的下限，要求的覆盖范围在实质上也不可行。", "确实需要权衡，但没有定义优先级或续写行为。"], "r": ["上限和要求的内容大体上是兼容的。", "不同的上限分别管辖不同的输出片段。", "优先级或有边界的续写协议解决了这种压力。"], "i": ["不要在没有证据的情况下推测精确的 token 换算或平均条目大小。"]}, "sf": ["pressureKind"], "ow": [], "ex": "extract_output_budget_pressure"}, {"id": "semantic.prompt.authority_boundary_ambiguity", "e": "prompt", "s": "high", "q": "系统提示词是否在没有清晰审批与范围边界的情况下，授权了具有实质影响的自主行动？", "p": {"a": ["系统提示词把自主行动意愿与一个外部副作用或有实质影响的决策结合在一起。"], "c": ["模型可以执行该行动，而无需说明谁来审批，或权限的边界在哪里。"], "r": ["提示词只允许分析或起草。", "在产生副作用之前，要求明确的用户或人工审批。", "单纯主动的低影响信息收集不算有实质影响的授权。"], "i": ["当强制执行可能只存在于一个未展示的应用层时，判定为证据不足。"]}, "sf": ["authorityKind"], "ow": [], "ex": "extract_authority_boundary_ambiguity"}, {"id": "semantic.prompt.failure_strategy_gap", "e": "prompt", "s": "medium", "q": "一个必须执行、且容易失败的操作，是否缺少针对实质性失败或边界情况的策略？", "p": {"a": ["提示词要求执行外部调用、检索、解析、数据库或工具操作。"], "c": ["超时、空结果、格式错误或部分失败等实质性路径没有被定义行为。", "存在一个策略，但它适用于另一个操作或另一种失败模式。"], "r": ["被引用的操作有一条明确的、有边界的失败/重试/回退/结构化错误路径。", "该操作是可选的，其缺失不会使任务结果失效。"], "i": ["不要求覆盖每一种可能的边界情况；只需指出一条实质性的未覆盖路径。"]}, "sf": ["gapKind"], "ow": [], "ex": "extract_failure_strategy_gap"}, {"id": "semantic.prompt.ambiguous_operational_criteria", "e": "prompt", "s": "medium", "q": "完整的提示词是否遗漏了实现实质一致执行所需的任务锚点、必要上下文、成功标准、可用阈值、指代对象或决策规则？", "p": {"a": ["缺失的任务锚点、必要上下文、成功标准、模糊的程度描述、条件或指代对象，在实质上影响了执行或输出的判定。"], "c": ["因为所需的锚点、上下文、边界或标准缺失，合理的不同实现方式会产生实质性不同的任务理解或判定结果。"], "r": ["该术语通过示例、阈值或明确的决策规则在本地被定义。", "该术语只是不具约束力的风格偏好，没有实质性的行为影响。", "提示词明确声明自己是一个可复用的、仅关乎风格的片段或预设，而不是一个完整独立的任务。", "任务本意是开放式的，但仍明确了所要求的操作和主要对象。", "所谓的遗漏只是可选的创意细节，不影响对任务的实质一致理解。"], "i": ["当提示词预期的组合上下文或周边定义超出所引用的证据范围时，判定为证据不足。"]}, "sf": ["criterionKind"], "ow": [], "ex": "extract_ambiguous_operational_criteria"}, {"id": "semantic.prompt.grounding_requirement_gap", "e": "prompt", "s": "high", "q": "提示词是否要求做出有实质影响或可验证的断言，却没有相应比例的依据、不确定性说明或验证要求？", "p": {"a": ["任务要求做出法律、医疗、金融、统计、引用或其它具有实质影响的事实性断言。"], "c": ["它鼓励给出精确断言，同时又允许无依据的编造或悄然的确定性表述。", "要求提供来源或数字，却没有说明真实性/验证方面的约束。"], "r": ["提示词要求提供可追溯的来源、不确定性披露，且不允许猜测。", "该任务是创意性或主观性的，不主张事实权威性。"], "i": ["当该用例的实际影响或可用来源边界未知时，判定为证据不足。"]}, "sf": ["groundingKind"], "ow": [], "ex": "extract_grounding_requirement_gap"}, {"id": "semantic.prompt.sensitive_reasoning_exposure", "e": "prompt", "s": "high", "q": "提示词是否要求在用户可见的输出中披露隐藏的推理过程或敏感的内部策略？", "p": {"a": ["提示词讨论了思维链、草稿区、内部策略或隐藏决策规则。"], "c": ["它要求把敏感的内部材料展示在用户可见的输出中。"], "r": ["内部推理过程保持私密，只要求给出最终结果。", "一段简洁的、基于证据的理由说明或审计摘要不算隐藏思维链。", "被引用的策略本身就是有意公开的，不属于敏感内容。"], "i": ["当输出可见性或策略敏感性没有证据支持时，判定为证据不足。"]}, "sf": ["exposureKind"], "ow": [], "ex": "extract_sensitive_reasoning_exposure"}, {"id": "semantic.prompt.verification_step_gap", "e": "prompt", "s": "low", "q": "一项受到实质性约束、或有实质影响的输出，是否在遗漏会带来代价的情况下，缺少具体的验证步骤？", "p": {"a": ["该输出有多项强制性约束，或会被自动化流程消费，或支撑一项有实质影响的决策。"], "c": ["在使用之前，没有模型侧或外部的验证步骤检查这些实质性约束。", "提示词明确把结果直接送入生产环境或下游自动化流程，没有另一道复核或检查。"], "r": ["任务足够简单或开放，不需要显式的自我检查。", "一份具体的检查清单、schema 校验器，或下游验证已经覆盖了这些约束。", "单纯泛泛地要求“高质量”不足以使自我检查成为强制要求。"], "i": ["当下游验证情况未知、且提示词没有明确绕过或拒绝另一道复核或检查时，判定为证据不足。"]}, "sf": ["verificationKind"], "ow": [], "ex": "extract_verification_step_gap"}, {"id": "semantic.prompt.input_and_default_contract_gap", "e": "prompt", "s": "medium", "q": "一个存在明确输入依赖的任务，是否遗漏了实质性的必需性、缺失输入、无效输入或默认行为契约？", "p": {"a": ["提示词指明了结构化的、必需的，或操作上必要的用户输入。", "当这类输入缺失或无效时，任务在实质上可能改变或失败。"], "c": ["必要输入已被指明，但必需还是可选在实质上并不清楚。", "可能出现缺失、空、格式错误或不受支持的输入，且没有定义澄清、安全默认值、验证或拒绝路径。"], "r": ["任务接受任意对话式输入，没有固定的输入依赖。", "对于实质性字段，必需性、默认值、验证和缺失输入行为都是明确的。", "一个已声明的上游 schema 完整拥有该契约，且提示词无歧义地指明了它。"], "i": ["当所需的输入 schema 只存在于一个未展示的应用层时，判定为证据不足。"]}, "sf": ["gapKind"], "ow": [], "ex": "extract_input_and_default_contract_gap"}, {"id": "semantic.prompt.example_contract_mismatch", "e": "prompt", "s": "medium", "q": "规范性示例是否在实质上与声明的规则相矛盾、依赖过时假设、错误表述了声明的输入分布，或遗漏了实质性的边界/失败分支？", "p": {"a": ["提示词包含被当作规范性指导或可执行输出形状呈现的示例。", "存在一条规则、schema、边界、失败行为、时间假设或声明的输入分布，可以与这些示例进行比较。"], "c": ["某个示例违反了一个必需字段、枚举值、格式、语言或行为规则。", "提示词依赖示例来定义行为，但只覆盖了顺利路径，一个已声明的实质性边界或失败分支仍未定义。", "某个示例依赖一个在实质上已过时的事实、schema、能力或策略假设。", "示例被呈现为具有代表性，但在实质上排除了一个已声明的输入类别或分布片段。"], "r": ["在考虑可选字段和已声明变体后，示例与规则是兼容的。", "示例被明确说明只是示意性的，不是穷尽性的。", "即便没有单独的示例，边界和失败行为也已用文字定义。", "示例是最新的，且对声明的范围具有代表性，或其局限性已被明确说明。"], "i": ["当被引用的证据中没有同时包含相关规则和示例时，判定为证据不足。"]}, "sf": ["exampleGapKind"], "ow": [], "ex": "extract_example_contract_mismatch"}, {"id": "semantic.prompt.tool_call_contract_gap", "e": "prompt", "s": "high", "q": "一次必须执行的工具或函数调用，是否缺少实质性的条件、参数来源、结果或错误契约？", "p": {"a": ["提示词要求模型调用一个工具、函数或 API，而不仅仅是讨论它。"], "c": ["对于一次有实质影响或会重复发生的调用，调用条件在实质上是含糊的。", "因为来源和验证未定义，必需的参数可能被编造或来自不可信文本。", "下游需要结果的形状或失败行为，但未被指定。"], "r": ["一个具名的、已注册的 schema 明确拥有参数与结果校验的所有权。", "对于该实质性调用，调用条件、参数来源、结果形状和有边界的失败行为均已声明。", "提示词只是分析或起草一次可能的调用，而不会真正执行它。"], "i": ["当被引用的工具 schema 在证据中不存在时，判定为证据不足。"]}, "sf": ["contractGapKind"], "ow": [], "ex": "extract_tool_call_contract_gap"}, {"id": "semantic.prompt.capability_dependency_gap", "e": "prompt", "s": "medium", "q": "任务是否需要一种非模型内在具备的能力，却没有声明如何提供它、或如何在不可用时降级？", "p": {"a": ["要求的结果在实质上依赖实时数据、网络访问、媒体理解、持久记忆、异常大的上下文，或某个插件。"], "c": ["该能力是必需的，但没有声明任何工具、提供的输入、目标平台保证或回退方案。", "提示词鼓励在观测不可用时编造结果，而不是停下来或请求输入。"], "r": ["目标系统明确提供了该具名能力或工具。", "所需的观测结果作为输入被提供，而不是隐式抓取。", "一个清晰的“能力不可用时”回退方案会要求提供数据，或说明这一局限性。"], "i": ["当受信任的部署配置可能提供该能力，但没有证据支持时，判定为证据不足。"]}, "sf": ["dependencyKind"], "ow": [], "ex": "extract_capability_dependency_gap"}, {"id": "semantic.prompt.sensitive_data_handling_gap", "e": "prompt", "s": "high", "q": "提示词是否指示处理敏感数据，却遗漏了相应比例的最小化、脱敏、授权、留存或披露边界？", "p": {"a": ["提示词指示收集、存储、处理、分享或输出个人、医疗、金融、联系方式或凭证类数据。"], "c": ["该行动暴露或留存的敏感数据超出了所述任务的实际需要。", "对于该声明的行动，缺少实质性的披露、授权、脱敏或留存边界。"], "r": ["提示词只是警示不要处理敏感数据，并未指示去处理它。", "采集已被最小化，输出经过掩码或脱敏处理，并配有与任务相称的明确授权和留存限制。", "范围内只有合成数据或已经公开的非敏感数据。"], "i": ["当数据分级或外部访问控制层没有证据支持时，判定为证据不足。"]}, "sf": ["dataPolicyKind"], "ow": [], "ex": "extract_sensitive_data_handling_gap"}, {"id": "semantic.prompt.role_scope_contract_gap", "e": "prompt", "s": "medium", "q": "一个操作性角色是否遗漏了路由请求所需的实质性受众、职责、排除范围或能力边界？", "p": {"a": ["提示词设立了一个会持续影响请求处理方式的操作性角色或人设。"], "c": ["该角色只是一个头衔或人格设定，其预期受众或实质职责并不清楚。", "该角色声称具备专业能力或权威性，却没有说明必要的排除范围、上报机制或范围外边界。"], "r": ["提示词是一次性任务，不需要一个持续性的角色契约。", "受众、职责、能力和实质性排除范围已足够明确，可以用来区分范围内和范围外的请求。"], "i": ["当被引用的角色定义只存在于被审对象之外时，判定为证据不足。"]}, "sf": ["roleGapKind"], "ow": [], "ex": "extract_role_scope_contract_gap"}, {"id": "semantic.prompt.workflow_dependency_gap", "e": "prompt", "s": "medium", "q": "一个多步骤工作流是否遗漏或与实质性的前提条件、顺序边、中间结果使用，或分支相矛盾？", "p": {"a": ["提示词定义了多个相互依赖的步骤，而不是一份无序的清单。"], "c": ["某一步消费的信息，没有任何前置步骤或输入产生过。", "一项必需的验证或转换发生在依赖它的动作之后。", "一个实质性的中间结果被产生却从未被使用，或在已声明的条件下某个分支无法被到达。"], "r": ["这些步骤本来就是相互独立的，可以按任意顺序执行。", "前提条件、产生的结果、消费方和条件分支构成了一个自洽的顺序。"], "i": ["当该工作流引用了一个未展示、可能拥有该依赖关系的编排器时，判定为证据不足。"]}, "sf": ["dependencyGapKind"], "ow": [], "ex": "extract_workflow_dependency_gap"}, {"id": "semantic.prompt.field_constraint_gap", "e": "prompt", "s": "medium", "q": "一个被机器消费或受到实质约束的字段，是否遗漏了类型、单位、精度、范围、枚举值或边界行为？", "p": {"a": ["提示词指明了一个其取值会被机器消费、比较、计算或约束的字段。"], "c": ["一个数值、金额、时间或状态字段缺少实质性的类型、单位、精度、时区、枚举值或范围。", "空值、null、重复、溢出、翻转或极值情况可能改变结果，但未被定义。"], "r": ["该字段是没有实质性机器约束的自由格式文字。", "一个完整的、被引用的 schema 拥有该类型和取值约束的所有权。", "类型、单位、范围、枚举值和适用的边界行为均已明确。"], "i": ["当该字段 schema 被引用但无法作为证据获得时，判定为证据不足。"]}, "sf": ["fieldGapKind"], "ow": [], "ex": "extract_field_constraint_gap"}, {"id": "semantic.prompt.error_response_contract_gap", "e": "prompt", "s": "medium", "q": "一条适用的失败或拒绝路径，是否缺少稳定的响应 schema、原因、可恢复性或格式契约？", "p": {"a": ["提示词定义了失败、拒绝、无效输入、信息缺失或权限拒绝行为，且其输出会被消费或展示。"], "c": ["在需要稳定消费方契约的场合，不同失败类别可能产出不兼容或未指定的形状。", "响应遗漏了实质性的原因/代码，或调用方能否重试、澄清或停止未被说明。"], "r": ["一次对话式的拒绝不需要机器可读的错误 schema。", "声明的错误 schema、原因和恢复动作一致地覆盖了这些实质性失败类别。", "一个具名的外部协议无歧义地拥有该错误契约的所有权。"], "i": ["当消费方或外部错误 schema 没有证据支持时，判定为证据不足。"]}, "sf": ["errorGapKind"], "ow": [], "ex": "extract_error_response_contract_gap"}, {"id": "semantic.prompt.attention_dilution", "e": "prompt", "s": "low", "q": "一份长篇或多段式的提示词，是否在实质上把一条关键规则埋没、重复了低价值的上下文，或让层级关系变得模糊？", "p": {"a": ["提示词足够长或包含足够多段落，以至于位置、层级和重复会影响指令的显著性。"], "c": ["一条关键的安全、输出或权限规则只出现在大量不相关背景信息之后，且没有权威性摘要或索引。", "重复的背景信息、示例或要求没有增加任何决策相关的信息，却在实质上遮蔽了操作性指令。", "职责、输入、工作流、输出和安全规则被交织在一起，导致优先级或归属不清晰。"], "r": ["提示词本身简短，或者有清晰的权威摘要和可导航的层级结构。", "长篇参考材料被明确标注为数据，与操作性指令分离。", "重复的文字是有边界的摘要或有意为之的交叉引用，而不是重复的指令权重。"], "i": ["当只能获得提示词的一段摘录时，判定为证据不足。"]}, "sf": ["dilutionKind"], "ow": [], "ex": "extract_attention_dilution"}, {"id": "semantic.prompt.streaming_recovery_gap", "e": "prompt", "s": "medium", "q": "一个被明确要求以流式或增量方式返回的结果，是否遗漏了实质性的分帧、完成、续传或部分解析规则？", "p": {"a": ["提示词明确要求流式、增量、分块、可续传或基于事件的输出。"], "c": ["在消费方需要的情况下，各数据块缺少稳定的分隔符、事件类型、序号或可独立解析的帧结构。", "完成、中断、重复投递、部分解析或续传行为在实质上未被定义。"], "r": ["提示词要求的是一次性、非流式的完整响应。", "分帧、顺序、完成、中断和续传行为对消费方而言都是明确的。", "提示词指定的传输协议完整拥有这些语义的所有权。"], "i": ["当被引用的传输协议契约不可得时，判定为证据不足。"]}, "sf": ["streamingGapKind"], "ow": [], "ex": "extract_streaming_recovery_gap"}, {"id": "semantic.prompt.multi_turn_state_gap", "e": "prompt", "s": "medium", "q": "一个多轮对话任务，是否遗漏了实质性的状态继承、更新、重置或不可覆盖规则契约？", "p": {"a": ["提示词预期某些行为或数据会跨对话轮次或会话持续存在或发生变化。"], "c": ["哪些先前的事实、偏好、决定或约束会被继续沿用，并不清楚。", "后续互相冲突的请求没有更新优先级、重置规则或受保护的不变量。", "会话边界，或要求“遗忘”状态的请求，没有被定义具体效果。"], "r": ["该任务是无状态的，或有意只处理当前这一条消息。", "继承的状态、可变偏好、重置行为和不可覆盖规则均已明确。"], "i": ["当状态由一个未展示的应用层拥有时，判定为证据不足。"]}, "sf": ["stateGapKind"], "ow": [], "ex": "extract_multi_turn_state_gap"}, {"id": "semantic.prompt.safety_policy_gap", "e": "prompt", "s": "high", "q": "一个处理已声明高风险领域的提示词，是否遗漏了实质性的拒绝、允许范围、替代方案或上报规则？", "p": {"a": ["提示词明确处理危险、非法、自我伤害、武器、恶意软件、暴力、爆炸物或类似高风险的请求。"], "c": ["它在没有清晰的允许/拒绝边界的情况下，授权了可被采取行动的有害协助。", "需要拒绝，但在实质上应当定义安全替代方案、紧急路径或上报行为时却没有定义。"], "r": ["提示词只是在高层次上讨论安全策略或良性的预防措施。", "允许范围、拒绝边界、安全替代方案和适用的上报机制均已明确。", "一条被引用的、已强制执行的策略拥有这些边界的所有权，且可在证据中获得。"], "i": ["当适用的安全策略被引用却缺席时，判定为证据不足。"]}, "sf": ["safetyGapKind"], "ow": [], "ex": "extract_safety_policy_gap"}, {"id": "semantic.prompt.source_use_policy_gap", "e": "prompt", "s": "medium", "q": "一个使用第三方来源材料的任务，是否遗漏了实质性的署名、复制、转换或所有权规则？", "p": {"a": ["提示词指示引用、复制、转载、摘要或转换可识别的来源材料。"], "c": ["它要求大量或逐字复制，却没有设定有边界的摘录、摘要、转换或“内容不可用”回退方案。", "任务要求提供署名或来源身份，但被遗漏了。", "所有权、许可、公共领域或用户提供的状态在实质上改变了可以被复制的内容，且这一点未被解决。"], "r": ["任务使用的是用户自有、公共领域，或在声明的许可范围内的授权材料。", "它要求提供一段有边界的简短摘录、事实、摘要或转换，并附带适当的来源署名。", "提示词只是受高层概念启发创作原创材料。"], "i": ["当所有权或许可状态无法从证据中确立时，判定为证据不足。"]}, "sf": ["sourceGapKind"], "ow": [], "ex": "extract_source_use_policy_gap"}], "risks": [{"id": "VR-PROMPT-001", "title": "指令注入与优先级覆盖", "scopes": ["prompt", "system_prompt"], "l0": "signal", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 5, "tp": 5}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 10}, {"id": "VR-PROMPT-002", "title": "不完整或未解析的提示词模板", "scopes": ["prompt", "system_prompt"], "l0": "partial", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 6, "tp": 6}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 12}, {"id": "VR-PROMPT-003", "title": "提示词中嵌入敏感信息", "scopes": ["prompt", "system_prompt"], "l0": "signal", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-PROMPT-004", "title": "矛盾的指令或赋值", "scopes": ["prompt", "system_prompt"], "l0": "signal", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 2, "tp": 2}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 4}, {"id": "VR-PROMPT-005", "title": "隐藏或欺骗性的文本编码", "scopes": ["prompt", "system_prompt", "skill"], "l0": "partial", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 3, "tp": 3}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 6}, {"id": "VR-PROMPT-006", "title": "输出契约缺失或含糊", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-007", "title": "过度的工具授权", "scopes": ["system_prompt", "skill", "agent_config"], "l0": "partial", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-PROMPT-008", "title": "不可信内容边界未定义", "scopes": ["prompt", "system_prompt", "skill"], "l0": "signal", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-PROMPT-009", "title": "编造内容与不可验证的断言", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-SKILL-001", "title": "Skill 包与清单规范不合规", "scopes": ["skill"], "l0": "partial", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 4, "tp": 4}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 8}, {"id": "VR-SKILL-002", "title": "不安全或损坏的本地资源引用", "scopes": ["skill"], "l0": "partial", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-SKILL-003", "title": "依赖漂移、已知漏洞或来源不可验证", "scopes": ["skill", "supply_chain"], "l0": "signal", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-SKILL-004", "title": "声明的权限或能力过度宽泛", "scopes": ["skill", "agent_config", "mcp"], "l0": "signal", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-SKILL-005", "title": "不可信的外部指令或工具内容", "scopes": ["skill", "mcp", "agent_config"], "l0": "signal", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-SKILL-006", "title": "危险命令或动态代码执行", "scopes": ["skill"], "l0": "partial", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-SKILL-007", "title": "不安全的反序列化或解析器配置", "scopes": ["skill"], "l0": "partial", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 2, "tp": 2}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 4}, {"id": "VR-SKILL-008", "title": "弱加密或传输保护", "scopes": ["skill", "mcp"], "l0": "signal", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 2, "tp": 2}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 4}, {"id": "VR-SKILL-009", "title": "不可信网络目标与 SSRF", "scopes": ["skill", "mcp", "agent_config"], "l0": "signal", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-SKILL-010", "title": "不安全的输出渲染或下游处理", "scopes": ["skill", "mcp", "agent_config"], "l0": "signal", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-SKILL-011", "title": "硬编码或暴露的凭证", "scopes": ["skill", "agent_config", "mcp"], "l0": "partial", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-SKILL-012", "title": "声明行为与实际实现不符", "scopes": ["skill"], "l0": "signal", "l1": "signal", "st": "unmeasured", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-SKILL-013", "title": "跨文件或跨语言的不安全数据流", "scopes": ["skill"], "l0": "none", "l1": "none", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-SKILL-014", "title": "弱运行时隔离与主机逃逸", "scopes": ["skill", "agent_config"], "l0": "signal", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-MCP-001", "title": "MCP 授权与会话边界失效", "scopes": ["mcp", "agent_config"], "l0": "none", "l1": "none", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-GOV-001", "title": "审计覆盖不完整或具有误导性", "scopes": ["governance", "prompt", "skill", "mcp"], "l0": "partial", "l1": "partial", "st": "unmeasured", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-010", "title": "内部引用完整性", "scopes": ["prompt", "system_prompt"], "l0": "signal", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 2, "tp": 2}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 4}, {"id": "VR-SKILL-015", "title": "通过字符串拼接构造的 SQL 注入", "scopes": ["skill"], "l0": "signal", "l1": "none", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-PROMPT-011", "title": "输出资源约束不可行", "scopes": ["prompt", "system_prompt"], "l0": "signal", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-PROMPT-012", "title": "自主行动的权限边界未定义", "scopes": ["system_prompt"], "l0": "signal", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-PROMPT-013", "title": "失败与边界情况处理未定义", "scopes": ["prompt", "system_prompt"], "l0": "signal", "l1": "signal", "st": "measured", "cm": {"fn": 0, "fp": 0, "tn": 1, "tp": 1}, "p": 1.0, "r": 1.0, "sfpr": 0.0, "n": 2}, {"id": "VR-PROMPT-014", "title": "操作性判断标准存在实质性歧义", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-015", "title": "敏感推理过程或内部策略被暴露", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-016", "title": "输入与默认行为契约不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-017", "title": "规范性示例与声明的契约相冲突", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-018", "title": "工具调用契约不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-019", "title": "所需的模型或平台能力未声明", "scopes": ["prompt", "system_prompt"], "l0": "signal", "l1": "signal", "st": "unmeasured", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-020", "title": "敏感数据处理策略不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-021", "title": "操作性角色的作用范围不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-022", "title": "工作流依赖关系或顺序不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-023", "title": "实质性字段约束或边界行为不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-024", "title": "错误与拒绝响应契约不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-025", "title": "关键指令被提示词结构稀释", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-026", "title": "流式framing或恢复契约不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-027", "title": "多轮对话状态契约不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-028", "title": "适用的危险内容安全策略不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}, {"id": "VR-PROMPT-029", "title": "第三方来源使用策略不完整", "scopes": ["prompt", "system_prompt"], "l0": "none", "l1": "signal", "st": "unsupported", "cm": {"fn": 0, "fp": 0, "tn": 0, "tp": 0}, "p": null, "r": null, "sfpr": null, "n": 0}], "crosswalk": [{"b": "01_clarity_ambiguity", "st": "covered", "ft": ["semantic.prompt.ambiguous_operational_criteria"], "why": "受控语义策略把未定义的操作性边界，与无害的灵活措辞区分开来。"}, {"b": "01_clarity_contradiction", "st": "covered", "ft": ["semantic.prompt.instruction_conflict", "prompt.output_format_conflict", "prompt.output_budget_conflict", "prompt.duplicate_numeric_assignment"], "why": "Verity 把精确的矛盾检测规则，与一次可证伪的语义冲突复核结合在一起。"}, {"b": "01_clarity_missing_constraint", "st": "covered", "ft": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.ambiguous_operational_criteria", "semantic.prompt.input_and_default_contract_gap", "semantic.prompt.multi_turn_state_gap"], "why": "输入契约、默认行为契约、操作边界契约和多轮状态契约在实质上覆盖了缺失约束，而不会把每一个可选细节都当作缺陷。"}, {"b": "01_clarity_role_positioning", "st": "covered", "ft": ["semantic.prompt.role_scope_contract_gap"], "why": "受控角色策略只在存在一个操作性角色时，才判断实质性的受众、职责、排除范围和能力边界。"}, {"b": "01_clarity_task_boundary", "st": "covered", "ft": ["semantic.prompt.authority_boundary_ambiguity"], "why": "权限边界策略会检查有实质影响的范围，以及明确的审批或拒绝限制。"}, {"b": "01_clarity_step_logic", "st": "covered", "ft": ["semantic.prompt.workflow_dependency_gap"], "why": "工作流策略会检查实质性前提条件、顺序颠倒、未被使用的中间结果，以及不可达的必需分支。"}, {"b": "01_clarity_redundancy", "st": "covered", "ft": ["prompt.duplicate_content_line"], "why": "逐字重复的内容通过确定性方式检出，不依赖主观、笼统的“冗余”判断。"}, {"b": "01_clarity_priority_unclear", "st": "covered", "ft": ["semantic.prompt.instruction_conflict"], "why": "冲突的指令连同证据一起被报告，修复需要一个明确的优先级决定。"}, {"b": "01_clarity_default_behavior", "st": "covered", "ft": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.input_and_default_contract_gap"], "why": "Verity 分别复核外部操作失败策略，以及缺失、无效或含糊的输入默认值。"}, {"b": "01_clarity_overconstraint", "st": "covered", "ft": ["semantic.prompt.output_budget_pressure", "semantic.prompt.instruction_conflict", "prompt.output_budget_conflict"], "why": "精确的不可行性与语义层面的压力被分开测量，并配有安全的权衡反例。"}, {"b": "01_clarity_example_consistency", "st": "covered", "ft": ["semantic.prompt.instruction_conflict", "semantic.prompt.example_contract_mismatch"], "why": "规范性示例会用结构化证据与声明的字段、格式、语言和行为规则进行比较。"}, {"b": "02_contract_output_format", "st": "covered", "ft": ["semantic.prompt.missing_output_contract", "prompt.output_format_conflict"], "why": "Verity 区分“缺少可解析契约”与“明确的格式不兼容冲突”这两种不同情况。"}, {"b": "02_contract_output_precision", "st": "covered", "ft": ["semantic.prompt.missing_output_contract", "semantic.prompt.field_constraint_gap"], "why": "整体输出形状，以及适用字段的类型、单位、精度、枚举值和范围约束，是分开判断的。"}, {"b": "02_contract_format_consistency", "st": "covered", "ft": ["semantic.prompt.instruction_conflict", "prompt.output_format_conflict"], "why": "跨段落的格式不兼容由精确规则和语义冲突检查共同处理。"}, {"b": "02_contract_input_completeness", "st": "covered", "ft": ["semantic.prompt.input_and_default_contract_gap"], "why": "必需性、默认值、验证和缺失输入行为拥有一个受适用性门槛限制的语义契约。"}, {"b": "02_contract_error_response", "st": "covered", "ft": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.error_response_contract_gap"], "why": "恢复行为，以及稳定的错误/拒绝 schema、原因代码、可恢复性和格式一致性，是分别复核的。"}, {"b": "02_contract_reference_integrity", "st": "covered", "ft": ["semantic.prompt.grounding_requirement_gap"], "why": "有实质影响的断言与来源要求，会依据明确的依据要求和弃权策略进行复核。"}, {"b": "02_contract_dangling_reference", "st": "covered", "ft": ["prompt.dangling_section_reference", "prompt.named_dangling_reference"], "why": "章节引用和具名引用的目标都通过确定性方式解析。"}, {"b": "02_contract_section_structure", "st": "covered", "ft": ["prompt.duplicate_content_line", "semantic.prompt.attention_dilution"], "why": "逐字重复的检测是确定性的，而受控的“注意力”策略会检查被实质性埋没的规则、冗余上下文和不连贯的段落顺序。"}, {"b": "02_contract_placeholder_use", "st": "covered", "ft": ["prompt.unfilled_placeholder", "prompt.untrusted_input_boundary_undeclared"], "why": "未解析的占位符和不可信的插值边界分别处理。"}, {"b": "03_resource_token_budget", "st": "covered", "ft": ["prompt.output_budget_conflict", "semantic.prompt.output_budget_pressure"], "why": "Verity 把已证明的算术不可行性，与语境层面的输出压力区分开来。"}, {"b": "03_resource_reasoning_isolation", "st": "covered", "ft": ["semantic.prompt.sensitive_reasoning_exposure"], "why": "该语义策略把要求私密思维链披露与要求简洁理由说明区分开来。"}, {"b": "03_resource_streaming_compat", "st": "covered", "ft": ["semantic.prompt.streaming_recovery_gap"], "why": "流式策略先检查是否适用，再复核分帧、顺序、完成、部分输出和续传行为。"}, {"b": "03_resource_function_call_contract", "st": "covered", "ft": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.excessive_tool_scope", "semantic.prompt.tool_call_contract_gap"], "why": "调用条件、参数来源、结果 schema、失败处理和工具必要性是分别独立复核的。"}, {"b": "03_resource_prompt_length", "st": "covered", "ft": ["prompt.duplicate_content_line", "semantic.prompt.attention_dilution"], "why": "单纯的长度不会被标记；逐字重复和“关键规则被实质性埋没”的证据提供了有边界的覆盖。"}, {"b": "04_interop_symbol_conflict", "st": "covered", "ft": ["prompt.embedded_system_role_marker", "prompt.control_character"], "why": "控制角色标记和不安全的控制字节通过确定性方式检出。"}, {"b": "04_interop_quote_mix", "st": "covered", "ft": ["prompt.fullwidth_mixed", "prompt.structured_quote_inconsistency"], "why": "全角语法，以及会破坏解析的智能引号、单引号键或反引号键，由分别独立的、带源位置的确定性规则处理。"}, {"b": "04_interop_width_mix", "st": "covered", "ft": ["prompt.fullwidth_mixed"], "why": "混用的全角和半角语法通过确定性方式检出。"}, {"b": "04_interop_portability", "st": "covered", "ft": ["prompt.model_endpoint_no_fallback", "semantic.prompt.capability_dependency_gap"], "why": "固定的端点，以及非模型内在具备的实时、网络、媒体、记忆、上下文或插件依赖，需要提供说明或回退方案。"}, {"b": "04_interop_nested_system_tag", "st": "covered", "ft": ["prompt.embedded_system_role_marker", "prompt.instruction_override_marker"], "why": "嵌套的权限标记和指令覆盖短语属于确定性 finding。"}, {"b": "05_robustness_injection_defense", "st": "covered", "ft": ["prompt.untrusted_input_boundary_undeclared", "prompt.encoded_injection_payload", "semantic.prompt.trust_boundary_ambiguity"], "why": "Verity 把确定性的边界检查和编码载荷检查，与一次语义层面的信任边界复核结合在一起。"}, {"b": "05_robustness_hallucination_control", "st": "covered", "ft": ["semantic.prompt.grounding_requirement_gap"], "why": "依据要求、不确定性、来源和弃权要求，只在事实权威性适用时才被判断。"}, {"b": "05_robustness_abnormal_input", "st": "covered", "ft": ["semantic.prompt.failure_strategy_gap", "semantic.prompt.input_and_default_contract_gap"], "why": "空、格式错误、不受支持和含糊的实质性输入，要求有验证、澄清、安全默认值或拒绝行为。"}, {"b": "05_robustness_boundary_values", "st": "covered", "ft": ["semantic.prompt.ambiguous_operational_criteria", "semantic.prompt.missing_output_contract", "semantic.prompt.field_constraint_gap"], "why": "通用标准、输出形状，以及一个受适用性门槛限制的字段策略，覆盖了极值、范围、空值、重复和翻转行为。"}, {"b": "05_robustness_multi_turn_stability", "st": "covered", "ft": ["semantic.prompt.multi_turn_state_gap"], "why": "多轮策略检查状态继承、可变更新、重置规则、冲突解决和不可覆盖的约束。"}, {"b": "05_robustness_safety_policy", "st": "covered", "ft": ["semantic.prompt.authority_boundary_ambiguity", "semantic.prompt.safety_policy_gap"], "why": "有实质影响的行动审批，以及适用的危险内容拒绝、允许范围、安全替代方案和上报机制，是分别复核的。"}, {"b": "06_quality_self_check", "st": "covered", "ft": ["semantic.prompt.verification_step_gap"], "why": "对下游敏感的输出需要一个有边界的验证步骤，且不暴露私密的推理过程。"}, {"b": "06_quality_few_shot", "st": "covered", "ft": ["semantic.prompt.example_contract_mismatch"], "why": "规范性示例会被检查是否与规则不匹配、依赖过时假设、分布不匹配，以及是否实质性覆盖了正常、边界或失败情况。"}, {"b": "06_quality_style_consistency", "st": "covered", "ft": ["semantic.prompt.instruction_conflict", "semantic.prompt.example_contract_mismatch"], "why": "明确的风格冲突，以及规则与示例之间的语言或语气不匹配，使用分别独立的受控语义策略。"}, {"b": "06_quality_length_control", "st": "covered", "ft": ["semantic.prompt.output_budget_pressure", "prompt.output_budget_conflict"], "why": "语境层面的压力与精确的算术不可行性是分开测量的。"}, {"b": "06_quality_model_capability", "st": "covered", "ft": ["prompt.model_endpoint_no_fallback", "semantic.prompt.capability_dependency_gap"], "why": "模型与部署依赖覆盖实时、视觉、音频、记忆、上下文、网络、插件和固定端点回退方案。"}, {"b": "07_compliance_privacy", "st": "covered", "ft": ["prompt.system_hardcoded_secret", "semantic.prompt.sensitive_data_handling_gap"], "why": "字面出现的密钥，以及提示词指示的数据处理，会被检查最小化、脱敏、留存、授权和披露边界。"}, {"b": "07_compliance_copyright_source", "st": "covered", "ft": ["semantic.prompt.grounding_requirement_gap", "semantic.prompt.source_use_policy_gap"], "why": "事实依据要求和一个非法律性的来源使用策略，分别处理署名、复制限制、转换和所有权状态。"}, {"b": "05_robustness_secret_leak", "st": "covered", "ft": ["prompt.system_hardcoded_secret", "skill.gitleaks_finding"], "why": "提示词中的字面密钥和 Skill 代码库分别使用独立的确定性密钥检测器。"}, {"b": "05_robustness_skill_dangerous_pattern", "st": "covered", "ft": ["skill.dangerous_shell_pattern", "skill.sensitive_path_access", "skill.python_subprocess_shell_true", "semantic.skill.permission_capability_mismatch", "semantic.skill.declared_behavior_mismatch"], "why": "危险语法、敏感路径、shell 执行、声明行为和最小权限原则被分别独立检查。"}], "crosswalkMeta": {"commit": "20979b573107a29232bf95dcf56801e06504d801", "fp": "de147af7ce65e417c692115600076044b0e4dc23b55c70b7930940138cf27737", "src": "src/core/skillLoader/loadBuiltinSkills.ts", "n": 45, "policy": {"claimRequiresNoOpenGaps": true, "maximumNotAdopted": 3, "coveredDefinition": "至少有一个映射的 Verity 检测器实质性地覆盖了该检查项；covered 不代表完整召回率、已评测精度或全面优于。"}}};
+DATA.rules.push(
+  {"id":"skill.upstream_dependency_contract_gap","e":"skill","t":"SKILL.md 正文以文字声明上游 Skill 输出是前置条件，但 manifest 的 dependencies 和 metadata 都为空；不存在可机器校验的上游契约。","s":"medium","c":["quality.authorization"],"ft":"skill.upstream_dependency_contract_gap","impl":"impl.skill.upstream_dependency_contract_gap.v1","v":"1.0.0"},
+  {"id":"skill.scope_restrictions_prose_only","e":"skill","t":"SKILL.md 正文只用文字声明‘不得用于某类场景’的范围限制，但 manifest 中没有对应的 allowed-tools 或 permissions 字段；限制完全依赖模型遵循指令，没有自动强制。","s":"low","c":["quality.authorization"],"ft":"skill.scope_restrictions_prose_only","impl":"impl.skill.scope_restrictions_prose_only.v1","v":"1.0.0"},
+  {"id":"skill.no_fabrication_declared","e":"skill","t":"SKILL.md 正文只用文字声明不得虚构、不得自行补充或不可伪造，但 manifest 中没有对应的 permissions 或 metadata 字段；禁令完全依赖模型遵循指令。","s":"low","c":["quality.authorization"],"ft":"skill.no_fabrication_declared","impl":"impl.skill.no_fabrication_declared.v1","v":"1.0.0"},
+  {"id":"skill.strict_output_contract_prose_only","e":"skill","t":"SKILL.md 正文声明严格的单一 JSON 对象输出契约，但 manifest 的 refs 没有指向 schema 文件，metadata 也没有 schema 信息；Verity 因此没有可机器校验的 schema 来核对真实输出。","s":"low","c":["quality.consistency"],"ft":"skill.strict_output_contract_prose_only","impl":"impl.skill.strict_output_contract_prose_only.v1","v":"1.0.0"},
+  {"id":"skill.tool_unavailable_contract_prose_only","e":"skill","t":"SKILL.md 正文只用文字声明注入工具不可用时的回退行为，但 manifest metadata 中没有机器可读的回退声明；调用方无法机械验证该回退是否兑现。","s":"low","c":["quality.resilience"],"ft":"skill.tool_unavailable_contract_prose_only","impl":"impl.skill.tool_unavailable_contract_prose_only.v1","v":"1.0.0"},
+  {"id":"skill.missing_inline_reference","e":"skill","t":"SKILL.md 正文包含指向 references/<file> 的行内链接，但该文件在 Skill 包中不存在；它补充检查 manifest refs 字段之外的正文链接。","s":"medium","c":["OWASP-AST04"],"ft":"skill.missing_inline_reference","impl":"impl.skill.missing_inline_reference.v1","v":"1.0.0"},
+  {"id":"skill.business_interface_version_gap","e":"skill","t":"SKILL.md 正文引用 business-interface.md，却没有写出该文件声明的同一份契约版本；接口文件升级后，只读 SKILL.md 的调用方无法察觉。","s":"medium","c":["quality.consistency"],"ft":"skill.business_interface_version_gap","impl":"impl.skill.business_interface_version_gap.v1","v":"1.0.0"},
+  {"id":"skill.runtime_state_file_malformed","e":"skill","t":"current.json 或 history.jsonl 存在，但文件为空或无法解析为有效 JSON/JSONL；Skill 在启动并加载运行状态时会失败。","s":"medium","c":["quality.resilience"],"ft":"skill.runtime_state_file_malformed","impl":"impl.skill.runtime_state_file_malformed.v1","v":"1.0.0"}
+);
+
 /* ============================================================
    每一步的详情内容。每个条目：title（标题）、sub（file::symbol）、
    body（HTML 字符串）。统一使用四段式模板：
@@ -1935,7 +2922,7 @@ intake: {
     "</ul>",
     "<h4>边界 / 不能做什么</h4>",
     "<ul>",
-    "<li>V1 <strong>不会</strong>解压 ZIP、抓取 GitHub URL，或递归展开嵌套压缩包。这些是后续才会开的门，不是遗漏——一个安全的流式解压器本身就是一个独立的工程。</li>",
+    "<li>核心/CLI 摄入层<strong>不会</strong>解压 ZIP；普通 Web Skill 审查可以先安全解压恰好一个本地 ZIP，再进入同一套有预算边界的摄入流程。GitHub URL 摄入和递归展开嵌套压缩包仍不支持。</li>",
     "<li>一次审查对应恰好一个被审对象。批量扫描按规格被推迟实现。</li>",
     "<li>此刻之后，被审对象被视为不可信输入：它不能选择 Provider 端点或模型，不能决定出站策略，不能翻转阶段门槛，也绝不能在报告、SARIF 或 LLM 载荷中以未脱敏形式出现。</li>",
     "</ul>"
@@ -1979,7 +2966,7 @@ plan: {
     "</ul>",
     "<h4>边界 / 不能做什么</h4>",
     "<ul>",
-    "<li>规则是否适用，在<strong>执行之前</strong>就已决定。这是一条确定性 Finding 能够“不存在”的两种方式之一（另一种是显式的 DispositionRecord）。</li>",
+    "<li>规则是否适用，在<strong>执行之前</strong>就已决定；不适用的规则不会创建 Finding。这和事后处置不同：处置记录不会删除当前报告里的 Finding。</li>",
     "<li>计划有版本号和阶段（<code>initial</code>，expansionDepth 0），所以一次重新审查可以与同一范围做比较。</li>",
     "</ul>"
   ].join("")
@@ -2021,9 +3008,9 @@ analyzers: {
     "<ul>",
     "<li><strong>版本锁定是被强制的，不是写在文档里的。</strong> Bandit 锁定在 <code>1.7.10</code>，gitleaks 锁定在 <code>8.28.0</code>。<code>version_mismatch</code> 状态会变成一个<em>失败</em>的计划项，不是一条警告。</li>",
     "<li><strong>不同工具的门槛等级不同。</strong> Bandit 是 <code>normal</code>；gitleaks 是 <code>critical</code>。所以 gitleaks 失败会让 Coverage 判定为不足并抑制数字分数，因为“无法扫描密钥”绝不能读成“没有发现密钥”。</li>",
-    "<li>每个运行器都会记录暂存文件、<code>stagedFileCount</code>、一份 <code>pathMap</code>、退出码、耗时、工具路径和工具 SHA-256——这样报告就能证明<em>究竟是哪个二进制</em>产生了这些结果。</li>",
+    "<li>两个运行器的内部结果都记录 <code>stagedFileCount</code>、<code>pathMap</code>、退出码与耗时，但公开报告会去掉含主机绝对路径的 <code>pathMap</code>。Bandit 的公开结果不含工具路径或 SHA-256；gitleaks 内部记录路径与 SHA-256，公开报告只保留 SHA-256，不保留路径。</li>",
     "<li><strong>gitleaks 的输出在到达对象模型之前，会先由运行器脱敏。</strong> 密钥类证据带有敏感性标记，这个标记会一直存活到 Web 投影层——那里永远渲染脱敏后的预览，而不会从本地源码重建出原始字节。</li>",
-    "<li>只有白名单里的 Bandit 测试 id 会被映射为规则（共 18 条），每条都有自己的严重度和 OWASP AST 控制项。未映射的 Bandit 输出不会悄悄变成一条 finding。</li>",
+    "<li>只有白名单里的 Bandit 测试 id 会被映射为规则（共 15 条），每条都有自己的严重度和 OWASP AST 控制项。未映射的 Bandit 输出不会悄悄变成一条 finding。</li>",
     "</ul>",
     "<h4>边界 / 不能做什么</h4>",
     "<ul>",
@@ -2049,13 +3036,9 @@ findings: {
     "<li>一条规则可以为一条 Finding 挂上多条 Evidence 记录（例如同一个 key 的两次矛盾赋值）。这个列表保持顺序，第一条是展示时的锚点。</li>",
     "</ul>",
     "<h4>边界 / 不能做什么 —— 请仔细读这一条</h4>",
-    "<p>一条确定性 Finding 一旦产生，只能通过<strong>恰好两种</strong>机制从报告投影中消失：</p>",
-    "<ol>",
-    "<li>该规则被判定为<strong>不适用</strong>——这是在 Plan 步骤、执行之前就已决定的；</li>",
-    "<li>一条显式的<strong>DispositionRecord</strong>（一次人工决定，会被记录并会过期失效）。</li>",
-    "</ol>",
-    "<p><strong>候选生成器、校验器、元 LLM、打分器，或 Web 视图——没有任何一个组件有代码路径能删除或降级一条确定性 Finding。</strong> <code>tests/test_architecture.py</code> 中一个 AST 级别的 import 检查测试强制这一半的结构约束。</p>",
-    "<p>建议性的处置动作也是受约束的：<code>accept_risk</code> 和 <code>false_positive</code> 从不改写严重度或原始分数。它们改变的是网关对这条 finding 会做什么，不是这条 finding <em>本身是什么</em>。</p>"
+    "<p>适用性在执行前决定：不适用的规则不会创建 Finding；但一旦确定性 Finding 已经产生，它就保留在当前报告中。处置记录不会删除当前报告里的 Finding，也不会改变严重度或默认退出码，只会给历史差异增加人工决定注记。只有有效的 <code>accept_risk</code> 配合 CLI <code>--respect-dispositions</code>，才可选择性影响 High 门禁。</p>",
+    "<p><strong>候选生成器、校验器、元 LLM、打分器，或 Web 视图——没有任何一个组件有代码路径能删除或降级一条确定性 Finding。</strong> <code>tests/test_semantic.py</code> 中一个 AST 级别的 import 检查测试强制这一半的结构约束。</p>",
+    "<p>建议性的处置动作也是受约束的：<code>accept_risk</code> 和 <code>false_positive</code> 从不改写严重度或原始分数。默认网关也不尊重处置；只有调用方显式传入 <code>--respect-dispositions</code> 时，有效的 accept_risk 才能让对应 High 不阻断 CI。</p>"
   ].join("")
 },
 
@@ -2159,7 +3142,7 @@ consumers: {
     "<h4>边界 / Web 特有的不变量</h4>",
     "<ul>",
     "<li><strong>最大扫描力度策略。</strong> 本地回环 UI 和服务端强制使用 <code>standard</code> Skill 剖面和 <code>redacted_evidence</code> 语义出站策略。移除一个选择器<em>不是</em>强制执行的边界——发来 <code>minimal</code> 或 <code>metadata_only</code> 的过时客户端会被服务端升级校正。</li>",
-    "<li><strong>存储的凭证 → 浏览器，这条路径是被禁止的。</strong> 设置 API 只返回非密钥类的偏好设置和一个 <code>keySaved</code> 布尔值，从不返回密钥本身。JavaScript 不使用浏览器存储保存凭证。API key 只存在于当前 macOS 用户的 Keychain 中；URL 和模型偏好存在仅所有者可读（0600）的本地 JSON 中。</li>",
+    "<li><strong>存储的语义凭证 → 浏览器，这条路径是被禁止的。</strong> 语义设置 API 只返回非密钥类偏好和一个 <code>keySaved</code> 布尔值，从不返回密钥本身。JavaScript 不使用浏览器存储保存凭证；保存的语义 Provider key 位于当前 macOS 用户的 Keychain，URL 和模型偏好位于仅所有者可读（0600）的本地 JSON。Prompt 黑盒 key 不持久化：每次审查单独提供，放入临时环境变量，用后清理，也不会复用语义 key。</li>",
     "<li>一个请求提供的 Provider URL 从不会继承一个已保存的密钥，修改已保存的 URL 需要一个新密钥——所以旧凭证永远不可能被配对到新端点上。</li>",
     "<li>Keychain 访问是受限的、不经过 shell、在 ASGI 事件循环之外运行、通过 stdin（而不是 argv）传递密钥，并与任何控制终端分离。</li>",
     "</ul>"
@@ -2475,7 +3458,7 @@ consumers: {
   title: "横切关注点 —— 出站门控与载荷审计",
   sub: "verity/semantic/egress.py",
   body: [
-    "<div class='m-lead'>一句话结论：每一次出站的 Provider 请求都要经过这个模块。这是整个项目里唯一允许把源自被审对象的内容序列化后发往网络的地方，而且它被写成一个默认拒绝的投影，不是一个过滤器。</div>",
+    "<div class='m-lead'>一句话结论：这个模块只负责语义 Candidate/Validator 的受控投影和载荷审计，是语义阶段唯一的出站构造边界；Prompt 黑盒和 Harness 各走自己的受控运行路径，不经过这里。</div>",
     "<h4>做什么：脱敏策略，逐一说明</h4>",
     "<ol>",
     "<li><strong>敏感证据是被丢弃的，不是被打码的。</strong> 任何 <code>sensitivity != \"normal\"</code> 的证据永远不会离开进程。一个被检出的密钥不会以脱敏形式发给模型——它<em>根本不会被发送</em>。</li>",
@@ -2495,7 +3478,7 @@ consumers: {
     "</ul>",
     "<h4>边界 / 不能做什么</h4>",
     "<ul>",
-    "<li>被审对象<strong>绝不能</strong>以未脱敏形式出现在报告、SARIF 或 LLM 载荷中（AGENTS.md §8）。</li>",
+    "<li>被审对象<strong>绝不能</strong>以未脱敏形式出现在报告或 SARIF；在本节负责的<strong>语义</strong> LLM 载荷中，也只能出现策略允许的 metadata / 脱敏 Evidence 投影。Prompt 黑盒显式发送完整 Prompt，是另一条必须单独确认的边界。</li>",
     "<li>没有任何凭证、主机路径、密钥字节，或敏感证据能跨越这条边界——无论在哪种策略下，永远不能。</li>",
     "<li>仅供评测使用的 Provider（<code>semantic/eval_provider.py</code>）只能被显式的评测工具触达，只接受带版本号的合成语料库，有一个整次运行的调用预算预检，没有被接入产品 CLI/Web 审查路径，也不存储任何原始的 Provider 请求或响应。</li>",
     "</ul>"
@@ -2591,10 +3574,17 @@ consumers: {
     document.body.style.overflow = "hidden";
     document.getElementById("modal-close").focus();
   }
+  function restoreModalFocus(node) {
+    /* MutationObserver clears background `inert` before this timer runs. */
+    window.setTimeout(function () {
+      if (node && node.isConnected && node.focus) node.focus();
+    }, 0);
+  }
   function close() {
+    var focusTarget = lastFocus;
     back.classList.remove("open");
     document.body.style.overflow = "";
-    if (lastFocus && lastFocus.focus) lastFocus.focus();
+    restoreModalFocus(focusTarget);
   }
   window.__verityOpenNode = open;
 
@@ -2841,7 +3831,8 @@ consumers: {
 (function () {
   function esc(s) {
     return String(s == null ? "" : s)
-      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
   function sevBadge(s) {
     return '<span class="sev sev-' + esc(s) + '">' + esc(s) + "</span>";
@@ -3058,6 +4049,314 @@ consumers: {
       }).join("") +
       "</tbody></table></div>";
   }
+})();
+</script>
+
+<script>
+(function () {
+  "use strict";
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  /* ---------- 场景路径助手 ---------- */
+  var PATHS = {
+    "local-prompt": {
+      title: "建议：本地静态 Prompt 审查",
+      summary: "运行确定性规则、行为画像、动态计划、静态 Coverage、分数和报告。CLI 使用 --no-semantic 明确跳过语义；不启用黑盒。",
+      cells: [["离开本机", "无"], ["真实模型调用", "无"], ["可证明", "计划内静态检查完成情况"], ["不能证明", "真实模型上的通用行为"]],
+      command: "python3 -m verity.cli review --engine prompt --no-semantic --input-file prompt.txt --out out/prompt"
+    },
+    "semantic-blackbox": {
+      title: "建议：把语义与黑盒当作两条独立 Provider 边界",
+      summary: "先配置 Candidate/Validator 做受控语义判断；只有确实需要真实行为证据时，再单独启用 Prompt 黑盒。不要共用“脱敏证据”描述黑盒。",
+      cells: [["语义出站", "metadata / 脱敏 Evidence"], ["黑盒出站", "完整 Prompt + Scenario"], ["可证明", "特定 Provider 与场景下的有界观察"], ["不能证明", "跨模型通用安全、图像保真或已评测准确率"]],
+      command: "先按操作手册配置语义；黑盒另加 --enable-prompt-blackbox 与独立 Provider 参数"
+    },
+    "skill-standard": {
+      title: "建议：Web standard Skill 审查",
+      summary: "选择本地文件夹或一个受保护 ZIP。运行 Manifest/引用/权限/代码规则、Bandit、gitleaks、Coverage、画像与报告；不执行 Skill。",
+      cells: [["输入", "Web 文件夹 / 单 ZIP；CLI 目录"], ["关键依赖", "固定 gitleaks 8.28.0"], ["可证明", "计划内静态规则与成熟分析器结果"], ["不能证明", "被审代码在真实运行时的完整行为"]],
+      command: "python3 -m verity.cli review --engine skill --profile standard --input-dir ./skill --out out/skill"
+    },
+    "agent-harness": {
+      title: "建议：先静态审查，再由 CLI 显式配置 Agent Harness",
+      summary: "仅适用于 instruction-only Skill。需要固定 Node/DSH 入口和真实 Provider；四个工具都是合成/阻断/拒绝动作。",
+      cells: [["入口", "CLI-only，默认关闭"], ["出站", "Skill 指令 + Scenario Prompt"], ["可证明", "模型对四类模拟工具的尝试信号"], ["不能证明", "OS/进程/网络隔离或 Agent 通用安全"]],
+      command: "参见“CLI 常用命令 → Agent Harness（参数骨架）”"
+    },
+    "executable-skill": {
+      title: "当前不能走这条路径：可执行 Skill 产品沙箱不可用",
+      summary: "显式请求会在构造 research runner 前失败关闭，原因码 sandbox_isolation_hardening_required。不要把仓库中保留的 runner 或 12 个 signal 当成产品能力。",
+      cells: [["是否执行", "否"], ["返回状态", "failed / unavailable"], ["解锁条件", "host read、输出/磁盘/进程树、观察器、清理与报告投影全部加固"], ["替代方案", "静态审查；instruction-only 才考虑 Harness"]],
+      command: "没有可安全启用的命令"
+    }
+  };
+
+  function renderPath(key) {
+    var data = PATHS[key];
+    var target = document.getElementById("path-detail");
+    if (!data || !target) return;
+    target.replaceChildren();
+    target.appendChild(el("h3", "", data.title));
+    target.appendChild(el("p", "", data.summary));
+    var grid = el("div", "detail-grid");
+    data.cells.forEach(function (pair) {
+      var cell = el("div", "detail-cell");
+      cell.appendChild(el("strong", "", pair[0]));
+      cell.appendChild(document.createTextNode(pair[1]));
+      grid.appendChild(cell);
+    });
+    target.appendChild(grid);
+    var command = el("p", "mono", data.command);
+    command.style.marginTop = "12px";
+    target.appendChild(command);
+  }
+
+  var pathOptions = document.getElementById("path-options");
+  if (pathOptions) {
+    pathOptions.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-path]");
+      if (!button) return;
+      pathOptions.querySelectorAll("[data-path]").forEach(function (candidate) {
+        candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false");
+      });
+      renderPath(button.getAttribute("data-path"));
+    });
+  }
+
+  /* ---------- Prompt / Skill 真实流程 ---------- */
+  var COMMON_TAIL = [
+    {name:"评分与整改", state:"本地投影", input:"完成阶段的 Findings、occurrences 与 Coverage", action:"按统一风险递减扣分，计算 Confidence，生成 proposal-only actions", output:"score / reviewConfidence / remediations", fail:"Coverage 或请求阶段不完整时 Score unavailable", boundary:"本地；模型不能给分或改严重度", source:"src/verity/scoring.py"},
+    {name:"统一 Issues", state:"保留所有层", input:"静态、语义、黑盒与运行时 occurrence", action:"按 stable risk id 聚合并计算 runtime_confirmed 等状态", output:"issues[]，原始身份仍保留", fail:"适配器不可用时为 unverified，不把未知当 pass", boundary:"本地安全投影", source:"src/verity/issues.py"},
+    {name:"Verdict 与 gate", state:"政策决策", input:"Coverage、Findings、阶段状态与处置策略", action:"计算 subject Verdict、reason codes 与 CLI gate", output:"verdict；CLI 0/1/3", fail:"Coverage 不足时 subject=null", boundary:"本地；High/Critical gate 优先", source:"src/verity/report.py · src/verity/cli.py"},
+    {name:"消费者与留档", state:"安全输出", input:"完整 Review 对象", action:"投影 JSON、HTML、SARIF、Web；Skill 可写安全历史", output:"报告文件 / 临时 Web URL / 受控版本记录", fail:"Web 重启使临时 URL 失效；历史写入失败会显式报错", boundary:"不存原始 Secret/Provider body/主机路径", source:"src/verity/report.py · sarif.py · history.py"}
+  ];
+  var WORKFLOWS = {
+    prompt: [
+      {name:"安全摄入", state:"本地", input:"一段 Prompt + user/system 类型", action:"拒绝 NUL/超 256 KiB，冻结文本", output:"ArtifactSnapshot + file_bytes", fail:"IntakeError，停止", boundary:"无网络、无模型", source:"src/verity/intake.py::intake_text"},
+      {name:"确定性计划", state:"本地", input:"Snapshot、prompt_kind、规则注册表", action:"构造 ReviewPlan 并判断 system-only 适用性", output:"plan items", fail:"注册/策略异常显式失败", boundary:"Artifact 不能选择规则", source:"src/verity/review.py::_build_engine"},
+      {name:"静态执行", state:"默认运行", input:"计划 + 冻结字节", action:"逐规则生成 Evidence → RuleMatch → Finding", output:"executions / evidences / findings", fail:"每项 failed 或 not_applicable 都留账", boundary:"不调用 Provider", source:"src/verity/engine.py::Engine.run"},
+      {name:"行为画像", state:"事实提取", input:"Prompt 文本与静态证据", action:"提取任务、输入输出、状态、副作用、敏感/外部内容", output:"ArtifactBehaviorProfile", fail:"无证据事实留空，不猜测", boundary:"不是 Finding、不扣分", source:"src/verity/dynamic/profile.py"},
+      {name:"动态计划", state:"总账", input:"行为画像 + 动态注册表", action:"每项标 selected/not_applicable/unavailable", output:"DynamicReviewPlan", fail:"适配器缺失必须 unavailable", boundary:"selected 不等于执行/pass", source:"src/verity/dynamic/planner.py"},
+      {name:"静态 Coverage", state:"门控", input:"plan 与 executions", action:"核对关键检查是否 completed/合理不适用", output:"coverage sufficient / insufficient", fail:"gap 不产生乐观结论", boundary:"本地政策", source:"src/verity/review.py::run_review"},
+      {name:"语义审查", state:"实验性", input:"受控 review 投影 + trusted Provider", action:"Catalog/candidate → Validator → 多数票", output:"confirmed semantic Findings 或诊断", fail:"provider_not_configured / schema / budget / vote split", boundary:"metadata/脱敏 Evidence；不写回静态", source:"src/verity/semantic/orchestrator.py"},
+      {name:"Prompt 黑盒", state:"显式可选", input:"完整 Prompt + Scenario + 独立 Provider", action:"真实模型运行；有界 Oracle 判定", output:"受控 scenario outcomes", fail:"预算、Provider、inconclusive 使阶段 failed", boundary:"完整 Prompt 出站；公开报告不留原文", source:"src/verity/blackbox/runner.py"}
+    ].concat(COMMON_TAIL),
+    skill: [
+      {name:"安全摄入", state:"本地", input:"目录；Web 普通审查也可单 ZIP", action:"路径/类型/数量/大小/竞态检查，ZIP 增量解压", output:"ArtifactSnapshot + file_bytes", fail:"危险路径、冲突、zip bomb、预算超限即拒绝", boundary:"符号链接不跟随；嵌套 archive 不展开", source:"src/verity/intake.py · web/app.py"},
+      {name:"Parser 与计划", state:"本地", input:"根 SKILL.md + 注册表 + profile", action:"bounded YAML safe_load，构造规则/Analyzer 计划", output:"artifactModel + ReviewPlan", fail:"manifest parse failure 阻断依赖规则", boundary:"Web 强制 standard", source:"src/verity/parser.py · review.py"},
+      {name:"静态与成熟工具", state:"默认运行", input:"冻结文件字节", action:"结构/引用/权限/代码规则 + Bandit + gitleaks", output:"Evidence / RuleMatch / Finding", fail:"gitleaks 缺失/漂移令 Coverage 不足", boundary:"分析器可 subprocess；被审代码不执行", source:"src/verity/engine.py · bandit_runner.py · gitleaks_runner.py"},
+      {name:"能力与行为画像", state:"事实提取", input:"manifest、文本、Python AST、静态证据", action:"提取 runtime kind、工具、数据、网络、文件/进程与副作用", output:"capability facts + behaviorProfile", fail:"跨语言未知保持未知", boundary:"事实不是漏洞", source:"src/verity/capabilities.py · dynamic/profile.py"},
+      {name:"动态计划", state:"总账", input:"画像与 Skill 动态注册表", action:"判断 instruction-only/executable，给检查分类", output:"selected/not_applicable/unavailable", fail:"可执行 Skill 的被动沙箱观察项可先标 selected；只有 runtime_adapter 模式在适用但未配置时标 unavailable", boundary:"这里只判断适用性，不代表执行完成；Artifact 不能开启阶段", source:"src/verity/dynamic/planner.py"},
+      {name:"静态 Coverage", state:"门控", input:"计划和真实执行", action:"核对 parser、规则与 critical analyzers", output:"coverage", fail:"blocked_by_upstream_failure 不是 pass", boundary:"minimal 是显式跳过，不伪装扫描", source:"src/verity/review.py"},
+      {name:"语义审查", state:"实验性", input:"manifest/能力/Evidence 的受控投影", action:"受控候选与 Validator 判断声明/权限/边界", output:"语义 Findings 或诊断", fail:"配置、schema、预算或投票不足失败", boundary:"不执行 Skill，不改静态 Findings", source:"src/verity/semantic/orchestrator.py"},
+      {name:"执行分支", state:"严格分流", input:"runtime kind + trusted caller config", action:"可执行沙箱请求 fail closed；instruction-only 可选 CLI Harness", output:"沙箱请求为 failed + observation unavailable；或 Harness bounded attempt signals", fail:"sandbox_isolation_hardening_required / Harness 配置失败", boundary:"Harness 工具无副作用但不是 OS 沙箱", source:"src/verity/review.py · agent_runtime/"}
+    ].concat(COMMON_TAIL)
+  };
+
+  var activeWorkflow = "prompt";
+  var workflowSteps = document.getElementById("workflow-steps");
+  var workflowDetail = document.getElementById("workflow-detail");
+  function renderWorkflowDetail(index) {
+    var stage = WORKFLOWS[activeWorkflow][index];
+    if (!stage || !workflowDetail) return;
+    workflowDetail.replaceChildren();
+    workflowDetail.appendChild(el("h3", "", (index + 1) + ". " + stage.name));
+    var grid = el("div", "detail-grid");
+    [["输入",stage.input],["动作",stage.action],["输出",stage.output],["失败状态",stage.fail],["数据边界",stage.boundary],["源码",stage.source]].forEach(function (pair) {
+      var cell = el("div", "detail-cell"); cell.appendChild(el("strong", "", pair[0])); cell.appendChild(document.createTextNode(pair[1])); grid.appendChild(cell);
+    });
+    workflowDetail.appendChild(grid);
+    workflowSteps.querySelectorAll("[data-stage-index]").forEach(function (button) {
+      if (Number(button.getAttribute("data-stage-index")) === index) button.setAttribute("aria-current", "step");
+      else button.removeAttribute("aria-current");
+    });
+  }
+  function renderWorkflow(kind) {
+    activeWorkflow = kind;
+    if (!workflowSteps) return;
+    workflowSteps.replaceChildren();
+    WORKFLOWS[kind].forEach(function (stage, index) {
+      var button = el("button", "stage-button"); button.type = "button"; button.setAttribute("data-stage-index", String(index)); button.setAttribute("aria-controls", "workflow-detail");
+      button.appendChild(el("span", "stage-no", "阶段 " + (index + 1)));
+      button.appendChild(el("span", "stage-name", stage.name));
+      button.appendChild(el("span", "stage-state", stage.state));
+      button.addEventListener("click", function () { renderWorkflowDetail(index); });
+      workflowSteps.appendChild(button);
+    });
+    renderWorkflowDetail(0);
+  }
+  var workflowTabs = document.getElementById("workflow-tabs");
+  if (workflowTabs) {
+    workflowTabs.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-workflow]"); if (!button) return;
+      workflowTabs.querySelectorAll("[data-workflow]").forEach(function (candidate) { candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false"); });
+      renderWorkflow(button.getAttribute("data-workflow"));
+    });
+    renderWorkflow("prompt");
+  }
+
+  /* ---------- 架构信任区 ---------- */
+  var ARCH = {
+    intake:["不可信输入区","把一个 Prompt、Skill 文件夹或 Web 单 ZIP 安全冻结。被审内容只能成为数据，不能决定 Provider、模型、凭证、严重度、预算、Scenario 或工具路径。","src/verity/intake.py · src/verity/web/app.py"],
+    deterministic:["本机确定性区","Parser、规则、Bandit、gitleaks、Coverage、行为画像与动态计划在本机运行。Bandit/gitleaks 是受信任分析器 subprocess；它们不执行 Skill 入口。","src/verity/engine.py · review.py · dynamic/"],
+    provider:["受控 Provider 区","语义只发 metadata/脱敏 Evidence；黑盒发完整 Prompt；Harness 发 Skill 指令与场景。三条路径有独立配置、预算、审计和公开投影，不能混用隐私承诺。","src/verity/semantic/egress.py · blackbox/runner.py · agent_runtime/"],
+    execution:["执行边界","Prompt 黑盒真实调用模型。可执行 Skill 产品沙箱当前失败关闭。Harness 运行外部 DSH，但模型可见工具是内存/阻断/拒绝模拟；这不构成 OS/网络沙箱。","src/verity/review.py · agent_runtime/verity_runtime_plugin.mjs"],
+    projection:["安全投影区","把完成阶段映射成 Score、Confidence、Remediation、统一 Issues 与 Verdict，再输出 JSON/HTML/SARIF/Web/受控历史。静态 Finding 不能被模型或动态 pass 删除。","src/verity/report.py · scoring.py · issues.py · history.py"]
+  };
+  var architectureMap = document.getElementById("architecture-map");
+  var architectureDetail = document.getElementById("architecture-detail");
+  if (architectureMap && architectureDetail) {
+    architectureMap.addEventListener("click", function (event) {
+      var button = event.target.closest("[data-architecture]"); if (!button) return;
+      architectureMap.querySelectorAll("[data-architecture]").forEach(function (candidate) { candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false"); });
+      var data = ARCH[button.getAttribute("data-architecture")]; architectureDetail.replaceChildren();
+      architectureDetail.appendChild(el("h3", "", data[0])); architectureDetail.appendChild(el("p", "", data[1]));
+      var source = el("p", "mono", "源码：" + data[2]); architectureDetail.appendChild(source);
+    });
+  }
+
+  /* ---------- 复制命令：Clipboard + file:// fallback ---------- */
+  var copyStatus = document.getElementById("copy-status");
+  function announceCopy(message) { if (copyStatus) copyStatus.textContent = message; }
+  function legacyCopy(text) {
+    var area = document.createElement("textarea"); area.value = text; area.setAttribute("readonly", ""); area.style.position = "fixed"; area.style.opacity = "0";
+    document.body.appendChild(area); area.select(); var ok = false;
+    try { ok = document.execCommand("copy"); } catch (error) { ok = false; }
+    area.remove(); return ok;
+  }
+  document.addEventListener("click", function (event) {
+    var button = event.target.closest(".copy-button[data-copy-target]"); if (!button) return;
+    var source = document.getElementById(button.getAttribute("data-copy-target")); if (!source) return;
+    var text = source.textContent.trim();
+    function done(ok) { button.textContent = ok ? "已复制" : "请手动复制"; announceCopy(ok ? "命令已复制到剪贴板" : "自动复制失败，请选择命令手动复制"); window.setTimeout(function () { button.textContent = "复制命令"; }, 1800); }
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(legacyCopy(text)); });
+    else done(legacyCopy(text));
+  });
+
+  /* ---------- FAQ / 术语筛选 ---------- */
+  var faqCategory = "all";
+  function filterFaq() {
+    var input = document.getElementById("faq-search"); var query = input ? input.value.toLowerCase().trim() : "";
+    var items = Array.from(document.querySelectorAll(".faq-item")); var shown = 0;
+    items.forEach(function (item) { var ok = (faqCategory === "all" || item.getAttribute("data-category") === faqCategory) && (!query || item.textContent.toLowerCase().indexOf(query) !== -1); item.hidden = !ok; if (ok) shown += 1; });
+    var count = document.getElementById("faq-count"); if (count) count.textContent = shown + " / " + items.length + " 个问题";
+  }
+  var faqSearch = document.getElementById("faq-search"); if (faqSearch) faqSearch.addEventListener("input", filterFaq);
+  document.querySelectorAll("[data-faq-filter]").forEach(function (button) { button.addEventListener("click", function () { faqCategory = button.getAttribute("data-faq-filter"); document.querySelectorAll("[data-faq-filter]").forEach(function (candidate) { candidate.setAttribute("aria-pressed", candidate === button ? "true" : "false"); }); filterFaq(); }); });
+  function filterGlossary() { var input = document.getElementById("glossary-search"); var query = input ? input.value.toLowerCase().trim() : ""; var items = Array.from(document.querySelectorAll(".glossary-item")); var shown = 0; items.forEach(function (item) { var ok = !query || item.textContent.toLowerCase().indexOf(query) !== -1; item.hidden = !ok; if (ok) shown += 1; }); var count = document.getElementById("glossary-count"); if (count) count.textContent = shown + " / " + items.length + " 个术语"; }
+  var glossarySearch = document.getElementById("glossary-search"); if (glossarySearch) glossarySearch.addEventListener("input", filterGlossary);
+
+  /* ---------- 全局搜索 ---------- */
+  var globalSearch = document.getElementById("global-search"); var searchResults = document.getElementById("search-results"); var searchStatus = document.getElementById("search-status");
+  function searchEntries() {
+    var seen = new Set(); var out = [];
+    document.querySelectorAll("section[id], [data-search-item]").forEach(function (item) {
+      var target = item.id || (item.closest("section[id]") || {}).id; if (!target) return;
+      var title = item.getAttribute("data-search-title") || ((item.querySelector && item.querySelector("summary,h2,h3,h4")) || {}).textContent || target;
+      title = String(title).trim(); var type = item.getAttribute("data-search-type") || (item.tagName === "SECTION" ? "章节" : "内容");
+      var key = type + "|" + title + "|" + target; if (seen.has(key)) return; seen.add(key);
+      out.push({target:target, title:title, type:type, hay:(title + " " + item.textContent + " " + target).toLowerCase()});
+    });
+    return out;
+  }
+  var entries = searchEntries();
+  function closeSearch() { if (!searchResults || !globalSearch) return; searchResults.hidden = true; globalSearch.setAttribute("aria-expanded", "false"); }
+  function revealSearchTarget(target) {
+    if (!target) return;
+    if (target.classList.contains("faq-item")) {
+      faqCategory = "all"; if (faqSearch) faqSearch.value = "";
+      document.querySelectorAll("[data-faq-filter]").forEach(function (button) { button.setAttribute("aria-pressed", button.getAttribute("data-faq-filter") === "all" ? "true" : "false"); });
+      filterFaq();
+    }
+    if (target.classList.contains("glossary-item")) { if (glossarySearch) glossarySearch.value = ""; filterGlossary(); }
+    target.hidden = false;
+    if (target.tagName === "DETAILS") target.open = true;
+  }
+  function openSearchResult(event, targetId) {
+    event.preventDefault();
+    var target = document.getElementById(targetId); if (!target) return;
+    revealSearchTarget(target); closeSearch();
+    if (window.history && window.history.pushState) window.history.pushState(null, "", "#" + encodeURIComponent(targetId));
+    target.scrollIntoView({block:"start", behavior:"auto"});
+    var focusTarget = target.tagName === "DETAILS" ? target.querySelector("summary") : target;
+    if (!focusTarget) return;
+    if (focusTarget === target && !focusTarget.hasAttribute("tabindex")) focusTarget.setAttribute("tabindex", "-1");
+    window.requestAnimationFrame(function () { focusTarget.focus({preventScroll:true}); });
+  }
+  function runGlobalSearch() {
+    if (!globalSearch || !searchResults) return; var query = globalSearch.value.toLowerCase().trim(); searchResults.replaceChildren();
+    if (!query) { closeSearch(); if (searchStatus) searchStatus.textContent = "搜索已清空"; return; }
+    var matches = entries.filter(function (entry) { return entry.hay.indexOf(query) !== -1; }).slice(0, 30);
+    if (!matches.length) { searchResults.appendChild(el("div", "search-empty", "没有结果。试试：Agent、黑盒、ZIP、Coverage、score、Provider。")); }
+    else {
+      var groups = {}; matches.forEach(function (entry) { (groups[entry.type] = groups[entry.type] || []).push(entry); });
+      Object.keys(groups).forEach(function (type) { var heading = el("h3", "", type + " · " + groups[type].length); heading.style.padding = "7px 10px 2px"; searchResults.appendChild(heading); groups[type].forEach(function (entry) { var link = el("a", "search-result", entry.title); link.href = "#" + entry.target; link.appendChild(el("small", "", entry.target)); link.addEventListener("click", function (event) { openSearchResult(event, entry.target); }); searchResults.appendChild(link); }); });
+    }
+    searchResults.hidden = false; globalSearch.setAttribute("aria-expanded", "true"); if (searchStatus) searchStatus.textContent = matches.length + " 个搜索结果";
+  }
+  if (globalSearch) {
+    globalSearch.addEventListener("input", runGlobalSearch);
+    globalSearch.addEventListener("keydown", function (event) {
+      if ((event.key === "ArrowDown" || event.key === "ArrowUp") && searchResults && !searchResults.hidden) {
+        var links = searchResults.querySelectorAll("a"); if (!links.length) return;
+        event.preventDefault(); (event.key === "ArrowDown" ? links[0] : links[links.length - 1]).focus();
+      }
+    });
+  }
+  if (searchResults) searchResults.addEventListener("keydown", function (event) {
+    var links = Array.from(searchResults.querySelectorAll("a")); var index = links.indexOf(document.activeElement); if (index === -1) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); var delta = event.key === "ArrowDown" ? 1 : -1; links[(index + delta + links.length) % links.length].focus(); }
+    if (event.key === "Home" || event.key === "End") { event.preventDefault(); links[event.key === "Home" ? 0 : links.length - 1].focus(); }
+    if (event.key === "Escape") { event.preventDefault(); closeSearch(); globalSearch.focus(); }
+  });
+  document.addEventListener("keydown", function (event) {
+    var tag = (event.target.tagName || "").toLowerCase(); var editing = tag === "input" || tag === "textarea" || event.target.isContentEditable;
+    if ((event.key === "/" && !editing) || ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k")) { event.preventDefault(); globalSearch.focus(); globalSearch.select(); }
+    if (event.key === "Escape" && searchResults && !searchResults.hidden) { closeSearch(); globalSearch.focus(); }
+  });
+  document.addEventListener("click", function (event) { if (searchResults && !searchResults.hidden && !searchResults.contains(event.target) && event.target !== globalSearch) closeSearch(); });
+
+  /* ---------- 导航、进度、移动端目录 ---------- */
+  var progress = document.getElementById("reading-progress"); var back = document.getElementById("back-to-top"); var nav = document.getElementById("toc"); var navToggle = document.getElementById("mobile-nav-toggle");
+  function updateReading() {
+    var doc = document.documentElement; var max = Math.max(1, doc.scrollHeight - doc.clientHeight); var value = Math.max(0, Math.min(100, Math.round((doc.scrollTop / max) * 100)));
+    if (progress) { progress.setAttribute("aria-valuenow", String(value)); progress.firstElementChild.style.width = value + "%"; }
+    if (back) back.hidden = doc.scrollTop < 650;
+    if (nav) { var current = null; nav.querySelectorAll("a[data-sec]").forEach(function (link) { var section = document.getElementById(link.getAttribute("data-sec")); if (section && section.getBoundingClientRect().top <= 120) current = link; }); nav.querySelectorAll("a").forEach(function (link) { if (link === current) link.setAttribute("aria-current", "location"); else link.removeAttribute("aria-current"); }); }
+  }
+  window.addEventListener("scroll", updateReading, {passive:true}); window.addEventListener("resize", updateReading); updateReading();
+  if (back) back.addEventListener("click", function () { window.scrollTo({top:0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth"}); });
+  function closeNav(restore) { if (!nav || !navToggle) return; nav.classList.remove("open"); navToggle.setAttribute("aria-expanded", "false"); navToggle.setAttribute("aria-label", "打开章节目录"); if (restore) navToggle.focus(); }
+  if (navToggle && nav) { navToggle.addEventListener("click", function () { var open = !nav.classList.contains("open"); nav.classList.toggle("open", open); navToggle.setAttribute("aria-expanded", open ? "true" : "false"); navToggle.setAttribute("aria-label", open ? "关闭章节目录" : "打开章节目录"); if (open) (nav.querySelector("a") || nav).focus(); }); nav.addEventListener("click", function (event) { if (event.target.closest("a")) closeNav(false); }); document.addEventListener("keydown", function (event) { if (event.key === "Escape" && nav.classList.contains("open")) closeNav(true); }); }
+
+  /* ---------- 原有 modal 的 focus trap / inert / 深链接 ---------- */
+  var modalBack = document.getElementById("modal-back"); var main = document.getElementById("main"); var top = document.querySelector("header.top");
+  if (modalBack) {
+    var observer = new MutationObserver(function () { var open = modalBack.classList.contains("open"); modalBack.setAttribute("aria-hidden", open ? "false" : "true"); if (main) main.inert = open; if (top) top.inert = open; });
+    observer.observe(modalBack, {attributes:true, attributeFilter:["class"]}); modalBack.setAttribute("aria-hidden", "true");
+    document.addEventListener("keydown", function (event) { if (event.key !== "Tab" || !modalBack.classList.contains("open")) return; var focusable = Array.from(modalBack.querySelectorAll("button,[href],input,select,textarea,[tabindex]:not([tabindex='-1'])")).filter(function (node) { return !node.disabled; }); if (!focusable.length) return; var first = focusable[0], last = focusable[focusable.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } });
+  }
+  function openHashTarget() {
+    var rawHash = location.hash.slice(1); if (!rawHash) return;
+    var id;
+    try { id = decodeURIComponent(rawHash); }
+    catch (error) { return; }
+    var target = document.getElementById(id); if (target && target.tagName === "DETAILS") target.open = true;
+  }
+  window.addEventListener("hashchange", openHashTarget); openHashTarget();
+
+  /* 原路线图 / 协议时间线选中态 */
+  function syncPressed(container, selector, active) { container.querySelectorAll(selector).forEach(function (node) { node.setAttribute("aria-pressed", node === active ? "true" : "false"); }); }
+  var roadmap = document.getElementById("roadmap-steps"); if (roadmap) { var firstRoad = roadmap.querySelector("[data-stage]"); if (firstRoad) syncPressed(roadmap, "[data-stage]", firstRoad); roadmap.addEventListener("click", function (event) { var button = event.target.closest("[data-stage]"); if (button) syncPressed(roadmap, "[data-stage]", button); }); }
+  var timeline = document.getElementById("protocol-timeline"); if (timeline) { var firstTime = timeline.querySelector("[data-proto]"); if (firstTime) syncPressed(timeline, "[data-proto]", firstTime); timeline.addEventListener("click", function (event) { var button = event.target.closest("[data-proto]"); if (button) syncPressed(timeline, "[data-proto]", button); }); }
+
+  filterFaq(); filterGlossary();
 })();
 </script>
 
