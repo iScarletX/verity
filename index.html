@@ -112,6 +112,14 @@ nav.toc a:hover { background: var(--surface-2); color: var(--text-primary); }
 nav.toc a.active { background: var(--surface-2); color: var(--text-primary); font-weight: 650; }
 nav.toc a.trust { color: var(--st-serious); font-weight: 700; }
 nav.toc a.trust.active { background: color-mix(in srgb, var(--st-serious) 16%, transparent); }
+nav.toc a.external { color: var(--series-1); font-weight: 700; }
+.hero-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+.hero-actions a {
+  display:inline-block; font-weight:700; font-size:14px; padding:9px 16px;
+  border-radius:8px; text-decoration:none; border:1px solid var(--border-strong);
+}
+.hero-actions a.primary { background:var(--series-1); color:#fff; border-color:var(--series-1); }
+.hero-actions a.secondary { color:var(--text-primary); background:var(--surface-1); }
 .iconbtn {
   border: 1px solid var(--border); background: var(--surface-1);
   color: var(--text-secondary); border-radius: 7px; cursor: pointer;
@@ -476,6 +484,7 @@ figcaption .src { color: var(--text-muted); }
       <a href="#limits" data-sec="limits">已知边界</a>
       <a href="#changelog" data-sec="changelog">本轮变更</a>
       <a href="#sources" data-sec="sources">来源</a>
+      <a class="external" href="https://github.com/iScarletX/verity">源码</a>
     </nav>
     <button class="iconbtn" id="theme-toggle" type="button">深色</button>
   </div>
@@ -491,6 +500,10 @@ figcaption .src { color: var(--text-muted); }
     这份文档按源码逐步追踪真实的审查流程，列出每一个检测器，并把项目自己测得的数字连同它的每一条限制一起摆出来——
     点击流程图中的任意方框，都能看到具体机制、对应的函数/文件，以及那一步强制遵守的安全约束。
   </p>
+  <div class="hero-actions">
+    <a class="primary" href="https://github.com/iScarletX/verity">查看 GitHub 源码</a>
+    <a class="secondary" href="https://iscarletx.github.io/verity/">打开在线说明页</a>
+  </div>
 
   <div class="grid g2" style="margin-top:16px">
     <div class="card" style="margin:0">
