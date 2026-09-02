@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verity — Prompt / Skill 审查工作台</title>
+<link rel="stylesheet" href="static/app.css">
+</head>
+<body>
+<header class="app-header">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">V</span>
+    <div>
+      <h1>Verity <small>审查工作台</small></h1>
+      <p class="tagline">Prompt / Agent Skill 风险审查、证据定位与整改复查。</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a class="guide-link" href="index.html">打开项目说明书</a>
+    <div class="status-strip" aria-label="能力状态" role="status">
+      <span class="status-chip is-ok"><span class="dot"></span>静态检查 <b>已就绪</b></span>
+      <span class="status-chip is-idle" id="provider-chip">
+        <span class="dot"></span>语义审查 <b id="provider-chip-state">读取中…</b>
+      </span>
+    </div>
+  </div>
+</header>
+
+<main class="workspace">
+  <aside class="setup-rail">
+
+    <!-- STEP 1 — 选择审查对象。这是本页最主要的操作，所以放在最上面。 -->
+    <nav class="tabs" role="tablist" aria-label="审查类型">
+      <button role="tab" aria-selected="true" aria-controls="tab-prompt" data-tab="prompt" class="active">检查 Prompt</button>
+      <button role="tab" aria-selected="false" aria-controls="tab-skill" data-tab="skill">检查 Agent Skill</button>
+    </nav>
+
+    <section id="tab-prompt" class="tab-panel panel" role="tabpanel" aria-label="检查 Prompt">
+      <h2>粘贴一段 Prompt</h2>
+      <p class="muted">本地静态检查，不执行、不安装依赖。字节上限约 256 KiB。</p>
+      <label class="field">
+        <span class="field-label">Prompt 类型</span>
+        <select id="prompt-kind">
+          <option value="user_prompt">普通 Prompt</option>
+          <option value="system_prompt">System Prompt</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Prompt 内容</span>
+        <textarea id="prompt-text" rows="12" placeholder="将 Prompt 内容粘贴到这里……"></textarea>
+      </label>
+      <div class="row">
+        <span id="prompt-count" class="counter">0 字符</span>
+        <button id="prompt-submit" class="primary">开始审查</button>
+      </div>
+    </section>
+
+    <section id="tab-skill" class="tab-panel panel" role="tabpanel" aria-label="检查 Agent Skill" hidden>
+      <h2>选择本地 Skill 文件夹</h2>
+      <p class="muted">仅读取一次，不执行代码；符号链接、特殊文件、超预算的内容会被忽略。<strong>暂不支持</strong> ZIP / GitHub URL。</p>
+      <label class="field">
+        <span class="field-label">Skill 文件夹</span>
+        <input id="skill-files" type="file" multiple webkitdirectory directory>
+      </label>
+      <div class="row">
+        <span id="skill-count" class="counter">尚未选择文件</span>
+        <button id="skill-submit" class="primary">开始审查</button>
+      </div>
+    </section>
+
+    <!-- STEP 2 — 语义审查 Provider。始终存在的一次性配置，不是开关：
+         折叠状态下由 summary 上的状态药丸直接说明是否就绪。 -->
+    <details class="setup-card" id="semantic-panel">
+      <summary>
+        <span class="summary-title">
+          <span>语义审查 Provider</span>
+          <span class="sub">配置后每次审查自动附加模型判断</span>
+        </span>
+        <span class="state-pill is-off" id="provider-state-pill">读取中…</span>
+      </summary>
+      <div class="setup-body">
+        <p class="note warn-box"><strong>模型结论需要人工复核。</strong>配置好 Provider 后，语义结论会自动纳入本次审查的证据链与评分，但仍受 Provider 可用性、样本覆盖和证据质量影响；高风险结论请结合原文定位复查。未配置 Provider 时会如实提示未配置，不影响静态检查结果。</p>
+
+        <div id="provider-config" class="provider-config provider-steps">
+          <div class="provider-step">
+            <h4>连接 Provider</h4>
+            <label class="field">
+              <span class="field-label">Provider 地址</span>
+              <input type="text" id="provider-base-url" autocomplete="off" disabled>
+              <span class="field-note">OpenAI 兼容接口，例如 OpenRouter。</span>
+            </label>
+            <label class="field">
+              <span class="field-label">API Key</span>
+              <input type="password" id="provider-api-key" autocomplete="off" spellcheck="false" disabled>
+              <span class="field-note">保存到本机 macOS 钥匙串，页面不会读取或显示原值。</span>
+            </label>
+            <div class="provider-actions">
+              <button type="button" id="provider-save-btn" disabled>保存配置</button>
+              <button type="button" id="fetch-models-btn" disabled>拉取模型列表</button>
+              <button type="button" id="provider-clear-btn" class="ghost" disabled>清除配置</button>
+            </div>
+            <p id="provider-settings-status" class="status-line" role="status"></p>
+          </div>
+
+          <div class="provider-step">
+            <h4>选择模型</h4>
+            <p id="models-status" class="status-line" role="status"></p>
+            <label class="field">
+              <span class="field-label">生成器模型</span>
+              <select id="generator-model" disabled><option value="">（先拉取模型）</option></select>
+            </label>
+            <label class="field">
+              <span class="field-label">校验器模型</span>
+              <select id="validator-model" disabled><option value="">（先拉取模型）</option></select>
+            </label>
+            <div id="validator-model-extra-list"></div>
+            <div class="provider-actions">
+              <button type="button" id="add-validator-model-btn" class="ghost" disabled>+ 添加校验模型</button>
+            </div>
+            <p class="field-note">可选：最多再加两个校验模型。多个校验模型会对同一候选各自投票，按多数结果判定；只配置一个时行为与之前完全一致。</p>
+          </div>
+        </div>
+
+        <p class="note">不会发送完整原文、绝对路径或 RedactionMap；语义审查固定使用脱敏证据片段。API Key 只保存在当前 macOS 用户的钥匙串中。</p>
+      </div>
+    </details>
+
+    <!-- STEP 3 — 可选：显式 Skill 项目与版本对比。 -->
+    <details class="setup-card projects" id="projects-panel">
+      <summary>
+        <span class="summary-title">
+          <span>Skill 项目与版本历史</span>
+          <span class="sub">跨版本对比同一个 Skill 的整改进度</span>
+        </span>
+        <span class="state-pill is-off" id="projects-state-pill">可选</span>
+      </summary>
+      <div class="setup-body">
+        <p class="muted">先创建可信项目，再从项目中提交“检查新版本”。Verity 不按名称或内容自动关联版本。</p>
+        <div class="row-inline project-create-row">
+          <input id="project-name" type="text" maxlength="80" placeholder="项目显示名称">
+          <button id="project-create">新建项目</button>
+        </div>
+        <div id="project-list" class="project-list"></div>
+        <section id="project-page" hidden>
+          <h3 id="project-title"></h3>
+          <input id="project-files" type="file" multiple webkitdirectory directory>
+          <button id="project-submit" class="primary">检查新版本</button>
+          <div id="project-history"></div>
+          <div id="project-diff"></div>
+        </section>
+      </div>
+    </details>
+
+  </aside>
+
+  <section class="review-pane">
+
+    <!-- 进行中：骨架屏与结果结构一致，结果替换时不会跳版。 -->
+    <section id="loading" hidden aria-live="polite" aria-busy="true">
+      <div class="loading-card">
+        <div class="loading-head">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="loading-title">正在审查……</span>
+          <span class="loading-elapsed" id="loading-elapsed">0.0s</span>
+        </div>
+        <div class="progress-track" aria-hidden="true"><span></span></div>
+        <p class="loading-hint" id="loading-hint">正在运行确定性静态规则。</p>
+      </div>
+      <div class="loading-card skeleton" aria-hidden="true">
+        <div class="sk-block">
+          <div class="sk-line w-40"></div>
+          <div class="sk-line w-70"></div>
+        </div>
+        <div class="sk-tiles">
+          <div class="sk-tile"></div><div class="sk-tile"></div>
+          <div class="sk-tile"></div><div class="sk-tile"></div>
+        </div>
+        <div class="sk-block">
+          <div class="sk-line w-50"></div>
+          <div class="sk-line"></div>
+          <div class="sk-line w-70"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="result" hidden aria-live="polite">
+
+      <!-- 一级信息：结论 + 四个总览指标，合成一个视觉单元。 -->
+      <div class="verdict">
+        <div id="headline" class="headline"></div>
+        <div class="verdict-body">
+          <div class="cards">
+            <div class="card" id="card-score"><h3>安全分</h3><p id="safety-score"></p></div>
+            <div class="card" id="card-confidence"><h3>审查可信度</h3><p id="review-confidence"></p></div>
+            <div class="card" id="card-coverage"><h3>检查覆盖</h3><p id="coverage"></p></div>
+            <div class="card" id="card-counts"><h3>问题数量</h3><p id="counts"></p></div>
+          </div>
+          <div id="verdict-note"></div>
+        </div>
+        <div class="verdict-foot">
+          <span>安全分只评价本次实际完成的检查；审查可信度单独说明未覆盖能力。二者都不是安全保证。</span>
+          <span class="spacer"></span>
+          <span id="verdict-meta"></span>
+        </div>
+      </div>
+
+      <!-- 二级信息：接下来做什么。 -->
+      <div id="next-steps" class="next-steps"></div>
+
+      <!-- 覆盖缺口（结论文案会直接指向这里），为空自动隐藏。 -->
+      <div id="blocked" class="section"></div>
+
+      <!-- 三级信息：问题清单 + 整改 + 复查工作台。 -->
+      <div id="findings" class="section"></div>
+      <div id="remediations" class="section"></div>
+      <div id="fix-workbench" class="section"></div>
+      <!-- Original-text location is rendered inline inside each finding
+           card above (see renderResult in app.js); there is no separate
+           standalone evidence section any more. -->
+      <div id="downloads" class="section"></div>
+
+      <!-- 四级信息：执行诊断，默认折叠；出现异常时由 app.js 自动展开。 -->
+      <details class="diagnostics" id="diagnostics">
+        <summary>
+          <span>执行诊断与覆盖矩阵</span>
+          <span class="state-pill is-off" id="diagnostics-pill">正常</span>
+        </summary>
+        <div class="diagnostics-body">
+          <div id="score-detail" class="section"></div>
+          <div id="semantic-view" class="section"></div>
+          <div id="analyzers" class="section"></div>
+          <div id="capabilities" class="section"></div>
+          <div class="section" id="owasp-section">
+            <h3>OWASP AST10 覆盖矩阵</h3>
+            <div id="owasp"></div>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <section id="error" hidden class="error" aria-live="assertive"></section>
+  </section>
+</main>
+
+<footer>
+  Verity 本地 MVP。显式 Skill 项目历史保存在本机安全数据目录；临时 standalone 报告在重启后丢失。停止服务请在启动 Verity 的终端按 <code>Ctrl+C</code>。
+</footer>
+
+<script src="static/app.js"></script>
+</body>
+</html>
